@@ -1,0 +1,31 @@
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
+import { handleOptions, json, readJson } from "../_shared/http.ts";
+
+serve(async (request) => {
+  const options = handleOptions(request);
+  if (options) return options;
+  try {
+    const { user, admin } = await requireUser(request);
+    const profile = await profileForAuthUser(user.id);
+    const body = await readJson<{ attempt_id: string; question_node_id: string; state_token: string }>(request);
+    const { data: attempt, error } = await admin.from("attempts").select("assignee_profile_id").eq("id", body.attempt_id).single();
+    if (error) throw error;
+    if (attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    const objectPath = `attempts/${body.attempt_id}/${body.question_node_id}/blank-placeholder.pdf`;
+    const { error: updateError } = await admin
+      .from("upload_slots")
+      .update({
+        object_path: objectPath,
+        uploaded_at: new Date().toISOString(),
+        is_blank_placeholder: true,
+        status: "blank_placeholder",
+      })
+      .eq("attempt_id", body.attempt_id)
+      .eq("question_node_id", body.question_node_id);
+    if (updateError) throw updateError;
+    return json({ ok: true, object_path: objectPath });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "submit-blank-slot failed" }, 401);
+  }
+});
