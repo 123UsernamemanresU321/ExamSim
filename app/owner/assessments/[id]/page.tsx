@@ -1,13 +1,20 @@
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
-import { sampleAssessment } from "@/lib/demo-data";
+import { getAssessmentWorkspace } from "@/lib/live-data";
 
 export default async function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const workspace = await getAssessmentWorkspace(id);
+  if (!workspace) {
+    return <SectionHeading title="Assessment not found" description={`No assessment exists for ${id}.`} />;
+  }
   return (
     <>
-      <SectionHeading title={sampleAssessment.title} description={`Assessment ${id} · ${sampleAssessment.paper_code}`} />
+      <SectionHeading
+        title={workspace.assessment.title}
+        description={`Assessment ${id} · ${workspace.assessment.paper_code ?? "No paper code"}`}
+      />
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <h2 className="text-lg font-semibold">Draft review</h2>
@@ -27,6 +34,9 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
           <h2 className="text-lg font-semibold">Source security</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Source files and normalized packages are private and released through Edge Functions only.
+          </p>
+          <p className="mt-3 text-sm font-semibold text-[var(--primary)]">
+            Latest version: {workspace.latestVersion?.status ?? "none"}
           </p>
         </Card>
       </div>

@@ -15,7 +15,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: "EXAM_VAULT_DEMO_MODE=1 npm run dev -- --hostname 127.0.0.1",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: true,
   },

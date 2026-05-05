@@ -1,11 +1,15 @@
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
-import { attemptWithState } from "@/lib/demo-data";
+import { listOwnerAttempts } from "@/lib/live-data";
 
 export default async function OwnerAttemptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const attempt = attemptWithState(id);
+  const attempts = await listOwnerAttempts();
+  const attempt = attempts.find((item) => item.id === id);
+  if (!attempt) {
+    return <SectionHeading title="Attempt not found" description={`No attempt exists for ${id}.`} />;
+  }
   return (
     <>
       <SectionHeading title={attempt.title} description={`${attempt.student} · ${attempt.paper_code}`} />

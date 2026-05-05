@@ -3,11 +3,15 @@ import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { UploadSlotCard } from "@/components/upload-slot-card";
-import { attemptWithState, samplePackage } from "@/lib/demo-data";
+import { flattenQuestionNodes } from "@/lib/assessment-package";
+import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function UploadOnlyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const attempt = attemptWithState(id);
+  const { attempt, package: assessmentPackage } = await getAttemptScreenData(id, true);
+  const uploadNodes = assessmentPackage
+    ? flattenQuestionNodes(assessmentPackage.questions).filter((node) => node.response_mode.includes("upload"))
+    : [];
   return (
     <>
       <SectionHeading
@@ -23,14 +27,19 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
         />
       </div>
       <div className="grid gap-6 xl:grid-cols-[minmax(620px,840px)_380px] xl:justify-center">
-        <QuestionPaper questions={samplePackage.questions} readonly />
+        {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} readonly /> : null}
         <aside className="grid content-start gap-3 xl:sticky xl:top-24" aria-label="Upload slots">
           <div className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)]">
             One PDF per question or subquestion. Blank placeholders are recorded as moderation-visible submission
             choices, not hidden failures.
           </div>
-          <UploadSlotCard questionKey="1" status="pending" />
-          <UploadSlotCard questionKey="1(b)" status="blank_placeholder" />
+          {uploadNodes.length === 0 ? (
+            <div className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm text-[var(--muted)]">
+              No upload slots are available.
+            </div>
+          ) : (
+            uploadNodes.map((node) => <UploadSlotCard key={node.node_id} questionKey={node.node_key} status="pending" />)
+          )}
         </aside>
       </div>
     </>

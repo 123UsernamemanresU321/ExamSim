@@ -2,12 +2,12 @@ import { CountdownTimer } from "@/components/countdown-timer";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
-import { attemptWithState } from "@/lib/demo-data";
 import { formatInTimezone } from "@/lib/attempt-state";
+import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function WaitingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const attempt = attemptWithState(id);
+  const { attempt } = await getAttemptScreenData(id, false);
   return (
     <div className="mx-auto max-w-[840px]">
       <SectionHeading
@@ -16,11 +16,11 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
       />
       <Card className="paper-sheet grid gap-7 px-7 py-8 md:px-12 md:py-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <AttemptStateBadge state="WAITING" />
+          <AttemptStateBadge state={attempt.state} />
           <CountdownTimer
             serverNowUtc={attempt.server_now_utc}
             targetUtc={attempt.countdown_target_utc}
-            state="WAITING"
+            state={attempt.state}
           />
         </div>
         <div>

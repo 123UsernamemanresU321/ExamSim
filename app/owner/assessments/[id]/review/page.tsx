@@ -1,15 +1,24 @@
+import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { samplePackage } from "@/lib/demo-data";
+import { getAssessmentWorkspace } from "@/lib/live-data";
 
 export default async function ParseReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const workspace = await getAssessmentWorkspace(id);
+  if (!workspace?.latestVersion) {
+    return (
+      <SectionHeading
+        title="Parse review"
+        description="Assessment or draft version was not found."
+      />
+    );
+  }
   return (
     <>
       <SectionHeading
         title="Parse review"
-        description={`Assessment ${id}. Owner confirms the question/subquestion tree before publish.`}
+        description={`${workspace.assessment.title}. Owner confirms the question/subquestion tree before publish.`}
       />
       <div className="grid gap-5 xl:grid-cols-[minmax(520px,1fr)_460px]">
         <Card className="paper-sheet min-h-[680px]">
@@ -21,20 +30,15 @@ export default async function ParseReviewPage({ params }: { params: Promise<{ id
         </Card>
         <Card className="grid content-start gap-4 shadow-none">
           <h2 className="text-lg font-semibold">Detected tree</h2>
-          {samplePackage.questions.map((node) => (
-            <div key={node.node_id} className="rounded-md border border-[var(--border)] bg-white p-4">
+          {workspace.questionNodes.map((node) => (
+            <div key={node.id} className="rounded-md border border-[var(--border)] bg-white p-4">
               <p className="text-sm font-semibold">
                 {node.node_key} · {node.node_type} · {node.response_mode}
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">{node.title}</p>
-              {node.children?.map((child) => (
-                <p key={child.node_id} className="mt-2 pl-4 text-sm text-[var(--muted)]">
-                  {child.node_key} · {child.response_mode} · {child.marks ?? 0} marks
-                </p>
-              ))}
             </div>
           ))}
-          <Button className="justify-self-start" type="button">Save reviewed tree</Button>
+          <ReviewQuestionTreeForm versionId={workspace.latestVersion.id} nodes={workspace.questionNodes} />
         </Card>
       </div>
     </>

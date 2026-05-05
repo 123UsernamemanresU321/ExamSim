@@ -6,26 +6,33 @@ import { TelemetryListener } from "@/components/telemetry-listener";
 import { UploadSlotCard } from "@/components/upload-slot-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { attemptWithState, samplePackage } from "@/lib/demo-data";
 import { flattenQuestionNodes } from "@/lib/assessment-package";
+import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function ActiveExamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const attempt = attemptWithState(id);
-  const uploadNodes = flattenQuestionNodes(samplePackage.questions).filter((node) =>
+  const { attempt, package: assessmentPackage, stateToken } = await getAttemptScreenData(id, true);
+  if (!assessmentPackage) {
+    return (
+      <section className="rounded-lg border border-[var(--border)] bg-white p-6">
+        Content is not available for this attempt state. Return to the waiting room and refresh server state.
+      </section>
+    );
+  }
+  const uploadNodes = flattenQuestionNodes(assessmentPackage.questions).filter((node) =>
     node.response_mode.includes("upload"),
   );
   return (
     <>
-      <TelemetryListener attemptId={id} stateToken="demo-state-token" />
+      <TelemetryListener attemptId={id} stateToken={stateToken} />
       <header className="sticky top-0 z-10 -mx-5 mb-5 border-b border-[var(--border)] bg-[rgba(246,249,255,0.96)] px-5 py-3 backdrop-blur md:-mx-8">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AttemptStateBadge state="ACTIVE" />
             <div>
-              <h1 className="font-semibold">{samplePackage.assessment.title}</h1>
+              <h1 className="font-semibold">{assessmentPackage.assessment.title}</h1>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--subtle)]">
-                {samplePackage.assessment.paper_code} · Browser Mode
+                {assessmentPackage.assessment.paper_code} · Browser Mode
               </p>
             </div>
           </div>
@@ -41,9 +48,9 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
       </header>
       <div className="grid gap-5 xl:grid-cols-[280px_minmax(620px,840px)_380px] xl:justify-center">
         <div className="xl:sticky xl:top-24 xl:self-start">
-          <QuestionNavigator questions={samplePackage.questions} />
+          <QuestionNavigator questions={assessmentPackage.questions} />
         </div>
-        <QuestionPaper questions={samplePackage.questions} />
+        <QuestionPaper questions={assessmentPackage.questions} />
         <aside className="grid gap-4 xl:sticky xl:top-24 xl:self-start" aria-label="Response tools">
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
             <h2 className="text-sm font-semibold text-[var(--ink)]">Response panel</h2>

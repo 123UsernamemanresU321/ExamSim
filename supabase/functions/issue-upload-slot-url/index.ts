@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { computeAttemptState } from "../_shared/attempt-state.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -10,6 +11,10 @@ serve(async (request) => {
     const { user, admin } = await requireUser(request);
     const profile = await profileForAuthUser(user.id);
     const body = await readJson<{ attempt_id: string; question_node_id: string; state_token: string }>(request);
+    const tokenPayload = await verifyStateToken(body.state_token);
+    if (tokenPayload.attempt_id !== body.attempt_id || tokenPayload.profile_id !== profile.id) {
+      return json({ error: "State token does not match this attempt" }, 403);
+    }
     const { data: attempt, error } = await admin.from("attempts").select("*").eq("id", body.attempt_id).single();
     if (error) throw error;
     if (attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);

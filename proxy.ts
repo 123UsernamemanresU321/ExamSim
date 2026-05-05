@@ -10,6 +10,11 @@ export async function proxy(request: NextRequest) {
   }
 
   const response = NextResponse.next({ request });
+  if (process.env.NODE_ENV !== "production" && process.env.EXAM_VAULT_DEMO_MODE === "1") {
+    response.headers.set("x-exam-vault-demo-mode", "explicit");
+    return response;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

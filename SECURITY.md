@@ -18,6 +18,9 @@ The waiting screen renders metadata only. Students do not receive assessment pac
 
 Roles are `owner` and `student`. Authorization uses app metadata and the `profiles` table, not mutable user metadata. `OWNER_EMAIL` is server-only and should be used during owner provisioning. Student personas are separate student profiles linked to the owner; they are not role toggles inside owner sessions.
 
+The local Playwright/demo bypass is controlled by `EXAM_VAULT_DEMO_MODE=1` and is ignored in production. It exists only
+to keep UI smoke tests independent of hosted Supabase auth sessions.
+
 ## RLS Model
 
 RLS is enabled on all public tables. Owners can manage their own assessment estate. Students can read their own profile and assigned attempt metadata. Sensitive content and privileged changes go through Edge Functions. Attempt events are append-only for students.
@@ -30,6 +33,9 @@ Real assessment material and submissions stay in private buckets. Public URLs ar
 
 `get-attempt-state` issues a short-lived HMAC state token signed with `ATTEMPT_STATE_TOKEN_SECRET`. The token contains the attempt, profile, computed state, server time, expiry, delivery mode, and optional session details. The token is not the source of truth; every sensitive Edge Function recomputes state server-side.
 
+Package release, text response saving, upload URL issuance, upload confirmation, blank slot submission, and finalization
+verify the token signature and still recompute state/ownership server-side before changing data.
+
 ## Future Secure Mode
 
 `delivery_mode = seb_required` and SEB hash fields are present for Safe Exam Browser integration. User-agent checks alone are insufficient. Production SEB support must validate Browser Exam Key and Config Key values server-side.
@@ -40,4 +46,3 @@ Real assessment material and submissions stay in private buckets. Public URLs ar
 - Passkey enrollment after student activation.
 - External KMS envelope encryption for high-value assessment packages.
 - Robust audit logging and rate limiting at Edge Function boundaries.
-

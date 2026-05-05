@@ -54,6 +54,13 @@ Student only for own attempt. Autosaves typed answers during `ACTIVE` when typed
 
 Student only for own attempt. Finalizes typed responses, marks missing upload slots after deadline, and records finalization evidence.
 
+## Next.js Live Wiring
+
+The Next.js owner/student screens now read live Supabase metadata through RLS-aware server clients. Mutating owner and
+student forms invoke Supabase Edge Functions with the signed-in user's access token, preserving the Edge Function
+security boundary for student creation, ingestion, question tree review, publishing, package release, responses, and
+uploads.
+
 ## record-attempt-event
 
 Student only for own attempt. Inserts append-only telemetry events such as fullscreen, visibility, focus, heartbeat, reconnect, and upload events.
@@ -65,4 +72,3 @@ Owner or scheduled job. Aggregates telemetry, upload slots, hidden time, heartbe
 ## owner-download-marking-packet
 
 Owner only. Returns secure access instructions for original package, question tree, typed responses, uploads, and moderation report.
-

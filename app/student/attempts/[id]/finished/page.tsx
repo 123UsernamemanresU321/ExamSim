@@ -2,10 +2,11 @@ import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { samplePackage } from "@/lib/demo-data";
+import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function FinishedReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { package: assessmentPackage } = await getAttemptScreenData(id, true);
   return (
     <div className="mx-auto max-w-[980px]">
       <SectionHeading
@@ -16,7 +17,7 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
         <AttemptStateBadge state="FINISHED_REVIEW" />
         <p className="text-sm text-[var(--danger)]">Submission summary: 1 typed response, 1 blank placeholder.</p>
       </Card>
-      <QuestionPaper questions={samplePackage.questions} readonly />
+      {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} readonly /> : null}
     </div>
   );
 }

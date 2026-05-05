@@ -12,4 +12,4 @@ Future coding agents working on Exam Vault must:
 - Recompute attempt state server-side in every sensitive workflow.
 - Keep Supabase Storage buckets private.
 - Update documentation after schema, Edge Function, or security boundary changes.
-
+- Do not use `EXAM_VAULT_DEMO_MODE=1` outside local testing; production route guards must remain fail-closed.

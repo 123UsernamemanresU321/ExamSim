@@ -1,7 +1,6 @@
 import { SectionHeading } from "@/components/section-heading";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, Input, Textarea } from "@/components/ui/form";
+import { NewAssessmentForm } from "@/components/owner/new-assessment-form";
 
 export default function NewAssessmentPage() {
   return (
@@ -18,35 +17,7 @@ export default function NewAssessmentPage() {
             </span>
           ))}
         </div>
-        <form className="grid gap-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Title">
-              <Input name="title" placeholder="Olympiad Mock Paper 1" />
-            </Field>
-            <Field label="Paper code">
-              <Input name="paper_code" placeholder="MATH-MOCK-01" />
-            </Field>
-            <Field label="Assessment kind">
-              <select className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3">
-                <option>practice_paper</option>
-                <option>quiz</option>
-                <option>test</option>
-                <option>exam</option>
-              </select>
-            </Field>
-            <Field label="Source kind">
-              <select className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3">
-                <option>json</option>
-                <option>latex</option>
-                <option>pdf</option>
-              </select>
-            </Field>
-          </div>
-          <Field label="LaTeX or JSON source" description="PDF upload uses the same ingest Edge Function with a private object path.">
-            <Textarea placeholder="Paste LaTeX or normalized JSON package here." />
-          </Field>
-          <Button className="justify-self-start" type="button">Create draft version</Button>
-        </form>
+        <NewAssessmentForm />
       </Card>
     </>
   );

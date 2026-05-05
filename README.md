@@ -64,9 +64,20 @@ supabase functions serve
 Apply migrations in hosted Supabase with your normal deployment pipeline, for example:
 
 ```bash
+supabase link --project-ref kpnviarxgslwwcrzrgpo
 supabase db push
 supabase functions deploy
 ```
+
+Provision the configured owner after migrations are applied:
+
+```bash
+npm run provision:owner
+```
+
+The script reads `.env.local`, creates or updates the `OWNER_EMAIL` auth user with `app_metadata.app_role = owner`,
+upserts the matching `profiles` and `owner_settings` rows, and writes a local ignored
+`.owner-bootstrap.local.txt` file containing the temporary password. Change that password after first login.
 
 Private buckets expected by the app:
 
@@ -92,10 +103,12 @@ Playwright:
 npm run e2e
 ```
 
+Playwright starts the app with `EXAM_VAULT_DEMO_MODE=1` so protected demo screens remain testable without a real
+Supabase session. Production never honors this bypass.
+
 ## Deployment Notes
 
 - Configure `OWNER_EMAIL` server-side and seed the owner profile/app metadata intentionally.
 - Enforce owner MFA/AAL2 before production publish and assignment workflows.
 - Use private Storage and Edge Functions for all sensitive content and upload paths.
 - Database backups do not automatically back up Supabase Storage objects. Back up Storage separately.
-
