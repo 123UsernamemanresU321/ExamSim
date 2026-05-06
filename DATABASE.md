@@ -4,6 +4,7 @@ The base migration is `supabase/migrations/202605050001_initial_schema.sql`. Pro
 `supabase/migrations/202605060001_production_browser_mode.sql`. Production completion additions for SEB, AI parse,
 QTI, KMS envelopes, and marking packet exports live in
 `supabase/migrations/202605060002_full_production_completion.sql`.
+Hosted MinerU API metadata lives in `supabase/migrations/202605060003_hosted_mineru_api.sql`.
 
 ## Tables
 
@@ -77,6 +78,8 @@ feedback releases, parser jobs, and owner audit logs.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.
+- `parse_jobs` stores hosted MinerU batch ids, external state, and provider metadata when `MINERU_PROVIDER=hosted`.
+- `parse_job_artifacts` supports hosted MinerU ZIP artifacts plus extracted Markdown/JSON/HTML/log previews.
 - `attempts` stores expected SEB Browser Exam Key and Config Key hashes for `seb_required` delivery.
 - `assessment_versions` can point at encrypted normalized package objects and associated wrapped data keys.
 - `encrypted_object_envelopes` tracks Cloudflare KMS envelope metadata for encrypted package and marking packet objects.

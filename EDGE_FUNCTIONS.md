@@ -16,7 +16,7 @@ Public activation boundary. Input: `{ login_code, activation_code, new_password 
 
 Owner only. Creates assessment and draft version from JSON, LaTeX, PDF path, or pasted source. JSON is Zod-validated.
 LaTeX parsing is deterministic and conservative for common Olympiad/IB patterns. PDF parsing creates a review-required
-stub and a `parse_jobs` row for the self-hosted MinerU worker. Normalized package objects are written to private
+stub and a `parse_jobs` row for hosted MinerU when `MINERU_PROVIDER=hosted`. Normalized package objects are written to private
 Storage; when the Cloudflare KMS wrapper is configured, package object writes are envelope-encrypted.
 
 ## update-question-tree
@@ -79,8 +79,20 @@ members. Group assignment later expands to one attempt per student.
 
 ## complete-parse-job
 
-Worker-secret only. Used by the self-hosted MinerU worker to mark parse jobs succeeded, failed, or review-required and
-attach private Storage artifact paths. MinerU output is draft parse evidence; owner review remains mandatory.
+Worker-secret only. Legacy/self-hosted MinerU worker callback used to mark parse jobs succeeded, failed, or
+review-required and attach private Storage artifact paths. MinerU output is draft parse evidence; owner review remains
+mandatory.
+
+## mineru-submit-hosted-job
+
+Owner AAL2 only. Submits a queued PDF parse job to hosted MinerU using `MINERU_API_KEY` from Supabase Edge secrets.
+The Edge Function signs the private source PDF or uploads it to a MinerU-provided upload URL, stores the MinerU batch id
+on `parse_jobs`, and never exposes the MinerU token to the browser.
+
+## mineru-poll-hosted-job
+
+Owner AAL2 only. Polls hosted MinerU by batch id, downloads the completed result ZIP, uploads the ZIP and extracted
+Markdown/JSON/HTML/log artifacts to private `assessment-packages`, and marks the parse job `review_required`.
 
 ## ai-parse-assessment
 

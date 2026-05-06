@@ -50,8 +50,11 @@ replacement is not supported in production v1.
 
 ## Parsing And AI Boundaries
 
-MinerU runs as a self-hosted worker and receives only short-lived signed access to private PDF source objects. Its output
-is draft evidence for owner review, not a trusted publishable result.
+Hosted MinerU receives PDFs only from Supabase Edge Functions using server-side `MINERU_API_KEY` and short-lived access
+to private source objects. The browser never receives the MinerU token. Hosted parsing means PDFs are processed by
+MinerU's service; use self-hosted parsing instead for assessments that cannot leave infrastructure you control.
+
+MinerU output is draft evidence for owner review, not a trusted publishable result.
 
 DeepSeek is used for AI-assisted parse suggestions. The DeepSeek API key is a Supabase Edge secret only. AI output is
 validated as a normalized package proposal, stored with warnings and `review_required = true`, and must be accepted or

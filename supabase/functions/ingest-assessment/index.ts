@@ -242,9 +242,13 @@ serve(async (request) => {
           assessment_version_id: version.id,
           owner_profile_id: profile.id,
           source_object_path: body.uploaded_source_path,
-          parser: "mineru",
+          parser: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : "mineru",
           status: "queued",
           requested_ocr: true,
+          external_provider: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : null,
+          metadata_json: {
+            provider_mode: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "hosted" : "self_hosted",
+          },
         })
         .select("id")
         .single();

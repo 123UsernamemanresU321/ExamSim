@@ -266,11 +266,17 @@ export type ParseJob = {
   assessment_version_id: string;
   owner_profile_id: string;
   source_object_path: string;
-  parser: "mineru" | "latex_deterministic" | "json_validator" | "deepseek_ai" | "qti_import";
+  parser: "mineru" | "mineru_hosted" | "latex_deterministic" | "json_validator" | "deepseek_ai" | "qti_import";
   status: "queued" | "running" | "succeeded" | "failed" | "review_required";
   requested_ocr: boolean;
   error_message: string | null;
   result_object_path: string | null;
+  external_provider: "mineru_hosted" | null;
+  external_batch_id: string | null;
+  external_task_id: string | null;
+  external_data_id: string | null;
+  external_state: string | null;
+  metadata_json: Json;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -280,7 +286,7 @@ export type ParseJob = {
 export type ParseJobArtifact = {
   id: string;
   parse_job_id: string;
-  artifact_kind: "markdown" | "json" | "html" | "layout" | "log" | "ai_json" | "qti_zip";
+  artifact_kind: "markdown" | "json" | "html" | "layout" | "log" | "zip" | "ai_json" | "qti_zip";
   object_path: string;
   content_preview: string | null;
   created_at: string;

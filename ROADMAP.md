@@ -13,8 +13,9 @@
 
 ## Phase 2: Robust Parsing Worker
 
-- External parse queue and RunPod-ready MinerU worker are implemented.
-- Add production monitoring, retry backoff, and GPU cost controls for the worker.
+- Hosted MinerU API submission/polling is implemented as the primary low-maintenance PDF/OCR path.
+- The RunPod-ready self-hosted MinerU worker remains an optional fallback, not the default.
+- Add production monitoring, retry backoff, and cost controls for hosted parse jobs.
 - PDF.js or PyMuPDF fallback page analysis.
 - DeepSeek AI parse suggestions are implemented as review-required evidence only.
 

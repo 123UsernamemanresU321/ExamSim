@@ -8,7 +8,7 @@ type Body = {
   result_object_path?: string;
   error_message?: string;
   artifacts?: {
-    artifact_kind: "markdown" | "json" | "html" | "layout" | "log";
+    artifact_kind: "markdown" | "json" | "html" | "layout" | "log" | "zip";
     object_path: string;
     content_preview?: string;
   }[];

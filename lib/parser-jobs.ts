@@ -9,9 +9,9 @@ export function nextParserStatusForMinerUResult(result: { ok: boolean; requiresO
 
 export function mineruWorkerInstructions() {
   return [
-    "Pull the source PDF through a short-lived signed URL.",
-    "Run MinerU in self-hosted infrastructure with formula and table extraction enabled.",
-    "Write Markdown and JSON artifacts back to the private assessment-packages bucket.",
+    "Use hosted MinerU with a server-side API key, or a self-hosted worker only when privacy/cost requirements demand it.",
+    "For hosted MinerU, Edge Functions submit a short-lived signed source URL or upload URL and poll by batch id.",
+    "Write Markdown, JSON, and ZIP artifacts back to the private assessment-packages bucket.",
     "Mark the parse job review_required so the owner confirms structure before publish.",
   ];
 }

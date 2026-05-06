@@ -7,6 +7,12 @@ import {
 } from "@/lib/ai-parse";
 import { decryptEnvelopeJson, encryptEnvelopeJson, type KmsClient } from "@/lib/kms";
 import { buildMarkingPacketManifest } from "@/lib/marking-packet";
+import {
+  buildMineruBatchRequest,
+  extractMineruUploadUrls,
+  normalizeMineruBatchSubmitResponse,
+  pickMineruExtractResult,
+} from "@/lib/mineru-hosted";
 import { getPasskeyApiStatus } from "@/lib/passkeys";
 import { normalizedPackageToQtiManifest, qtiManifestToNormalizedPackage } from "@/lib/qti";
 import { extractSebKeysFromRecord, validateSebKeys } from "@/lib/seb";
@@ -95,6 +101,49 @@ describe("QTI mapping helpers", () => {
     });
     expect(draft.source.requires_owner_review).toBe(true);
     expect(draft.questions[0]?.node_key).toBe("item-1");
+  });
+});
+
+describe("MinerU hosted API helpers", () => {
+  it("builds signed-url batch requests without API secrets", () => {
+    const request = buildMineruBatchRequest({
+      dataId: "parse-job-1",
+      signedUrl: "https://supabase.example/signed.pdf",
+      modelVersion: "vlm",
+      language: "en",
+    });
+
+    expect(request.files[0]).toMatchObject({ url: "https://supabase.example/signed.pdf", is_ocr: true, data_id: "parse-job-1" });
+    expect(JSON.stringify(request)).not.toMatch(/api[_-]?key|bearer|secret/i);
+  });
+
+  it("normalizes hosted batch submission responses and upload URLs", () => {
+    const submission = normalizeMineruBatchSubmitResponse({
+      code: 0,
+      trace_id: "trace-1",
+      data: { batch_id: "batch-1", file_urls: ["https://upload.example/file"] },
+    });
+    expect(submission.batchId).toBe("batch-1");
+    expect(submission.uploadUrls).toEqual(["https://upload.example/file"]);
+    expect(extractMineruUploadUrls({ files: [{ upload_url: "https://upload.example/2" }] })).toEqual(["https://upload.example/2"]);
+  });
+
+  it("picks completed hosted MinerU results by data_id", () => {
+    const result = pickMineruExtractResult(
+      {
+        code: 0,
+        data: {
+          extract_result: [
+            { data_id: "other", state: "running" },
+            { data_id: "parse-job-1", state: "done", full_zip_url: "https://download.example/result.zip" },
+          ],
+        },
+      },
+      "parse-job-1",
+    );
+
+    expect(result.state).toBe("done");
+    expect(result.fullZipUrl).toBe("https://download.example/result.zip");
   });
 });
 

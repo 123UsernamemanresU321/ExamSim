@@ -5,20 +5,38 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import type { AssessmentVersion, QuestionNodeRow } from "@/types/database";
+import type { AssessmentVersion, ParseJobArtifact, QuestionNodeRow } from "@/types/database";
 
 export function AiParseReviewPanel({
   version,
   nodes,
+  artifacts = [],
 }: {
   version: AssessmentVersion;
   nodes: QuestionNodeRow[];
+  artifacts?: ParseJobArtifact[];
 }) {
   const [ownerNotes, setOwnerNotes] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [suggestionJson, setSuggestionJson] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const sourceText = useMemo(() => JSON.stringify({ existing_nodes: nodes, package: version.normalized_package_json }, null, 2), [nodes, version.normalized_package_json]);
+  const sourceText = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          existing_nodes: nodes,
+          package: version.normalized_package_json,
+          parse_artifacts: artifacts.map((artifact) => ({
+            kind: artifact.artifact_kind,
+            object_path: artifact.object_path,
+            preview: artifact.content_preview,
+          })),
+        },
+        null,
+        2,
+      ),
+    [artifacts, nodes, version.normalized_package_json],
+  );
 
   async function requestSuggestion() {
     setIsSubmitting(true);
@@ -48,7 +66,7 @@ export function AiParseReviewPanel({
       <div>
         <h2 className="text-lg font-semibold">AI parse assistant</h2>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          DeepSeek can propose a normalized tree from the current draft or MinerU artifacts. It never publishes directly.
+          DeepSeek can propose a normalized tree from the current draft and hosted MinerU artifact previews. It never publishes directly.
         </p>
       </div>
       <Field label="Owner notes for AI">

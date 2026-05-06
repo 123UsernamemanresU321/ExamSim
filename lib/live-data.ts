@@ -11,6 +11,8 @@ import type {
   FeedbackRelease,
   Mark,
   ModerationReport,
+  ParseJob,
+  ParseJobArtifact,
   Profile,
   QuestionNodeRow,
   SubmissionAnnotation,
@@ -70,6 +72,8 @@ export type AssessmentWorkspace = {
   versions: AssessmentVersion[];
   latestVersion: AssessmentVersion | null;
   questionNodes: QuestionNodeRow[];
+  parseJobs: ParseJob[];
+  parseArtifacts: ParseJobArtifact[];
 };
 
 export type AttemptReviewWorkspace = {
@@ -362,6 +366,8 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
         source_page_end: null,
         created_at: sampleAssessment.created_at,
       })),
+      parseJobs: [],
+      parseArtifacts: [],
     };
   }
 
@@ -391,7 +397,33 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
     : { data: [], error: null };
   if (nodeError) throw nodeError;
 
-  return { assessment, versions: versions ?? [], latestVersion, questionNodes: questionNodes ?? [] };
+  const { data: parseJobs, error: parseJobError } = latestVersion
+    ? await supabase
+        .from("parse_jobs")
+        .select("*")
+        .eq("assessment_version_id", latestVersion.id)
+        .order("created_at", { ascending: false })
+    : { data: [], error: null };
+  if (parseJobError) throw parseJobError;
+
+  const parseJobIds = (parseJobs ?? []).map((job) => job.id);
+  const { data: parseArtifacts, error: artifactError } = parseJobIds.length
+    ? await supabase
+        .from("parse_job_artifacts")
+        .select("*")
+        .in("parse_job_id", parseJobIds)
+        .order("created_at", { ascending: false })
+    : { data: [], error: null };
+  if (artifactError) throw artifactError;
+
+  return {
+    assessment,
+    versions: versions ?? [],
+    latestVersion,
+    questionNodes: questionNodes ?? [],
+    parseJobs: parseJobs ?? [],
+    parseArtifacts: parseArtifacts ?? [],
+  };
 }
 
 export async function listOwnerAttempts(): Promise<AttemptSummary[]> {

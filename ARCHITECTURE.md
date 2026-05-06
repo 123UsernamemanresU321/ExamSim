@@ -11,7 +11,8 @@ flowchart TD
   Edge --> Storage["Private Supabase Storage"]
   Edge --> Token["HMAC State Token"]
   RLS --> Realtime["Realtime-ready attempt metadata"]
-  Worker["Self-hosted MinerU Worker"] --> Edge
+  Edge --> MinerU["Hosted MinerU API"]
+  Worker["Optional Self-hosted MinerU Worker"] --> Edge
   Worker --> Storage
   Edge --> DeepSeek["DeepSeek Parse API"]
   Edge --> KMS["Cloudflare KMS Wrapper"]
@@ -38,8 +39,10 @@ All stored times are UTC. The default display timezone is `Africa/Johannesburg`.
 - RLS protects metadata and prevents direct student reads of sensitive question/package tables.
 - Edge Functions handle privileged workflows and recompute attempt state server-side.
 - Private Storage stores source papers, normalized packages, answer uploads, and marking packets.
-- MinerU runs outside Supabase as a self-hosted worker. It receives only short-lived signed source access and writes
-  draft artifacts back to private Storage for owner review.
+- Hosted MinerU runs through Supabase Edge Functions. Edge Functions sign or upload the private PDF, poll MinerU by
+  batch id, and write draft artifacts back to private Storage for owner review.
+- The self-hosted MinerU worker remains an optional fallback if hosted processing is too limited or privacy requirements
+  require keeping PDFs on infrastructure you control.
 - DeepSeek is used only for AI-assisted parse proposals. Zod validation and owner review remain mandatory before publish.
 - The Cloudflare KMS wrapper can envelope-encrypt normalized package objects and marking packet ZIP objects before they are written to private Storage.
 - SEB Secure Mode validates Browser Exam Key and Config Key hashes server-side for `seb_required` attempts. Browser user-agent checks are not treated as proof.
@@ -67,7 +70,8 @@ Answer upload slots are strict: one PDF, max 10MB, no replacement after confirme
 `create-student`, `activate-student`, `ingest-assessment`, `update-question-tree`, `publish-assessment`,
 `get-attempt-state`, `start-attempt-session`, `get-attempt-package`, `issue-upload-slot-url`, `confirm-upload-slot`,
 `submit-blank-slot`, `save-text-response`, `finalize-attempt`, `record-attempt-event`, `summarize-attempt-report`,
-`create-student-group`, `complete-parse-job`, `ai-parse-assessment`, `qti-import-assessment`,
-`qti-export-assessment`, `save-marking`, `release-feedback`, `export-marks-csv`, and `owner-download-marking-packet`.
+`create-student-group`, `complete-parse-job`, `mineru-submit-hosted-job`, `mineru-poll-hosted-job`,
+`ai-parse-assessment`, `qti-import-assessment`, `qti-export-assessment`, `save-marking`, `release-feedback`,
+`export-marks-csv`, and `owner-download-marking-packet`.
 
 Sensitive owner mutations require Supabase Auth AAL2/TOTP at the Edge Function boundary.

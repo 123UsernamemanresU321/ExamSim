@@ -1,4 +1,5 @@
 import { AiParseReviewPanel } from "@/components/owner/ai-parse-review-panel";
+import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
@@ -31,7 +32,7 @@ export default async function ParseReviewPage({ params }: { params: Promise<{ id
           <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--subtle)]">Source preview</p>
           <div className="paper-body space-y-4 text-base leading-7 text-[var(--muted)]">
             <p>Original PDF/LaTeX preview is private and rendered here for owner review.</p>
-            <p>PDF parsing is a review-required MVP stub. JSON and LaTeX receive deterministic package extraction.</p>
+            <p>PDF parsing uses hosted MinerU when configured. JSON and LaTeX receive deterministic package extraction.</p>
           </div>
         </Card>
         <Card className="grid content-start gap-4 shadow-none">
@@ -44,7 +45,8 @@ export default async function ParseReviewPage({ params }: { params: Promise<{ id
               <p className="mt-1 text-sm text-[var(--muted)]">{node.title}</p>
             </div>
           ))}
-          <AiParseReviewPanel version={workspace.latestVersion} nodes={workspace.questionNodes} />
+          <MineruHostedPanel parseJobs={workspace.parseJobs} artifacts={workspace.parseArtifacts} />
+          <AiParseReviewPanel version={workspace.latestVersion} nodes={workspace.questionNodes} artifacts={workspace.parseArtifacts} />
           <ReviewQuestionTreeForm versionId={workspace.latestVersion.id} nodes={workspace.questionNodes} />
         </Card>
       </div>

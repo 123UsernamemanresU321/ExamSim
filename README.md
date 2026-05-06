@@ -13,8 +13,8 @@ Browser Mode is tamper-evident, not tamper-proof. The browser records moderation
 - Zod schemas for normalized assessment packages and Edge payload boundaries.
 - Unit tests for attempt state, countdown target, package validation, upload slot uniqueness, and moderation aggregation.
 - Playwright scaffold for the critical owner/student flows.
-- Production Browser Mode hardening: owner MFA/AAL2 gates, group assignments, strict one-PDF-per-question uploads, marking/rubric scaffolding, feedback release, audit logs, passkey beta UI, legal pages, and MinerU worker scaffolding.
-- Production completion scaffolding: RunPod MinerU worker, DeepSeek AI parse review, SEB key validation, conservative QTI import/export, Cloudflare Worker KMS wrapping, and real marking-packet ZIP generation.
+- Production Browser Mode hardening: owner MFA/AAL2 gates, group assignments, strict one-PDF-per-question uploads, marking/rubric scaffolding, feedback release, audit logs, passkey beta UI, legal pages, and hosted MinerU parse review.
+- Production completion scaffolding: hosted MinerU API parsing, optional self-hosted MinerU worker fallback, DeepSeek AI parse review, SEB key validation, conservative QTI import/export, Cloudflare Worker KMS wrapping, and real marking-packet ZIP generation.
 
 ## Environment Variables
 
@@ -33,6 +33,12 @@ SUPABASE_SERVICE_ROLE_KEY=
 OWNER_EMAIL=
 ATTEMPT_STATE_TOKEN_SECRET=
 MINERU_WORKER_SECRET=
+MINERU_PROVIDER=hosted
+MINERU_API_KEY=
+MINERU_API_BASE_URL=https://mineru.net
+MINERU_UPLOAD_MODE=signed_url
+MINERU_MODEL_VERSION=vlm
+MINERU_LANGUAGE=en
 DEEPSEEK_API_KEY=
 AI_PARSE_PROVIDER=deepseek
 AI_PARSE_MODEL=deepseek-v4-flash
@@ -43,7 +49,7 @@ EXTERNAL_KMS_UNWRAP_URL=
 EXTERNAL_KMS_ADMIN_TOKEN=
 ```
 
-RunPod MinerU worker environment:
+Optional self-hosted MinerU worker environment:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
@@ -100,11 +106,13 @@ Set Supabase Edge Function secrets with the Supabase CLI:
 ```bash
 supabase secrets set DEEPSEEK_API_KEY=...
 supabase secrets set AI_PARSE_PROVIDER=deepseek AI_PARSE_MODEL=deepseek-v4-flash AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
-supabase secrets set MINERU_WORKER_SECRET=...
+supabase secrets set MINERU_PROVIDER=hosted MINERU_API_KEY=... MINERU_API_BASE_URL=https://mineru.net MINERU_UPLOAD_MODE=signed_url MINERU_MODEL_VERSION=vlm MINERU_LANGUAGE=en
 supabase secrets set EXTERNAL_KMS_PROVIDER=cloudflare EXTERNAL_KMS_WRAP_URL=https://<worker>/wrap EXTERNAL_KMS_UNWRAP_URL=https://<worker>/unwrap EXTERNAL_KMS_ADMIN_TOKEN=...
 ```
 
-No MinerU API token is required for the self-hosted RunPod worker. MinerU runs inside your worker container and uses short-lived private Supabase Storage URLs.
+Hosted MinerU uses `MINERU_API_KEY` in Supabase Edge Functions only. PDFs are sent to MinerU through short-lived
+server-issued access, and output is pulled back into private Supabase Storage for owner review. No RunPod pod is needed
+for hosted mode.
 
 Provision the configured owner after migrations are applied:
 
@@ -188,7 +196,9 @@ Cloudflare CNAME and TLS verification steps.
 
 - Upload slots accept exactly one PDF, max 10MB. Successful upload or blank submission locks the slot.
 - Students are owner-managed, 13+ only, and use login alias plus password by default. Passkeys are optional beta after activation.
-- PDF/OCR parsing is asynchronous draft evidence. The self-hosted MinerU worker writes artifacts to private Storage, and owner review remains mandatory before publish.
+- PDF/OCR parsing is asynchronous draft evidence. Hosted MinerU writes artifacts back to private Storage through Edge
+  Functions, and owner review remains mandatory before publish. The self-hosted MinerU worker remains an optional
+  fallback for stricter privacy requirements.
 - DeepSeek AI parse suggestions are stored as review-required evidence only. They never publish or replace owner review automatically.
 - `seb_required` attempts require server-side Browser Exam Key and Config Key hash validation before package release.
 - QTI import creates review-required drafts; QTI export is conservative and includes the Exam Vault normalized package JSON for lossless metadata recovery.

@@ -1,6 +1,7 @@
-# MinerU Worker
+# Optional Self-hosted MinerU Worker
 
-Self-hosted parser worker for Exam Vault PDF/OCR ingestion.
+Self-hosted parser worker for Exam Vault PDF/OCR ingestion. Hosted MinerU API mode is the default low-cost path for
+this project; use this worker only if hosted MinerU is too limited or PDFs cannot leave infrastructure you control.
 
 The worker must run in infrastructure you control. It receives a queued `parse_jobs` row out-of-band, downloads the
 private source PDF using a short-lived signed URL, runs MinerU locally, uploads Markdown/JSON artifacts to the private
