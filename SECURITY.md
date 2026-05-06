@@ -18,8 +18,10 @@ The waiting screen renders metadata only. Students do not receive assessment pac
 
 Roles are `owner` and `student`. Authorization uses app metadata and the `profiles` table, not mutable user metadata. `OWNER_EMAIL` is server-only and should be used during owner provisioning. Student personas are separate student profiles linked to the owner; they are not role toggles inside owner sessions.
 
-The local Playwright/demo bypass is controlled by `EXAM_VAULT_DEMO_MODE=1` and is ignored in production. It exists only
-to keep UI smoke tests independent of hosted Supabase auth sessions.
+The local Playwright/demo bypass is controlled by `EXAM_VAULT_DEMO_MODE=1`; the GitHub Pages static export uses
+`NEXT_PUBLIC_STATIC_EXPORT=1` to pre-render demo-safe pages because static hosting has no request-time auth context.
+Neither mode grants database access. Real data and sensitive actions still require Supabase Auth, RLS, and Edge Function
+checks.
 
 ## RLS Model
 

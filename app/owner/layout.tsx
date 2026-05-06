@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { BarChart3, FileText, LayoutDashboard, Users } from "lucide-react";
+import Link from "next/link";
 
 const ownerNav = [
   { href: "/owner", label: "Dashboard", Icon: LayoutDashboard },
@@ -17,10 +18,10 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
           <p className="mb-4 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--subtle)]">Owner</p>
           <nav className="grid gap-1 text-sm font-semibold text-[var(--muted)]">
             {ownerNav.map(({ href, label, Icon }) => (
-              <a key={href} className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href={href}>
+              <Link key={href} className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href={href}>
                 <Icon size={17} aria-hidden="true" />
                 {label}
-              </a>
+              </Link>
             ))}
           </nav>
         </aside>

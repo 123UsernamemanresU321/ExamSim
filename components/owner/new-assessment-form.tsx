@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -108,9 +109,9 @@ export function NewAssessmentForm() {
       {created ? (
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm">
           <p className="font-semibold">Draft version created with parse confidence {Math.round(created.parse_confidence * 100)}%.</p>
-          <a className="mt-2 inline-block font-semibold text-[var(--primary)]" href={`/owner/assessments/${created.assessment_id}/review`}>
+          <Link className="mt-2 inline-block font-semibold text-[var(--primary)]" href={`/owner/assessments/${created.assessment_id}/review`}>
             Review question tree
-          </a>
+          </Link>
         </div>
       ) : null}
     </form>

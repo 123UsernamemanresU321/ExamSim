@@ -112,3 +112,29 @@ Supabase session. Production never honors this bypass.
 - Enforce owner MFA/AAL2 before production publish and assignment workflows.
 - Use private Storage and Edge Functions for all sensitive content and upload paths.
 - Database backups do not automatically back up Supabase Storage objects. Back up Storage separately.
+
+## GitHub Pages
+
+GitHub Pages is static hosting, so it cannot run Next.js API routes, proxy middleware, server actions, or server-side
+route guards. Exam Vault supports this by using Supabase Auth, RLS, and Edge Functions as the runtime backend from the
+browser. Sensitive content remains gated by Supabase Edge Functions; the static frontend is not trusted for timing or
+authorization.
+
+The workflow at `.github/workflows/deploy-pages.yml` builds with:
+
+```bash
+npm run build:pages
+```
+
+Add these GitHub repository secrets:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
+
+Then enable Pages in GitHub repository settings with source `GitHub Actions`.
+
+The static export pre-generates the demo dynamic routes used by smoke tests. Newly created live assessment/attempt IDs
+are still protected by Supabase, but static hosting cannot SSR arbitrary new dynamic paths. For broad production use on
+GitHub Pages, prefer query-based client routes for new IDs or deploy the same app to a server-capable host.

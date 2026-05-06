@@ -8,6 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { flattenQuestionNodes } from "@/lib/assessment-package";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
+import { demoAttemptParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAttemptParams();
+}
 
 export default async function ActiveExamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

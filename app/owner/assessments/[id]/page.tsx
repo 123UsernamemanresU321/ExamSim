@@ -2,6 +2,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
 import { getAssessmentWorkspace } from "@/lib/live-data";
+import { demoAssessmentParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAssessmentParams();
+}
 
 export default async function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

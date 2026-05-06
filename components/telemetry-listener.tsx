@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function TelemetryListener({
   attemptId,
@@ -17,10 +18,9 @@ export function TelemetryListener({
     async function record(eventType: string, payload: Record<string, unknown> = {}) {
       seq.current += 1;
       try {
-        await fetch("/api/attempt-events", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
+        const supabase = createSupabaseBrowserClient();
+        await supabase.functions.invoke("record-attempt-event", {
+          body: {
             attempt_id: attemptId,
             attempt_session_id: attemptSessionId,
             event_type: eventType,
@@ -28,7 +28,7 @@ export function TelemetryListener({
             client_seq: seq.current,
             payload,
             state_token: stateToken,
-          }),
+          },
         });
       } catch {
         // Telemetry is best-effort in the browser; server state gates remain authoritative.

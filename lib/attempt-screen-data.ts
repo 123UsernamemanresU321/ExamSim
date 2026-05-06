@@ -49,7 +49,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
       server_now_utc: attempt.server_now_utc,
     },
     stateToken: "demo-state-token",
-    package: includePackage ? samplePackage : null,
+    package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,
   };
 }
 

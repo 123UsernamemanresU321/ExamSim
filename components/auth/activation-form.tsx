@@ -4,6 +4,7 @@ import { useState } from "react";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function ActivationForm() {
   const [message, setMessage] = useState<string | null>(null);
@@ -11,13 +12,11 @@ export function ActivationForm() {
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/activate-student", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(form)),
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.functions.invoke<{ message?: string; error?: string }>("activate-student", {
+      body: Object.fromEntries(form),
     });
-    const data = await response.json();
-    setMessage(data.message ?? data.error ?? "Activation request sent.");
+    setMessage(error?.message ?? data?.message ?? data?.error ?? "Activation request sent.");
   }
 
   return (

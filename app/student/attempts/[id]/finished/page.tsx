@@ -3,6 +3,11 @@ import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
+import { demoAttemptParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAttemptParams();
+}
 
 export default async function FinishedReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

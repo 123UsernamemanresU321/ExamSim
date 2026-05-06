@@ -3,6 +3,11 @@ import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { samplePackage, sampleReport } from "@/lib/demo-data";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
+import { demoAttemptParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAttemptParams();
+}
 
 export default async function MarkAttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

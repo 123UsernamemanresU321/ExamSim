@@ -2,6 +2,11 @@ import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAssessmentWorkspace } from "@/lib/live-data";
+import { demoAssessmentParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAssessmentParams();
+}
 
 export default async function ParseReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

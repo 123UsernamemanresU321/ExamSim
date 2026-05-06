@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "build:pages": "NEXT_PUBLIC_STATIC_EXPORT=1 NEXT_PUBLIC_DEPLOY_TARGET=github-pages next build --webpack && node scripts/prepare-github-pages.mjs",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "rm -rf .next && next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",

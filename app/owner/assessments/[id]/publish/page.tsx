@@ -2,6 +2,11 @@ import { PublishAssessmentForm } from "@/components/owner/publish-assessment-for
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAssessmentWorkspace, listOwnerStudents } from "@/lib/live-data";
+import { demoAssessmentParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAssessmentParams();
+}
 
 export default async function PublishAssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
