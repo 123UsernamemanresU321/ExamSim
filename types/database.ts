@@ -8,6 +8,8 @@ export type Profile = {
   app_role: AppRole;
   display_name: string;
   owner_profile_id: string | null;
+  student_13_plus_attested_at: string | null;
+  student_13_plus_attested_by_profile_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -16,6 +18,7 @@ export type Attempt = {
   id: string;
   assessment_id: string;
   assessment_version_id: string;
+  assessment_assignment_id: string | null;
   assignee_profile_id: string;
   start_at_utc: string;
   duration_seconds: number;
@@ -148,10 +151,156 @@ export type UploadSlot = {
   required: boolean;
   object_path: string | null;
   uploaded_at: string | null;
+  file_size_bytes: number | null;
+  content_type: string | null;
+  confirmed_by_profile_id: string | null;
+  locked_at: string | null;
   is_blank_placeholder: boolean;
   status: "pending" | "uploaded" | "blank_placeholder" | "missing" | "rejected";
   created_at: string;
   updated_at: string;
+};
+
+export type StudentGroup = {
+  id: string;
+  owner_profile_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudentGroupMember = {
+  id: string;
+  group_id: string;
+  student_profile_id: string;
+  created_at: string;
+};
+
+export type AssessmentAssignment = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  assignment_kind: "individual" | "group";
+  student_profile_id: string | null;
+  student_group_id: string | null;
+  start_at_utc: string;
+  duration_seconds: number;
+  end_at_utc: string;
+  upload_deadline_at_utc: string | null;
+  display_timezone: string;
+  delivery_mode: DeliveryMode;
+  solutions_requested: boolean;
+  typed_enabled: boolean;
+  per_question_upload_enabled: boolean;
+  require_blank_for_skipped: boolean;
+  created_at: string;
+};
+
+export type Rubric = {
+  id: string;
+  assessment_version_id: string;
+  owner_profile_id: string;
+  title: string;
+  total_marks: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RubricCriteria = {
+  id: string;
+  rubric_id: string;
+  question_node_id: string | null;
+  ordinal: number;
+  label: string;
+  description: string | null;
+  max_marks: number;
+  created_at: string;
+};
+
+export type Mark = {
+  id: string;
+  attempt_id: string;
+  question_node_id: string | null;
+  rubric_criteria_id: string | null;
+  marker_profile_id: string;
+  awarded_marks: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SubmissionAnnotation = {
+  id: string;
+  attempt_id: string;
+  question_node_id: string | null;
+  owner_profile_id: string;
+  annotation_type: "note" | "rubric" | "moderation" | "feedback";
+  body: string;
+  anchor_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackRelease = {
+  id: string;
+  attempt_id: string;
+  released_by_profile_id: string;
+  released_at: string;
+  summary_text: string | null;
+  total_awarded_marks: number;
+  total_available_marks: number;
+  visible_to_student: boolean;
+  created_at: string;
+};
+
+export type ParseJob = {
+  id: string;
+  assessment_version_id: string;
+  owner_profile_id: string;
+  source_object_path: string;
+  parser: "mineru" | "latex_deterministic" | "json_validator";
+  status: "queued" | "running" | "succeeded" | "failed" | "review_required";
+  requested_ocr: boolean;
+  error_message: string | null;
+  result_object_path: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ParseJobArtifact = {
+  id: string;
+  parse_job_id: string;
+  artifact_kind: "markdown" | "json" | "html" | "layout" | "log";
+  object_path: string;
+  content_preview: string | null;
+  created_at: string;
+};
+
+export type OwnerAuditLog = {
+  id: string;
+  owner_profile_id: string;
+  actor_auth_user_id: string;
+  action: string;
+  target_table: string | null;
+  target_id: string | null;
+  metadata_json: Json;
+  created_at: string;
+};
+
+export type RetentionRequest = {
+  id: string;
+  owner_profile_id: string;
+  requested_by_profile_id: string;
+  target_type: "student" | "assessment" | "attempt" | "upload" | "report";
+  target_id: string;
+  status: "pending" | "completed" | "rejected";
+  notes: string | null;
+  created_at: string;
+  completed_at: string | null;
 };
 
 export type ModerationReport = {
@@ -260,6 +409,79 @@ export type Database = {
         Update: Partial<AssessmentSchedule>;
         Relationships: [];
       };
+      student_groups: {
+        Row: StudentGroup;
+        Insert: Partial<StudentGroup> & Pick<StudentGroup, "owner_profile_id" | "name">;
+        Update: Partial<StudentGroup>;
+        Relationships: [];
+      };
+      student_group_members: {
+        Row: StudentGroupMember;
+        Insert: Partial<StudentGroupMember> & Pick<StudentGroupMember, "group_id" | "student_profile_id">;
+        Update: Partial<StudentGroupMember>;
+        Relationships: [];
+      };
+      assessment_assignments: {
+        Row: AssessmentAssignment;
+        Insert: Partial<AssessmentAssignment> &
+          Pick<AssessmentAssignment, "owner_profile_id" | "assessment_id" | "assessment_version_id" | "assignment_kind" | "start_at_utc" | "duration_seconds" | "end_at_utc">;
+        Update: Partial<AssessmentAssignment>;
+        Relationships: [];
+      };
+      rubrics: {
+        Row: Rubric;
+        Insert: Partial<Rubric> & Pick<Rubric, "assessment_version_id" | "owner_profile_id" | "title">;
+        Update: Partial<Rubric>;
+        Relationships: [];
+      };
+      rubric_criteria: {
+        Row: RubricCriteria;
+        Insert: Partial<RubricCriteria> & Pick<RubricCriteria, "rubric_id" | "ordinal" | "label" | "max_marks">;
+        Update: Partial<RubricCriteria>;
+        Relationships: [];
+      };
+      marks: {
+        Row: Mark;
+        Insert: Partial<Mark> & Pick<Mark, "attempt_id" | "marker_profile_id" | "awarded_marks">;
+        Update: Partial<Mark>;
+        Relationships: [];
+      };
+      submission_annotations: {
+        Row: SubmissionAnnotation;
+        Insert: Partial<SubmissionAnnotation> & Pick<SubmissionAnnotation, "attempt_id" | "owner_profile_id" | "annotation_type" | "body">;
+        Update: Partial<SubmissionAnnotation>;
+        Relationships: [];
+      };
+      feedback_releases: {
+        Row: FeedbackRelease;
+        Insert: Partial<FeedbackRelease> & Pick<FeedbackRelease, "attempt_id" | "released_by_profile_id">;
+        Update: Partial<FeedbackRelease>;
+        Relationships: [];
+      };
+      parse_jobs: {
+        Row: ParseJob;
+        Insert: Partial<ParseJob> & Pick<ParseJob, "assessment_version_id" | "owner_profile_id" | "source_object_path" | "parser" | "status">;
+        Update: Partial<ParseJob>;
+        Relationships: [];
+      };
+      parse_job_artifacts: {
+        Row: ParseJobArtifact;
+        Insert: Partial<ParseJobArtifact> & Pick<ParseJobArtifact, "parse_job_id" | "artifact_kind" | "object_path">;
+        Update: Partial<ParseJobArtifact>;
+        Relationships: [];
+      };
+      owner_audit_logs: {
+        Row: OwnerAuditLog;
+        Insert: Partial<OwnerAuditLog> & Pick<OwnerAuditLog, "owner_profile_id" | "actor_auth_user_id" | "action">;
+        Update: Partial<OwnerAuditLog>;
+        Relationships: [];
+      };
+      retention_requests: {
+        Row: RetentionRequest;
+        Insert: Partial<RetentionRequest> & Pick<RetentionRequest, "owner_profile_id" | "requested_by_profile_id" | "target_type" | "target_id" | "status">;
+        Update: Partial<RetentionRequest>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -270,6 +492,10 @@ export type Database = {
       generate_moderation_summary: {
         Args: { target_attempt_id: string };
         Returns: Json;
+      };
+      audit_owner_action: {
+        Args: { action: string; target_table?: string | null; target_id?: string | null; metadata_json?: Json };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;

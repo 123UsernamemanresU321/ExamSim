@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { BookOpen, FileLock2, ShieldCheck, TimerReset } from "lucide-react";
+import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -84,7 +85,12 @@ export default function HomePage() {
         <section className="border-t border-[var(--border)] bg-[var(--surface-panel)]">
           <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-6 text-sm text-[var(--muted)] md:flex-row md:items-center md:justify-between">
             <p>Browser Mode is tamper-evident, not tamper-proof. Moderation signals require review.</p>
-            <p className="font-semibold text-[var(--primary)]">No public buckets. No pre-start payload release.</p>
+            <div className="flex flex-wrap gap-3">
+              <Link className="font-semibold text-[var(--primary)]" href="/browser-mode">Browser Mode</Link>
+              <Link className="font-semibold text-[var(--primary)]" href="/privacy">Privacy</Link>
+              <Link className="font-semibold text-[var(--primary)]" href="/terms">Terms</Link>
+              <Link className="font-semibold text-[var(--primary)]" href="/data-retention">Retention</Link>
+            </div>
           </div>
         </section>
       </main>

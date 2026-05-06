@@ -9,5 +9,11 @@ export function createSupabaseBrowserClient() {
   if (!url || !anonKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
-  return createBrowserClient<Database>(url, anonKey);
+  return createBrowserClient<Database>(url, anonKey, {
+    auth: {
+      experimental: {
+        passkey: true,
+      },
+    },
+  });
 }

@@ -11,6 +11,8 @@ flowchart TD
   Edge --> Storage["Private Supabase Storage"]
   Edge --> Token["HMAC State Token"]
   RLS --> Realtime["Realtime-ready attempt metadata"]
+  Worker["Self-hosted MinerU Worker"] --> Edge
+  Worker --> Storage
 ```
 
 ## State Machine
@@ -34,6 +36,8 @@ All stored times are UTC. The default display timezone is `Africa/Johannesburg`.
 - RLS protects metadata and prevents direct student reads of sensitive question/package tables.
 - Edge Functions handle privileged workflows and recompute attempt state server-side.
 - Private Storage stores source papers, normalized packages, answer uploads, and marking packets.
+- MinerU runs outside Supabase as a self-hosted worker. It receives only short-lived signed source access and writes
+  draft artifacts back to private Storage for owner review.
 
 ## Content Release Model
 
@@ -48,7 +52,14 @@ The waiting page renders metadata only. It does not request or preload the norma
 
 All buckets are private. Signed URLs are minted on demand by Edge Functions after server-side state checks.
 
+Answer upload slots are strict: one PDF, max 10MB, no replacement after confirmed upload or blank placeholder.
+
 ## Edge Function List
 
-`create-student`, `activate-student`, `ingest-assessment`, `update-question-tree`, `publish-assessment`, `get-attempt-state`, `start-attempt-session`, `get-attempt-package`, `issue-upload-slot-url`, `confirm-upload-slot`, `submit-blank-slot`, `save-text-response`, `finalize-attempt`, `record-attempt-event`, `summarize-attempt-report`, and `owner-download-marking-packet`.
+`create-student`, `activate-student`, `ingest-assessment`, `update-question-tree`, `publish-assessment`,
+`get-attempt-state`, `start-attempt-session`, `get-attempt-package`, `issue-upload-slot-url`, `confirm-upload-slot`,
+`submit-blank-slot`, `save-text-response`, `finalize-attempt`, `record-attempt-event`, `summarize-attempt-report`,
+`create-student-group`, `complete-parse-job`, `save-marking`, `release-feedback`, `export-marks-csv`, and
+`owner-download-marking-packet`.
 
+Sensitive owner mutations require Supabase Auth AAL2/TOTP at the Edge Function boundary.

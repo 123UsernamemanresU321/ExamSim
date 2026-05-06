@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { profileForAuthUser, requireOwner } from "../_shared/auth.ts";
+import { auditOwnerAction, profileForAuthUser, requireOwner } from "../_shared/auth.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
 
 type IngestBody = {
@@ -13,22 +13,110 @@ type IngestBody = {
   uploaded_source_path?: string;
 };
 
+type FlatNode = {
+  node_key: string;
+  ordinal: number;
+  node_type: "section" | "question" | "subquestion" | "part";
+  title?: string | null;
+  prompt_html?: string | null;
+  prompt_latex?: string | null;
+  marks?: number | null;
+  response_mode?: string;
+  interaction_json?: unknown;
+  parent_node_key?: string | null;
+};
+
+function cleanLatexTitle(line: string) {
+  return line
+    .replace(/^\\(?:section|subsection|subsubsection)\*?\{(.+)\}$/i, "$1")
+    .replace(/^\\(?:begin|end)\{[^}]+\}/i, "")
+    .trim();
+}
+
+function extractMarks(line: string) {
+  const match = line.match(/(?:\[|\()(\d+(?:\.\d+)?)\s*(?:marks?|pts?|points?)(?:\]|\))/i);
+  return match ? Number(match[1]) : null;
+}
+
 function latexToNodes(source: string) {
   const lines = source.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const nodes = [];
-  let ordinal = 1;
+  const nodes: FlatNode[] = [];
+  let questionOrdinal = 1;
+  let sectionOrdinal = 1;
+  let subOrdinal = 1;
+  let partOrdinal = 1;
+  let currentQuestionKey: string | null = null;
+  let currentSubquestionKey: string | null = null;
+
   for (const line of lines) {
-    if (/^(\\section|question\s+\d+|q\d+|\d+\.)/i.test(line)) {
+    const section = line.match(/^\\(?:section|subsection)\*?\{(.+)\}$/i);
+    const question = line.match(/^(?:\\question\b|question\s+|q)(\d+)[.)\s:]*/i) ?? line.match(/^(\d+)[.)]\s+/);
+    const subquestion = line.match(/^(?:\\item\s*)?\(([a-z])\)\s+/i);
+    const romanPart = line.match(/^(?:\\item\s*)?\((i{1,3}|iv|v|vi{0,3}|ix|x)\)\s+/i);
+
+    if (section) {
       nodes.push({
-        node_key: String(ordinal),
-        ordinal,
+        node_key: `S${sectionOrdinal}`,
+        ordinal: sectionOrdinal,
+        node_type: "section",
+        title: cleanLatexTitle(line),
+        prompt_latex: line,
+        response_mode: "none",
+        marks: null,
+      });
+      sectionOrdinal += 1;
+      continue;
+    }
+
+    if (question) {
+      currentQuestionKey = String(question[1] ?? questionOrdinal);
+      currentSubquestionKey = null;
+      subOrdinal = 1;
+      partOrdinal = 1;
+      nodes.push({
+        node_key: currentQuestionKey,
+        ordinal: questionOrdinal,
         node_type: "question",
-        title: line.replace(/^\\section\*?\{?|\}?$/g, ""),
+        title: cleanLatexTitle(line),
         prompt_latex: line,
         response_mode: "typed_or_upload",
-        marks: Number(line.match(/\[(\d+)\s*marks?\]/i)?.[1] ?? 0) || null,
+        marks: extractMarks(line),
       });
-      ordinal += 1;
+      questionOrdinal += 1;
+      continue;
+    }
+
+    if (subquestion && currentQuestionKey) {
+      const label = subquestion[1].toLowerCase();
+      currentSubquestionKey = `${currentQuestionKey}(${label})`;
+      partOrdinal = 1;
+      nodes.push({
+        node_key: currentSubquestionKey,
+        parent_node_key: currentQuestionKey,
+        ordinal: subOrdinal,
+        node_type: "subquestion",
+        title: `Part (${label})`,
+        prompt_latex: line,
+        response_mode: "typed_or_upload",
+        marks: extractMarks(line),
+      });
+      subOrdinal += 1;
+      continue;
+    }
+
+    if (romanPart && (currentSubquestionKey || currentQuestionKey)) {
+      const label = romanPart[1].toLowerCase();
+      nodes.push({
+        node_key: `${currentSubquestionKey ?? currentQuestionKey}(${label})`,
+        parent_node_key: currentSubquestionKey ?? currentQuestionKey,
+        ordinal: partOrdinal,
+        node_type: "part",
+        title: `Part (${label})`,
+        prompt_latex: line,
+        response_mode: "typed_or_upload",
+        marks: extractMarks(line),
+      });
+      partOrdinal += 1;
     }
   }
   return nodes.length > 0
@@ -112,7 +200,7 @@ serve(async (request) => {
 
     const nodes =
       body.source_kind === "json" && Array.isArray(body.json_package?.questions)
-        ? body.json_package.questions
+        ? flattenPackageNodes(body.json_package.questions as Record<string, unknown>[])
         : body.source_kind === "latex"
           ? latexToNodes(body.latex_source ?? "")
           : [{ node_key: "1", ordinal: 1, node_type: "question", title: "PDF manual question tree", response_mode: "typed_or_upload" }];
@@ -129,16 +217,74 @@ serve(async (request) => {
       response_mode: String(node.response_mode ?? "typed_or_upload"),
       interaction_json: typeof node.interaction === "object" ? node.interaction : null,
     }));
-    const { error: nodeError } = await admin.from("question_nodes").insert(rows);
+    const { data: insertedNodes, error: nodeError } = await admin.from("question_nodes").insert(rows).select("id,node_key");
     if (nodeError) throw nodeError;
+
+    const idByKey = new Map((insertedNodes ?? []).map((node) => [node.node_key, node.id]));
+    for (const node of nodes) {
+      if (!node.parent_node_key) continue;
+      const parentId = idByKey.get(String(node.parent_node_key));
+      const nodeId = idByKey.get(String(node.node_key));
+      if (parentId && nodeId) {
+        await admin.from("question_nodes").update({ parent_node_id: parentId }).eq("id", nodeId);
+      }
+    }
+
+    let parseJobId: string | null = null;
+    if (body.source_kind === "pdf" && body.uploaded_source_path) {
+      const { data: parseJob, error: parseJobError } = await admin
+        .from("parse_jobs")
+        .insert({
+          assessment_version_id: version.id,
+          owner_profile_id: profile.id,
+          source_object_path: body.uploaded_source_path,
+          parser: "mineru",
+          status: "queued",
+          requested_ocr: true,
+        })
+        .select("id")
+        .single();
+      if (parseJobError) throw parseJobError;
+      parseJobId = parseJob.id;
+    }
+
+    await auditOwnerAction(profile.id, user.id, "assessment.ingested", "assessment_versions", version.id, {
+      source_kind: body.source_kind,
+      parse_job_id: parseJobId,
+    });
 
     return json({
       assessment_id: assessment.id,
       draft_version_id: version.id,
       parse_confidence: parseConfidence,
       requires_owner_review: requiresReview,
+      parse_job_id: parseJobId,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "ingest-assessment failed" }, 401);
   }
 });
+
+function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: string | null = null): FlatNode[] {
+  const flattened: FlatNode[] = [];
+  nodes.forEach((node, index) => {
+    const nodeKey = String(node.node_key ?? node.node_id ?? index + 1);
+    const prompt = typeof node.prompt === "object" && node.prompt ? node.prompt as { html?: string; latex?: string } : {};
+    flattened.push({
+      node_key: nodeKey,
+      parent_node_key: parentNodeKey,
+      ordinal: Number(node.ordinal ?? index + 1),
+      node_type: String(node.node_type ?? "question") as FlatNode["node_type"],
+      title: typeof node.title === "string" ? node.title : null,
+      prompt_html: typeof node.prompt_html === "string" ? node.prompt_html : prompt.html ?? null,
+      prompt_latex: typeof node.prompt_latex === "string" ? node.prompt_latex : prompt.latex ?? null,
+      marks: typeof node.marks === "number" ? node.marks : null,
+      response_mode: String(node.response_mode ?? "typed_or_upload"),
+      interaction_json: typeof node.interaction === "object" ? node.interaction : null,
+    });
+    if (Array.isArray(node.children)) {
+      flattened.push(...flattenPackageNodes(node.children as Record<string, unknown>[], nodeKey));
+    }
+  });
+  return flattened;
+}

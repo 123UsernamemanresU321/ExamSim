@@ -3,7 +3,10 @@ import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
+import { isDemoModeEnabled } from "@/lib/runtime";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { demoAttemptParams } from "@/lib/static-params";
+import type { FeedbackRelease } from "@/types/database";
 
 export function generateStaticParams() {
   return demoAttemptParams();
@@ -12,6 +15,12 @@ export function generateStaticParams() {
 export default async function FinishedReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { package: assessmentPackage } = await getAttemptScreenData(id, true);
+  let feedback: FeedbackRelease | null = null;
+  if (!isDemoModeEnabled()) {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.from("feedback_releases").select("*").eq("attempt_id", id).maybeSingle();
+    feedback = data;
+  }
   return (
     <div className="mx-auto max-w-[980px]">
       <SectionHeading
@@ -22,6 +31,15 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
         <AttemptStateBadge state="FINISHED_REVIEW" />
         <p className="text-sm text-[var(--danger)]">Submission summary: 1 typed response, 1 blank placeholder.</p>
       </Card>
+      {feedback ? (
+        <Card className="mb-5 border-[#78a86d] bg-[var(--success-bg)] shadow-none">
+          <h2 className="text-lg font-semibold text-[#123d18]">Released feedback</h2>
+          <p className="mt-2 text-sm leading-6 text-[#123d18]">{feedback.summary_text ?? "Feedback has been released."}</p>
+          <p className="mt-2 text-sm font-semibold text-[#123d18]">
+            {feedback.total_awarded_marks}/{feedback.total_available_marks} marks
+          </p>
+        </Card>
+      ) : null}
       {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} readonly /> : null}
     </div>
   );

@@ -7,14 +7,15 @@
 - RLS-protected metadata.
 - Edge Function boundaries for sensitive workflows.
 - JSON and deterministic LaTeX ingestion.
-- PDF review-required stub.
+- PDF review-required stub plus MinerU parse job scaffolding.
 - Owner dashboard, student dashboard, exam states, moderation report, and marking workspace.
+- Production Browser Mode hardening: owner MFA, group assignments, one-PDF-per-slot uploads, audit logs, legal pages, and feedback release.
 
 ## Phase 2: Robust Parsing Worker
 
 - External parse queue.
-- PDF.js or PyMuPDF page analysis.
-- OCR worker integration.
+- Self-hosted MinerU worker deployment and monitoring.
+- PDF.js or PyMuPDF fallback page analysis.
 - AI fallback only after deterministic parsing, with owner review required.
 
 ## Phase 3: SEB Secure Mode
@@ -25,8 +26,8 @@
 
 ## Phase 4: Passkeys and MFA
 
-- Owner MFA/AAL2 for publish and assignment.
-- Optional student passkey enrollment after activation.
+- Owner MFA recovery/admin procedures and alerting.
+- Optional student passkey enrollment after activation, kept beta until the Supabase passkey API is stable.
 - Stronger recovery flows.
 
 ## Phase 5: QTI Import and Export
@@ -45,4 +46,3 @@
 - Suggested rubric alignment and feedback drafts.
 - Human-in-the-loop only.
 - Never auto-accuse cheating from Browser Mode telemetry.
-

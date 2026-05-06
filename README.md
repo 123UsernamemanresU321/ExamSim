@@ -13,6 +13,7 @@ Browser Mode is tamper-evident, not tamper-proof. The browser records moderation
 - Zod schemas for normalized assessment packages and Edge payload boundaries.
 - Unit tests for attempt state, countdown target, package validation, upload slot uniqueness, and moderation aggregation.
 - Playwright scaffold for the critical owner/student flows.
+- Production Browser Mode hardening: owner MFA/AAL2 gates, group assignments, strict one-PDF-per-question uploads, marking/rubric scaffolding, feedback release, audit logs, passkey beta UI, legal pages, and MinerU worker scaffolding.
 
 ## Environment Variables
 
@@ -30,6 +31,7 @@ Server-only:
 SUPABASE_SERVICE_ROLE_KEY=
 OWNER_EMAIL=
 ATTEMPT_STATE_TOKEN_SECRET=
+MINERU_WORKER_SECRET=
 ```
 
 Optional future integrations:
@@ -88,6 +90,9 @@ Private buckets expected by the app:
 
 Create them as private buckets. Do not use public URLs for real assessment material.
 
+The hosted production database starts blank. Do not seed sample assessments into production; local/demo data lives only
+behind `EXAM_VAULT_DEMO_MODE=1` or static export guards.
+
 ## Verification Commands
 
 ```bash
@@ -109,9 +114,11 @@ Supabase session. Production never honors this bypass.
 ## Deployment Notes
 
 - Configure `OWNER_EMAIL` server-side and seed the owner profile/app metadata intentionally.
-- Enforce owner MFA/AAL2 before production publish and assignment workflows.
+- Enforce owner MFA/AAL2 before student creation, group creation, publish/assignment, marking exports, and feedback release.
 - Use private Storage and Edge Functions for all sensitive content and upload paths.
 - Database backups do not automatically back up Supabase Storage objects. Back up Storage separately.
+- Configure Supabase Auth Site URL and Redirect URLs for `https://exam-vault-zeta.vercel.app`,
+  `https://examvault.tutor-mcp.com`, and local development URLs such as `http://localhost:3000`.
 
 ## Vercel
 
@@ -138,6 +145,16 @@ Do not set `NEXT_PUBLIC_DEPLOY_TARGET=github-pages` or `NEXT_PUBLIC_STATIC_EXPOR
 `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, and `ATTEMPT_STATE_TOKEN_SECRET` out of Vercel unless a future Vercel-side
 server workflow explicitly requires them. The current sensitive workflows run in Supabase Edge Functions, where those
 server-side secrets belong.
+
+Custom domain target: `examvault.tutor-mcp.com`. See [docs/CLOUDFLARE_DOMAIN.md](docs/CLOUDFLARE_DOMAIN.md) for the
+Cloudflare CNAME and TLS verification steps.
+
+## Production Browser Mode Notes
+
+- Upload slots accept exactly one PDF, max 10MB. Successful upload or blank submission locks the slot.
+- Students are owner-managed, 13+ only, and use login alias plus password by default. Passkeys are optional beta after activation.
+- PDF/OCR parsing is asynchronous draft evidence. The self-hosted MinerU worker writes artifacts to private Storage, and owner review remains mandatory before publish.
+- Feedback is hidden until the owner explicitly releases it.
 
 ## GitHub Pages
 

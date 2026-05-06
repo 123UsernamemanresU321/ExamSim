@@ -1,5 +1,5 @@
 import { AppHeader } from "@/components/app-header";
-import { BarChart3, FileText, LayoutDashboard, Users } from "lucide-react";
+import { BarChart3, FileText, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { requireAppRole } from "@/lib/auth/server";
 
@@ -8,6 +8,7 @@ const ownerNav = [
   { href: "/owner/assessments", label: "Assessments", Icon: FileText },
   { href: "/owner/students", label: "Students", Icon: Users },
   { href: "/owner/attempts", label: "Attempts", Icon: BarChart3 },
+  { href: "/owner/security", label: "Security", Icon: ShieldCheck },
 ];
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {

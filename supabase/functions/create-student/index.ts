@@ -1,15 +1,16 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
-import { profileForAuthUser, requireOwner } from "../_shared/auth.ts";
+import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { randomCode, sha256Hex } from "../_shared/hash.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwner(request);
-    const body = await readJson<{ display_name: string }>(request);
+    const { user, admin } = await requireOwnerAal2(request);
+    const body = await readJson<{ display_name: string; student_13_plus_attested?: boolean }>(request);
     if (!body.display_name?.trim()) return json({ error: "display_name is required" }, 400);
+    if (!body.student_13_plus_attested) return json({ error: "13+ student attestation is required" }, 400);
 
     const ownerProfile = await profileForAuthUser(user.id);
     const loginCode = randomCode("STU");
@@ -31,6 +32,8 @@ serve(async (request) => {
         app_role: "student",
         display_name: body.display_name.trim(),
         owner_profile_id: ownerProfile.id,
+        student_13_plus_attested_at: new Date().toISOString(),
+        student_13_plus_attested_by_profile_id: ownerProfile.id,
       })
       .select("*")
       .single();
@@ -50,6 +53,10 @@ serve(async (request) => {
       link_type: "managed_student",
     });
     if (linkError) throw linkError;
+
+    await auditOwnerAction(ownerProfile.id, user.id, "student.created", "profiles", profile.id, {
+      student_13_plus_attested: true,
+    });
 
     return json({ login_code: loginCode, activation_code: activationCode });
   } catch (error) {

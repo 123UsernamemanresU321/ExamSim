@@ -4,7 +4,7 @@ test("public landing explains browser mode and private release", async ({ page }
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /secure, institutional-grade timed exam simulation/i })).toBeVisible();
   await expect(page.getByText(/tamper-evident, not tamper-proof/i)).toBeVisible();
-  await expect(page.getByText(/No public buckets/i)).toBeVisible();
+  await expect(page.getByText(/private buckets/i).first()).toBeVisible();
 });
 
 test("student waiting screen shows metadata only", async ({ page }) => {

@@ -67,7 +67,14 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
             </Button>
           </section>
           {uploadNodes.map((node) => (
-            <UploadSlotCard key={node.node_id} questionKey={node.node_key} status="pending" />
+            <UploadSlotCard
+              key={node.node_id}
+              attemptId={id}
+              questionNodeId={node.node_id}
+              questionKey={node.node_key}
+              stateToken={stateToken}
+              status="pending"
+            />
           ))}
           <section className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)]">
             Browser telemetry is moderation evidence only. It does not prove cheating and does not replace owner review.

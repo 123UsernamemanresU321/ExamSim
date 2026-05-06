@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireOwner } from "../_shared/auth.ts";
+import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
@@ -15,17 +15,21 @@ type Body = {
   typed_enabled?: boolean;
   per_question_upload_enabled?: boolean;
   require_blank_for_skipped?: boolean;
+  assigned_group_ids?: string[];
 };
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { admin } = await requireOwner(request);
+    const { user, admin } = await requireOwnerAal2(request);
     const body = await readJson<Body>(request);
-    if (!body.assessment_id || !body.version_id || !body.start_at_local || !body.assigned_profile_ids?.length) {
+    const assignedProfileIds = [...new Set(body.assigned_profile_ids ?? [])];
+    const assignedGroupIds = [...new Set(body.assigned_group_ids ?? [])];
+    if (!body.assessment_id || !body.version_id || !body.start_at_local || (!assignedProfileIds.length && !assignedGroupIds.length)) {
       return json({ error: "Missing publish fields" }, 400);
     }
+    const ownerProfile = await profileForAuthUser(user.id);
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
       .select("*")
@@ -33,6 +37,14 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
     if (version.requires_owner_review) return json({ error: "Owner review is required before publish" }, 400);
+
+    const { data: assessment, error: assessmentError } = await admin
+      .from("assessments")
+      .select("owner_profile_id")
+      .eq("id", body.assessment_id)
+      .single();
+    if (assessmentError) throw assessmentError;
+    if (assessment.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
 
     const start = new Date(body.start_at_local);
     const end = new Date(start.getTime() + body.duration_seconds * 1000);
@@ -47,10 +59,7 @@ serve(async (request) => {
       .eq("id", body.version_id);
     if (publishError) throw publishError;
 
-    const rows = body.assigned_profile_ids.map((profileId) => ({
-      assessment_id: body.assessment_id,
-      assessment_version_id: body.version_id,
-      assignee_profile_id: profileId,
+    const timing = {
       start_at_utc: start.toISOString(),
       duration_seconds: body.duration_seconds,
       end_at_utc: end.toISOString(),
@@ -61,6 +70,56 @@ serve(async (request) => {
       typed_enabled: body.typed_enabled ?? true,
       per_question_upload_enabled: body.per_question_upload_enabled ?? true,
       require_blank_for_skipped: body.require_blank_for_skipped ?? false,
+    };
+
+    const assignmentRows = [
+      ...assignedProfileIds.map((profileId) => ({
+        owner_profile_id: ownerProfile.id,
+        assessment_id: body.assessment_id,
+        assessment_version_id: body.version_id,
+        assignment_kind: "individual",
+        student_profile_id: profileId,
+        student_group_id: null,
+        ...timing,
+      })),
+      ...assignedGroupIds.map((groupId) => ({
+        owner_profile_id: ownerProfile.id,
+        assessment_id: body.assessment_id,
+        assessment_version_id: body.version_id,
+        assignment_kind: "group",
+        student_profile_id: null,
+        student_group_id: groupId,
+        ...timing,
+      })),
+    ];
+    const { data: assignments, error: assignmentError } = await admin
+      .from("assessment_assignments")
+      .insert(assignmentRows)
+      .select("*");
+    if (assignmentError) throw assignmentError;
+
+    const studentIds = new Set<string>(assignedProfileIds);
+    for (const groupId of assignedGroupIds) {
+      const { data: members, error: memberError } = await admin
+        .from("student_group_members")
+        .select("student_profile_id")
+        .eq("group_id", groupId);
+      if (memberError) throw memberError;
+      for (const member of members ?? []) studentIds.add(member.student_profile_id);
+    }
+
+    const assignmentByStudent = new Map<string, string | null>();
+    for (const assignment of assignments ?? []) {
+      if (assignment.student_profile_id) assignmentByStudent.set(assignment.student_profile_id, assignment.id);
+    }
+    const firstGroupAssignment = (assignments ?? []).find((assignment) => assignment.assignment_kind === "group")?.id ?? null;
+
+    const rows = [...studentIds].map((profileId) => ({
+      assessment_id: body.assessment_id,
+      assessment_version_id: body.version_id,
+      assessment_assignment_id: assignmentByStudent.get(profileId) ?? firstGroupAssignment,
+      assignee_profile_id: profileId,
+      ...timing,
     }));
     const { data: attempts, error: attemptError } = await admin.from("attempts").insert(rows).select("id");
     if (attemptError) throw attemptError;
@@ -69,6 +128,12 @@ serve(async (request) => {
         await admin.rpc("create_upload_slots_for_attempt", { target_attempt_id: attempt.id });
       }
     }
+    await auditOwnerAction(ownerProfile.id, user.id, "assessment.published", "assessment_versions", body.version_id, {
+      assessment_id: body.assessment_id,
+      assigned_profile_count: assignedProfileIds.length,
+      assigned_group_count: assignedGroupIds.length,
+      created_attempt_count: attempts?.length ?? 0,
+    });
     return json({ ok: true, attempt_ids: attempts?.map((attempt) => attempt.id) ?? [] });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "publish-assessment failed" }, 401);

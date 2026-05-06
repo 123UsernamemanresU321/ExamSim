@@ -6,16 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import type { StudentSummary } from "@/lib/live-data";
+import type { StudentGroupSummary, StudentSummary } from "@/lib/live-data";
 
 export function PublishAssessmentForm({
   assessmentId,
   versionId,
   students,
+  groups,
 }: {
   assessmentId: string;
   versionId: string;
   students: StudentSummary[];
+  groups: StudentGroupSummary[];
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -27,6 +29,7 @@ export function PublishAssessmentForm({
     setMessage("Publishing assessment...");
     const form = new FormData(event.currentTarget);
     const assignedProfileIds = form.getAll("assigned_profile_ids").map(String);
+    const assignedGroupIds = form.getAll("assigned_group_ids").map(String);
 
     const body = {
       assessment_id: assessmentId,
@@ -41,6 +44,7 @@ export function PublishAssessmentForm({
       typed_enabled: form.get("typed_enabled") === "on",
       per_question_upload_enabled: form.get("per_question_upload_enabled") === "on",
       require_blank_for_skipped: form.get("require_blank_for_skipped") === "on",
+      assigned_group_ids: assignedGroupIds,
     };
 
     const supabase = createSupabaseBrowserClient();
@@ -98,21 +102,29 @@ export function PublishAssessmentForm({
       </div>
       <Field label="Assign students">
         <div className="grid gap-2">
-          {students.length === 0 ? (
+          {students.length === 0 && groups.length === 0 ? (
             <p className="rounded-md border border-[var(--border)] bg-white p-3 text-sm text-[var(--muted)]">
-              No students yet. Create a student before publishing.
+              No students or groups yet. Create a student or group before publishing.
             </p>
           ) : (
-            students.map((student) => (
-              <label key={student.id} className="flex items-center gap-3 rounded-md border border-[var(--border)] bg-white p-3">
-                <input name="assigned_profile_ids" type="checkbox" value={student.id} />
-                <span>{student.display_name}</span>
-              </label>
-            ))
+            <>
+              {students.map((student) => (
+                <label key={student.id} className="flex items-center gap-3 rounded-md border border-[var(--border)] bg-white p-3">
+                  <input name="assigned_profile_ids" type="checkbox" value={student.id} />
+                  <span>{student.display_name}</span>
+                </label>
+              ))}
+              {groups.map((group) => (
+                <label key={group.id} className="flex items-center gap-3 rounded-md border border-[var(--border)] bg-white p-3">
+                  <input name="assigned_group_ids" type="checkbox" value={group.id} />
+                  <span>{group.name} group · {group.member_count} member(s)</span>
+                </label>
+              ))}
+            </>
           )}
         </div>
       </Field>
-      <Button type="submit" disabled={isSubmitting || students.length === 0}>
+      <Button type="submit" disabled={isSubmitting || (students.length === 0 && groups.length === 0)}>
         Publish immutable version
       </Button>
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}

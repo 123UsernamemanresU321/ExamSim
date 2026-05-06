@@ -1,15 +1,12 @@
+import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
 import { LoginForm } from "@/components/auth/login-form";
+import { LoginFormWithNext } from "@/components/auth/login-form-with-next";
+import { PasskeySignInButton } from "@/components/auth/passkey-panel";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 
-type LoginPageProps = {
-  searchParams: Promise<{ next?: string }>;
-};
-
-export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { next } = await searchParams;
-
+export default function LoginPage() {
   return (
     <>
       <AppHeader />
@@ -22,7 +19,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 Owners use a real email and password. Enforce MFA/AAL2 before production publish and assignment.
               </CardDescription>
             </CardHeader>
-            <LoginForm nextPath={next} />
+            <Suspense fallback={<LoginForm />}>
+              <LoginFormWithNext />
+            </Suspense>
           </section>
           <section className="md:pl-2">
             <CardHeader>
@@ -39,6 +38,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <ButtonLink href="/activate" variant="secondary">
                 Activate student account
               </ButtonLink>
+              <PasskeySignInButton />
             </div>
           </section>
         </Card>

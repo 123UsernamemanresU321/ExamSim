@@ -28,6 +28,15 @@ The local Playwright/demo bypass is controlled by `EXAM_VAULT_DEMO_MODE=1`; the 
 Neither mode grants database access. Real data and sensitive actions still require Supabase Auth, RLS, and Edge Function
 checks.
 
+## Owner MFA
+
+Production Browser Mode requires owner AAL2/TOTP before sensitive owner actions: creating students, creating groups,
+publishing and assigning assessments, saving marking changes, exporting marking packets, exporting mark CSVs, and
+releasing feedback. The browser can show MFA setup and status, but Edge Functions enforce AAL2 from the JWT claim.
+
+Students use owner-managed aliases and passwords by default. Passkeys are optional beta after activation and must keep a
+password fallback until the Supabase passkey API is stable enough for the deployment.
+
 ## RLS Model
 
 RLS is enabled on all public tables. Owners can manage their own assessment estate. Students can read their own profile and assigned attempt metadata. Sensitive content and privileged changes go through Edge Functions. Attempt events are append-only for students.
@@ -35,6 +44,9 @@ RLS is enabled on all public tables. Owners can manage their own assessment esta
 ## Private Bucket Model
 
 Real assessment material and submissions stay in private buckets. Public URLs are not used. Signed URLs are issued on demand and only after state, ownership, slot, and policy checks.
+
+Upload slots enforce one PDF per question/subquestion, max 10MB. A confirmed upload or blank placeholder locks the slot;
+replacement is not supported in production v1.
 
 ## State Token Model
 
@@ -49,7 +61,6 @@ verify the token signature and still recompute state/ownership server-side befor
 
 ## Future Hardening
 
-- Owner MFA/AAL2 before publish and assignment.
-- Passkey enrollment after student activation.
+- External rate limiting and anomaly alerts around Edge Functions.
 - External KMS envelope encryption for high-value assessment packages.
-- Robust audit logging and rate limiting at Edge Function boundaries.
+- Formal legal review before under-13 learners, school records, or third-party marketing integrations are introduced.

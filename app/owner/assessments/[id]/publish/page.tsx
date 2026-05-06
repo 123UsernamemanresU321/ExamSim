@@ -1,7 +1,7 @@
 import { PublishAssessmentForm } from "@/components/owner/publish-assessment-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { getAssessmentWorkspace, listOwnerStudents } from "@/lib/live-data";
+import { getAssessmentWorkspace, listOwnerStudentGroups, listOwnerStudents } from "@/lib/live-data";
 import { demoAssessmentParams } from "@/lib/static-params";
 
 export function generateStaticParams() {
@@ -10,7 +10,11 @@ export function generateStaticParams() {
 
 export default async function PublishAssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [workspace, students] = await Promise.all([getAssessmentWorkspace(id), listOwnerStudents()]);
+  const [workspace, students, groups] = await Promise.all([
+    getAssessmentWorkspace(id),
+    listOwnerStudents(),
+    listOwnerStudentGroups(),
+  ]);
   const version = workspace?.latestVersion;
   return (
     <>
@@ -20,7 +24,7 @@ export default async function PublishAssessmentPage({ params }: { params: Promis
       />
       <Card>
         {workspace && version ? (
-          <PublishAssessmentForm assessmentId={workspace.assessment.id} versionId={version.id} students={students} />
+          <PublishAssessmentForm assessmentId={workspace.assessment.id} versionId={version.id} students={students} groups={groups} />
         ) : (
           <p className="text-sm text-[var(--muted)]">No draft version is available to publish.</p>
         )}

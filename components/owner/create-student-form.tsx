@@ -26,7 +26,7 @@ export function CreateStudentForm() {
     const displayName = String(form.get("display_name") ?? "").trim();
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase.functions.invoke<CreatedStudent>("create-student", {
-      body: { display_name: displayName },
+      body: { display_name: displayName, student_13_plus_attested: form.get("student_13_plus_attested") === "on" },
     });
 
     setIsSubmitting(false);
@@ -45,6 +45,13 @@ export function CreateStudentForm() {
       <Field label="Display name">
         <Input name="display_name" placeholder="Student name" required />
       </Field>
+      <label className="flex items-start gap-3 rounded-md border border-[var(--border)] bg-white p-3 text-sm leading-6">
+        <input className="mt-1" name="student_13_plus_attested" type="checkbox" required />
+        <span>
+          I attest this student is 13 or older for production Browser Mode v1. Exam Vault stores this attestation, not
+          a date of birth.
+        </span>
+      </label>
       <Button type="submit" disabled={isSubmitting}>
         <UserPlus size={16} aria-hidden="true" />
         Generate login and activation code

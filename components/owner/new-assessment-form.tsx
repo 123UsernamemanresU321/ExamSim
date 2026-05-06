@@ -102,6 +102,17 @@ export function NewAssessmentForm() {
           <Textarea name="source_text" placeholder="Paste LaTeX or normalized JSON package here." required />
         </Field>
       ) : null}
+      {sourceKind === "json" ? (
+        <Link className="text-sm font-semibold text-[var(--primary)]" href="/templates/normalized-assessment.json">
+          Download normalized JSON template
+        </Link>
+      ) : null}
+      {sourceKind === "pdf" ? (
+        <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
+          PDF parsing queues a self-hosted MinerU job when a private Storage path is provided. The parsed structure
+          remains review-required before publish.
+        </div>
+      ) : null}
       <Button className="justify-self-start" type="submit" disabled={isSubmitting}>
         Create draft version
       </Button>

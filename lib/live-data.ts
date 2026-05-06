@@ -8,10 +8,15 @@ import type {
   Assessment,
   AssessmentVersion,
   Attempt,
+  FeedbackRelease,
+  Mark,
   ModerationReport,
   Profile,
   QuestionNodeRow,
+  SubmissionAnnotation,
   StudentCredential,
+  StudentGroup,
+  StudentGroupMember,
   TextResponse,
   UploadSlot,
 } from "@/types/database";
@@ -21,6 +26,14 @@ export type StudentSummary = {
   display_name: string;
   login_code: string;
   activated_at: string | null;
+};
+
+export type StudentGroupSummary = {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+  members: { id: string; display_name: string }[];
 };
 
 export type AssessmentSummary = {
@@ -66,6 +79,9 @@ export type AttemptReviewWorkspace = {
   textResponses: TextResponse[];
   moderationReport: ModerationReport | null;
   package: NormalizedAssessmentPackage | null;
+  marks: Mark[];
+  annotations: SubmissionAnnotation[];
+  feedbackRelease: FeedbackRelease | null;
 };
 
 function demoAssessmentSummary(): AssessmentSummary {
@@ -172,6 +188,61 @@ export async function listOwnerStudents(): Promise<StudentSummary[]> {
     });
   } catch (error) {
     if (isDemoModeEnabled()) return [...sampleStudents];
+    throw error;
+  }
+}
+
+export async function listOwnerStudentGroups(): Promise<StudentGroupSummary[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: groups, error: groupError } = await supabase
+      .from("student_groups")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (groupError) throw groupError;
+
+    const groupIds = (groups ?? []).map((group) => group.id);
+    const membersByGroup = new Map<string, StudentGroupMember[]>();
+    const profileIds = new Set<string>();
+    if (groupIds.length > 0) {
+      const { data: members, error: memberError } = await supabase
+        .from("student_group_members")
+        .select("*")
+        .in("group_id", groupIds);
+      if (memberError) throw memberError;
+      for (const member of members ?? []) {
+        profileIds.add(member.student_profile_id);
+        const existing = membersByGroup.get(member.group_id) ?? [];
+        existing.push(member);
+        membersByGroup.set(member.group_id, existing);
+      }
+    }
+
+    const profileById = new Map<string, Profile>();
+    if (profileIds.size > 0) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", [...profileIds]);
+      if (profileError) throw profileError;
+      for (const profile of profiles ?? []) profileById.set(profile.id, profile);
+    }
+
+    return (groups ?? []).map((group: StudentGroup) => {
+      const members = membersByGroup.get(group.id) ?? [];
+      return {
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        member_count: members.length,
+        members: members.map((member) => ({
+          id: member.student_profile_id,
+          display_name: profileById.get(member.student_profile_id)?.display_name ?? "Student",
+        })),
+      };
+    });
+  } catch (error) {
+    if (isDemoModeEnabled()) return [];
     throw error;
   }
 }
@@ -385,6 +456,9 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       textResponses: [],
       moderationReport: null,
       package: samplePackage,
+      marks: [],
+      annotations: [],
+      feedbackRelease: null,
     };
   }
 
@@ -392,7 +466,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attemptRow) {
-    return { attempt: null, questionNodes: [], uploadSlots: [], textResponses: [], moderationReport: null, package: null };
+    return { attempt: null, questionNodes: [], uploadSlots: [], textResponses: [], moderationReport: null, package: null, marks: [], annotations: [], feedbackRelease: null };
   }
 
   const [attempt] = await mapAttemptCollections([attemptRow]);
@@ -402,6 +476,9 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     { data: textResponses, error: responseError },
     { data: moderationReport, error: reportError },
     { data: version, error: versionError },
+    { data: marks, error: marksError },
+    { data: annotations, error: annotationsError },
+    { data: feedbackRelease, error: feedbackError },
   ] = await Promise.all([
     supabase
       .from("question_nodes")
@@ -412,12 +489,18 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     supabase.from("text_responses").select("*").eq("attempt_id", attemptId).order("saved_at", { ascending: true }),
     supabase.from("moderation_reports").select("*").eq("attempt_id", attemptId).maybeSingle(),
     supabase.from("assessment_versions").select("*").eq("id", attemptRow.assessment_version_id).maybeSingle(),
+    supabase.from("marks").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
+    supabase.from("submission_annotations").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
+    supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).maybeSingle(),
   ]);
   if (nodeError) throw nodeError;
   if (slotError) throw slotError;
   if (responseError) throw responseError;
   if (reportError) throw reportError;
   if (versionError) throw versionError;
+  if (marksError) throw marksError;
+  if (annotationsError) throw annotationsError;
+  if (feedbackError) throw feedbackError;
 
   return {
     attempt,
@@ -426,5 +509,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     textResponses: textResponses ?? [],
     moderationReport: moderationReport ?? null,
     package: packageFromVersion(version ?? null),
+    marks: marks ?? [],
+    annotations: annotations ?? [],
+    feedbackRelease: feedbackRelease ?? null,
   };
 }

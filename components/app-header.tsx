@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ButtonLink } from "@/components/ui/button";
 
 export function AppHeader() {
@@ -22,6 +23,7 @@ export function AppHeader() {
           <ButtonLink href="/student" variant="secondary">
             Student
           </ButtonLink>
+          <SignOutButton />
         </nav>
       </div>
     </header>

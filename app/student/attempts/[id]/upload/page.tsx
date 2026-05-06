@@ -13,7 +13,7 @@ export function generateStaticParams() {
 
 export default async function UploadOnlyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { attempt, package: assessmentPackage } = await getAttemptScreenData(id, true);
+  const { attempt, package: assessmentPackage, stateToken } = await getAttemptScreenData(id, true);
   const uploadNodes = assessmentPackage
     ? flattenQuestionNodes(assessmentPackage.questions).filter((node) => node.response_mode.includes("upload"))
     : [];
@@ -43,7 +43,16 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
               No upload slots are available.
             </div>
           ) : (
-            uploadNodes.map((node) => <UploadSlotCard key={node.node_id} questionKey={node.node_key} status="pending" />)
+            uploadNodes.map((node) => (
+              <UploadSlotCard
+                key={node.node_id}
+                attemptId={id}
+                questionNodeId={node.node_id}
+                questionKey={node.node_key}
+                stateToken={stateToken}
+                status="pending"
+              />
+            ))
           )}
         </aside>
       </div>
