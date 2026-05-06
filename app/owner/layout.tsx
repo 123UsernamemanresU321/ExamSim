@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { BarChart3, FileText, LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
+import { requireAppRole } from "@/lib/auth/server";
 
 const ownerNav = [
   { href: "/owner", label: "Dashboard", Icon: LayoutDashboard },
@@ -9,7 +10,9 @@ const ownerNav = [
   { href: "/owner/attempts", label: "Attempts", Icon: BarChart3 },
 ];
 
-export default function OwnerLayout({ children }: { children: React.ReactNode }) {
+export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
+  await requireAppRole("owner", "/owner");
+
   return (
     <>
       <AppHeader />

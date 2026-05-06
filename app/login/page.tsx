@@ -3,7 +3,13 @@ import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{ next?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { next } = await searchParams;
+
   return (
     <>
       <AppHeader />
@@ -16,7 +22,7 @@ export default function LoginPage() {
                 Owners use a real email and password. Enforce MFA/AAL2 before production publish and assignment.
               </CardDescription>
             </CardHeader>
-            <LoginForm />
+            <LoginForm nextPath={next} />
           </section>
           <section className="md:pl-2">
             <CardHeader>

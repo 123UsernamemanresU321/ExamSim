@@ -1,8 +1,11 @@
 import { AppHeader } from "@/components/app-header";
 import { ClipboardList, Home, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { requireAppRole } from "@/lib/auth/server";
 
-export default function StudentLayout({ children }: { children: React.ReactNode }) {
+export default async function StudentLayout({ children }: { children: React.ReactNode }) {
+  await requireAppRole("student", "/student");
+
   return (
     <>
       <AppHeader />

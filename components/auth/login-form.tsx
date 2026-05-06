@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
+import { postLoginRedirectForRole } from "@/lib/auth/routing";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export function LoginForm() {
+type LoginFormProps = {
+  nextPath?: string | null;
+};
+
+export function LoginForm({ nextPath }: LoginFormProps) {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -15,12 +22,33 @@ export function LoginForm() {
     setMessage("Checking credentials...");
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({
         email: String(form.get("email")),
         password: String(form.get("password")),
       });
-      if (error) setMessage(error.message);
-      else setMessage("Signed in. Route guards will direct you to your workspace.");
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      if (!signInData.user) {
+        setMessage("Signed in, but Supabase did not return a user session.");
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("app_role")
+        .eq("auth_user_id", signInData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        setMessage("Signed in, but no Exam Vault profile was found for this account.");
+        return;
+      }
+
+      setMessage("Signed in. Opening your workspace...");
+      router.replace(postLoginRedirectForRole(profile.app_role, nextPath));
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Login is unavailable.");
     }
