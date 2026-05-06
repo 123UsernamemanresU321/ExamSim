@@ -113,6 +113,32 @@ Supabase session. Production never honors this bypass.
 - Use private Storage and Edge Functions for all sensitive content and upload paths.
 - Database backups do not automatically back up Supabase Storage objects. Back up Storage separately.
 
+## Vercel
+
+Vercel is the preferred production host for the full Next.js app. The linked Vercel project should use the normal
+Next.js build, not the GitHub Pages static export path.
+
+Build settings:
+
+```bash
+Install command: npm ci
+Build command: npm run build
+Output: .next
+```
+
+Set these Vercel environment variables for Production, Preview, and Development:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_DEFAULT_TIMEZONE
+```
+
+Do not set `NEXT_PUBLIC_DEPLOY_TARGET=github-pages` or `NEXT_PUBLIC_STATIC_EXPORT=1` on Vercel. Keep
+`SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, and `ATTEMPT_STATE_TOKEN_SECRET` out of Vercel unless a future Vercel-side
+server workflow explicitly requires them. The current sensitive workflows run in Supabase Edge Functions, where those
+server-side secrets belong.
+
 ## GitHub Pages
 
 GitHub Pages is static hosting, so it cannot run Next.js API routes, proxy middleware, server actions, or server-side
