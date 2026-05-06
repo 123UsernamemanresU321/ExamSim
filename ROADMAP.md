@@ -13,32 +13,33 @@
 
 ## Phase 2: Robust Parsing Worker
 
-- External parse queue.
-- Self-hosted MinerU worker deployment and monitoring.
+- External parse queue and RunPod-ready MinerU worker are implemented.
+- Add production monitoring, retry backoff, and GPU cost controls for the worker.
 - PDF.js or PyMuPDF fallback page analysis.
-- AI fallback only after deterministic parsing, with owner review required.
+- DeepSeek AI parse suggestions are implemented as review-required evidence only.
 
 ## Phase 3: SEB Secure Mode
 
-- Validate Browser Exam Key and Config Key server-side.
-- Block `seb_required` package release unless verification passes.
+- Validate Browser Exam Key and Config Key server-side. Implemented for package release.
+- Block `seb_required` package release unless verification passes. Implemented.
 - Document deployment-specific SEB configuration.
 
 ## Phase 4: Passkeys and MFA
 
 - Owner MFA recovery/admin procedures and alerting.
-- Optional student passkey enrollment after activation, kept beta until the Supabase passkey API is stable.
+- Optional student passkey enrollment after activation uses the current Supabase `auth.passkey` namespace when available,
+  with alias/password fallback.
 - Stronger recovery flows.
 
 ## Phase 5: QTI Import and Export
 
-- Map normalized JSON nodes to QTI concepts.
-- Import QTI packages into draft assessment versions.
-- Export published versions for external systems.
+- Conservative QTI import and export are implemented.
+- Improve QTI interaction mapping for rich item types and scoring metadata.
+- Add fixture coverage from real IB/Olympiad-adjacent QTI packages.
 
 ## Phase 6: External KMS
 
-- Envelope encryption for assessment packages and marking packets.
+- Cloudflare Worker KMS envelope wrapping is implemented for normalized package object writes and marking packet ZIPs.
 - Key rotation and audit trails.
 
 ## Phase 7: AI-Assisted Marking

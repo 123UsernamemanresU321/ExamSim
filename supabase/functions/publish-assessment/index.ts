@@ -16,6 +16,8 @@ type Body = {
   per_question_upload_enabled?: boolean;
   require_blank_for_skipped?: boolean;
   assigned_group_ids?: string[];
+  seb_browser_exam_key_hashes?: string[];
+  seb_config_key_hashes?: string[];
 };
 
 serve(async (request) => {
@@ -70,6 +72,8 @@ serve(async (request) => {
       typed_enabled: body.typed_enabled ?? true,
       per_question_upload_enabled: body.per_question_upload_enabled ?? true,
       require_blank_for_skipped: body.require_blank_for_skipped ?? false,
+      seb_browser_exam_key_hashes: normalizeHashList(body.seb_browser_exam_key_hashes),
+      seb_config_key_hashes: normalizeHashList(body.seb_config_key_hashes),
     };
 
     const assignmentRows = [
@@ -139,3 +143,7 @@ serve(async (request) => {
     return json({ error: error instanceof Error ? error.message : "publish-assessment failed" }, 401);
   }
 });
+
+function normalizeHashList(values: string[] | undefined) {
+  return [...new Set((values ?? []).flatMap((value) => value.split(/[\s,]+/)).map((value) => value.trim()).filter(Boolean))];
+}

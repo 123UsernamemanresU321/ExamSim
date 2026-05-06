@@ -182,17 +182,21 @@ serve(async (request) => {
             questions: [],
           };
 
+    const versionId = crypto.randomUUID();
+    const packageStorage = await storeNormalizedPackageObject(admin, profile.id, versionId, normalizedPackage);
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
       .insert({
+        id: versionId,
         assessment_id: assessment.id,
         version_no: 1,
         status: requiresReview ? "review_required" : "draft",
         source_kind: body.source_kind,
         source_object_path: body.uploaded_source_path ?? null,
-        normalized_package_json: normalizedPackage,
+        normalized_package_json: packageStorage.encrypted_package_path ? null : normalizedPackage,
         parse_confidence: parseConfidence,
         requires_owner_review: requiresReview,
+        ...packageStorage,
       })
       .select("*")
       .single();
@@ -287,4 +291,82 @@ function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: st
     }
   });
   return flattened;
+}
+
+async function storeNormalizedPackageObject(
+  admin: {
+    storage: {
+      from(bucket: string): {
+        upload(path: string, body: Uint8Array, options: { contentType: string; upsert: boolean }): Promise<{ error: Error | null }>;
+      };
+    };
+    from(table: "encrypted_object_envelopes"): {
+      insert(row: Record<string, unknown>): {
+        select(columns: string): {
+          single(): Promise<{ data: { id: string } | null; error: Error | null }>;
+        };
+      };
+    };
+  },
+  ownerProfileId: string,
+  versionId: string,
+  normalizedPackage: unknown,
+) {
+  const plaintext = new TextEncoder().encode(JSON.stringify(normalizedPackage, null, 2));
+  const basePath = `${ownerProfileId}/versions/${versionId}/normalized-package.json`;
+  const encrypted = await maybeEncrypt(plaintext);
+  const objectPath = encrypted ? `${basePath}.enc` : basePath;
+  const { error } = await admin.storage.from("assessment-packages").upload(objectPath, encrypted?.ciphertextBytes ?? plaintext, {
+    contentType: encrypted ? "application/octet-stream" : "application/json",
+    upsert: false,
+  });
+  if (error) throw error;
+  if (encrypted) {
+    const { error: envelopeError } = await admin
+      .from("encrypted_object_envelopes")
+      .insert({
+        owner_profile_id: ownerProfileId,
+        bucket_id: "assessment-packages",
+        object_path: objectPath,
+        kms_provider: "cloudflare",
+        algorithm: "AES-GCM",
+        wrapped_data_key: encrypted.wrappedDataKey,
+        iv: encrypted.iv,
+        metadata_json: { purpose: "assessment_package", assessment_version_id: versionId },
+      })
+      .select("id")
+      .single();
+    if (envelopeError) throw envelopeError;
+    return {
+      encrypted_package_path: objectPath,
+      kms_provider: "cloudflare",
+      wrapped_data_key: encrypted.wrappedDataKey,
+      encryption_metadata_json: { algorithm: "AES-GCM", iv: encrypted.iv, purpose: "assessment_package" },
+    };
+  }
+  return { normalized_package_path: objectPath };
+}
+
+async function maybeEncrypt(plaintextBytes: Uint8Array) {
+  if (Deno.env.get("EXTERNAL_KMS_PROVIDER") !== "cloudflare") return null;
+  const wrapUrl = Deno.env.get("EXTERNAL_KMS_WRAP_URL");
+  const adminToken = Deno.env.get("EXTERNAL_KMS_ADMIN_TOKEN");
+  if (!wrapUrl || !adminToken) throw new Error("Cloudflare KMS wrapper is not configured");
+  const dataKey = crypto.getRandomValues(new Uint8Array(32));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey("raw", dataKey, "AES-GCM", false, ["encrypt"]);
+  const ciphertextBytes = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintextBytes));
+  const wrapResponse = await fetch(wrapUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ plaintextDataKey: base64(dataKey) }),
+  });
+  if (!wrapResponse.ok) throw new Error("Cloudflare KMS key wrap failed");
+  const wrapped = await wrapResponse.json();
+  if (typeof wrapped.wrappedDataKey !== "string") throw new Error("Cloudflare KMS returned invalid wrapped key");
+  return { ciphertextBytes, wrappedDataKey: wrapped.wrappedDataKey, iv: base64(iv) };
+}
+
+function base64(value: Uint8Array) {
+  return btoa(Array.from(value, (byte) => String.fromCharCode(byte)).join(""));
 }

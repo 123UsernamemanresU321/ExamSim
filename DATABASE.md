@@ -1,7 +1,9 @@
 # Database
 
 The base migration is `supabase/migrations/202605050001_initial_schema.sql`. Production Browser Mode additions live in
-`supabase/migrations/202605060001_production_browser_mode.sql`.
+`supabase/migrations/202605060001_production_browser_mode.sql`. Production completion additions for SEB, AI parse,
+QTI, KMS envelopes, and marking packet exports live in
+`supabase/migrations/202605060002_full_production_completion.sql`.
 
 ## Tables
 
@@ -29,6 +31,9 @@ The base migration is `supabase/migrations/202605050001_initial_schema.sql`. Pro
 - `feedback_releases`
 - `parse_jobs`
 - `parse_job_artifacts`
+- `ai_parse_suggestions`
+- `encrypted_object_envelopes`
+- `marking_packet_exports`
 - `owner_audit_logs`
 - `retention_requests`
 
@@ -71,6 +76,11 @@ feedback releases, parser jobs, and owner audit logs.
 - `marks` and `feedback_releases` store owner-controlled marking totals; feedback is invisible to students until released.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
+- `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.
+- `attempts` stores expected SEB Browser Exam Key and Config Key hashes for `seb_required` delivery.
+- `assessment_versions` can point at encrypted normalized package objects and associated wrapped data keys.
+- `encrypted_object_envelopes` tracks Cloudflare KMS envelope metadata for encrypted package and marking packet objects.
+- `marking_packet_exports` records owner-only generated ZIP packet paths and audit metadata.
 
 ## Backup Warning
 

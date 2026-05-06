@@ -14,6 +14,7 @@ Browser Mode is tamper-evident, not tamper-proof. The browser records moderation
 - Unit tests for attempt state, countdown target, package validation, upload slot uniqueness, and moderation aggregation.
 - Playwright scaffold for the critical owner/student flows.
 - Production Browser Mode hardening: owner MFA/AAL2 gates, group assignments, strict one-PDF-per-question uploads, marking/rubric scaffolding, feedback release, audit logs, passkey beta UI, legal pages, and MinerU worker scaffolding.
+- Production completion scaffolding: RunPod MinerU worker, DeepSeek AI parse review, SEB key validation, conservative QTI import/export, Cloudflare Worker KMS wrapping, and real marking-packet ZIP generation.
 
 ## Environment Variables
 
@@ -25,28 +26,51 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_DEFAULT_TIMEZONE=Africa/Johannesburg
 ```
 
-Server-only:
+Server-only application and Supabase Edge secrets:
 
 ```bash
 SUPABASE_SERVICE_ROLE_KEY=
 OWNER_EMAIL=
 ATTEMPT_STATE_TOKEN_SECRET=
 MINERU_WORKER_SECRET=
+DEEPSEEK_API_KEY=
+AI_PARSE_PROVIDER=deepseek
+AI_PARSE_MODEL=deepseek-v4-flash
+AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
+EXTERNAL_KMS_PROVIDER=cloudflare
+EXTERNAL_KMS_WRAP_URL=
+EXTERNAL_KMS_UNWRAP_URL=
+EXTERNAL_KMS_ADMIN_TOKEN=
+```
+
+RunPod MinerU worker environment:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+MINERU_WORKER_SECRET=
+MINERU_MODEL_SOURCE=huggingface
+POLL_INTERVAL_SECONDS=20
+```
+
+Cloudflare KMS worker secrets and deploy-only variables:
+
+```bash
+KMS_WRAPPING_KEY=
+KMS_ADMIN_TOKEN=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
 ```
 
 Optional future integrations:
 
 ```bash
-OCR_WORKER_URL=
-AI_PARSE_PROVIDER=
-AI_PARSE_API_KEY=
 SMTP_HOST=
 SMTP_USER=
 SMTP_PASS=
-EXTERNAL_KMS_KEY_ID=
 ```
 
-Never expose `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, or `ATTEMPT_STATE_TOKEN_SECRET` to client code.
+Never expose `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, `ATTEMPT_STATE_TOKEN_SECRET`, `DEEPSEEK_API_KEY`, `EXTERNAL_KMS_ADMIN_TOKEN`, or Cloudflare worker secrets to client code.
 
 ## Local Setup
 
@@ -70,6 +94,17 @@ supabase link --project-ref kpnviarxgslwwcrzrgpo
 supabase db push
 supabase functions deploy
 ```
+
+Set Supabase Edge Function secrets with the Supabase CLI:
+
+```bash
+supabase secrets set DEEPSEEK_API_KEY=...
+supabase secrets set AI_PARSE_PROVIDER=deepseek AI_PARSE_MODEL=deepseek-v4-flash AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
+supabase secrets set MINERU_WORKER_SECRET=...
+supabase secrets set EXTERNAL_KMS_PROVIDER=cloudflare EXTERNAL_KMS_WRAP_URL=https://<worker>/wrap EXTERNAL_KMS_UNWRAP_URL=https://<worker>/unwrap EXTERNAL_KMS_ADMIN_TOKEN=...
+```
+
+No MinerU API token is required for the self-hosted RunPod worker. MinerU runs inside your worker container and uses short-lived private Supabase Storage URLs.
 
 Provision the configured owner after migrations are applied:
 
@@ -154,6 +189,10 @@ Cloudflare CNAME and TLS verification steps.
 - Upload slots accept exactly one PDF, max 10MB. Successful upload or blank submission locks the slot.
 - Students are owner-managed, 13+ only, and use login alias plus password by default. Passkeys are optional beta after activation.
 - PDF/OCR parsing is asynchronous draft evidence. The self-hosted MinerU worker writes artifacts to private Storage, and owner review remains mandatory before publish.
+- DeepSeek AI parse suggestions are stored as review-required evidence only. They never publish or replace owner review automatically.
+- `seb_required` attempts require server-side Browser Exam Key and Config Key hash validation before package release.
+- QTI import creates review-required drafts; QTI export is conservative and includes the Exam Vault normalized package JSON for lossless metadata recovery.
+- Marking packet export creates a private ZIP. If the Cloudflare KMS wrapper is configured, the ZIP object is envelope-encrypted before upload.
 - Feedback is hidden until the owner explicitly releases it.
 
 ## GitHub Pages

@@ -30,6 +30,8 @@ export type Attempt = {
   typed_enabled: boolean;
   per_question_upload_enabled: boolean;
   require_blank_for_skipped: boolean;
+  seb_browser_exam_key_hashes: string[];
+  seb_config_key_hashes: string[];
   state_cache: AttemptState | null;
   created_at: string;
   updated_at: string;
@@ -83,6 +85,10 @@ export type AssessmentVersion = {
   source_object_path: string | null;
   normalized_package_path: string | null;
   normalized_package_json: Json | null;
+  encrypted_package_path: string | null;
+  kms_provider: string | null;
+  wrapped_data_key: string | null;
+  encryption_metadata_json: Json;
   parse_confidence: number | null;
   requires_owner_review: boolean;
   published_at: string | null;
@@ -260,7 +266,7 @@ export type ParseJob = {
   assessment_version_id: string;
   owner_profile_id: string;
   source_object_path: string;
-  parser: "mineru" | "latex_deterministic" | "json_validator";
+  parser: "mineru" | "latex_deterministic" | "json_validator" | "deepseek_ai" | "qti_import";
   status: "queued" | "running" | "succeeded" | "failed" | "review_required";
   requested_ocr: boolean;
   error_message: string | null;
@@ -274,7 +280,7 @@ export type ParseJob = {
 export type ParseJobArtifact = {
   id: string;
   parse_job_id: string;
-  artifact_kind: "markdown" | "json" | "html" | "layout" | "log";
+  artifact_kind: "markdown" | "json" | "html" | "layout" | "log" | "ai_json" | "qti_zip";
   object_path: string;
   content_preview: string | null;
   created_at: string;
@@ -301,6 +307,47 @@ export type RetentionRequest = {
   notes: string | null;
   created_at: string;
   completed_at: string | null;
+};
+
+export type AiParseSuggestion = {
+  id: string;
+  assessment_version_id: string;
+  parse_job_id: string | null;
+  owner_profile_id: string;
+  provider: string;
+  model: string;
+  source_kind: "pdf" | "latex" | "json" | "mineru";
+  normalized_package_json: Json;
+  confidence: number;
+  warnings_json: Json;
+  review_required: boolean;
+  status: "proposed" | "applied" | "rejected";
+  created_at: string;
+};
+
+export type EncryptedObjectEnvelope = {
+  id: string;
+  owner_profile_id: string;
+  bucket_id: string;
+  object_path: string;
+  kms_provider: "cloudflare";
+  algorithm: "AES-GCM";
+  wrapped_data_key: string;
+  iv: string;
+  metadata_json: Json;
+  created_at: string;
+};
+
+export type MarkingPacketExport = {
+  id: string;
+  attempt_id: string;
+  owner_profile_id: string;
+  bucket_id: string;
+  object_path: string;
+  encrypted: boolean;
+  encrypted_envelope_id: string | null;
+  manifest_json: Json;
+  created_at: string;
 };
 
 export type ModerationReport = {
@@ -480,6 +527,24 @@ export type Database = {
         Row: RetentionRequest;
         Insert: Partial<RetentionRequest> & Pick<RetentionRequest, "owner_profile_id" | "requested_by_profile_id" | "target_type" | "target_id" | "status">;
         Update: Partial<RetentionRequest>;
+        Relationships: [];
+      };
+      ai_parse_suggestions: {
+        Row: AiParseSuggestion;
+        Insert: Partial<AiParseSuggestion> & Pick<AiParseSuggestion, "assessment_version_id" | "owner_profile_id" | "model" | "source_kind" | "normalized_package_json" | "confidence">;
+        Update: Partial<AiParseSuggestion>;
+        Relationships: [];
+      };
+      encrypted_object_envelopes: {
+        Row: EncryptedObjectEnvelope;
+        Insert: Partial<EncryptedObjectEnvelope> & Pick<EncryptedObjectEnvelope, "owner_profile_id" | "bucket_id" | "object_path" | "kms_provider" | "algorithm" | "wrapped_data_key" | "iv">;
+        Update: Partial<EncryptedObjectEnvelope>;
+        Relationships: [];
+      };
+      marking_packet_exports: {
+        Row: MarkingPacketExport;
+        Insert: Partial<MarkingPacketExport> & Pick<MarkingPacketExport, "attempt_id" | "owner_profile_id" | "object_path" | "manifest_json">;
+        Update: Partial<MarkingPacketExport>;
         Relationships: [];
       };
     };

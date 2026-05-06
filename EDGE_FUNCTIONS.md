@@ -16,7 +16,8 @@ Public activation boundary. Input: `{ login_code, activation_code, new_password 
 
 Owner only. Creates assessment and draft version from JSON, LaTeX, PDF path, or pasted source. JSON is Zod-validated.
 LaTeX parsing is deterministic and conservative for common Olympiad/IB patterns. PDF parsing creates a review-required
-stub and a `parse_jobs` row for the self-hosted MinerU worker.
+stub and a `parse_jobs` row for the self-hosted MinerU worker. Normalized package objects are written to private
+Storage; when the Cloudflare KMS wrapper is configured, package object writes are envelope-encrypted.
 
 ## update-question-tree
 
@@ -37,7 +38,9 @@ Student only for own attempt. Creates a session and stores hashes for user agent
 
 ## get-attempt-package
 
-Student only for own attempt. Validates ownership, fresh state, token, and delivery mode. Denies content during `WAITING`. Returns normalized package only when server state permits.
+Student only for own attempt. Validates ownership, fresh state, token, and delivery mode. Denies content during
+`WAITING`. Returns normalized package only when server state permits. `seb_required` attempts additionally require
+matching Browser Exam Key and Config Key hashes from SEB headers or the JavaScript API relay payload.
 
 ## issue-upload-slot-url
 
@@ -79,6 +82,23 @@ members. Group assignment later expands to one attempt per student.
 Worker-secret only. Used by the self-hosted MinerU worker to mark parse jobs succeeded, failed, or review-required and
 attach private Storage artifact paths. MinerU output is draft parse evidence; owner review remains mandatory.
 
+## ai-parse-assessment
+
+Owner AAL2 only. Calls DeepSeek through its OpenAI-compatible chat completions API using Supabase Edge secrets. Inputs
+can include current normalized JSON, LaTeX source, MinerU artifact text, or owner notes. Stores a review-required
+`ai_parse_suggestions` row and a parse job record. It never publishes AI output directly.
+
+## qti-import-assessment
+
+Owner AAL2 only. Accepts a QTI ZIP as base64, reads `imsmanifest.xml`, creates an assessment and review-required draft
+version, stores the original QTI ZIP in private `assessment-sources`, and creates conservative question nodes for owner
+review.
+
+## qti-export-assessment
+
+Owner AAL2 only. Converts a normalized package into a conservative QTI ZIP with `imsmanifest.xml`, item XML files, and
+`exam-vault-normalized-package.json`, stores the ZIP in private `marking-packets`, and returns a short-lived signed URL.
+
 ## save-marking
 
 Owner AAL2 only. Saves marks and submission annotations for an attempt. Does not release student-visible feedback.
@@ -101,5 +121,6 @@ Owner or scheduled job. Aggregates telemetry, upload slots, hidden time, heartbe
 
 ## owner-download-marking-packet
 
-Owner AAL2 only. Returns secure access instructions or a JSON packet for original package, question tree, typed
-responses, uploads, marks, feedback, and moderation report. ZIP generation is a documented next step.
+Owner AAL2 only. Builds a real ZIP containing the assessment package, question tree, typed responses, upload manifest,
+short-lived upload download links, moderation report, marks, annotations, feedback release state, and audit manifest.
+If the Cloudflare KMS wrapper is configured, the ZIP object is AES-GCM encrypted before it is written to private Storage.

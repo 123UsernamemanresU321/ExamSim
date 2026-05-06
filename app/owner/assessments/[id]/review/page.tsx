@@ -1,3 +1,4 @@
+import { AiParseReviewPanel } from "@/components/owner/ai-parse-review-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
@@ -43,6 +44,7 @@ export default async function ParseReviewPage({ params }: { params: Promise<{ id
               <p className="mt-1 text-sm text-[var(--muted)]">{node.title}</p>
             </div>
           ))}
+          <AiParseReviewPanel version={workspace.latestVersion} nodes={workspace.questionNodes} />
           <ReviewQuestionTreeForm versionId={workspace.latestVersion.id} nodes={workspace.questionNodes} />
         </Card>
       </div>

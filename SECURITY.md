@@ -48,6 +48,15 @@ Real assessment material and submissions stay in private buckets. Public URLs ar
 Upload slots enforce one PDF per question/subquestion, max 10MB. A confirmed upload or blank placeholder locks the slot;
 replacement is not supported in production v1.
 
+## Parsing And AI Boundaries
+
+MinerU runs as a self-hosted worker and receives only short-lived signed access to private PDF source objects. Its output
+is draft evidence for owner review, not a trusted publishable result.
+
+DeepSeek is used for AI-assisted parse suggestions. The DeepSeek API key is a Supabase Edge secret only. AI output is
+validated as a normalized package proposal, stored with warnings and `review_required = true`, and must be accepted or
+edited by the owner before publish.
+
 ## State Token Model
 
 `get-attempt-state` issues a short-lived HMAC state token signed with `ATTEMPT_STATE_TOKEN_SECRET`. The token contains the attempt, profile, computed state, server time, expiry, delivery mode, and optional session details. The token is not the source of truth; every sensitive Edge Function recomputes state server-side.
@@ -55,12 +64,21 @@ replacement is not supported in production v1.
 Package release, text response saving, upload URL issuance, upload confirmation, blank slot submission, and finalization
 verify the token signature and still recompute state/ownership server-side before changing data.
 
-## Future Secure Mode
+## SEB Secure Mode
 
-`delivery_mode = seb_required` and SEB hash fields are present for Safe Exam Browser integration. User-agent checks alone are insufficient. Production SEB support must validate Browser Exam Key and Config Key values server-side.
+`delivery_mode = seb_required` blocks package release unless server-side validation receives expected Browser Exam Key and
+Config Key hashes. Classic SEB headers and the JavaScript API relay path are accepted inputs. User-agent checks alone are
+insufficient and are not used as proof.
+
+## External KMS
+
+The Cloudflare KMS wrapper implements envelope-key wrapping for server-side callers. Application code generates a data
+key, encrypts the package or marking packet with AES-GCM, stores only ciphertext in Supabase Storage, and stores the
+wrapped data key plus metadata in Postgres. If KMS wrapping fails, sensitive object writes fail rather than silently
+storing plaintext in KMS-required paths.
 
 ## Future Hardening
 
 - External rate limiting and anomaly alerts around Edge Functions.
-- External KMS envelope encryption for high-value assessment packages.
+- KMS key rotation procedures and recovery drills.
 - Formal legal review before under-13 learners, school records, or third-party marketing integrations are introduced.

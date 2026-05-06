@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { QtiExportButton } from "@/components/owner/qti-export-button";
 import { SectionHeading } from "@/components/section-heading";
 import { getAssessmentWorkspace } from "@/lib/live-data";
 import { demoAssessmentParams } from "@/lib/static-params";
@@ -43,6 +44,7 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
           <p className="mt-3 text-sm font-semibold text-[var(--primary)]">
             Latest version: {workspace.latestVersion?.status ?? "none"}
           </p>
+          {workspace.latestVersion ? <div className="mt-4"><QtiExportButton versionId={workspace.latestVersion.id} /></div> : null}
         </Card>
       </div>
     </>

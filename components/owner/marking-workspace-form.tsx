@@ -63,14 +63,13 @@ export function MarkingWorkspaceForm({
       setMessage(error.message);
       return;
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `exam-vault-marking-packet-${attemptId}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setMessage("Marking packet exported.");
+    const packet = data as { marking_packet_zip?: { download_url?: string | null; encrypted?: boolean } };
+    if (packet.marking_packet_zip?.download_url) {
+      window.location.href = packet.marking_packet_zip.download_url;
+      setMessage(packet.marking_packet_zip.encrypted ? "Encrypted marking ZIP generated." : "Marking ZIP generated.");
+      return;
+    }
+    setMessage("Marking packet export completed, but no download URL was returned.");
   }
 
   return (

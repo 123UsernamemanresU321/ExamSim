@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { computeAttemptState } from "../_shared/attempt-state.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { loadNormalizedPackage } from "../_shared/package-storage.ts";
+import { extractSebKeys, validateSebKeys } from "../_shared/seb.ts";
 import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
@@ -10,7 +12,12 @@ serve(async (request) => {
   try {
     const { user, admin } = await requireUser(request);
     const profile = await profileForAuthUser(user.id);
-    const body = await readJson<{ attempt_id: string; state_token: string }>(request);
+    const body = await readJson<{
+      attempt_id: string;
+      state_token: string;
+      seb_browser_exam_key_hash?: string;
+      seb_config_key_hash?: string;
+    }>(request);
     if (!body.attempt_id || !body.state_token) return json({ error: "attempt_id and state_token are required" }, 400);
     const tokenPayload = await verifyStateToken(body.state_token);
     if (tokenPayload.attempt_id !== body.attempt_id || tokenPayload.profile_id !== profile.id) {
@@ -29,23 +36,47 @@ serve(async (request) => {
       solutionsRequested: attempt.solutions_requested,
     });
     if (state === "WAITING") return json({ error: "Content not available yet", state }, 403);
+    let sebVerified = attempt.delivery_mode === "browser";
     if (attempt.delivery_mode === "seb_required") {
-      return json({ error: "SEB validation is not implemented for MVP", state }, 501);
+      const keys = extractSebKeys(request, body);
+      const validation = validateSebKeys({
+        expectedBrowserExamKeyHashes: attempt.seb_browser_exam_key_hashes,
+        expectedConfigKeyHashes: attempt.seb_config_key_hashes,
+        receivedBrowserExamKeyHash: keys.browserExamKeyHash,
+        receivedConfigKeyHash: keys.configKeyHash,
+      });
+      if (!validation.ok) {
+        return json({ error: validation.reason, state, seb_required: true }, 403);
+      }
+      sebVerified = true;
+      if (tokenPayload.attempt_session_id) {
+        await admin
+          .from("attempt_sessions")
+          .update({
+            seb_verified: true,
+            browser_exam_key_hash: keys.browserExamKeyHash,
+            config_key_hash: keys.configKeyHash,
+          })
+          .eq("id", tokenPayload.attempt_session_id)
+          .eq("attempt_id", attempt.id);
+      }
     }
 
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
-      .select("id, normalized_package_json, normalized_package_path")
+      .select("id, normalized_package_json, normalized_package_path, encrypted_package_path, kms_provider, wrapped_data_key, encryption_metadata_json")
       .eq("id", attempt.assessment_version_id)
       .single();
     if (versionError) throw versionError;
+    const assessmentPackage = await loadNormalizedPackage(admin, version);
 
     return json({
       attempt_id: attempt.id,
       state,
       package_version_id: version.id,
       rendering_mode: "normalized_html",
-      assessment_package: version.normalized_package_json,
+      seb_verified: sebVerified,
+      assessment_package: assessmentPackage,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "get-attempt-package failed" }, 401);

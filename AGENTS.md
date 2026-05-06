@@ -13,3 +13,7 @@ Future coding agents working on Exam Vault must:
 - Keep Supabase Storage buckets private.
 - Update documentation after schema, Edge Function, or security boundary changes.
 - Do not use `EXAM_VAULT_DEMO_MODE=1` outside local testing; production route guards must remain fail-closed.
+- Do not let AI parse suggestions publish or replace owner review automatically.
+- Keep `DEEPSEEK_API_KEY`, Cloudflare KMS secrets, and RunPod worker secrets server-only.
+- Do not use SEB user-agent strings as proof of secure mode; validate Browser Exam Key and Config Key hashes.
+- Keep QTI import conservative and review-required when mappings are uncertain.

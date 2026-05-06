@@ -45,6 +45,8 @@ export function PublishAssessmentForm({
       per_question_upload_enabled: form.get("per_question_upload_enabled") === "on",
       require_blank_for_skipped: form.get("require_blank_for_skipped") === "on",
       assigned_group_ids: assignedGroupIds,
+      seb_browser_exam_key_hashes: splitHashes(String(form.get("seb_browser_exam_key_hashes") ?? "")),
+      seb_config_key_hashes: splitHashes(String(form.get("seb_config_key_hashes") ?? "")),
     };
 
     const supabase = createSupabaseBrowserClient();
@@ -80,6 +82,12 @@ export function PublishAssessmentForm({
             <option value="browser">browser</option>
             <option value="seb_required">seb_required</option>
           </select>
+        </Field>
+        <Field label="SEB Browser Exam Key hashes">
+          <Input name="seb_browser_exam_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
+        </Field>
+        <Field label="SEB Config Key hashes">
+          <Input name="seb_config_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
         </Field>
       </div>
       <div className="grid gap-2 rounded-md border border-[var(--border)] bg-white p-3 text-sm">
@@ -130,4 +138,8 @@ export function PublishAssessmentForm({
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
     </form>
   );
+}
+
+function splitHashes(value: string) {
+  return value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean);
 }

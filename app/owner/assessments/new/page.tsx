@@ -1,6 +1,7 @@
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { NewAssessmentForm } from "@/components/owner/new-assessment-form";
+import { QtiImportForm } from "@/components/owner/qti-import-form";
 
 export default function NewAssessmentPage() {
   return (
@@ -18,6 +19,10 @@ export default function NewAssessmentPage() {
           ))}
         </div>
         <NewAssessmentForm />
+      </Card>
+      <Card className="mx-auto mt-5 max-w-[920px] shadow-none">
+        <h2 className="mb-4 text-lg font-semibold">QTI import</h2>
+        <QtiImportForm />
       </Card>
     </>
   );
