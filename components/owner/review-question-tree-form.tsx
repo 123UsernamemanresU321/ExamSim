@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { QuestionNodeRow } from "@/types/database";
 
 type EditableNode = {
@@ -52,10 +53,9 @@ export function ReviewQuestionTreeForm({
     try {
       const parsed = JSON.parse(value) as EditableNode[];
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.functions.invoke("update-question-tree", {
+      await invokeEdgeFunction(supabase, "update-question-tree", {
         body: { version_id: versionId, nodes: parsed },
       });
-      if (error) throw error;
       setMessage("Reviewed tree saved. This version can now be published.");
       router.refresh();
     } catch (error) {

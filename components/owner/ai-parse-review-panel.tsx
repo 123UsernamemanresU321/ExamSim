@@ -5,6 +5,7 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { AssessmentVersion, ParseJobArtifact, QuestionNodeRow } from "@/types/database";
 
 export function AiParseReviewPanel({
@@ -42,23 +43,25 @@ export function AiParseReviewPanel({
     setIsSubmitting(true);
     setMessage("Requesting DeepSeek review suggestion...");
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{
-      suggestion?: { normalized_package_json: unknown; confidence: number; warnings_json: unknown };
-    }>("ai-parse-assessment", {
-      body: {
-        assessment_version_id: version.id,
-        source_kind: version.source_kind,
-        source_text: sourceText,
-        owner_notes: ownerNotes,
-      },
-    });
-    setIsSubmitting(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{
+        suggestion?: { normalized_package_json: unknown; confidence: number; warnings_json: unknown };
+      }>(supabase, "ai-parse-assessment", {
+        body: {
+          assessment_version_id: version.id,
+          source_kind: version.source_kind,
+          source_text: sourceText,
+          owner_notes: ownerNotes,
+        },
+        requiresAal2: true,
+      });
+      setSuggestionJson(JSON.stringify(data?.suggestion?.normalized_package_json ?? {}, null, 2));
+      setMessage(`AI suggestion created. Confidence ${Math.round(Number(data?.suggestion?.confidence ?? 0) * 100)}%. Owner review is still mandatory.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not request AI parse suggestion.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setSuggestionJson(JSON.stringify(data?.suggestion?.normalized_package_json ?? {}, null, 2));
-    setMessage(`AI suggestion created. Confidence ${Math.round(Number(data?.suggestion?.confidence ?? 0) * 100)}%. Owner review is still mandatory.`);
   }
 
   return (

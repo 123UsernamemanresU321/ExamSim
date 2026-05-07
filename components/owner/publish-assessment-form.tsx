@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { StudentGroupSummary, StudentSummary } from "@/lib/live-data";
 
 export function PublishAssessmentForm({
@@ -50,43 +51,48 @@ export function PublishAssessmentForm({
     };
 
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{ attempt_ids: string[] }>("publish-assessment", {
-      body,
-    });
-    setIsSubmitting(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{ attempt_ids: string[] }>(supabase, "publish-assessment", {
+        body,
+        requiresAal2: true,
+      });
+      setMessage(`Published and created ${data?.attempt_ids.length ?? 0} attempt(s).`);
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not publish assessment.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage(`Published and created ${data?.attempt_ids.length ?? 0} attempt(s).`);
-    router.refresh();
   }
 
   return (
     <form className="grid gap-4" onSubmit={onSubmit}>
-      <Field label="Start time in Africa/Johannesburg">
+      <Field
+        label="Start time in Africa/Johannesburg"
+        description="The local scheduled start. The Edge Function converts this to UTC and all attempt state decisions are recalculated server-side."
+      >
         <Input name="start_at_local" type="datetime-local" required />
       </Field>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Duration seconds">
+        <Field label="Duration seconds" description="Writing time only, in seconds. The browser countdown is display-only; Supabase Edge Functions enforce the real end time.">
           <Input name="duration_seconds" type="number" defaultValue={7200} min={1} required />
         </Field>
-        <Field label="Upload grace seconds">
+        <Field label="Upload grace seconds" description="Extra upload-only time after writing ends when solutions are requested. Writing is disabled during this state.">
           <Input name="upload_only_grace_seconds" type="number" defaultValue={1800} min={0} />
         </Field>
-        <Field label="Display timezone">
+        <Field label="Display timezone" description="Timezone shown to users. Stored attempt timestamps remain UTC internally.">
           <Input name="display_timezone" defaultValue={DEFAULT_TIMEZONE} required />
         </Field>
-        <Field label="Delivery mode">
+        <Field label="Delivery mode" description="Browser mode is tamper-evident. SEB-required mode blocks package release unless the configured SEB key hashes match.">
           <select name="delivery_mode" className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3">
             <option value="browser">browser</option>
             <option value="seb_required">seb_required</option>
           </select>
         </Field>
-        <Field label="SEB Browser Exam Key hashes">
+        <Field label="SEB Browser Exam Key hashes" description="Required only for SEB attempts. Copy the expected Browser Exam Key hash from your SEB configuration.">
           <Input name="seb_browser_exam_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
         </Field>
-        <Field label="SEB Config Key hashes">
+        <Field label="SEB Config Key hashes" description="Required only for SEB attempts. Copy the expected Config Key hash from your SEB configuration. User-agent checks are not accepted.">
           <Input name="seb_config_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
         </Field>
       </div>
@@ -108,7 +114,7 @@ export function PublishAssessmentForm({
           Require blank placeholders for skipped uploads
         </label>
       </div>
-      <Field label="Assign students">
+      <Field label="Assign students" description="Each selected student receives a separate attempt. Group assignment expands to one attempt per current group member.">
         <div className="grid gap-2">
           {students.length === 0 && groups.length === 0 ? (
             <p className="rounded-md border border-[var(--border)] bg-white p-3 text-sm text-[var(--muted)]">

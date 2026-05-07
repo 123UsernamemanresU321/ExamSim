@@ -1,7 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { ButtonLink } from "@/components/ui/button";
+import { AuthNav } from "@/components/auth/auth-nav";
 
 export function AppHeader() {
   return (
@@ -14,16 +13,7 @@ export function AppHeader() {
           <span className="tracking-[0.16em] text-xs uppercase">Exam Vault</span>
         </Link>
         <nav aria-label="Primary navigation" className="flex items-center gap-2">
-          <ButtonLink href="/login" variant="ghost">
-            Log in
-          </ButtonLink>
-          <ButtonLink href="/owner" variant="secondary">
-            Owner
-          </ButtonLink>
-          <ButtonLink href="/student" variant="secondary">
-            Student
-          </ButtonLink>
-          <SignOutButton />
+          <AuthNav />
         </nav>
       </div>
     </header>

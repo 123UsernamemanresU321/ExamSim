@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function QtiExportButton({ versionId }: { versionId: string }) {
   const [message, setMessage] = useState<string | null>(null);
@@ -11,15 +12,16 @@ export function QtiExportButton({ versionId }: { versionId: string }) {
   async function exportQti() {
     setMessage("Preparing QTI export...");
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{ download_url?: string | null }>("qti-export-assessment", {
-      body: { assessment_version_id: versionId },
-    });
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{ download_url?: string | null }>(supabase, "qti-export-assessment", {
+        body: { assessment_version_id: versionId },
+        requiresAal2: true,
+      });
+      if (data?.download_url) window.location.href = data.download_url;
+      setMessage("QTI ZIP export generated. The signed link expires shortly.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not export QTI ZIP.");
     }
-    if (data?.download_url) window.location.href = data.download_url;
-    setMessage("QTI ZIP export generated. The signed link expires shortly.");
   }
 
   return (

@@ -28,6 +28,11 @@ Owner only. Replaces the draft question tree before publish.
 Owner AAL2 only. Validates the reviewed draft, publishes an immutable version, computes UTC timing, creates assigned
 attempts for individual students and selected groups/classes, and creates upload slots when enabled.
 
+## delete-assessment
+
+Owner AAL2 only. Deletes an assessment and its cascading versions, attempts, responses, slots, reports, parse jobs, and
+known private Storage objects. Storage removal is best-effort and warnings are written into the owner audit log.
+
 ## get-attempt-state
 
 Student or owner. Returns server-computed state, server time, countdown target, policy details, and short-lived state token.

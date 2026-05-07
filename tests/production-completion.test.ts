@@ -16,6 +16,7 @@ import {
 import { getPasskeyApiStatus } from "@/lib/passkeys";
 import { normalizedPackageToQtiManifest, qtiManifestToNormalizedPackage } from "@/lib/qti";
 import { extractSebKeysFromRecord, validateSebKeys } from "@/lib/seb";
+import { edgeFunctionErrorMessage } from "@/lib/supabase/functions-client";
 
 describe("DeepSeek AI parse helpers", () => {
   it("validates review-required normalized package suggestions", () => {
@@ -182,5 +183,17 @@ describe("marking packet and passkey helpers", () => {
   it("detects current Supabase passkey namespace with fallback", () => {
     expect(getPasskeyApiStatus({ passkey: { register: async () => ({ data: null, error: null }) } }).available).toBe(true);
     expect(getPasskeyApiStatus({}).available).toBe(false);
+  });
+});
+
+describe("Edge Function client error handling", () => {
+  it("extracts JSON error bodies from Supabase non-2xx responses", async () => {
+    const error = new Error("Edge Function returned a non-2xx status code") as Error & { context: Response };
+    error.context = new Response(JSON.stringify({ error: "Owner MFA/AAL2 required for this action" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(edgeFunctionErrorMessage(error)).resolves.toBe("Owner MFA/AAL2 required for this action");
   });
 });

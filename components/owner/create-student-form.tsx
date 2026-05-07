@@ -5,6 +5,7 @@ import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 type CreatedStudent = {
   login_code: string;
@@ -25,19 +26,19 @@ export function CreateStudentForm() {
     const form = new FormData(event.currentTarget);
     const displayName = String(form.get("display_name") ?? "").trim();
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<CreatedStudent>("create-student", {
-      body: { display_name: displayName, student_13_plus_attested: form.get("student_13_plus_attested") === "on" },
-    });
-
-    setIsSubmitting(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<CreatedStudent>(supabase, "create-student", {
+        body: { display_name: displayName, student_13_plus_attested: form.get("student_13_plus_attested") === "on" },
+        requiresAal2: true,
+      });
+      setCreated(data ?? null);
+      setMessage("Student created. Share these one-time activation details securely.");
+      event.currentTarget.reset();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create student.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setCreated(data ?? null);
-    setMessage("Student created. Share these one-time activation details securely.");
-    event.currentTarget.reset();
   }
 
   return (

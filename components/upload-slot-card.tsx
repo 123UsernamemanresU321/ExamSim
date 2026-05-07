@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { uploadSizeLabel, validatePdfUpload } from "@/lib/upload-policy";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+
+type UploadSlotUrl = {
+  bucket: string;
+  path: string;
+  upload_token: string;
+  question_node_id: string;
+};
 
 export function UploadSlotCard({
   attemptId,
@@ -42,17 +50,19 @@ export function UploadSlotCard({
     setIsUploading(true);
     setMessage("Requesting one-time upload slot...");
     const supabase = createSupabaseBrowserClient();
-    const { data: slot, error: slotError } = await supabase.functions.invoke<{
-      bucket: string;
-      path: string;
-      upload_token: string;
-      question_node_id: string;
-    }>("issue-upload-slot-url", {
-      body: { attempt_id: attemptId, question_node_id: questionNodeId, question_node_key: questionKey, state_token: stateToken },
-    });
-    if (slotError || !slot) {
+    let slot: UploadSlotUrl | null = null;
+    try {
+      slot = await invokeEdgeFunction<UploadSlotUrl>(supabase, "issue-upload-slot-url", {
+        body: { attempt_id: attemptId, question_node_id: questionNodeId, question_node_key: questionKey, state_token: stateToken },
+      });
+    } catch (error) {
       setIsUploading(false);
-      setMessage(slotError?.message ?? "Could not issue upload URL.");
+      setMessage(error instanceof Error ? error.message : "Could not issue upload URL.");
+      return;
+    }
+    if (!slot) {
+      setIsUploading(false);
+      setMessage("Could not issue upload URL.");
       return;
     }
 
@@ -68,19 +78,20 @@ export function UploadSlotCard({
       return;
     }
 
-    const { error: confirmError } = await supabase.functions.invoke("confirm-upload-slot", {
-      body: {
-        attempt_id: attemptId,
-        question_node_id: slot.question_node_id,
-        object_path: slot.path,
-        state_token: stateToken,
-        file_size_bytes: file.size,
-        content_type: file.type || "application/pdf",
-      },
-    });
     setIsUploading(false);
-    if (confirmError) {
-      setMessage(confirmError.message);
+    try {
+      await invokeEdgeFunction(supabase, "confirm-upload-slot", {
+        body: {
+          attempt_id: attemptId,
+          question_node_id: slot.question_node_id,
+          object_path: slot.path,
+          state_token: stateToken,
+          file_size_bytes: file.size,
+          content_type: file.type || "application/pdf",
+        },
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not confirm upload.");
       return;
     }
     setCurrentStatus("uploaded");
@@ -94,16 +105,18 @@ export function UploadSlotCard({
     }
     setIsUploading(true);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.functions.invoke("submit-blank-slot", {
-      body: { attempt_id: attemptId, question_node_id: questionNodeId, question_node_key: questionKey, state_token: stateToken },
-    });
-    setIsUploading(false);
-    if (error) {
-      setMessage(error.message);
+    try {
+      await invokeEdgeFunction(supabase, "submit-blank-slot", {
+        body: { attempt_id: attemptId, question_node_id: questionNodeId, question_node_key: questionKey, state_token: stateToken },
+      });
+      setCurrentStatus("blank_placeholder");
+      setMessage("Blank placeholder submitted and locked for this slot.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not submit blank placeholder.");
       return;
+    } finally {
+      setIsUploading(false);
     }
-    setCurrentStatus("blank_placeholder");
-    setMessage("Blank placeholder submitted and locked for this slot.");
   }
 
   return (

@@ -8,6 +8,20 @@ type Body = {
   assessment_version_id: string;
 };
 
+type QtiQuestion = {
+  node_key?: string;
+  title?: string;
+  response_mode?: string;
+  children?: QtiQuestion[];
+};
+
+type AssessmentRelation = {
+  id: string;
+  title: string;
+  paper_code: string | null;
+  owner_profile_id: string;
+};
+
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
@@ -23,12 +37,13 @@ serve(async (request) => {
       .eq("id", body.assessment_version_id)
       .single();
     if (versionError) throw versionError;
-    if (version.assessments?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    const assessment = normalizeAssessmentRelation(version.assessments);
+    if (assessment?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
     const pkg = await loadNormalizedPackage(admin, version) as {
       assessment?: { title?: string; paper_code?: string };
-      questions?: { node_key?: string; title?: string; response_mode?: string; children?: unknown[] }[];
+      questions?: QtiQuestion[];
     };
-    const title = pkg.assessment?.title || version.assessments?.title || "Exam Vault assessment";
+    const title = pkg.assessment?.title || assessment?.title || "Exam Vault assessment";
     const identifier = slug(pkg.assessment?.paper_code || title || version.id);
     const items = flattenQuestions(pkg.questions ?? []);
 
@@ -76,11 +91,16 @@ serve(async (request) => {
   }
 });
 
-function flattenQuestions(nodes: { node_key?: string; title?: string; response_mode?: string; children?: unknown[] }[]) {
+function flattenQuestions(nodes: QtiQuestion[]): { node_key: string; title?: string }[] {
   return nodes.flatMap((node, index) => [
     { node_key: node.node_key || `item-${index + 1}`, title: node.title },
-    ...flattenQuestions(Array.isArray(node.children) ? node.children as { node_key?: string; title?: string; children?: unknown[] }[] : []),
+    ...flattenQuestions(Array.isArray(node.children) ? node.children : []),
   ]);
+}
+
+function normalizeAssessmentRelation(value: unknown): AssessmentRelation | null {
+  if (Array.isArray(value)) return value[0] as AssessmentRelation | undefined ?? null;
+  return value as AssessmentRelation | null;
 }
 
 function slug(value: string) {

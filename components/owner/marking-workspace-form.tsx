@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { calculateAwardedMarks } from "@/lib/marking";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { Mark, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
 
 export function MarkingWorkspaceForm({
@@ -30,46 +31,60 @@ export function MarkingWorkspaceForm({
     const form = new FormData(event.currentTarget);
     const awardedMarks = Number(form.get("awarded_marks") || 0);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.functions.invoke("save-marking", {
-      body: {
-        attempt_id: attemptId,
-        marks: [{ awarded_marks: awardedMarks, notes: String(form.get("mark_notes") ?? "") }],
-        annotations: [
-          {
-            annotation_type: "feedback",
-            body: String(form.get("feedback_note") ?? ""),
-            anchor_json: {},
-          },
-        ],
-      },
-    });
-    setMessage(error?.message ?? "Marking saved.");
+    try {
+      await invokeEdgeFunction(supabase, "save-marking", {
+        body: {
+          attempt_id: attemptId,
+          marks: [{ awarded_marks: awardedMarks, notes: String(form.get("mark_notes") ?? "") }],
+          annotations: [
+            {
+              annotation_type: "feedback",
+              body: String(form.get("feedback_note") ?? ""),
+              anchor_json: {},
+            },
+          ],
+        },
+        requiresAal2: true,
+      });
+      setMessage("Marking saved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save marking.");
+    }
   }
 
   async function releaseFeedback() {
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.functions.invoke("release-feedback", {
-      body: { attempt_id: attemptId, summary_text: summaryText, visible_to_student: true },
-    });
-    setMessage(error?.message ?? "Feedback released to the student.");
+    try {
+      await invokeEdgeFunction(supabase, "release-feedback", {
+        body: { attempt_id: attemptId, summary_text: summaryText, visible_to_student: true },
+        requiresAal2: true,
+      });
+      setMessage("Feedback released to the student.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not release feedback.");
+    }
   }
 
   async function exportPacket() {
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke("owner-download-marking-packet", {
-      body: { attempt_id: attemptId },
-    });
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const packet = await invokeEdgeFunction<{ marking_packet_zip?: { download_url?: string | null; encrypted?: boolean } }>(
+        supabase,
+        "owner-download-marking-packet",
+        {
+          body: { attempt_id: attemptId },
+          requiresAal2: true,
+        },
+      );
+      if (packet?.marking_packet_zip?.download_url) {
+        window.location.href = packet.marking_packet_zip.download_url;
+        setMessage(packet.marking_packet_zip.encrypted ? "Encrypted marking ZIP generated." : "Marking ZIP generated.");
+        return;
+      }
+      setMessage("Marking packet export completed, but no download URL was returned.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not export marking packet.");
     }
-    const packet = data as { marking_packet_zip?: { download_url?: string | null; encrypted?: boolean } };
-    if (packet.marking_packet_zip?.download_url) {
-      window.location.href = packet.marking_packet_zip.download_url;
-      setMessage(packet.marking_packet_zip.encrypted ? "Encrypted marking ZIP generated." : "Marking ZIP generated.");
-      return;
-    }
-    setMessage("Marking packet export completed, but no download URL was returned.");
   }
 
   return (

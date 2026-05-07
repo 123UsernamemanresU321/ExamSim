@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { InputHTMLAttributes, LabelHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return <label className={cn("text-sm font-semibold text-[var(--ink)]", className)} {...props} />;
@@ -32,15 +33,21 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 export function Field({
   label,
   description,
+  tooltip,
   children,
 }: {
   label: string;
   description?: string;
+  tooltip?: string;
   children: React.ReactNode;
 }) {
+  const helpText = tooltip ?? description;
   return (
     <div className="grid gap-2">
-      <Label>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Label>{label}</Label>
+        {helpText ? <InfoTooltip label={label}>{helpText}</InfoTooltip> : null}
+      </div>
       {children}
       {description ? <p className="text-xs leading-5 text-[var(--muted)]">{description}</p> : null}
     </div>

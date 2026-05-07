@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-button";
 import { QtiExportButton } from "@/components/owner/qti-export-button";
 import { SectionHeading } from "@/components/section-heading";
 import { getAssessmentWorkspace } from "@/lib/live-data";
@@ -45,6 +46,16 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
             Latest version: {workspace.latestVersion?.status ?? "none"}
           </p>
           {workspace.latestVersion ? <div className="mt-4"><QtiExportButton versionId={workspace.latestVersion.id} /></div> : null}
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Delete</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Permanently removes this assessment, versions, attempts, responses, parse jobs, reports, and known private
+            Storage objects. Owner MFA is required.
+          </p>
+          <div className="mt-4">
+            <DeleteAssessmentButton assessmentId={workspace.assessment.id} title={workspace.assessment.title} />
+          </div>
         </Card>
       </div>
     </>

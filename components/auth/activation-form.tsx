@@ -5,6 +5,7 @@ import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function ActivationForm() {
   const [message, setMessage] = useState<string | null>(null);
@@ -13,10 +14,14 @@ export function ActivationForm() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{ message?: string; error?: string }>("activate-student", {
-      body: Object.fromEntries(form),
-    });
-    setMessage(error?.message ?? data?.message ?? data?.error ?? "Activation request sent.");
+    try {
+      const data = await invokeEdgeFunction<{ message?: string; error?: string }>(supabase, "activate-student", {
+        body: Object.fromEntries(form),
+      });
+      setMessage(data?.message ?? data?.error ?? "Activation request sent.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Activation failed.");
+    }
   }
 
   return (

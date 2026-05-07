@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 type IngestResult = {
   assessment_id: string;
@@ -47,8 +48,7 @@ export function NewAssessmentForm() {
       };
 
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.functions.invoke<IngestResult>("ingest-assessment", { body });
-      if (error) throw error;
+      const data = await invokeEdgeFunction<IngestResult>(supabase, "ingest-assessment", { body });
       setCreated(data ?? null);
       setMessage("Draft assessment created.");
       router.refresh();
@@ -62,16 +62,28 @@ export function NewAssessmentForm() {
   return (
     <form className="grid gap-5" onSubmit={onSubmit}>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Title">
+        <Field
+          label="Title"
+          description="The student-facing name of this assessment. Use a precise name you can distinguish later, such as the olympiad, subject, paper number, and year."
+        >
           <Input name="title" placeholder="Olympiad Mock Paper 1" required />
         </Field>
-        <Field label="Paper code">
+        <Field
+          label="Paper code"
+          description="Optional stable identifier shared with schedules or exports. Keep it short, for example IB-MAA-HL-P1-2026 or SAMO-R2-MOCK."
+        >
           <Input name="paper_code" placeholder="MATH-MOCK-01" />
         </Field>
-        <Field label="External schedule ref">
+        <Field
+          label="External schedule ref"
+          description="Optional integration key for a calendar or external timetable. Exam Vault stores it as metadata only and does not trust it for timing."
+        >
           <Input name="external_schedule_ref" placeholder="adaptive-calendar:math:week-18" />
         </Field>
-        <Field label="Assessment kind">
+        <Field
+          label="Assessment kind"
+          description="Controls how the paper is categorized in dashboards. It does not weaken timing, content release, or upload rules."
+        >
           <select name="assessment_kind" className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3">
             <option value="practice_paper">practice_paper</option>
             <option value="quiz">quiz</option>
@@ -79,7 +91,10 @@ export function NewAssessmentForm() {
             <option value="exam">exam</option>
           </select>
         </Field>
-        <Field label="Source kind">
+        <Field
+          label="Source kind"
+          description="Choose JSON for a ready normalized package, LaTeX for deterministic question detection plus AI repair, or PDF for hosted MinerU/OCR draft parsing."
+        >
           <select
             name="source_kind"
             className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
@@ -92,13 +107,19 @@ export function NewAssessmentForm() {
           </select>
         </Field>
         {sourceKind === "pdf" ? (
-          <Field label="Uploaded source path" description="Path in the private assessment-sources bucket.">
+          <Field
+            label="Uploaded source path"
+            description="Private Supabase Storage object path in assessment-sources. The browser should never use a public PDF URL for real assessment material."
+          >
             <Input name="uploaded_source_path" placeholder="owner/{assessment}/source.pdf" />
           </Field>
         ) : null}
       </div>
       {sourceKind !== "pdf" ? (
-        <Field label="LaTeX or JSON source" description="JSON is validated by the Edge Function. LaTeX uses deterministic MVP parsing.">
+        <Field
+          label="LaTeX or JSON source"
+          description="Paste a normalized JSON package or LaTeX source. JSON is schema-validated; LaTeX is parsed conservatively and must be reviewed before publish."
+        >
           <Textarea name="source_text" placeholder="Paste LaTeX or normalized JSON package here." required />
         </Field>
       ) : null}

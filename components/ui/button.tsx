@@ -3,10 +3,10 @@ import type { ButtonHTMLAttributes, AnchorHTMLAttributes, ReactNode } from "reac
 import Link from "next/link";
 
 const variants = {
-  primary: "bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]",
+  primary: "bg-[var(--primary)] !text-white hover:bg-[var(--primary-strong)]",
   secondary: "border border-[var(--border)] bg-white text-[var(--ink)] hover:bg-[var(--surface-muted)]",
   ghost: "text-[var(--ink)] hover:bg-[var(--surface-muted)]",
-  danger: "bg-[var(--danger)] text-white hover:bg-[#8c1212]",
+  danger: "bg-[var(--danger)] !text-white hover:bg-[#8c1212]",
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

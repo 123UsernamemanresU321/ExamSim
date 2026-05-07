@@ -3,6 +3,7 @@ import { SectionHeading } from "@/components/section-heading";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-button";
 import { listOwnerAssessments } from "@/lib/live-data";
 
 export default async function OwnerAssessmentsPage() {
@@ -39,9 +40,12 @@ export default async function OwnerAssessmentsPage() {
                 <h2 className="text-lg font-semibold">{assessment.title}</h2>
                 <p className="text-sm text-[var(--muted)]">{assessment.paper_code}</p>
               </div>
-              <ButtonLink href={`/owner/assessments/${assessment.id}`} variant="secondary">
-                Open
-              </ButtonLink>
+              <div className="flex flex-wrap gap-2">
+                <ButtonLink href={`/owner/assessments/${assessment.id}`} variant="secondary">
+                  Open
+                </ButtonLink>
+                <DeleteAssessmentButton assessmentId={assessment.id} title={assessment.title} redirectTo={null} />
+              </div>
             </Card>
           ))
         )}

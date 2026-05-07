@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwner } from "../_shared/auth.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
+import type { getAdminClient } from "../_shared/supabase.ts";
 
 type IngestBody = {
   title: string;
@@ -26,6 +27,8 @@ type FlatNode = {
   parent_node_key?: string | null;
 };
 
+type AdminClient = ReturnType<typeof getAdminClient>;
+
 function cleanLatexTitle(line: string) {
   return line
     .replace(/^\\(?:section|subsection|subsubsection)\*?\{(.+)\}$/i, "$1")
@@ -38,7 +41,7 @@ function extractMarks(line: string) {
   return match ? Number(match[1]) : null;
 }
 
-function latexToNodes(source: string) {
+function latexToNodes(source: string): FlatNode[] {
   const lines = source.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const nodes: FlatNode[] = [];
   let questionOrdinal = 1;
@@ -202,12 +205,12 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
 
-    const nodes =
+    const nodes: FlatNode[] =
       body.source_kind === "json" && Array.isArray(body.json_package?.questions)
         ? flattenPackageNodes(body.json_package.questions as Record<string, unknown>[])
         : body.source_kind === "latex"
           ? latexToNodes(body.latex_source ?? "")
-          : [{ node_key: "1", ordinal: 1, node_type: "question", title: "PDF manual question tree", response_mode: "typed_or_upload" }];
+          : [{ node_key: "1", ordinal: 1, node_type: "question", title: "PDF manual question tree", response_mode: "typed_or_upload" } as FlatNode];
 
     const rows = nodes.map((node: Record<string, unknown>, index: number) => ({
       assessment_version_id: version.id,
@@ -298,20 +301,7 @@ function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: st
 }
 
 async function storeNormalizedPackageObject(
-  admin: {
-    storage: {
-      from(bucket: string): {
-        upload(path: string, body: Uint8Array, options: { contentType: string; upsert: boolean }): Promise<{ error: Error | null }>;
-      };
-    };
-    from(table: "encrypted_object_envelopes"): {
-      insert(row: Record<string, unknown>): {
-        select(columns: string): {
-          single(): Promise<{ data: { id: string } | null; error: Error | null }>;
-        };
-      };
-    };
-  },
+  admin: AdminClient,
   ownerProfileId: string,
   versionId: string,
   normalizedPackage: unknown,
@@ -359,7 +349,7 @@ async function maybeEncrypt(plaintextBytes: Uint8Array) {
   const dataKey = crypto.getRandomValues(new Uint8Array(32));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await crypto.subtle.importKey("raw", dataKey, "AES-GCM", false, ["encrypt"]);
-  const ciphertextBytes = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintextBytes));
+  const ciphertextBytes = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new Uint8Array(plaintextBytes)));
   const wrapResponse = await fetch(wrapUrl, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${adminToken}` },

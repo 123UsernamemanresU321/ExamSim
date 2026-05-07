@@ -6,6 +6,7 @@ import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { StudentSummary } from "@/lib/live-data";
 
 export function CreateStudentGroupForm({ students }: { students: StudentSummary[] }) {
@@ -19,21 +20,23 @@ export function CreateStudentGroupForm({ students }: { students: StudentSummary[
     setMessage("Creating group...");
     const form = new FormData(event.currentTarget);
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{ group_id: string; member_count: number }>("create-student-group", {
-      body: {
-        name: String(form.get("name") ?? ""),
-        description: String(form.get("description") ?? ""),
-        student_profile_ids: form.getAll("student_profile_ids").map(String),
-      },
-    });
-    setIsSubmitting(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{ group_id: string; member_count: number }>(supabase, "create-student-group", {
+        body: {
+          name: String(form.get("name") ?? ""),
+          description: String(form.get("description") ?? ""),
+          student_profile_ids: form.getAll("student_profile_ids").map(String),
+        },
+        requiresAal2: true,
+      });
+      setMessage(`Group created with ${data?.member_count ?? 0} member(s).`);
+      event.currentTarget.reset();
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create group.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage(`Group created with ${data?.member_count ?? 0} member(s).`);
-    event.currentTarget.reset();
-    router.refresh();
   }
 
   return (

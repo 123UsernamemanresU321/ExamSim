@@ -15,7 +15,7 @@ type Body = {
 type StorageAdmin = {
   storage: {
     from(bucket: string): {
-      createSignedUrl(path: string, expiresIn: number): Promise<{ data: { signedUrl: string }; error: Error | null }>;
+      createSignedUrl(path: string, expiresIn: number): Promise<{ data: { signedUrl: string } | null; error: Error | null }>;
     };
   };
 };
@@ -148,6 +148,7 @@ async function loadSourceText(admin: StorageAdmin, body: Body) {
   if (!body.artifact_object_path) return "";
   const { data, error } = await admin.storage.from("assessment-packages").createSignedUrl(body.artifact_object_path, 60);
   if (error) throw error;
+  if (!data?.signedUrl) throw new Error("Could not sign parse artifact");
   const response = await fetch(data.signedUrl);
   if (!response.ok) throw new Error("Could not read parse artifact");
   return await response.text();

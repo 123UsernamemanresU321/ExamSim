@@ -164,7 +164,7 @@ async function maybeEncryptPacket(plaintextBytes: Uint8Array) {
   const dataKey = crypto.getRandomValues(new Uint8Array(32));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await crypto.subtle.importKey("raw", dataKey, "AES-GCM", false, ["encrypt"]);
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintextBytes));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new Uint8Array(plaintextBytes)));
   const wrapResponse = await fetch(wrapUrl, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${adminToken}` },

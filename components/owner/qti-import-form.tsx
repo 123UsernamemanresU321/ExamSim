@@ -6,6 +6,7 @@ import { FileArchive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function QtiImportForm() {
   const router = useRouter();
@@ -24,22 +25,24 @@ export function QtiImportForm() {
     setMessage("Importing QTI package...");
     const qtiZipBase64 = await fileToBase64(file);
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{ assessment_id: string; question_count: number }>("qti-import-assessment", {
-      body: {
-        title: String(form.get("title") ?? ""),
-        paper_code: String(form.get("paper_code") ?? "") || undefined,
-        assessment_kind: String(form.get("assessment_kind") ?? "exam"),
-        qti_zip_base64: qtiZipBase64,
-      },
-    });
-    setIsSubmitting(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{ assessment_id: string; question_count: number }>(supabase, "qti-import-assessment", {
+        body: {
+          title: String(form.get("title") ?? ""),
+          paper_code: String(form.get("paper_code") ?? "") || undefined,
+          assessment_kind: String(form.get("assessment_kind") ?? "exam"),
+          qti_zip_base64: qtiZipBase64,
+        },
+        requiresAal2: true,
+      });
+      setMessage(`QTI imported with ${data?.question_count ?? 0} item(s). Review is required before publish.`);
+      router.refresh();
+      if (data?.assessment_id) router.push(`/owner/assessments/${data.assessment_id}/review`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not import QTI package.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage(`QTI imported with ${data?.question_count ?? 0} item(s). Review is required before publish.`);
-    router.refresh();
-    if (data?.assessment_id) router.push(`/owner/assessments/${data.assessment_id}/review`);
   }
 
   return (

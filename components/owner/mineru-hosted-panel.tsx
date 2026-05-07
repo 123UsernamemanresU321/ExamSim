@@ -5,6 +5,7 @@ import { RefreshCw, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { ParseJob, ParseJobArtifact } from "@/types/database";
 
 export function MineruHostedPanel({
@@ -26,20 +27,22 @@ export function MineruHostedPanel({
     setBusyJobId(parseJobId);
     setMessage(functionName === "mineru-submit-hosted-job" ? "Submitting PDF to hosted MinerU..." : "Checking hosted MinerU result...");
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.functions.invoke<{ status?: string; external_state?: string; artifact_count?: number; error?: string }>(functionName, {
-      body: { parse_job_id: parseJobId },
-    });
-    setBusyJobId(null);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{ status?: string; external_state?: string; artifact_count?: number; error?: string }>(supabase, functionName, {
+        body: { parse_job_id: parseJobId },
+        requiresAal2: true,
+      });
+      setMessage(
+        functionName === "mineru-submit-hosted-job"
+          ? `Hosted MinerU job submitted. Status: ${data?.status ?? "running"}.`
+          : `Hosted MinerU check complete. Status: ${data?.status ?? data?.external_state ?? "running"}.`,
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Hosted MinerU request failed.");
+    } finally {
+      setBusyJobId(null);
     }
-    setMessage(
-      functionName === "mineru-submit-hosted-job"
-        ? `Hosted MinerU job submitted. Status: ${data?.status ?? "running"}.`
-        : `Hosted MinerU check complete. Status: ${data?.status ?? data?.external_state ?? "running"}.`,
-    );
-    router.refresh();
   }
 
   if (!hostedJobs.length) {
