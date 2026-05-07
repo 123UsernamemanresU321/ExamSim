@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
+import { KeyRound, LockKeyhole, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/form";
+import {
+  defaultTotpFriendlyName,
+  displayTotpFriendlyName,
+  mfaEnrollmentErrorMessage,
+  normalizeTotpFriendlyName,
+} from "@/lib/auth/mfa";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type AalStatus = {
@@ -13,23 +19,59 @@ type AalStatus = {
   nextLevel: string | null;
 };
 
-async function fetchAalStatus() {
+type TotpFactor = {
+  id: string;
+  friendly_name?: string | null;
+  status: string;
+  created_at: string;
+};
+
+type MfaOverview = AalStatus & {
+  factors: TotpFactor[];
+};
+
+async function fetchMfaOverview(): Promise<MfaOverview> {
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error) throw error;
-  return { currentLevel: data.currentLevel, nextLevel: data.nextLevel };
+  const [aal, factors] = await Promise.all([
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    supabase.auth.mfa.listFactors(),
+  ]);
+  if (aal.error) throw aal.error;
+  if (factors.error) throw factors.error;
+  return {
+    currentLevel: aal.data.currentLevel,
+    nextLevel: aal.data.nextLevel,
+    factors: factors.data.all
+      .filter((factor) => factor.factor_type === "totp")
+      .map((factor) => ({
+        id: factor.id,
+        friendly_name: factor.friendly_name,
+        status: factor.status,
+        created_at: factor.created_at,
+      })),
+  };
 }
 
 export function OwnerMfaPanel() {
   const [status, setStatus] = useState<AalStatus | null>(null);
+  const [factors, setFactors] = useState<TotpFactor[]>([]);
   const [factorId, setFactorId] = useState<string | null>(null);
+  const [verificationFactorId, setVerificationFactorId] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [verifyCode, setVerifyCode] = useState("");
+  const [friendlyName, setFriendlyName] = useState(defaultTotpFriendlyName);
 
-  async function refreshStatus() {
+  async function refreshOverview() {
     try {
-      setStatus(await fetchAalStatus());
+      const overview = await fetchMfaOverview();
+      setStatus({ currentLevel: overview.currentLevel, nextLevel: overview.nextLevel });
+      setFactors(overview.factors);
+      setVerificationFactorId((current) =>
+        current && overview.factors.some((factor) => factor.id === current)
+          ? current
+          : overview.factors.find((factor) => factor.status === "verified")?.id ?? overview.factors[0]?.id ?? null,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load MFA status.");
     }
@@ -37,9 +79,14 @@ export function OwnerMfaPanel() {
 
   useEffect(() => {
     let isMounted = true;
-    void fetchAalStatus()
-      .then((nextStatus) => {
-        if (isMounted) setStatus(nextStatus);
+    void fetchMfaOverview()
+      .then((overview) => {
+        if (!isMounted) return;
+        setStatus({ currentLevel: overview.currentLevel, nextLevel: overview.nextLevel });
+        setFactors(overview.factors);
+        setVerificationFactorId(
+          overview.factors.find((factor) => factor.status === "verified")?.id ?? overview.factors[0]?.id ?? null,
+        );
       })
       .catch((error: unknown) => {
         if (isMounted) setMessage(error instanceof Error ? error.message : "Could not load MFA status.");
@@ -51,19 +98,26 @@ export function OwnerMfaPanel() {
 
   async function enroll() {
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+    const nextFriendlyName = normalizeTotpFriendlyName(friendlyName);
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: nextFriendlyName,
+      issuer: "Exam Vault",
+    });
     if (error) {
-      setMessage(error.message);
+      setMessage(mfaEnrollmentErrorMessage(error.message));
       return;
     }
     setFactorId(data.id);
+    setVerificationFactorId(data.id);
     setQr(data.totp.qr_code);
-    setMessage("Scan the QR code, then enter the authenticator code to verify enrollment.");
+    setMessage(`Scan the QR code for "${nextFriendlyName}", then enter the authenticator code to verify enrollment.`);
+    await refreshOverview();
   }
 
   async function verify() {
     const supabase = createSupabaseBrowserClient();
-    let activeFactorId = factorId;
+    let activeFactorId = factorId ?? verificationFactorId;
     if (!activeFactorId) {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) {
@@ -92,7 +146,27 @@ export function OwnerMfaPanel() {
     }
     setVerifyCode("");
     setMessage("MFA verified. Sensitive owner actions are now unlocked for this session.");
-    await refreshStatus();
+    await refreshOverview();
+  }
+
+  async function unenroll(factor: TotpFactor) {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+    if (error) {
+      setMessage(
+        factor.status === "verified"
+          ? `${error.message}. Verify MFA for this session before removing a verified authenticator.`
+          : error.message,
+      );
+      return;
+    }
+    if (factorId === factor.id) {
+      setFactorId(null);
+      setQr(null);
+    }
+    if (verificationFactorId === factor.id) setVerificationFactorId(null);
+    setMessage(`Removed ${displayTotpFriendlyName(factor)}.`);
+    await refreshOverview();
   }
 
   return (
@@ -104,15 +178,67 @@ export function OwnerMfaPanel() {
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
             Publishing, assignment, student creation, feedback release, and exports require AAL2.
           </p>
+          <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+            Authenticator factors are account-wide, not browser-specific. Use a distinct name when enrolling Apple
+            Passwords, Google Authenticator, or another app.
+          </p>
           <p className="mt-2 text-sm font-semibold text-[var(--ink)]">
             Current: {status?.currentLevel ?? "unknown"} · Required: aal2
           </p>
         </div>
       </div>
+      <div className="rounded-md border border-[var(--border)] bg-white p-4">
+        <h3 className="text-sm font-semibold text-[var(--ink)]">Enrolled authenticators</h3>
+        {factors.length === 0 ? (
+          <p className="mt-2 text-sm text-[var(--muted)]">No authenticators are enrolled yet.</p>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            {factors.map((factor) => (
+              <div
+                key={factor.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ink)]">{displayTotpFriendlyName(factor)}</p>
+                  <p className="text-xs text-[var(--muted)]">
+                    {factor.status} · Added {new Date(factor.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <Button type="button" variant="danger" onClick={() => void unenroll(factor)}>
+                  <Trash2 size={16} aria-hidden="true" />
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {qr ? (
         <div className="rounded-md border border-[var(--border)] bg-white p-4">
           <Image className="h-48 w-48" src={qr} alt="TOTP enrollment QR code" width={192} height={192} unoptimized />
         </div>
+      ) : null}
+      <Field label="Authenticator name" description="Use a unique name, for example Apple Passwords or Google Authenticator. Supabase rejects duplicate names.">
+        <Input
+          value={friendlyName}
+          autoComplete="off"
+          onChange={(event) => setFriendlyName(event.target.value)}
+        />
+      </Field>
+      {factors.length > 0 ? (
+        <Field label="Authenticator to verify" description="Choose the authenticator app that generated the code you are entering.">
+          <select
+            className="min-h-10 rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--primary)]"
+            value={verificationFactorId ?? ""}
+            onChange={(event) => setVerificationFactorId(event.target.value || null)}
+          >
+            {factors.map((factor) => (
+              <option key={factor.id} value={factor.id}>
+                {displayTotpFriendlyName(factor)} ({factor.status})
+              </option>
+            ))}
+          </select>
+        </Field>
       ) : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="secondary" onClick={() => void enroll()}>
