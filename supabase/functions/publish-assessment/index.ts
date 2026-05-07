@@ -48,7 +48,7 @@ serve(async (request) => {
     if (assessmentError) throw assessmentError;
     if (assessment.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
 
-    const start = new Date(body.start_at_local);
+    const start = parseLocalTimeToUtc(body.start_at_local, body.display_timezone || "Africa/Johannesburg");
     const end = new Date(start.getTime() + body.duration_seconds * 1000);
     const uploadDeadline =
       body.solutions_requested && body.upload_only_grace_seconds
@@ -147,6 +147,23 @@ serve(async (request) => {
 
 function normalizeHashList(values: string[] | undefined) {
   return [...new Set((values ?? []).flatMap((value) => value.split(/[\s,]+/)).map((value) => value.trim()).filter(Boolean))];
+}
+
+function parseLocalTimeToUtc(localTime: string, timezone: string): Date {
+  const localDate = new Date(localTime + ":00Z");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    timeZoneName: "longOffset",
+  }).formatToParts(localDate);
+  const offsetPart = parts.find((p) => p.type === "timeZoneName");
+  if (!offsetPart) return localDate;
+  const match = offsetPart.value.match(/GMT([+-])(\d+):?(\d+)?/);
+  if (!match) return localDate;
+  const sign = match[1] === "+" ? 1 : -1;
+  const hours = parseInt(match[2], 10);
+  const minutes = match[3] ? parseInt(match[3], 10) : 0;
+  const offsetMinutes = sign * (hours * 60 + minutes);
+  return new Date(localDate.getTime() - offsetMinutes * 60 * 1000);
 }
 
 function statusForPublishError(message: string) {
