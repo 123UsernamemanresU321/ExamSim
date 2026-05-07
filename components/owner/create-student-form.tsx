@@ -19,11 +19,12 @@ export function CreateStudentForm() {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setIsSubmitting(true);
     setMessage("Creating student...");
     setCreated(null);
 
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const displayName = String(form.get("display_name") ?? "").trim();
     const supabase = createSupabaseBrowserClient();
     try {
@@ -33,7 +34,7 @@ export function CreateStudentForm() {
       });
       setCreated(data ?? null);
       setMessage("Student created. Share these one-time activation details securely.");
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not create student.");
     } finally {

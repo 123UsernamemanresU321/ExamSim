@@ -137,7 +137,8 @@ export function OwnerPasswordPanel() {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const password = String(form.get("new_password") ?? "");
     const currentPassword = String(form.get("current_password") ?? "");
     const supabase = createSupabaseBrowserClient();
@@ -154,7 +155,7 @@ export function OwnerPasswordPanel() {
     }
     const { error } = await supabase.auth.updateUser({ password });
     setMessage(error?.message ?? "Password updated.");
-    if (!error) event.currentTarget.reset();
+    if (!error) formElement.reset();
   }
 
   return (

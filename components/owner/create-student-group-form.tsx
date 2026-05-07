@@ -16,9 +16,10 @@ export function CreateStudentGroupForm({ students }: { students: StudentSummary[
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setIsSubmitting(true);
     setMessage("Creating group...");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const supabase = createSupabaseBrowserClient();
     try {
       const data = await invokeEdgeFunction<{ group_id: string; member_count: number }>(supabase, "create-student-group", {
@@ -30,7 +31,7 @@ export function CreateStudentGroupForm({ students }: { students: StudentSummary[
         requiresAal2: true,
       });
       setMessage(`Group created with ${data?.member_count ?? 0} member(s).`);
-      event.currentTarget.reset();
+      formElement.reset();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not create group.");

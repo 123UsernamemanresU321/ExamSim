@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { normalizedJsonTemplate } from "@/lib/json-template";
 import {
   aiParseSuggestionSchema,
@@ -195,5 +196,22 @@ describe("Edge Function client error handling", () => {
     });
 
     await expect(edgeFunctionErrorMessage(error)).resolves.toBe("Owner MFA/AAL2 required for this action");
+  });
+});
+
+describe("async form safety", () => {
+  it("does not reset React currentTarget after awaited owner actions", () => {
+    const asyncOwnerForms = [
+      "components/owner/create-student-form.tsx",
+      "components/owner/create-student-group-form.tsx",
+      "components/auth/mfa-panel.tsx",
+    ];
+
+    for (const filePath of asyncOwnerForms) {
+      const source = readFileSync(filePath, "utf8");
+      expect(source).not.toContain("event.currentTarget.reset()");
+      expect(source).toContain("const formElement = event.currentTarget");
+      expect(source).toContain("formElement.reset()");
+    }
   });
 });
