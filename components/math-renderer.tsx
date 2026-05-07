@@ -5,7 +5,11 @@ import renderMathInElement from "katex/dist/contrib/auto-render";
 
 export function MathRenderer({ latex, html, className }: { latex?: string; html?: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const content = html || (latex ? `<span>${latex}</span>` : "");
+  
+  // If we only have latex, we must escape it because the browser will 
+  // misinterpret < and > as HTML tags before KaTeX can process them.
+  const escapedLatex = latex ? latex.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
+  const content = html || (latex ? `<span>${escapedLatex}</span>` : "");
 
   useEffect(() => {
     if (ref.current) {
