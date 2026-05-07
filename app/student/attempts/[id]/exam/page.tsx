@@ -58,7 +58,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
     node.response_mode.includes("upload"),
   );
   return (
-    <div className="exam-mode -mx-5 -my-8 px-5 py-8 md:-mx-8 md:px-8">
+    <div className="exam-mode">
       <TelemetryListener attemptId={id} stateToken={stateToken} />
       <header className="sticky top-0 z-10 -mx-5 mb-8 border-b border-[var(--border)] bg-[rgba(246,249,255,0.96)] px-5 py-3 backdrop-blur md:-mx-8 md:px-8">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">

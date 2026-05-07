@@ -10,8 +10,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
   return (
     <>
       <AppHeader />
-      <div className="app-shell-grid group has-[.exam-mode]:grid-cols-1">
-        <aside className="hidden border-r border-[var(--border)] bg-[var(--surface-muted)] px-4 py-6 md:block group-has-[.exam-mode]:md:hidden" aria-label="Student navigation">
+      <div className="app-shell-grid group has-[.exam-mode]:!grid-cols-1">
+        <aside className="hidden border-r border-[var(--border)] bg-[var(--surface-muted)] px-4 py-6 md:block group-has-[.exam-mode]:!hidden" aria-label="Student navigation">
           <p className="mb-4 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--subtle)]">Student</p>
           <nav className="grid gap-1 text-sm font-semibold text-[var(--muted)]">
             <Link className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href="/student">

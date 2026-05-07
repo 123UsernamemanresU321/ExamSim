@@ -52,8 +52,8 @@ function QuestionBlock({ node, readonly = false }: { node: QuestionNode; readonl
 
 export function QuestionPaper({ questions, readonly = false }: { questions: QuestionNode[]; readonly?: boolean }) {
   return (
-    <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-10">
-      <div className="mx-auto max-w-[760px]">
+    <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-12 md:py-12">
+      <div className="mx-auto max-w-[920px]">
         {questions.map((node) => (
           <QuestionBlock key={node.node_id} node={node} readonly={readonly} />
         ))}
