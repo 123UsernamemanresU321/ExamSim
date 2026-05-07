@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { parseAiJsonObject } from "../_shared/ai-json.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
@@ -72,13 +73,14 @@ serve(async (request) => {
       body: JSON.stringify({
         model,
         response_format: { type: "json_object" },
-        temperature: 0.1,
+        temperature: 0,
         messages: [
           {
             role: "system",
             content: [
               "You are Exam Vault's assessment parse reviewer.",
-              "Return JSON only with exactly: normalized_package, confidence, warnings, review_required.",
+              "Return one JSON object only. Do not use markdown fences. Do not add prose before or after the JSON.",
+              "Return exactly these top-level keys: normalized_package, confidence, warnings, review_required.",
               "review_required must be true and confidence must be 0..1.",
               "normalized_package must include schema_version, assessment, delivery, source, and questions.",
               "Every question node must include node_id, node_key, ordinal, node_type, response_mode, and may include prompt.html/prompt.latex, marks, interaction, children.",
@@ -110,14 +112,15 @@ serve(async (request) => {
     const completion = await deepseekResponse.json();
     const content = completion?.choices?.[0]?.message?.content;
     if (typeof content !== "string") throw new Error("DeepSeek did not return message content");
-    const suggestion = normalizeSuggestion(JSON.parse(content), {
+    const parsedContent = parseAiJsonObject(content);
+    const suggestion = normalizeSuggestion(parsedContent.value, {
       assessmentId: version.assessment_id,
       title: version.assessments?.title ?? "Untitled assessment",
       paperCode: version.assessments?.paper_code ?? undefined,
       assessmentKind: version.assessments?.assessment_kind ?? "test",
       sourceKind: version.source_kind,
       existingPackage,
-    });
+    }, parsedContent.warnings);
 
     const { data: saved, error: suggestionError } = await admin
       .from("ai_parse_suggestions")
@@ -178,11 +181,21 @@ function normalizeSuggestion(raw: Record<string, unknown>, context: {
   assessmentKind: string;
   sourceKind: string;
   existingPackage: unknown;
-}) {
-  const normalizedPackage = raw.normalized_package;
+}, parserWarnings: string[] = []) {
+  let normalizedPackage = raw.normalized_package;
+  if (!normalizedPackage) throw new Error("AI response missing normalized_package");
+  const warnings = [
+    ...parserWarnings,
+    ...(Array.isArray(raw.warnings) ? raw.warnings.map(String).filter(Boolean) : []),
+  ];
+  if (typeof normalizedPackage === "string") {
+    const parsedPackage = parseAiJsonObject(normalizedPackage);
+    normalizedPackage = parsedPackage.value;
+    warnings.push("AI response returned normalized_package as a JSON string; Exam Vault parsed it before validation.");
+    warnings.push(...parsedPackage.warnings);
+  }
   if (!normalizedPackage || typeof normalizedPackage !== "object") throw new Error("AI response missing normalized_package");
   const confidence = typeof raw.confidence === "number" ? raw.confidence : 0.5;
-  const warnings = Array.isArray(raw.warnings) ? raw.warnings.map(String).filter(Boolean) : [];
   const packageWarnings: string[] = [];
   const repairedPackage = normalizePackageCandidate(normalizedPackage as Record<string, unknown>, context, packageWarnings);
   warnings.push(...packageWarnings);
