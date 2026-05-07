@@ -13,6 +13,8 @@ type FlatNode = {
   marks: number | null;
   response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice";
   interaction_json: unknown;
+  source_page_start: number | null;
+  source_page_end: number | null;
 };
 
 const NODE_TYPES = new Set(["section", "question", "subquestion", "part"]);
@@ -34,13 +36,15 @@ serve(async (request) => {
 
     const { data: version, error: versionLookupError } = await admin
       .from("assessment_versions")
-      .select("normalized_package_json, assessments(id,title,paper_code,assessment_kind)")
+      .select("status, normalized_package_json, assessments(id,title,paper_code,assessment_kind)")
       .eq("id", versionId)
       .single();
     if (versionLookupError) throw versionLookupError;
+    if (version.status === "published") return json({ error: "Published assessment versions are immutable. Create a new draft version before editing the tree." }, 409);
 
-    const { error: deleteError } = await admin.from("question_nodes").delete().eq("assessment_version_id", versionId);
-    if (deleteError) throw deleteError;
+    const validationError = validateNodeTree(nodes);
+    if (validationError) return json({ error: validationError }, 400);
+
     const rows = nodes.map((node) => ({
       assessment_version_id: versionId,
       node_key: node.node_key,
@@ -52,26 +56,17 @@ serve(async (request) => {
       marks: node.marks,
       response_mode: node.response_mode,
       interaction_json: node.interaction_json,
+      source_page_start: node.source_page_start,
+      source_page_end: node.source_page_end,
     }));
-    const { data: insertedNodes, error: insertError } = await admin.from("question_nodes").insert(rows).select("id,node_key");
-    if (insertError) throw insertError;
-    const idByKey = new Map((insertedNodes ?? []).map((node) => [node.node_key, node.id]));
-    for (const node of nodes) {
-      if (!node.parent_node_key) continue;
-      const parentId = idByKey.get(node.parent_node_key);
-      const nodeId = idByKey.get(node.node_key);
-      if (parentId && nodeId) {
-        await admin.from("question_nodes").update({ parent_node_id: parentId }).eq("id", nodeId);
-      }
-    }
-
     const packageJson = normalizedPackage ?? buildPackageFromNodes(version, nodes);
-    const { error: versionError } = await admin
-      .from("assessment_versions")
-      .update({ requires_owner_review: false, status: "draft", normalized_package_json: packageJson })
-      .eq("id", versionId);
-    if (versionError) throw versionError;
-    return json({ ok: true, node_count: rows.length });
+    const { data: nodeCount, error: replaceError } = await admin.rpc("replace_question_tree_for_version", {
+      p_version_id: versionId,
+      p_nodes: rows,
+      p_package_json: packageJson,
+    });
+    if (replaceError) throw replaceError;
+    return json({ ok: true, node_count: Number(nodeCount ?? rows.length) });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "update-question-tree failed" }, 401);
   }
@@ -92,6 +87,11 @@ function extractNormalizedPackage(value: Record<string, unknown>) {
   if (Array.isArray(value.questions)) return value;
   const normalized = value.normalized_package ?? value.normalized_package_json;
   if (isRecord(normalized) && Array.isArray(normalized.questions)) return normalized;
+  const suggestion = value.suggestion;
+  if (isRecord(suggestion)) {
+    const suggestionPackage = suggestion.normalized_package ?? suggestion.normalized_package_json;
+    if (isRecord(suggestionPackage) && Array.isArray(suggestionPackage.questions)) return suggestionPackage;
+  }
   return null;
 }
 
@@ -112,6 +112,8 @@ function normalizePackageQuestions(questions: unknown[]) {
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : isRecord(rawNode.interaction) ? rawNode.interaction : null,
+      source_page_start: numberValue(rawNode.source_page_start),
+      source_page_end: numberValue(rawNode.source_page_end),
     });
     if (Array.isArray(rawNode.children)) {
       rawNode.children.forEach((child, childIndex) => visit(child, childIndex, nodeKey));
@@ -130,13 +132,49 @@ function normalizeFlatNodes(rawNodes: unknown[]) {
       ordinal: numberValue(rawNode.ordinal) ?? index + 1,
       node_type: normalizeNodeType(rawNode.node_type),
       title: stringValue(rawNode.title),
-      prompt_html: stringValue(rawNode.prompt_html),
-      prompt_latex: stringValue(rawNode.prompt_latex),
+      prompt_html: stringValue(rawNode.prompt_html) ?? (isRecord(rawNode.prompt) ? stringValue(rawNode.prompt.html) : null),
+      prompt_latex: stringValue(rawNode.prompt_latex) ?? (isRecord(rawNode.prompt) ? stringValue(rawNode.prompt.latex) : null),
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
-      interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : null,
+      interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : isRecord(rawNode.interaction) ? rawNode.interaction : null,
+      source_page_start: numberValue(rawNode.source_page_start),
+      source_page_end: numberValue(rawNode.source_page_end),
     };
   });
+}
+
+function validateNodeTree(nodes: FlatNode[]) {
+  const seen = new Set<string>();
+  const parentByKey = new Map<string, string | null>();
+  for (const node of nodes) {
+    if (seen.has(node.node_key)) return `Duplicate node_key "${node.node_key}". Every question and subquestion needs a unique key.`;
+    seen.add(node.node_key);
+    parentByKey.set(node.node_key, node.parent_node_key);
+  }
+
+  for (const node of nodes) {
+    if (!node.parent_node_key) continue;
+    if (node.parent_node_key === node.node_key) return `Node "${node.node_key}" cannot be its own parent.`;
+    if (!parentByKey.has(node.parent_node_key)) return `Node "${node.node_key}" references missing parent_node_key "${node.parent_node_key}".`;
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  function hasCycle(nodeKey: string): boolean {
+    if (visited.has(nodeKey)) return false;
+    if (visiting.has(nodeKey)) return true;
+    visiting.add(nodeKey);
+    const parentKey = parentByKey.get(nodeKey);
+    const cycle = Boolean(parentKey && hasCycle(parentKey));
+    visiting.delete(nodeKey);
+    visited.add(nodeKey);
+    return cycle;
+  }
+
+  for (const node of nodes) {
+    if (hasCycle(node.node_key)) return `Question tree contains a parent cycle involving "${node.node_key}".`;
+  }
+  return null;
 }
 
 function buildPackageFromNodes(version: Record<string, unknown>, nodes: FlatNode[]) {
@@ -188,6 +226,8 @@ function nestFlatNodes(nodes: FlatNode[]) {
       response_mode: node.response_mode,
       prompt: { html: node.prompt_html ?? undefined, latex: node.prompt_latex ?? undefined },
       interaction: isRecord(node.interaction_json) ? node.interaction_json : undefined,
+      source_page_start: node.source_page_start ?? undefined,
+      source_page_end: node.source_page_end ?? undefined,
       children: [] as Record<string, unknown>[],
     };
     byKey.set(node.node_key, normalized);
@@ -207,11 +247,19 @@ function nestFlatNodes(nodes: FlatNode[]) {
 }
 
 function normalizeNodeType(value: unknown): FlatNode["node_type"] {
-  return typeof value === "string" && NODE_TYPES.has(value) ? value as FlatNode["node_type"] : "question";
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return NODE_TYPES.has(normalized) ? normalized as FlatNode["node_type"] : "question";
 }
 
 function normalizeResponseMode(value: unknown): FlatNode["response_mode"] {
-  return typeof value === "string" && RESPONSE_MODES.has(value) ? value as FlatNode["response_mode"] : "typed_or_upload";
+  if (typeof value !== "string") return "typed_or_upload";
+  const normalized = value.trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
+  if (RESPONSE_MODES.has(normalized)) return normalized as FlatNode["response_mode"];
+  if (["typed", "text", "written", "essay", "short_answer", "long_answer"].includes(normalized)) return "typed_text";
+  if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
+  if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
+  if (["choice", "mcq", "multiple_choice_question"].includes(normalized)) return "multiple_choice";
+  return "typed_or_upload";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -223,5 +271,10 @@ function stringValue(value: unknown) {
 }
 
 function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
 }

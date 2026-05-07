@@ -21,7 +21,10 @@ Storage; when the Cloudflare KMS wrapper is configured, package object writes ar
 
 ## update-question-tree
 
-Owner only. Replaces the draft question tree before publish.
+Owner only. Replaces the draft question tree before publish. Accepts either an editable flat node array or a normalized
+package/suggestion wrapper with `questions`. The function validates duplicate node keys, missing parents, parent cycles,
+and published-version immutability, then calls `replace_question_tree_for_version` so the old tree is not deleted unless
+the replacement and package update both succeed.
 
 ## publish-assessment
 

@@ -5,6 +5,7 @@ The base migration is `supabase/migrations/202605050001_initial_schema.sql`. Pro
 QTI, KMS envelopes, and marking packet exports live in
 `supabase/migrations/202605060002_full_production_completion.sql`.
 Hosted MinerU API metadata lives in `supabase/migrations/202605060003_hosted_mineru_api.sql`.
+Atomic question-tree review replacement lives in `supabase/migrations/202605070001_atomic_question_tree_review.sql`.
 
 ## Tables
 
@@ -51,6 +52,7 @@ All primary keys are UUIDs. Core enum-like fields use `check` constraints. Attem
 - `current_auth_aal()`
 - `is_owner_aal2()`
 - `audit_owner_action(...)`
+- `replace_question_tree_for_version(uuid, jsonb, jsonb)`
 
 The TypeScript equivalent of the state machine lives in `lib/attempt-state.ts` and is covered by tests.
 
@@ -84,6 +86,8 @@ feedback releases, parser jobs, and owner audit logs.
 - `assessment_versions` can point at encrypted normalized package objects and associated wrapped data keys.
 - `encrypted_object_envelopes` tracks Cloudflare KMS envelope metadata for encrypted package and marking packet objects.
 - `marking_packet_exports` records owner-only generated ZIP packet paths and audit metadata.
+- `replace_question_tree_for_version` replaces reviewed `question_nodes` and the draft package JSON in a single
+  database transaction, validates duplicate/missing/cyclic parent keys, and refuses published versions.
 
 ## Backup Warning
 

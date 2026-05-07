@@ -11,6 +11,8 @@ export type EditableQuestionNode = {
   marks: number | null;
   response_mode: QuestionNodeRow["response_mode"];
   interaction_json: Json | null;
+  source_page_start: number | null;
+  source_page_end: number | null;
 };
 
 export type ParsedQuestionTreeInput = {
@@ -26,9 +28,10 @@ const NODE_TYPES = new Set(["section", "question", "subquestion", "part"]);
 const RESPONSE_MODES = new Set(["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice"]);
 
 export function serializeEditableQuestionNodes(nodes: QuestionNodeRow[]) {
+  const keyById = new Map(nodes.map((node) => [node.id, node.node_key]));
   const editable = nodes.map((node) => ({
     node_key: node.node_key,
-    parent_node_key: null,
+    parent_node_key: node.parent_node_id ? keyById.get(node.parent_node_id) ?? null : null,
     ordinal: node.ordinal,
     node_type: node.node_type,
     title: node.title,
@@ -37,6 +40,8 @@ export function serializeEditableQuestionNodes(nodes: QuestionNodeRow[]) {
     marks: node.marks,
     response_mode: node.response_mode,
     interaction_json: node.interaction_json,
+    source_page_start: node.source_page_start,
+    source_page_end: node.source_page_end,
   }));
   return JSON.stringify(editable, null, 2);
 }
@@ -60,6 +65,11 @@ function extractNormalizedPackage(value: Record<string, unknown>): NormalizedPac
   if (Array.isArray(value.questions)) return value as NormalizedPackageLike;
   const nested = value.normalized_package ?? value.normalized_package_json;
   if (isRecord(nested) && Array.isArray(nested.questions)) return nested as NormalizedPackageLike;
+  const suggestion = value.suggestion;
+  if (isRecord(suggestion)) {
+    const suggestionPackage = suggestion.normalized_package ?? suggestion.normalized_package_json;
+    if (isRecord(suggestionPackage) && Array.isArray(suggestionPackage.questions)) return suggestionPackage as NormalizedPackageLike;
+  }
   return null;
 }
 
@@ -80,6 +90,8 @@ function normalizePackageQuestions(questions: unknown[]) {
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isJsonRecord(rawNode.interaction_json) ? rawNode.interaction_json : isJsonRecord(rawNode.interaction) ? rawNode.interaction : null,
+      source_page_start: numberValue(rawNode.source_page_start),
+      source_page_end: numberValue(rawNode.source_page_end),
     });
     if (Array.isArray(rawNode.children)) {
       rawNode.children.forEach((child, childIndex) => visit(child, childIndex, nodeKey));
@@ -98,21 +110,31 @@ function normalizeNodeArray(rawNodes: unknown[]) {
       ordinal: numberValue(rawNode.ordinal) ?? index + 1,
       node_type: normalizeNodeType(rawNode.node_type),
       title: stringValue(rawNode.title),
-      prompt_html: stringValue(rawNode.prompt_html),
-      prompt_latex: stringValue(rawNode.prompt_latex),
+      prompt_html: stringValue(rawNode.prompt_html) ?? (isRecord(rawNode.prompt) ? stringValue(rawNode.prompt.html) : null),
+      prompt_latex: stringValue(rawNode.prompt_latex) ?? (isRecord(rawNode.prompt) ? stringValue(rawNode.prompt.latex) : null),
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
-      interaction_json: isJsonRecord(rawNode.interaction_json) ? rawNode.interaction_json : null,
+      interaction_json: isJsonRecord(rawNode.interaction_json) ? rawNode.interaction_json : isJsonRecord(rawNode.interaction) ? rawNode.interaction : null,
+      source_page_start: numberValue(rawNode.source_page_start),
+      source_page_end: numberValue(rawNode.source_page_end),
     };
   });
 }
 
 function normalizeNodeType(value: unknown): EditableQuestionNode["node_type"] {
-  return typeof value === "string" && NODE_TYPES.has(value) ? value as EditableQuestionNode["node_type"] : "question";
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return NODE_TYPES.has(normalized) ? normalized as EditableQuestionNode["node_type"] : "question";
 }
 
 function normalizeResponseMode(value: unknown): EditableQuestionNode["response_mode"] {
-  return typeof value === "string" && RESPONSE_MODES.has(value) ? value as EditableQuestionNode["response_mode"] : "typed_or_upload";
+  if (typeof value !== "string") return "typed_or_upload";
+  const normalized = value.trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
+  if (RESPONSE_MODES.has(normalized)) return normalized as EditableQuestionNode["response_mode"];
+  if (["typed", "text", "written", "essay", "short_answer", "long_answer"].includes(normalized)) return "typed_text";
+  if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
+  if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
+  if (["choice", "mcq", "multiple_choice_question"].includes(normalized)) return "multiple_choice";
+  return "typed_or_upload";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -128,5 +150,10 @@ function stringValue(value: unknown) {
 }
 
 function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
 }
