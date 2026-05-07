@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { uploadSizeLabel, validatePdfUpload } from "@/lib/upload-policy";
 
 type IngestResult = {
   assessment_id: string;
@@ -36,6 +37,13 @@ export function NewAssessmentForm() {
     try {
       const form = new FormData(event.currentTarget);
       const sourceText = String(form.get("source_text") ?? "");
+      const pdfFile = form.get("pdf_source");
+      const pdfPayload = sourceKind === "pdf" && pdfFile instanceof File && pdfFile.size > 0
+        ? await readPdfUpload(pdfFile)
+        : null;
+      if (sourceKind === "pdf" && !pdfPayload) {
+        throw new Error("Choose a PDF file to upload.");
+      }
       const body = {
         title: String(form.get("title") ?? ""),
         paper_code: String(form.get("paper_code") ?? "") || undefined,
@@ -44,7 +52,9 @@ export function NewAssessmentForm() {
         source_kind: sourceKind,
         latex_source: sourceKind === "latex" ? sourceText : undefined,
         json_package: sourceKind === "json" ? parseJsonPackage(sourceText) : undefined,
-        uploaded_source_path: sourceKind === "pdf" ? String(form.get("uploaded_source_path") ?? "") : undefined,
+        pdf_source_base64: pdfPayload?.base64,
+        pdf_source_filename: pdfPayload?.filename,
+        pdf_source_content_type: pdfPayload?.contentType,
       };
 
       const supabase = createSupabaseBrowserClient();
@@ -108,10 +118,10 @@ export function NewAssessmentForm() {
         </Field>
         {sourceKind === "pdf" ? (
           <Field
-            label="Uploaded source path"
-            description="Private Supabase Storage object path in assessment-sources. The browser should never use a public PDF URL for real assessment material."
+            label="PDF source file"
+            description={`Choose the original assessment PDF. It is uploaded through an Edge Function into the private assessment-sources bucket; no public PDF URL is created. Maximum ${uploadSizeLabel()}.`}
           >
-            <Input name="uploaded_source_path" placeholder="owner/{assessment}/source.pdf" />
+            <Input name="pdf_source" type="file" accept="application/pdf,.pdf" required />
           </Field>
         ) : null}
       </div>
@@ -130,8 +140,8 @@ export function NewAssessmentForm() {
       ) : null}
       {sourceKind === "pdf" ? (
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
-          PDF parsing queues a hosted MinerU job when a private Storage path is provided. Submit and poll the job from
-          the review screen. Parsed output remains review-required before publish.
+          PDF parsing queues a hosted MinerU job after the private upload is stored. Submit and poll the job from the
+          review screen. Parsed output remains review-required before publish.
         </div>
       ) : null}
       <Button className="justify-self-start" type="submit" disabled={isSubmitting}>
@@ -148,4 +158,22 @@ export function NewAssessmentForm() {
       ) : null}
     </form>
   );
+}
+
+async function readPdfUpload(file: File) {
+  const validation = validatePdfUpload(file);
+  if (!validation.ok) throw new Error(validation.error ?? "The selected PDF cannot be uploaded.");
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Could not read the selected PDF."));
+    reader.readAsDataURL(file);
+  });
+  const base64 = dataUrl.split(",", 2)[1];
+  if (!base64) throw new Error("Could not encode the selected PDF.");
+  return {
+    base64,
+    filename: file.name,
+    contentType: file.type || "application/pdf",
+  };
 }

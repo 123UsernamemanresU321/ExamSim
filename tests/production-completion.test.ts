@@ -242,3 +242,19 @@ describe("async form safety", () => {
     }
   });
 });
+
+describe("production UI wiring", () => {
+  it("does not link students to demo attempt ids from production navigation", () => {
+    const source = readFileSync("app/student/layout.tsx", "utf8");
+    expect(source).not.toContain("/student/attempts/att_active/exam");
+    expect(source).toContain("Assigned attempts");
+  });
+
+  it("uses a real PDF file picker for assessment source uploads", () => {
+    const source = readFileSync("components/owner/new-assessment-form.tsx", "utf8");
+    expect(source).toContain('name="pdf_source"');
+    expect(source).toContain('type="file"');
+    expect(source).toContain("pdf_source_base64");
+    expect(source).not.toContain('name="uploaded_source_path"');
+  });
+});

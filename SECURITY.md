@@ -14,6 +14,9 @@ The browser never decides state transitions. Client countdowns use `server_now_u
 
 The waiting screen renders metadata only. Students do not receive assessment package JSON, source paths, question rows, or hidden content while state is `WAITING`. Direct broad student `SELECT` policies are intentionally not granted on `assessment_versions` or `question_nodes`.
 
+Owner PDF source uploads go through `ingest-assessment`, which writes the file to the private `assessment-sources` bucket
+with server credentials. The browser does not need a public URL or raw private Storage path to create a PDF assessment.
+
 ## Authorization Model
 
 Roles are `owner` and `student`. Authorization uses app metadata and the `profiles` table, not mutable user metadata. `OWNER_EMAIL` is server-only and should be used during owner provisioning. Student personas are separate student profiles linked to the owner; they are not role toggles inside owner sessions.

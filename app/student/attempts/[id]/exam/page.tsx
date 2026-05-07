@@ -5,7 +5,7 @@ import { QuestionPaper } from "@/components/question-paper";
 import { TelemetryListener } from "@/components/telemetry-listener";
 import { UploadSlotCard } from "@/components/upload-slot-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { flattenQuestionNodes } from "@/lib/assessment-package";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 import { demoAttemptParams } from "@/lib/static-params";
@@ -16,11 +16,41 @@ export function generateStaticParams() {
 
 export default async function ActiveExamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { attempt, package: assessmentPackage, stateToken } = await getAttemptScreenData(id, true);
+  const screenData = await getAttemptScreenData(id, true).catch((error: unknown) => ({
+    error: error instanceof Error ? error.message : "Attempt could not be loaded.",
+  }));
+  if ("error" in screenData) {
+    return (
+      <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
+        <h1 className="text-xl font-semibold text-[var(--ink)]">Attempt could not be opened</h1>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          {screenData.error} Open the student dashboard and choose one of your assigned attempts.
+        </p>
+        <ButtonLink href="/student">Back to assigned attempts</ButtonLink>
+      </section>
+    );
+  }
+  const { attempt, package: assessmentPackage, packageError, stateToken } = screenData;
   if (!assessmentPackage) {
     return (
-      <section className="rounded-lg border border-[var(--border)] bg-white p-6">
-        Content is not available for this attempt state. Return to the waiting room and refresh server state.
+      <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
+        <AttemptStateBadge state={attempt.state} />
+        <div>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Exam content is not available here yet</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            {packageError ?? "The server has not released the exam package for this attempt state."}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Current server state: {attempt.state}. Use the attempt dashboard to open the correct waiting, writing,
+            upload, or finished screen.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/student">Back to assigned attempts</ButtonLink>
+          {attempt.state === "WAITING" ? <ButtonLink href={`/student/attempts/${id}/waiting`} variant="secondary">Open waiting room</ButtonLink> : null}
+          {attempt.state === "UPLOAD_ONLY" ? <ButtonLink href={`/student/attempts/${id}/upload`} variant="secondary">Open upload page</ButtonLink> : null}
+          {attempt.state === "FINISHED_REVIEW" ? <ButtonLink href={`/student/attempts/${id}/finished`} variant="secondary">Open finished review</ButtonLink> : null}
+        </div>
       </section>
     );
   }

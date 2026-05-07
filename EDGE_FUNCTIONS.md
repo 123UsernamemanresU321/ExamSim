@@ -14,10 +14,12 @@ Public activation boundary. Input: `{ login_code, activation_code, new_password 
 
 ## ingest-assessment
 
-Owner only. Creates assessment and draft version from JSON, LaTeX, PDF path, or pasted source. JSON is Zod-validated.
-LaTeX parsing is deterministic and conservative for common Olympiad/IB patterns. PDF parsing creates a review-required
-stub and a `parse_jobs` row for hosted MinerU when `MINERU_PROVIDER=hosted`. Normalized package objects are written to private
-Storage; when the Cloudflare KMS wrapper is configured, package object writes are envelope-encrypted.
+Owner only. Creates assessment and draft version from JSON, LaTeX, or PDF upload. JSON is Zod-validated. LaTeX parsing
+is deterministic and conservative for common Olympiad/IB patterns. PDF source files are uploaded through the Edge
+Function into private `assessment-sources`; the owner UI no longer asks for a raw Storage path. PDF parsing creates a
+review-required stub and a `parse_jobs` row for hosted MinerU when `MINERU_PROVIDER=hosted`. Normalized package objects
+are written to private Storage; when the Cloudflare KMS wrapper is configured, package object writes are
+envelope-encrypted.
 
 ## update-question-tree
 

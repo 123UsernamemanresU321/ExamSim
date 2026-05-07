@@ -144,6 +144,11 @@ export function OwnerMfaPanel() {
       setMessage(verified.error.message);
       return;
     }
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error) {
+      setMessage(`MFA verified, but the session could not be refreshed: ${refreshed.error.message}`);
+      return;
+    }
     setVerifyCode("");
     setMessage("MFA verified. Sensitive owner actions are now unlocked for this session.");
     await refreshOverview();

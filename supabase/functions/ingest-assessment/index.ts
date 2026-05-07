@@ -12,6 +12,9 @@ type IngestBody = {
   latex_source?: string;
   json_package?: Record<string, unknown>;
   uploaded_source_path?: string;
+  pdf_source_base64?: string;
+  pdf_source_filename?: string;
+  pdf_source_content_type?: string;
 };
 
 type FlatNode = {
@@ -28,6 +31,8 @@ type FlatNode = {
 };
 
 type AdminClient = ReturnType<typeof getAdminClient>;
+
+const MAX_PDF_SOURCE_BYTES = 10 * 1024 * 1024;
 
 function cleanLatexTitle(line: string) {
   return line
@@ -149,6 +154,10 @@ serve(async (request) => {
       .single();
     if (assessmentError) throw assessmentError;
 
+    const versionId = crypto.randomUUID();
+    const sourceObjectPath = body.source_kind === "pdf"
+      ? await resolvePdfSourceObjectPath(admin, profile.id, assessment.id, versionId, body)
+      : body.uploaded_source_path ?? null;
     const parseConfidence = body.source_kind === "json" ? 1 : body.source_kind === "latex" ? 0.62 : 0.15;
     const requiresReview = parseConfidence < 0.9;
     const normalizedPackage =
@@ -177,7 +186,7 @@ serve(async (request) => {
               },
             },
             source: {
-              original_object_path: body.uploaded_source_path,
+              original_object_path: sourceObjectPath ?? undefined,
               normalized_by: "edge-ingest:mvp",
               parse_confidence: parseConfidence,
               requires_owner_review: requiresReview,
@@ -185,7 +194,6 @@ serve(async (request) => {
             questions: [],
           };
 
-    const versionId = crypto.randomUUID();
     const packageStorage = await storeNormalizedPackageObject(admin, profile.id, versionId, normalizedPackage);
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
@@ -195,7 +203,7 @@ serve(async (request) => {
         version_no: 1,
         status: requiresReview ? "review_required" : "draft",
         source_kind: body.source_kind,
-        source_object_path: body.uploaded_source_path ?? null,
+        source_object_path: sourceObjectPath,
         normalized_package_json: packageStorage.encrypted_package_path ? null : normalizedPackage,
         parse_confidence: parseConfidence,
         requires_owner_review: requiresReview,
@@ -238,13 +246,13 @@ serve(async (request) => {
     }
 
     let parseJobId: string | null = null;
-    if (body.source_kind === "pdf" && body.uploaded_source_path) {
+    if (body.source_kind === "pdf" && sourceObjectPath) {
       const { data: parseJob, error: parseJobError } = await admin
         .from("parse_jobs")
         .insert({
           assessment_version_id: version.id,
           owner_profile_id: profile.id,
-          source_object_path: body.uploaded_source_path,
+          source_object_path: sourceObjectPath,
           parser: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : "mineru",
           status: "queued",
           requested_ocr: true,
@@ -275,6 +283,50 @@ serve(async (request) => {
     return json({ error: error instanceof Error ? error.message : "ingest-assessment failed" }, 401);
   }
 });
+
+async function resolvePdfSourceObjectPath(
+  admin: AdminClient,
+  ownerProfileId: string,
+  assessmentId: string,
+  versionId: string,
+  body: IngestBody,
+) {
+  if (body.pdf_source_base64) {
+    const bytes = decodeBase64Pdf(body.pdf_source_base64);
+    if (bytes.byteLength === 0) throw new Error("The uploaded PDF is empty");
+    if (bytes.byteLength > MAX_PDF_SOURCE_BYTES) throw new Error("PDF source uploads must be 10MB or smaller");
+    if (!isPdf(bytes)) throw new Error("The uploaded source file is not a valid PDF");
+    const filename = safeFilename(body.pdf_source_filename ?? "source.pdf");
+    const objectPath = `${ownerProfileId}/assessments/${assessmentId}/versions/${versionId}/${filename}`;
+    const { error } = await admin.storage.from("assessment-sources").upload(objectPath, bytes, {
+      contentType: "application/pdf",
+      upsert: false,
+    });
+    if (error) throw error;
+    return objectPath;
+  }
+  if (body.uploaded_source_path?.trim()) return body.uploaded_source_path.trim();
+  throw new Error("Choose a PDF file to upload");
+}
+
+function decodeBase64Pdf(value: string) {
+  const normalized = value.replace(/^data:application\/pdf;base64,/i, "").replace(/\s/g, "");
+  return Uint8Array.from(atob(normalized), (char) => char.charCodeAt(0));
+}
+
+function isPdf(bytes: Uint8Array) {
+  return bytes.length >= 5 &&
+    bytes[0] === 0x25 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x44 &&
+    bytes[3] === 0x46 &&
+    bytes[4] === 0x2d;
+}
+
+function safeFilename(value: string) {
+  const cleaned = value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return cleaned.endsWith(".pdf") ? cleaned : `${cleaned || "source"}.pdf`;
+}
 
 function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: string | null = null): FlatNode[] {
   const flattened: FlatNode[] = [];

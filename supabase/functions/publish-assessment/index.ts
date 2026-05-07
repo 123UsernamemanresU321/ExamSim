@@ -140,10 +140,17 @@ serve(async (request) => {
     });
     return json({ ok: true, attempt_ids: attempts?.map((attempt) => attempt.id) ?? [] });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "publish-assessment failed" }, 401);
+    const message = error instanceof Error ? error.message : "publish-assessment failed";
+    return json({ error: message }, statusForPublishError(message));
   }
 });
 
 function normalizeHashList(values: string[] | undefined) {
   return [...new Set((values ?? []).flatMap((value) => value.split(/[\s,]+/)).map((value) => value.trim()).filter(Boolean))];
+}
+
+function statusForPublishError(message: string) {
+  if (/MFA|AAL2|Owner role|Forbidden|bearer token/i.test(message)) return 403;
+  if (/Missing|review is required|invalid/i.test(message)) return 400;
+  return 500;
 }

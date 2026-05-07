@@ -27,6 +27,7 @@ export type AttemptScreenData = {
   attempt: AttemptSummary;
   stateToken: string;
   package: NormalizedAssessmentPackage | null;
+  packageError: string | null;
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
@@ -50,6 +51,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     },
     stateToken: "demo-state-token",
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,
+    packageError: null,
   };
 }
 
@@ -70,25 +72,33 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
   if (assessmentError) throw assessmentError;
 
   const state = await invokeEdgeFunctionServer<AttemptStateResponse>("get-attempt-state", { attempt_id: attemptId });
-  const assessmentPackage = includePackage && state.state !== "WAITING"
-    ? await getReleasedPackage(attemptId, state.state_token)
-    : null;
+  const packageResult = includePackage && state.state !== "WAITING"
+    ? await getReleasedPackageResult(attemptId, state.state_token)
+    : { package: null, packageError: null };
 
   return {
     attempt: mapScreenAttempt(attempt, assessment, state),
     stateToken: state.state_token,
-    package: assessmentPackage,
+    package: packageResult.package,
+    packageError: packageResult.packageError,
   };
 }
 
-async function getReleasedPackage(attemptId: string, stateToken: string) {
-  const response = await invokeEdgeFunctionServer<AttemptPackageResponse>("get-attempt-package", {
-    attempt_id: attemptId,
-    state_token: stateToken,
-  });
-  const parsed = normalizedPackageSchema.safeParse(response.assessment_package);
-  if (!parsed.success) throw new Error("Released package failed schema validation");
-  return parsed.data;
+async function getReleasedPackageResult(attemptId: string, stateToken: string) {
+  try {
+    const response = await invokeEdgeFunctionServer<AttemptPackageResponse>("get-attempt-package", {
+      attempt_id: attemptId,
+      state_token: stateToken,
+    });
+    const parsed = normalizedPackageSchema.safeParse(response.assessment_package);
+    if (!parsed.success) return { package: null, packageError: "Released package failed schema validation." };
+    return { package: parsed.data, packageError: null };
+  } catch (error) {
+    return {
+      package: null,
+      packageError: error instanceof Error ? error.message : "Exam content could not be loaded.",
+    };
+  }
 }
 
 function mapScreenAttempt(attempt: Attempt, assessment: Assessment, state: AttemptStateResponse): AttemptSummary {
