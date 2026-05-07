@@ -70,14 +70,22 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         label="Owner email or student login code"
         description="Owners use their email address. Students use the login code issued by the owner; Exam Vault maps it to the internal Supabase alias."
       >
-        <Input name="email" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required />
+        <Input
+          name="email"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="owner@example.com or STU-XXXX"
+          required
+        />
       </Field>
       <Field label="Password">
         <Input name="password" type="password" autoComplete="current-password" required />
       </Field>
       <Button type="submit">
         <LogIn size={16} aria-hidden="true" />
-        Log in
+        Log in as owner or student
       </Button>
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
     </form>

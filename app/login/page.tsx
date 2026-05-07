@@ -14,9 +14,10 @@ export default function LoginPage() {
         <Card className="paper-sheet grid w-full gap-8 p-6 md:grid-cols-[1fr_1fr] md:p-8">
           <section className="border-b border-[var(--border)] pb-6 md:border-b-0 md:border-r md:pb-0 md:pr-8">
             <CardHeader>
-              <CardTitle>Owner login</CardTitle>
+              <CardTitle>Owner and student login</CardTitle>
               <CardDescription>
-                Owners use a real email and password. Enforce MFA/AAL2 before production publish and assignment.
+                Owners enter their email and password. Students enter their owner-issued login code and password in this
+                same form.
               </CardDescription>
             </CardHeader>
             <Suspense fallback={<LoginForm />}>
@@ -32,8 +33,8 @@ export default function LoginPage() {
             </CardHeader>
             <div className="grid gap-4 text-sm leading-6 text-[var(--muted)]">
               <p>
-                After activation, students sign in with the internal alias generated from their login code.
-                No real student email delivery is required in this MVP.
+                After activation, return to this page and use the login form with your login code, for example
+                STU-XXXX, plus the password you set. No student email address is needed.
               </p>
               <ButtonLink href="/activate" variant="secondary">
                 Activate student account
