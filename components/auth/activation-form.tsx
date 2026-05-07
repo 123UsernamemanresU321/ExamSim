@@ -5,7 +5,7 @@ import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function ActivationForm() {
   const [message, setMessage] = useState<string | null>(null);
@@ -15,10 +15,11 @@ export function ActivationForm() {
     const form = new FormData(event.currentTarget);
     const supabase = createSupabaseBrowserClient();
     try {
-      const data = await invokeEdgeFunction<{ message?: string; error?: string }>(supabase, "activate-student", {
+      await supabase.auth.signOut({ scope: "local" });
+      const data = await invokePublicEdgeFunction<{ message?: string; error?: string; ok?: boolean }>("activate-student", {
         body: Object.fromEntries(form),
       });
-      setMessage(data?.message ?? data?.error ?? "Activation request sent.");
+      setMessage(data?.message ?? data?.error ?? (data?.ok ? "Account activated. You can now log in." : "Activation request sent."));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Activation failed.");
     }

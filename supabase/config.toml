@@ -32,3 +32,6 @@ otp_expiry = 3600
 
 [storage]
 enabled = true
+
+[functions.activate-student]
+verify_jwt = false

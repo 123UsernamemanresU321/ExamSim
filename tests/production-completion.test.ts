@@ -17,7 +17,7 @@ import {
 import { getPasskeyApiStatus } from "@/lib/passkeys";
 import { normalizedPackageToQtiManifest, qtiManifestToNormalizedPackage } from "@/lib/qti";
 import { extractSebKeysFromRecord, validateSebKeys } from "@/lib/seb";
-import { edgeFunctionErrorMessage } from "@/lib/supabase/functions-client";
+import { edgeFunctionErrorMessage, invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
 
 describe("DeepSeek AI parse helpers", () => {
   it("validates review-required normalized package suggestions", () => {
@@ -196,6 +196,33 @@ describe("Edge Function client error handling", () => {
     });
 
     await expect(edgeFunctionErrorMessage(error)).resolves.toBe("Owner MFA/AAL2 required for this action");
+  });
+
+  it("uses anon apikey without bearer authorization for public Edge Function calls", async () => {
+    const originalFetch = global.fetch;
+    const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    global.fetch = (async (_url, init) => {
+      const headers = new Headers(init?.headers);
+      expect(headers.get("apikey")).toBe("anon-key");
+      expect(headers.get("authorization")).toBeNull();
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    try {
+      await expect(invokePublicEdgeFunction("activate-student", { body: { login_code: "STU-1" } })).resolves.toEqual({
+        ok: true,
+      });
+    } finally {
+      global.fetch = originalFetch;
+      process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalAnonKey;
+    }
   });
 });
 
