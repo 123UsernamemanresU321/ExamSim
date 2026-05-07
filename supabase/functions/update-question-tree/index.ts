@@ -216,16 +216,18 @@ function nestFlatNodes(nodes: FlatNode[]) {
   const byKey = new Map<string, Record<string, unknown>>();
   const roots: Record<string, unknown>[] = [];
   for (const node of nodes) {
+    const html = node.prompt_html ?? undefined;
+    const latex = node.prompt_latex ?? undefined;
     const normalized = {
       node_id: node.node_key,
       node_key: node.node_key,
-      ordinal: node.ordinal,
+      ordinal: Math.max(0, node.ordinal),
       node_type: node.node_type,
       title: node.title ?? undefined,
-      marks: node.marks ?? undefined,
+      marks: node.marks !== null ? Math.max(0, node.marks) : undefined,
       response_mode: node.response_mode,
-      prompt: { html: node.prompt_html ?? undefined, latex: node.prompt_latex ?? undefined },
-      interaction: isRecord(node.interaction_json) ? node.interaction_json : undefined,
+      prompt: (html || latex) ? { html, latex } : undefined,
+      interaction: normalizeInteraction(node.interaction_json),
       source_page_start: node.source_page_start ?? undefined,
       source_page_end: node.source_page_end ?? undefined,
       children: [] as Record<string, unknown>[],
@@ -243,7 +245,42 @@ function nestFlatNodes(nodes: FlatNode[]) {
       roots.push(normalized);
     }
   }
+  function cleanup(n: Record<string, unknown>) {
+    if (Array.isArray(n.children) && n.children.length === 0) delete n.children;
+    else if (Array.isArray(n.children)) n.children.forEach((c) => cleanup(c as Record<string, unknown>));
+  }
+  roots.forEach(cleanup);
   return roots;
+}
+
+function normalizeInteraction(raw: unknown) {
+  if (!isRecord(raw)) return undefined;
+  const kindStr = String(raw.kind ?? raw.type ?? "").toLowerCase().replaceAll("-", "_");
+  let kind: "choice" | "short_text" | "extended_text" = "extended_text";
+  if (kindStr.includes("choice")) kind = "choice";
+  else if (kindStr.includes("short")) kind = "short_text";
+
+  const choices = Array.isArray(raw.choices)
+    ? raw.choices
+        .map((c, i) => {
+          const rc = isRecord(c) ? c : {};
+          const cid = stringValue(rc.choice_id) ?? stringValue(rc.id) ?? String(i + 1);
+          const content = stringValue(rc.content_html) ?? stringValue(rc.text) ?? stringValue(rc.content) ?? `Choice ${i + 1}`;
+          return { choice_id: cid, content_html: content };
+        })
+        .filter((c) => c.choice_id && c.content_html)
+    : undefined;
+
+  return {
+    kind,
+    max_choices: numberValue(raw.max_choices) !== null ? Math.max(1, numberValue(raw.max_choices)!) : undefined,
+    shuffle: booleanValue(raw.shuffle) ?? undefined,
+    choices: choices?.length ? choices : undefined,
+  };
+}
+
+function booleanValue(value: unknown) {
+  return typeof value === "boolean" ? value : null;
 }
 
 function normalizeNodeType(value: unknown): FlatNode["node_type"] {
