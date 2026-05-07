@@ -32,24 +32,41 @@ serve(async (request) => {
       method: "GET",
       headers: buildMineruAuthHeaders(),
     });
-    const rawResult = await resultResponse.json();
-    if (!resultResponse.ok) throw new Error(`MinerU result lookup failed: ${resultResponse.status}`);
+    let rawResult: unknown;
+    try {
+      rawResult = await readMineruJsonResponse(resultResponse, "MinerU result lookup");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "MinerU result lookup failed";
+      await admin
+        .from("parse_jobs")
+        .update({
+          status: "failed",
+          external_state: "provider_error",
+          error_message: message,
+          completed_at: new Date().toISOString(),
+          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_poll_error: message },
+        })
+        .eq("id", parseJob.id);
+      return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, statusForMineruError(message));
+    }
     const result = pickMineruExtractResult(rawResult, parseJob.external_data_id ?? parseJob.id);
 
     if (result.state !== "done") {
-      const status = result.state === "failed" ? "failed" : "running";
+      const staleError = staleMineruError(parseJob);
+      const status = result.state === "failed" || result.state === "unknown" || staleError ? "failed" : "running";
+      const errorMessage = staleError ?? result.error ?? (result.state === "unknown" ? "MinerU returned an unknown result state." : null);
       const { error: updateError } = await admin
         .from("parse_jobs")
         .update({
           status,
           external_state: result.state,
-          error_message: result.error,
+          error_message: errorMessage,
           completed_at: status === "failed" ? new Date().toISOString() : null,
           metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw },
         })
         .eq("id", parseJob.id);
       if (updateError) throw updateError;
-      return json({ ok: true, status, external_state: result.state, error_message: result.error });
+      return json({ ok: status !== "failed", status, external_state: result.state, error_message: errorMessage });
     }
 
     if (!result.fullZipUrl) throw new Error("MinerU result is done but did not include full_zip_url");
@@ -111,9 +128,43 @@ serve(async (request) => {
       artifact_count: artifacts.length + 1,
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "mineru-poll-hosted-job failed" }, 401);
+    const message = error instanceof Error ? error.message : "mineru-poll-hosted-job failed";
+    return json({ error: message }, statusForMineruError(message));
   }
 });
+
+async function readMineruJsonResponse(response: Response, label: string) {
+  const text = await response.text();
+  let payload: unknown = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch (_error) {
+    if (!response.ok) throw new Error(`${label} failed: ${response.status} ${text.slice(0, 300)}`);
+    throw new Error(`${label} returned invalid JSON`);
+  }
+  if (!response.ok) {
+    const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    throw new Error(`${label} failed: ${response.status} ${String(record.msg ?? record.error ?? record.message ?? "").slice(0, 300)}`.trim());
+  }
+  return payload;
+}
+
+function staleMineruError(parseJob: { started_at?: string | null; updated_at?: string | null; created_at?: string | null; metadata_json?: Record<string, unknown> | null }) {
+  const staleAfterSeconds = Number(Deno.env.get("MINERU_STALE_AFTER_SECONDS") || 45 * 60);
+  const startedAt = Date.parse(parseJob.started_at ?? parseJob.updated_at ?? parseJob.created_at ?? "");
+  if (!Number.isFinite(startedAt)) return null;
+  const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+  if (elapsedSeconds < staleAfterSeconds) return null;
+  const uploadMode = typeof parseJob.metadata_json?.upload_mode === "string" ? parseJob.metadata_json.upload_mode : "unknown";
+  return `MinerU has not completed after ${Math.round(elapsedSeconds / 60)} minutes. The job was marked failed so it can be restarted; server-side file upload mode is recommended over signed URL mode. Last upload mode: ${uploadMode}.`;
+}
+
+function statusForMineruError(message: string) {
+  if (/MFA|AAL2|Owner role|Forbidden|bearer token/i.test(message)) return 403;
+  if (/required|not configured|not submitted|invalid/i.test(message)) return 400;
+  if (/MinerU .*failed: 4\d\d|provider_error/i.test(message)) return 502;
+  return 500;
+}
 
 async function extractAndUploadArtifacts(
   admin: {

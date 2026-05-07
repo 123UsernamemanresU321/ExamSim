@@ -147,6 +147,21 @@ describe("MinerU hosted API helpers", () => {
     expect(result.state).toBe("done");
     expect(result.fullZipUrl).toBe("https://download.example/result.zip");
   });
+
+  it("treats timeout-like hosted MinerU states as failed", () => {
+    const result = pickMineruExtractResult(
+      {
+        code: 0,
+        data: {
+          extract_result: [{ data_id: "parse-job-1", state: "timed out", error_msg: "Source URL fetch timed out" }],
+        },
+      },
+      "parse-job-1",
+    );
+
+    expect(result.state).toBe("failed");
+    expect(result.error).toBe("Source URL fetch timed out");
+  });
 });
 
 describe("Cloudflare KMS envelope helpers", () => {
@@ -256,5 +271,11 @@ describe("production UI wiring", () => {
     expect(source).toContain('type="file"');
     expect(source).toContain("pdf_source_base64");
     expect(source).not.toContain('name="uploaded_source_path"');
+  });
+
+  it("lets owners restart stuck hosted MinerU jobs", () => {
+    const source = readFileSync("components/owner/mineru-hosted-panel.tsx", "utf8");
+    expect(source).toContain("Restart MinerU job");
+    expect(source).toContain("force: true");
   });
 });

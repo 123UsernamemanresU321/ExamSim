@@ -36,9 +36,10 @@ MINERU_WORKER_SECRET=
 MINERU_PROVIDER=hosted
 MINERU_API_KEY=
 MINERU_API_BASE_URL=https://mineru.net
-MINERU_UPLOAD_MODE=signed_url
+MINERU_UPLOAD_MODE=file_upload
 MINERU_MODEL_VERSION=vlm
 MINERU_LANGUAGE=en
+MINERU_STALE_AFTER_SECONDS=2700
 DEEPSEEK_API_KEY=
 AI_PARSE_PROVIDER=deepseek
 AI_PARSE_MODEL=deepseek-v4-flash
@@ -106,13 +107,13 @@ Set Supabase Edge Function secrets with the Supabase CLI:
 ```bash
 supabase secrets set DEEPSEEK_API_KEY=...
 supabase secrets set AI_PARSE_PROVIDER=deepseek AI_PARSE_MODEL=deepseek-v4-flash AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
-supabase secrets set MINERU_PROVIDER=hosted MINERU_API_KEY=... MINERU_API_BASE_URL=https://mineru.net MINERU_UPLOAD_MODE=signed_url MINERU_MODEL_VERSION=vlm MINERU_LANGUAGE=en
+supabase secrets set MINERU_PROVIDER=hosted MINERU_API_KEY=... MINERU_API_BASE_URL=https://mineru.net MINERU_UPLOAD_MODE=file_upload MINERU_MODEL_VERSION=vlm MINERU_LANGUAGE=en MINERU_STALE_AFTER_SECONDS=2700
 supabase secrets set EXTERNAL_KMS_PROVIDER=cloudflare EXTERNAL_KMS_WRAP_URL=https://<worker>/wrap EXTERNAL_KMS_UNWRAP_URL=https://<worker>/unwrap EXTERNAL_KMS_ADMIN_TOKEN=...
 ```
 
-Hosted MinerU uses `MINERU_API_KEY` in Supabase Edge Functions only. PDFs are sent to MinerU through short-lived
-server-issued access, and output is pulled back into private Supabase Storage for owner review. No RunPod pod is needed
-for hosted mode.
+Hosted MinerU uses `MINERU_API_KEY` in Supabase Edge Functions only. By default the Edge Function requests a MinerU
+upload URL and sends the private PDF server-to-server, which avoids signed URL fetch timeouts. Output is pulled back
+into private Supabase Storage for owner review. No RunPod pod is needed for hosted mode.
 
 Provision the configured owner after migrations are applied:
 

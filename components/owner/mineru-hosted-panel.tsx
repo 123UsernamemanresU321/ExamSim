@@ -23,19 +23,25 @@ export function MineruHostedPanel({
     [parseJobs],
   );
 
-  async function invoke(functionName: "mineru-submit-hosted-job" | "mineru-poll-hosted-job", parseJobId: string) {
+  async function invoke(functionName: "mineru-submit-hosted-job" | "mineru-poll-hosted-job", parseJobId: string, options: { force?: boolean } = {}) {
     setBusyJobId(parseJobId);
-    setMessage(functionName === "mineru-submit-hosted-job" ? "Submitting PDF to hosted MinerU..." : "Checking hosted MinerU result...");
+    setMessage(
+      functionName === "mineru-submit-hosted-job"
+        ? options.force ? "Restarting hosted MinerU with server-side PDF upload..." : "Submitting PDF to hosted MinerU..."
+        : "Checking hosted MinerU result...",
+    );
     const supabase = createSupabaseBrowserClient();
     try {
-      const data = await invokeEdgeFunction<{ status?: string; external_state?: string; artifact_count?: number; error?: string }>(supabase, functionName, {
-        body: { parse_job_id: parseJobId },
+      const data = await invokeEdgeFunction<{ status?: string; external_state?: string; artifact_count?: number; error_message?: string; upload_mode?: string; restarted?: boolean }>(supabase, functionName, {
+        body: { parse_job_id: parseJobId, force: options.force ?? false },
         requiresAal2: true,
       });
       setMessage(
         functionName === "mineru-submit-hosted-job"
-          ? `Hosted MinerU job submitted. Status: ${data?.status ?? "running"}.`
-          : `Hosted MinerU check complete. Status: ${data?.status ?? data?.external_state ?? "running"}.`,
+          ? `Hosted MinerU job ${data?.restarted ? "restarted" : "submitted"}. Status: ${data?.status ?? "running"}. Upload mode: ${data?.upload_mode ?? "server-side"}.`
+          : data?.status === "failed"
+            ? `Hosted MinerU check failed: ${data.error_message ?? data.external_state ?? "provider did not complete the job"}.`
+            : `Hosted MinerU check complete. Status: ${data?.status ?? data?.external_state ?? "running"}.`,
       );
       router.refresh();
     } catch (error) {
@@ -66,6 +72,7 @@ export function MineruHostedPanel({
         const jobArtifacts = artifacts.filter((artifact) => artifact.parse_job_id === job.id);
         const canSubmit = job.status === "queued" || job.status === "failed";
         const canPoll = job.status === "running" && Boolean(job.external_batch_id);
+        const canRestart = canPoll;
         return (
           <div key={job.id} className="rounded-md border border-[var(--border)] bg-white p-4">
             <p className="text-sm font-semibold">
@@ -87,7 +94,19 @@ export function MineruHostedPanel({
                   Check result
                 </Button>
               ) : null}
+              {canRestart ? (
+                <Button type="button" variant="secondary" disabled={busyJobId === job.id} onClick={() => void invoke("mineru-submit-hosted-job", job.id, { force: true })}>
+                  <UploadCloud size={16} aria-hidden="true" />
+                  Restart MinerU job
+                </Button>
+              ) : null}
             </div>
+            {canPoll ? (
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                If a job stays pending/running for a long time, restart it. Exam Vault will use server-side file upload
+                to avoid signed URL fetch timeouts.
+              </p>
+            ) : null}
             {jobArtifacts.length ? (
               <ul className="mt-3 space-y-1 text-xs text-[var(--muted)]">
                 {jobArtifacts.slice(0, 5).map((artifact) => (

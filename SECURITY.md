@@ -53,9 +53,10 @@ replacement is not supported in production v1.
 
 ## Parsing And AI Boundaries
 
-Hosted MinerU receives PDFs only from Supabase Edge Functions using server-side `MINERU_API_KEY` and short-lived access
-to private source objects. The browser never receives the MinerU token. Hosted parsing means PDFs are processed by
-MinerU's service; use self-hosted parsing instead for assessments that cannot leave infrastructure you control.
+Hosted MinerU receives PDFs only from Supabase Edge Functions using server-side `MINERU_API_KEY`. The default hosted
+path requests a MinerU upload URL and sends the private PDF server-to-server, avoiding public URLs and signed URL fetch
+timeouts. The browser never receives the MinerU token. Hosted parsing means PDFs are processed by MinerU's service; use
+self-hosted parsing instead for assessments that cannot leave infrastructure you control.
 
 MinerU output is draft evidence for owner review, not a trusted publishable result.
 

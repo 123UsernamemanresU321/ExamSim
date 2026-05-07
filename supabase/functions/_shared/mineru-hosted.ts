@@ -28,7 +28,7 @@ export function mineruApiBaseUrl() {
 }
 
 export function mineruUploadMode(): MineruUploadMode {
-  return Deno.env.get("MINERU_UPLOAD_MODE") === "file_upload" ? "file_upload" : "signed_url";
+  return Deno.env.get("MINERU_UPLOAD_MODE") === "signed_url" ? "signed_url" : "file_upload";
 }
 
 export function buildMineruAuthHeaders() {
@@ -90,11 +90,11 @@ export function pickMineruExtractResult(raw: unknown, dataId: string): MineruExt
     candidates[0] ??
     {};
   return {
-    state: normalizeState(stringValue(selected.state ?? selected.status)),
-    fileName: stringValue(selected.file_name ?? selected.fileName),
+    state: normalizeState(stringValue(selected.state ?? selected.status ?? data.state ?? data.status)),
+    fileName: stringValue(selected.file_name ?? selected.fileName ?? data.file_name ?? data.fileName),
     dataId: stringValue(selected.data_id ?? selected.dataId) ?? dataId,
-    fullZipUrl: stringValue(selected.full_zip_url ?? selected.fullZipUrl ?? selected.zip_url ?? selected.zipUrl),
-    error: stringValue(selected.err_msg ?? selected.error_msg ?? selected.error),
+    fullZipUrl: stringValue(selected.full_zip_url ?? selected.fullZipUrl ?? selected.zip_url ?? selected.zipUrl ?? data.full_zip_url ?? data.fullZipUrl),
+    error: stringValue(selected.err_msg ?? selected.error_msg ?? selected.error ?? data.err_msg ?? data.error_msg ?? data.error),
     raw: selected,
   };
 }
@@ -121,11 +121,11 @@ function normalizeResultList(value: unknown): Record<string, unknown>[] {
 }
 
 function normalizeState(value: string | null): MineruExtractResult["state"] {
-  const normalized = (value || "").toLowerCase();
+  const normalized = (value || "").toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
   if (["done", "success", "succeeded", "finished", "completed"].includes(normalized)) return "done";
-  if (["failed", "error", "fail"].includes(normalized)) return "failed";
-  if (["running", "processing", "parsing", "converting"].includes(normalized)) return "running";
-  if (["pending", "waiting", "queued", "created"].includes(normalized)) return "pending";
+  if (["failed", "error", "fail", "timeout", "timed_out", "expired", "canceled", "cancelled"].includes(normalized)) return "failed";
+  if (["running", "processing", "parsing", "converting", "in_progress"].includes(normalized)) return "running";
+  if (["pending", "waiting", "queued", "created", "submitted"].includes(normalized)) return "pending";
   return "unknown";
 }
 

@@ -96,13 +96,16 @@ mandatory.
 ## mineru-submit-hosted-job
 
 Owner AAL2 only. Submits a queued PDF parse job to hosted MinerU using `MINERU_API_KEY` from Supabase Edge secrets.
-The Edge Function signs the private source PDF or uploads it to a MinerU-provided upload URL, stores the MinerU batch id
-on `parse_jobs`, and never exposes the MinerU token to the browser.
+The Edge Function defaults to MinerU's file-upload URL flow, uploads the private source PDF server-to-server, stores the
+MinerU batch id on `parse_jobs`, and never exposes the MinerU token to the browser. A running job can be force-restarted
+from the owner review UI if the provider stays pending for too long.
 
 ## mineru-poll-hosted-job
 
 Owner AAL2 only. Polls hosted MinerU by batch id, downloads the completed result ZIP, uploads the ZIP and extracted
-Markdown/JSON/HTML/log artifacts to private `assessment-packages`, and marks the parse job `review_required`.
+Markdown/JSON/HTML/log artifacts to private `assessment-packages`, and marks the parse job `review_required`. Provider
+errors and stale running jobs are persisted as `failed` so the owner can restart instead of seeing an endless running
+state.
 
 ## ai-parse-assessment
 
