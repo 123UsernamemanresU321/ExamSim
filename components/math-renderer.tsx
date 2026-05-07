@@ -6,10 +6,14 @@ import renderMathInElement from "katex/dist/contrib/auto-render";
 export function MathRenderer({ latex, html, className }: { latex?: string; html?: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   
-  // If we only have latex, we must escape it because the browser will 
-  // misinterpret < and > as HTML tags before KaTeX can process them.
-  const escapedLatex = latex ? latex.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-  const content = html || (latex ? `<span>${escapedLatex}</span>` : "");
+  // Prevent the browser from misinterpreting mathematical inequalities as HTML tags.
+  // We escape < and > only when they are NOT part of a valid HTML tag structure.
+  const sanitize = (str: string) => 
+    str
+      .replace(/<(?![a-zA-Z/])/g, "&lt;")
+      .replace(/>(?![a-zA-Z/])/g, "&gt;");
+
+  const content = html ? sanitize(html) : (latex ? `<span>${sanitize(latex)}</span>` : "");
 
   useEffect(() => {
     if (ref.current) {

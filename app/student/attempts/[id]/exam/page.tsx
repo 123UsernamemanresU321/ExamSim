@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionNavigator } from "@/components/question-navigator";
@@ -6,6 +7,7 @@ import { TelemetryListener } from "@/components/telemetry-listener";
 import { UploadSlotCard } from "@/components/upload-slot-card";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { SubmitExamButton } from "@/components/submit-exam-button";
 import { flattenQuestionNodes } from "@/lib/assessment-package";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 import { demoAttemptParams } from "@/lib/static-params";
@@ -19,6 +21,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
   const screenData = await getAttemptScreenData(id, true).catch((error: unknown) => ({
     error: error instanceof Error ? error.message : "Attempt could not be loaded.",
   }));
+
   if ("error" in screenData) {
     return (
       <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
@@ -30,7 +33,13 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
       </section>
     );
   }
+
   const { attempt, package: assessmentPackage, packageError, stateToken } = screenData;
+
+  if (attempt.state === "WAITING") redirect(`/student/attempts/${id}/waiting`);
+  if (attempt.state === "UPLOAD_ONLY") redirect(`/student/attempts/${id}/upload`);
+  if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
+
   if (!assessmentPackage) {
     return (
       <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
@@ -47,9 +56,6 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
         </div>
         <div className="flex flex-wrap gap-2">
           <ButtonLink href="/student">Back to assigned attempts</ButtonLink>
-          {attempt.state === "WAITING" ? <ButtonLink href={`/student/attempts/${id}/waiting`} variant="secondary">Open waiting room</ButtonLink> : null}
-          {attempt.state === "UPLOAD_ONLY" ? <ButtonLink href={`/student/attempts/${id}/upload`} variant="secondary">Open upload page</ButtonLink> : null}
-          {attempt.state === "FINISHED_REVIEW" ? <ButtonLink href={`/student/attempts/${id}/finished`} variant="secondary">Open finished review</ButtonLink> : null}
         </div>
       </section>
     );
@@ -95,6 +101,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
             <Button className="mt-4 w-full" type="button" variant="secondary">
               Flag current question
             </Button>
+            <SubmitExamButton attemptId={id} stateToken={stateToken} />
           </section>
           <div className="lg:hidden">
             <QuestionNavigator questions={assessmentPackage.questions} />

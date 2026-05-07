@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionPaper } from "@/components/question-paper";
@@ -14,6 +15,11 @@ export function generateStaticParams() {
 export default async function UploadOnlyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { attempt, package: assessmentPackage, stateToken } = await getAttemptScreenData(id, true);
+
+  if (attempt.state === "WAITING") redirect(`/student/attempts/${id}/waiting`);
+  if (attempt.state === "ACTIVE") redirect(`/student/attempts/${id}/exam`);
+  if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
+
   const uploadNodes = assessmentPackage
     ? flattenQuestionNodes(assessmentPackage.questions).filter((node) => node.response_mode.includes("upload"))
     : [];

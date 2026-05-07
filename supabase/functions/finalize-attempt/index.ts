@@ -14,13 +14,23 @@ serve(async (request) => {
     if (tokenPayload.attempt_id !== body.attempt_id || tokenPayload.profile_id !== profile.id) {
       return json({ error: "State token does not match this attempt" }, 403);
     }
-    const { data: attempt, error } = await admin.from("attempts").select("assignee_profile_id").eq("id", body.attempt_id).single();
+    const { data: attempt, error } = await admin.from("attempts").select("assignee_profile_id, end_at_utc").eq("id", body.attempt_id).single();
     if (error) throw error;
     if (attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
-    await admin.from("text_responses").update({ finalized_at: new Date().toISOString() }).eq("attempt_id", body.attempt_id);
+
+    const now = new Date().toISOString();
+    if (attempt.end_at_utc > now) {
+      await admin.from("attempts").update({ end_at_utc: now }).eq("id", body.attempt_id);
+    }
+
+    await admin.from("text_responses").update({ finalized_at: now }).eq("attempt_id", body.attempt_id);
     await admin.from("upload_slots").update({ status: "missing" }).eq("attempt_id", body.attempt_id).eq("status", "pending");
     await admin.rpc("generate_moderation_summary", { target_attempt_id: body.attempt_id });
-    await admin.from("attempt_events").insert({ attempt_id: body.attempt_id, event_type: "attempt.finalized", payload_json: {} });
+    await admin.from("attempt_events").insert({ 
+      attempt_id: body.attempt_id, 
+      event_type: "attempt.finalized", 
+      payload_json: { ended_early: attempt.end_at_utc > now } 
+    });
     return json({ ok: true });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "finalize-attempt failed" }, 401);

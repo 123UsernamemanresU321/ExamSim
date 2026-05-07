@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,11 @@ export function generateStaticParams() {
 export default async function WaitingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { attempt } = await getAttemptScreenData(id, false);
+
+  if (attempt.state === "ACTIVE") redirect(`/student/attempts/${id}/exam`);
+  if (attempt.state === "UPLOAD_ONLY") redirect(`/student/attempts/${id}/upload`);
+  if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
+
   return (
     <div className="mx-auto max-w-[840px]">
       <SectionHeading

@@ -2,15 +2,27 @@
 
 import { useEffect, useState } from "react";
 
-export function useServerCountdown(serverNowUtc: string, targetUtc: string | null) {
+export function useServerCountdown(serverNowUtc: string, targetUtc: string | null, onExpire?: () => void) {
   const serverNowMs = Date.parse(serverNowUtc);
   const [serverEstimatedNow, setServerEstimatedNow] = useState(serverNowMs);
+  const [hasExpired, setHasExpired] = useState(false);
 
   useEffect(() => {
     const localOffset = Date.now() - serverNowMs;
-    const id = window.setInterval(() => setServerEstimatedNow(Date.now() - localOffset), 1000);
+    const id = window.setInterval(() => {
+      const now = Date.now() - localOffset;
+      setServerEstimatedNow(now);
+      
+      if (targetUtc) {
+        const remaining = Date.parse(targetUtc) - now;
+        if (remaining <= 0 && !hasExpired) {
+          setHasExpired(true);
+          onExpire?.();
+        }
+      }
+    }, 1000);
     return () => window.clearInterval(id);
-  }, [serverNowMs]);
+  }, [serverNowMs, targetUtc, onExpire, hasExpired]);
 
   if (!targetUtc) {
     return { remainingMs: null, expired: true };

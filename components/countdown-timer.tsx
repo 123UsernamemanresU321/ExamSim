@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { AttemptState } from "@/lib/constants";
 import { useServerCountdown } from "@/hooks/use-server-countdown";
 
@@ -15,12 +16,16 @@ export function CountdownTimer({
   serverNowUtc,
   targetUtc,
   state,
+  onExpire,
 }: {
   serverNowUtc: string;
   targetUtc: string | null;
   state: AttemptState;
+  onExpire?: () => void;
 }) {
-  const { remainingMs } = useServerCountdown(serverNowUtc, targetUtc);
+  const router = useRouter();
+  const handleExpire = onExpire || (() => router.refresh());
+  const { remainingMs } = useServerCountdown(serverNowUtc, targetUtc, handleExpire);
 
   if (remainingMs === null) {
     return (

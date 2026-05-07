@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Send, Save } from "lucide-react";
+import { Download, Send, Save, FileText, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea } from "@/components/ui/form";
-import { calculateAwardedMarks } from "@/lib/marking";
+import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { Mark, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
@@ -14,7 +13,7 @@ export function MarkingWorkspaceForm({
   questionNodes,
   textResponses,
   uploadSlots,
-  marks,
+  marks: initialMarks,
 }: {
   attemptId: string;
   questionNodes: QuestionNodeRow[];
@@ -24,29 +23,49 @@ export function MarkingWorkspaceForm({
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");
-  const totalAwarded = calculateAwardedMarks(marks);
+  const [localMarks, setLocalMarks] = useState<Record<string, { awarded: number; notes: string }>>(
+    questionNodes.reduce((acc, node) => {
+      const existing = initialMarks.find((m) => m.question_node_id === node.id);
+      acc[node.id] = {
+        awarded: Number(existing?.awarded_marks ?? 0),
+        notes: existing?.notes ?? "",
+      };
+      return acc;
+    }, {} as Record<string, { awarded: number; notes: string }>),
+  );
 
-  async function saveMarking(event: React.FormEvent<HTMLFormElement>) {
+  const totalAwarded = Object.values(localMarks).reduce((sum, m) => sum + m.awarded, 0);
+  const activeNodes = questionNodes.filter((node) => node.node_type !== "section");
+
+  async function downloadFile(path: string) {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.storage.from("answer-uploads").createSignedUrl(path, 60);
+    if (error) {
+      alert("Could not generate download link: " + error.message);
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function saveMarking(event: React.FormEvent) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const awardedMarks = Number(form.get("awarded_marks") || 0);
     const supabase = createSupabaseBrowserClient();
     try {
+      const markPayload = activeNodes.map((node) => ({
+        question_node_id: node.id,
+        awarded_marks: localMarks[node.id].awarded,
+        notes: localMarks[node.id].notes,
+      }));
+
       await invokeEdgeFunction(supabase, "save-marking", {
         body: {
           attempt_id: attemptId,
-          marks: [{ awarded_marks: awardedMarks, notes: String(form.get("mark_notes") ?? "") }],
-          annotations: [
-            {
-              annotation_type: "feedback",
-              body: String(form.get("feedback_note") ?? ""),
-              anchor_json: {},
-            },
-          ],
+          marks: markPayload,
+          annotations: [],
         },
         requiresAal2: true,
       });
-      setMessage("Marking saved.");
+      setMessage("All marks saved successfully.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save marking.");
     }
@@ -68,7 +87,7 @@ export function MarkingWorkspaceForm({
   async function exportPacket() {
     const supabase = createSupabaseBrowserClient();
     try {
-      const packet = await invokeEdgeFunction<{ marking_packet_zip?: { download_url?: string | null; encrypted?: boolean } }>(
+      const packet = await invokeEdgeFunction<{ marking_packet_zip?: { download_url?: string | null } }>(
         supabase,
         "owner-download-marking-packet",
         {
@@ -78,48 +97,122 @@ export function MarkingWorkspaceForm({
       );
       if (packet?.marking_packet_zip?.download_url) {
         window.location.href = packet.marking_packet_zip.download_url;
-        setMessage(packet.marking_packet_zip.encrypted ? "Encrypted marking ZIP generated." : "Marking ZIP generated.");
+        setMessage("Marking ZIP generated.");
         return;
       }
-      setMessage("Marking packet export completed, but no download URL was returned.");
+      setMessage("Export completed.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not export marking packet.");
     }
   }
 
   return (
-    <form className="grid gap-4" onSubmit={saveMarking}>
-      <div className="rounded-md border border-[var(--border)] bg-white p-3 text-sm leading-6 text-[var(--muted)]">
-        {textResponses.length} typed response(s), {uploadSlots.length} upload slot(s), {questionNodes.length} question node(s).
-        Current saved total: {totalAwarded} mark(s).
+    <div className="grid gap-6">
+      <div className="sticky top-24 z-10 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Total Awarded</p>
+          <p className="text-2xl font-bold text-[var(--ink)]">{totalAwarded} marks</p>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" onClick={saveMarking}>
+            <Save size={16} />
+            Save all
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => void exportPacket()}>
+            <Download size={16} />
+          </Button>
+        </div>
       </div>
-      <Field label="Awarded marks">
-        <Input name="awarded_marks" type="number" min={0} step="0.5" defaultValue={0} />
-      </Field>
-      <Field label="Marker notes">
-        <Textarea name="mark_notes" placeholder="Private marking note or rubric rationale." />
-      </Field>
-      <Field label="Feedback note">
-        <Textarea name="feedback_note" placeholder="Feedback visible after explicit release." />
-      </Field>
-      <Field label="Release summary">
-        <Textarea value={summaryText} onChange={(event) => setSummaryText(event.target.value)} placeholder="Short summary for the student." />
-      </Field>
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit">
-          <Save size={16} aria-hidden="true" />
-          Save marking
-        </Button>
-        <Button type="button" variant="secondary" onClick={() => void releaseFeedback()}>
-          <Send size={16} aria-hidden="true" />
-          Release feedback
-        </Button>
-        <Button type="button" variant="secondary" onClick={() => void exportPacket()}>
-          <Download size={16} aria-hidden="true" />
-          Export packet
-        </Button>
+
+      <div className="grid gap-4">
+        {activeNodes.map((node) => {
+          const response = textResponses.find((r) => r.question_node_id === node.id);
+          const slot = uploadSlots.find((s) => s.question_node_id === node.id);
+          const state = localMarks[node.id];
+
+          return (
+            <section key={node.id} className="rounded-lg border border-[var(--border)] bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-[var(--ink)]">
+                    {node.node_key}. {node.title || "Question"}
+                  </h3>
+                  <p className="text-xs text-[var(--muted)]">Maximum: {node.marks ?? 0} marks</p>
+                </div>
+                <Input
+                  className="w-24 text-right font-bold"
+                  type="number"
+                  min={0}
+                  max={node.marks ?? 100}
+                  step={0.5}
+                  value={state.awarded}
+                  onChange={(e) =>
+                    setLocalMarks((prev) => ({
+                      ...prev,
+                      [node.id]: { ...prev[node.id], awarded: Number(e.target.value) },
+                    }))
+                  }
+                />
+              </div>
+
+              {response?.answer_text ? (
+                <div className="mb-3 rounded-md bg-[var(--surface-muted)] p-3 text-sm">
+                  <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase text-[var(--subtle)]">
+                    <FileText size={12} /> Typed Response
+                  </p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{response.answer_text}</p>
+                </div>
+              ) : null}
+
+              {slot?.object_path ? (
+                <div className="mb-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-9 text-xs"
+                    onClick={() => downloadFile(slot.object_path!)}
+                  >
+                    <Paperclip size={14} />
+                    Download student file ({slot.status})
+                  </Button>
+                </div>
+              ) : null}
+
+              <Textarea
+                className="mt-2 text-sm"
+                placeholder="Marking notes..."
+                value={state.notes}
+                onChange={(e) =>
+                  setLocalMarks((prev) => ({
+                    ...prev,
+                    [node.id]: { ...prev[node.id], notes: e.target.value },
+                  }))
+                }
+              />
+            </section>
+          );
+        })}
       </div>
-      {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
-    </form>
+
+      <section className="rounded-lg border border-[var(--border)] bg-white p-4 shadow-sm">
+        <h3 className="mb-4 font-semibold">Feedback Release</h3>
+        <Textarea
+          className="mb-4"
+          placeholder="Overall feedback for the student..."
+          value={summaryText}
+          onChange={(e) => setSummaryText(e.target.value)}
+        />
+        <Button className="w-full" type="button" variant="secondary" onClick={() => void releaseFeedback()}>
+          <Send size={16} />
+          Release feedback to student
+        </Button>
+      </section>
+
+      {message ? (
+        <p className="text-center text-sm font-medium text-[var(--muted)]" role="status">
+          {message}
+        </p>
+      ) : null}
+    </div>
   );
 }
