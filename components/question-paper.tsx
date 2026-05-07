@@ -20,14 +20,9 @@ function QuestionBlock({ node, readonly = false }: { node: QuestionNode; readonl
           {node.response_mode.replaceAll("_", " ")}
         </Badge>
       </div>
-      {node.prompt?.html ? (
-        <div className="paper-body prose max-w-none" dangerouslySetInnerHTML={{ __html: node.prompt.html }} />
-      ) : null}
-      {node.prompt?.latex ? (
-        <p className="paper-body mt-3 text-lg">
-          <MathRenderer latex={node.prompt.latex} />
-        </p>
-      ) : null}
+      <div className="paper-body prose max-w-none text-lg leading-relaxed">
+        <MathRenderer html={node.prompt?.html} latex={node.prompt?.html ? undefined : node.prompt?.latex} />
+      </div>
       {node.response_mode === "typed_text" || node.response_mode === "typed_or_upload" ? (
         <label className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
           Typed response

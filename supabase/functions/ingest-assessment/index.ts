@@ -157,7 +157,10 @@ serve(async (request) => {
     const versionId = crypto.randomUUID();
     const sourceObjectPath = body.source_kind === "pdf"
       ? await resolvePdfSourceObjectPath(admin, profile.id, assessment.id, versionId, body)
-      : body.uploaded_source_path ?? null;
+      : body.source_kind === "latex" && body.latex_source
+        ? await storeLatexSource(admin, profile.id, assessment.id, versionId, body.latex_source)
+        : body.uploaded_source_path ?? null;
+
     const parseConfidence = body.source_kind === "json" ? 1 : body.source_kind === "latex" ? 0.62 : 0.15;
     const requiresReview = parseConfidence < 0.9;
     const normalizedPackage =
@@ -307,6 +310,23 @@ async function resolvePdfSourceObjectPath(
   }
   if (body.uploaded_source_path?.trim()) return body.uploaded_source_path.trim();
   throw new Error("Choose a PDF file to upload");
+}
+
+async function storeLatexSource(
+  admin: AdminClient,
+  ownerProfileId: string,
+  assessmentId: string,
+  versionId: string,
+  source: string,
+) {
+  const bytes = new TextEncoder().encode(source);
+  const objectPath = `${ownerProfileId}/assessments/${assessmentId}/versions/${versionId}/source.tex`;
+  const { error } = await admin.storage.from("assessment-sources").upload(objectPath, bytes, {
+    contentType: "application/x-tex",
+    upsert: false,
+  });
+  if (error) throw error;
+  return objectPath;
 }
 
 function decodeBase64Pdf(value: string) {

@@ -47,8 +47,14 @@ serve(async (request) => {
     if (version.assessments?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
 
     const sourceText = await loadSourceText(admin, body);
+    const originalSourceText = version.source_object_path 
+      ? await fetchSourceFromStorage(admin, version.source_object_path, "assessment-sources")
+      : "";
+
     const existingPackage = await loadNormalizedPackage(admin, version);
-    if (!sourceText.trim()) return json({ error: "source_text or artifact_object_path is required" }, 400);
+    if (!sourceText.trim() && !originalSourceText.trim()) {
+      return json({ error: "source_text or original source is required" }, 400);
+    }
 
     const { data: parseJob, error: parseJobError } = await admin
       .from("parse_jobs")
@@ -391,7 +397,8 @@ serve(async (request) => {
               `Source kind: ${body.source_kind}`,
               `Existing package JSON: ${JSON.stringify(existingPackage ?? {})}`,
               `Owner notes: ${body.owner_notes ?? ""}`,
-              `Source text: ${sourceText.slice(0, 80_000)}`,
+              `Original source text (full context): ${originalSourceText.slice(0, 80_000)}`,
+              `Review context (nodes/artifacts): ${sourceText.slice(0, 80_000)}`,
             ].join("\n\n"),
           },
         ],
@@ -474,11 +481,15 @@ serve(async (request) => {
 async function loadSourceText(admin: StorageAdmin, body: Body) {
   if (body.source_text?.trim()) return body.source_text;
   if (!body.artifact_object_path) return "";
-  const { data, error } = await admin.storage.from("assessment-packages").createSignedUrl(body.artifact_object_path, 60);
+  return await fetchSourceFromStorage(admin, body.artifact_object_path, "assessment-packages");
+}
+
+async function fetchSourceFromStorage(admin: StorageAdmin, path: string, bucket: string) {
+  const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 60);
   if (error) throw error;
-  if (!data?.signedUrl) throw new Error("Could not sign parse artifact");
+  if (!data?.signedUrl) throw new Error(`Could not sign artifact in ${bucket}`);
   const response = await fetch(data.signedUrl);
-  if (!response.ok) throw new Error("Could not read parse artifact");
+  if (!response.ok) throw new Error(`Could not read artifact in ${bucket}`);
   return await response.text();
 }
 
