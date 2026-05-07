@@ -20,7 +20,7 @@ function QuestionBlock({ node, readonly = false }: { node: QuestionNode; readonl
           {node.response_mode.replaceAll("_", " ")}
         </Badge>
       </div>
-      <div className="paper-body prose max-w-none text-lg leading-relaxed">
+      <div className="paper-body prose question-prompt max-w-none text-lg leading-relaxed">
         <MathRenderer html={node.prompt?.html} latex={node.prompt?.html ? undefined : node.prompt?.latex} />
       </div>
       {node.response_mode === "typed_text" || node.response_mode === "typed_or_upload" ? (

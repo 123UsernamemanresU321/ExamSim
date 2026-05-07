@@ -90,6 +90,21 @@ select {
   overflow-y: hidden;
 }
 
+/* Question Prompt Styling */
+.question-prompt p {
+  margin: 0 0 1rem 0;
+  line-height: 1.65;
+}
+
+.question-prompt .math {
+  white-space: nowrap;
+}
+
+.question-prompt strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
