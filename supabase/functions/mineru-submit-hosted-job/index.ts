@@ -65,7 +65,6 @@ serve(async (request) => {
       if (!sourceBlob) throw new Error("Source PDF could not be downloaded");
       const uploadResponse = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "content-type": "application/pdf" },
         body: await sourceBlob.arrayBuffer(),
       });
       if (!uploadResponse.ok) throw new Error(`MinerU upload URL rejected source PDF: ${uploadResponse.status}`);
