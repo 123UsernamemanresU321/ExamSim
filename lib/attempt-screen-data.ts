@@ -53,6 +53,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
       countdown_target_utc: attempt.countdown_target_utc,
       server_now_utc: attempt.server_now_utc,
       owner_profile_id: "demo_owner",
+      seb_config_path: null,
     },
     stateToken: "demo-state-token",
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,

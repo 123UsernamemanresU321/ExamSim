@@ -130,6 +130,7 @@ function demoAttemptSummaries(): AttemptSummary[] {
       countdown_target_utc: withState.countdown_target_utc,
       server_now_utc: withState.server_now_utc,
       owner_profile_id: "demo_owner",
+      seb_config_path: null,
     };
   });
 }
