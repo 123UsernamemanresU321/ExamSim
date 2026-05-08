@@ -32,6 +32,7 @@ export type Attempt = {
   require_blank_for_skipped: boolean;
   seb_browser_exam_key_hashes: string[];
   seb_config_key_hashes: string[];
+  seb_config_path: string | null;
   state_cache: AttemptState | null;
   created_at: string;
   updated_at: string;
@@ -204,6 +205,7 @@ export type AssessmentAssignment = {
   typed_enabled: boolean;
   per_question_upload_enabled: boolean;
   require_blank_for_skipped: boolean;
+  seb_config_path: string | null;
   created_at: string;
 };
 
