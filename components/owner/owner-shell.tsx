@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { SidebarNav } from "./sidebar-nav";
 
 export function OwnerShell({ children }: { children: React.ReactNode }) {

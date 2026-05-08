@@ -37,6 +37,7 @@ const questionNodeBaseSchema = z.object({
     })
     .optional(),
   markscheme_html: z.string().optional(),
+  markscheme_pdf_path: z.string().optional(),
   interaction: interactionSchema.optional(),
 });
 
@@ -106,8 +107,8 @@ export function reconstructQuestionTree(rows: QuestionNodeRow[]): QuestionNode[]
         html: row.prompt_html || undefined,
         latex: row.prompt_latex || undefined,
       } : undefined,
-      markscheme_html: (row as { markscheme_html?: string | null }).markscheme_html ?? null,
-      markscheme_pdf_path: (row as { markscheme_pdf_path?: string | null }).markscheme_pdf_path ?? null,
+      markscheme_html: (row as { markscheme_html?: string | null }).markscheme_html || undefined,
+      markscheme_pdf_path: (row as { markscheme_pdf_path?: string | null }).markscheme_pdf_path || undefined,
       interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" } | undefined,
       children: [],
     };

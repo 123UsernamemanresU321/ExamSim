@@ -7,7 +7,17 @@ import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
-export function SubmitExamButton({ attemptId, stateToken }: { attemptId: string; stateToken: string }) {
+import { cn } from "@/lib/utils";
+
+export function SubmitExamButton({ 
+  attemptId, 
+  stateToken, 
+  className 
+}: { 
+  attemptId: string; 
+  stateToken: string; 
+  className?: string;
+}) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -32,7 +42,7 @@ export function SubmitExamButton({ attemptId, stateToken }: { attemptId: string;
 
   return (
     <Button 
-      className="w-full mt-2" 
+      className={cn("w-full mt-2", className)} 
       variant="primary" 
       onClick={handleSubmit} 
       disabled={loading}

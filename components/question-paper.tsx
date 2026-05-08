@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
 import type { QuestionNode } from "@/lib/assessment-package";
+import { cn } from "@/lib/utils";
 
 function QuestionBlock({ 
   node, 
@@ -25,7 +26,7 @@ function QuestionBlock({
   ownerProfileId?: string;
   stateToken?: string;
   responses?: { question_node_id: string; answer_text: string }[];
-  annotations?: { question_node_id: string; annotation_type: string; body: string }[];
+  annotations?: { question_node_id: string | null; annotation_type: string; body: string }[];
 }) {
   const initialValue = responses.find(r => r.question_node_id === node.node_id)?.answer_text ?? "";
   const [isFlagged, setIsFlagged] = useState(annotations.some(a => a.question_node_id === node.node_id && a.body === "flagged"));
@@ -175,7 +176,7 @@ export function QuestionPaper({
   ownerProfileId?: string;
   stateToken?: string;
   responses?: { question_node_id: string; answer_text: string }[];
-  annotations?: { question_node_id: string; annotation_type: string; body: string }[];
+  annotations?: { question_node_id: string | null; annotation_type: string; body: string }[];
 }) {
   return (
     <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-12 md:py-12">

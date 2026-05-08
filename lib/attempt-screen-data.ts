@@ -29,7 +29,7 @@ export type AttemptScreenData = {
   package: NormalizedAssessmentPackage | null;
   packageError: string | null;
   responses: { question_node_id: string; answer_text: string; saved_at: string }[];
-  annotations: { question_node_id: string; annotation_type: string; body: string }[];
+  annotations: { question_node_id: string | null; annotation_type: string; body: string }[];
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {

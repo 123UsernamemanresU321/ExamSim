@@ -1,7 +1,8 @@
 import { computeAttemptState, getCountdownTarget } from "@/lib/attempt-state";
-import { type NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { loadAssessmentPackage } from "@/lib/package-loader";
+import { reconstructQuestionTree, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import type { AttemptState } from "@/lib/constants";
-import { attemptWithState, sampleAssessment, sampleAttempts, sampleStudents } from "@/lib/demo-data";
+import { attemptWithState, sampleAssessment, sampleAttempts, samplePackage, sampleStudents } from "@/lib/demo-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
