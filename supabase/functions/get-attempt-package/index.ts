@@ -37,17 +37,36 @@ serve(async (request) => {
     });
     if (state === "WAITING") return json({ error: "Content not available yet", state }, 403);
     let sebVerified = attempt.delivery_mode === "browser";
+    let keys = extractSebKeys(request, body);
+
     if (attempt.delivery_mode === "seb_required") {
-      const keys = extractSebKeys(request, body);
-      const validation = validateSebKeys({
+      // 1. Try to validate current request keys
+      let validation = validateSebKeys({
         expectedBrowserExamKeyHashes: attempt.seb_browser_exam_key_hashes,
         expectedConfigKeyHashes: attempt.seb_config_key_hashes,
         receivedBrowserExamKeyHash: keys.browserExamKeyHash,
         receivedConfigKeyHash: keys.configKeyHash,
       });
+
+      // 2. Fallback: Check if there is a recently verified session for this attempt
+      if (!validation.ok && tokenPayload.attempt_session_id) {
+        const { data: session } = await admin
+          .from("attempt_sessions")
+          .select("seb_verified, browser_exam_key_hash, config_key_hash")
+          .eq("id", tokenPayload.attempt_session_id)
+          .single();
+        
+        if (session?.seb_verified) {
+          validation = { ok: true, reason: null };
+          keys.browserExamKeyHash = session.browser_exam_key_hash;
+          keys.configKeyHash = session.config_key_hash;
+        }
+      }
+
       if (!validation.ok) {
         return json({ error: validation.reason, state, seb_required: true }, 403);
       }
+      
       sebVerified = true;
       if (tokenPayload.attempt_session_id) {
         await admin

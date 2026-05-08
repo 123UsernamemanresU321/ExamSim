@@ -144,25 +144,43 @@ export function ExamWorkspace({
               <p className="mt-1 opacity-60 break-all">UA: {debugInfo.userAgent}</p>
             </div>
           )}
+
+          {attempt.delivery_mode === "seb_required" && (
             <div className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-[var(--muted)]">
                 This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
                 inside the Safe Exam Browser application with the correct configuration file provided by your institution.
               </p>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                    const returnUrl = window.location.href;
+                    window.location.href = `${supabaseUrl}/functions/v1/seb-handshake?attempt_id=${attemptId}&return_url=${encodeURIComponent(returnUrl)}`;
+                  }}
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--ink)] px-4 text-sm font-medium text-white hover:bg-[var(--ink-hover)] transition-colors"
+                >
+                  Verify Environment Securely
+                </button>
+                <p className="text-xs text-[var(--subtle)]">
+                  If you are already inside SEB, use the button above to perform a secure environment handshake.
+                </p>
+              </div>
               {sebConfigUrl && (
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex flex-col gap-3 sm:flex-row border-t border-[var(--border)] pt-4 mt-4">
                   <a 
                     href={sebConfigUrl} 
-                    className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--ink)] px-4 text-sm font-medium text-white hover:bg-[var(--ink-hover)] transition-colors"
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--border)] px-4 text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-muted)] transition-colors"
                   >
                     Download .seb Configuration
                   </a>
                   <p className="text-xs text-[var(--subtle)] max-w-xs">
-                    After downloading, open the file to launch Safe Exam Browser automatically.
+                    Otherwise, download and open this file to launch Safe Exam Browser automatically.
                   </p>
                 </div>
               )}
             </div>
+          )}
           <p className="mt-6 text-xs text-[var(--muted)] border-t border-[var(--border)] pt-4">
             If you are already inside SEB and seeing this error, ensure your network allows access to the verification server.
           </p>
