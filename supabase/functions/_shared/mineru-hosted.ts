@@ -28,7 +28,7 @@ export function mineruApiBaseUrl() {
 }
 
 export function mineruUploadMode(): MineruUploadMode {
-  return Deno.env.get("MINERU_UPLOAD_MODE") === "signed_url" ? "signed_url" : "file_upload";
+  return Deno.env.get("MINERU_UPLOAD_MODE") === "file_upload" ? "file_upload" : "signed_url";
 }
 
 export function buildMineruAuthHeaders() {

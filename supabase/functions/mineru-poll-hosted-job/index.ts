@@ -49,7 +49,23 @@ serve(async (request) => {
         .eq("id", parseJob.id);
       return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, statusForMineruError(message));
     }
-    const result = pickMineruExtractResult(rawResult, parseJob.external_data_id ?? parseJob.id);
+    let result: MineruExtractResult;
+    try {
+      result = pickMineruExtractResult(rawResult, parseJob.external_data_id ?? parseJob.id);
+    } catch (parseError) {
+      const message = parseError instanceof Error ? parseError.message : "Failed to parse MinerU result";
+      await admin
+        .from("parse_jobs")
+        .update({
+          status: "failed",
+          external_state: "parse_error",
+          error_message: message,
+          completed_at: new Date().toISOString(),
+          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_poll_error: message, raw_result: rawResult },
+        })
+        .eq("id", parseJob.id);
+      return json({ ok: false, status: "failed", external_state: "parse_error", error_message: message }, 500);
+    }
 
     if (result.state !== "done") {
       const staleError = staleMineruError(parseJob);
