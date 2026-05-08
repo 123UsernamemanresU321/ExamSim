@@ -31,6 +31,14 @@ export function AttemptList({ attempts }: { attempts: AttemptSummary[] }) {
               <p className="mt-1 text-sm text-[var(--muted)]">
                 Starts {formatInTimezone(attempt.start_at_utc, attempt.display_timezone)} · {attempt.duration_seconds / 60} min
               </p>
+              {attempt.seb_config_url && (
+                <a 
+                  href={attempt.seb_config_url}
+                  className="mt-2 inline-block text-xs font-medium text-[var(--ink)] underline hover:text-[var(--ink-hover)]"
+                >
+                  Download SEB Config (.seb)
+                </a>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               {attempt.state === "UPLOAD_ONLY" ? <UploadCloud size={18} aria-hidden="true" /> : null}

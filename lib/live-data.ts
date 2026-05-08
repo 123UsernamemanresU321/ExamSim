@@ -69,6 +69,7 @@ export type AttemptSummary = {
   server_now_utc: string;
   owner_profile_id: string;
   seb_config_path: string | null;
+  seb_config_url: string | null;
 };
 
 export type AssessmentWorkspace = {
@@ -131,6 +132,7 @@ function demoAttemptSummaries(): AttemptSummary[] {
       server_now_utc: withState.server_now_utc,
       owner_profile_id: "demo_owner",
       seb_config_path: null,
+      seb_config_url: null,
     };
   });
 }
@@ -170,6 +172,7 @@ function mapAttemptSummary(
     server_now_utc: serverNowUtc,
     owner_profile_id: assessment?.owner_profile_id ?? "",
     seb_config_path: attempt.seb_config_path ?? null,
+    seb_config_url: null, // Populated selectively by the caller
   };
 }
 
@@ -468,7 +471,16 @@ export async function listStudentAttempts(): Promise<AttemptSummary[]> {
       .order("start_at_utc", { ascending: false });
     if (attemptError) throw attemptError;
 
-    return mapAttemptCollections(attempts ?? []);
+    const summaries = await mapAttemptCollections(attempts ?? []);
+    for (const s of summaries) {
+      if (s.seb_config_path) {
+        const { data } = await supabase.storage.from("assessment-sources").createSignedUrl(s.seb_config_path, 3600);
+        s.seb_config_url = data?.signedUrl ?? null;
+      } else {
+        s.seb_config_url = null;
+      }
+    }
+    return summaries;
   } catch (error) {
     if (isDemoModeEnabled()) return demoAttemptSummaries();
     throw error;
