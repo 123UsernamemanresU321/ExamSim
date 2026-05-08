@@ -31,6 +31,23 @@ export function PublishAssessmentForm({
     const form = new FormData(event.currentTarget);
     const assignedProfileIds = form.getAll("assigned_profile_ids").map(String);
     const assignedGroupIds = form.getAll("assigned_group_ids").map(String);
+    const sebConfigFile = form.get("seb_config_file") as File | null;
+
+    const supabase = createSupabaseBrowserClient();
+    let sebConfigPath: string | null = null;
+
+    if (sebConfigFile && sebConfigFile.size > 0) {
+      const fileName = `${assessmentId}/${versionId}/${crypto.randomUUID()}.seb`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("assessment-sources")
+        .upload(fileName, sebConfigFile);
+      if (uploadError) {
+        setMessage(`SEB config upload failed: ${uploadError.message}`);
+        setIsSubmitting(false);
+        return;
+      }
+      sebConfigPath = uploadData.path;
+    }
 
     const body = {
       assessment_id: assessmentId,
@@ -48,9 +65,9 @@ export function PublishAssessmentForm({
       assigned_group_ids: assignedGroupIds,
       seb_browser_exam_key_hashes: splitHashes(String(form.get("seb_browser_exam_key_hashes") ?? "")),
       seb_config_key_hashes: splitHashes(String(form.get("seb_config_key_hashes") ?? "")),
+      seb_config_path: sebConfigPath,
     };
 
-    const supabase = createSupabaseBrowserClient();
     try {
       const data = await invokeEdgeFunction<{ attempt_ids: string[] }>(supabase, "publish-assessment", {
         body,
@@ -94,6 +111,9 @@ export function PublishAssessmentForm({
         </Field>
         <Field label="SEB Config Key hashes" description="Required only for SEB attempts. Copy the expected Config Key hash from your SEB configuration. User-agent checks are not accepted.">
           <Input name="seb_config_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
+        </Field>
+        <Field label="SEB Configuration File (.seb)" description="Optional. Upload the configuration file so students can download it from their dashboard.">
+          <input name="seb_config_file" type="file" accept=".seb" className="flex h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm" />
         </Field>
       </div>
       <div className="grid gap-2 rounded-md border border-[var(--border)] bg-white p-3 text-sm">

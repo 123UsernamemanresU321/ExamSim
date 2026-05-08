@@ -61,10 +61,25 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
             <p>{packageError ?? "The server has not released the exam package for this attempt state."}</p>
           </div>
           {attempt.delivery_mode === "seb_required" && (
-            <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-              This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
-              inside the Safe Exam Browser application with the correct configuration file provided by your institution.
-            </p>
+            <div className="mt-4 space-y-4">
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
+                inside the Safe Exam Browser application with the correct configuration file provided by your institution.
+              </p>
+              {screenData.sebConfigUrl && (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <a 
+                    href={screenData.sebConfigUrl} 
+                    className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--ink)] px-4 text-sm font-medium text-white hover:bg-[var(--ink-hover)] transition-colors"
+                  >
+                    Download .seb Configuration
+                  </a>
+                  <p className="text-xs text-[var(--subtle)] max-w-xs">
+                    After downloading, open the file to launch Safe Exam Browser automatically.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
             Current server state: {attempt.state}. Use the attempt dashboard to open the correct waiting, writing,

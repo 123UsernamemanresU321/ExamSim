@@ -31,6 +31,7 @@ export type AttemptScreenData = {
   packageError: string | null;
   responses: { question_node_id: string; answer_text: string; saved_at: string }[];
   annotations: { question_node_id: string | null; annotation_type: string; body: string }[];
+  sebConfigUrl: string | null;
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
@@ -58,6 +59,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     packageError: null,
     responses: [],
     annotations: [],
+    sebConfigUrl: null,
   };
 }
 
@@ -95,6 +97,12 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     .eq("annotation_type", "student_flag");
   if (annotationsError) throw annotationsError;
 
+  let sebConfigUrl: string | null = null;
+  if (attempt.seb_config_path) {
+    const { data } = await supabase.storage.from("assessment-sources").createSignedUrl(attempt.seb_config_path, 3600);
+    sebConfigUrl = data?.signedUrl ?? null;
+  }
+
   return {
     attempt: mapScreenAttempt(attempt, assessment, state),
     stateToken: state.state_token,
@@ -102,6 +110,7 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     packageError: packageResult.packageError,
     responses: responses ?? [],
     annotations: annotations ?? [],
+    sebConfigUrl,
   };
 }
 
@@ -151,5 +160,6 @@ function mapScreenAttempt(attempt: Attempt, assessment: Assessment, state: Attem
     countdown_target_utc: state.countdown_target_utc,
     server_now_utc: state.server_now_utc,
     owner_profile_id: assessment.owner_profile_id,
+    seb_config_path: attempt.seb_config_path,
   };
 }

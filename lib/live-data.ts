@@ -68,6 +68,7 @@ export type AttemptSummary = {
   countdown_target_utc: string | null;
   server_now_utc: string;
   owner_profile_id: string;
+  seb_config_path: string | null;
 };
 
 export type AssessmentWorkspace = {
@@ -167,6 +168,7 @@ function mapAttemptSummary(
     }),
     server_now_utc: serverNowUtc,
     owner_profile_id: assessment?.owner_profile_id ?? "",
+    seb_config_path: attempt.seb_config_path ?? null,
   };
 }
 
