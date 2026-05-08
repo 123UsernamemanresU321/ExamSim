@@ -63,11 +63,22 @@ serve(async (request) => {
       const { data: sourceBlob, error: downloadError } = await admin.storage.from("assessment-sources").download(parseJob.source_object_path);
       if (downloadError) throw downloadError;
       if (!sourceBlob) throw new Error("Source PDF could not be downloaded");
+      const fileBytes = await sourceBlob.arrayBuffer();
+      // MinerU docs: PUT requires Authorization header, must NOT send Content-Type
+      const apiKey = Deno.env.get("MINERU_API_KEY");
+      const uploadHeaders: Record<string, string> = {};
+      if (apiKey) uploadHeaders["Authorization"] = `Bearer ${apiKey}`;
+      const accountToken = Deno.env.get("MINERU_ACCOUNT_TOKEN");
+      if (accountToken) uploadHeaders["token"] = accountToken;
       const uploadResponse = await fetch(uploadUrl, {
         method: "PUT",
-        body: await sourceBlob.arrayBuffer(),
+        headers: uploadHeaders,
+        body: fileBytes,
       });
-      if (!uploadResponse.ok) throw new Error(`MinerU upload URL rejected source PDF: ${uploadResponse.status}`);
+      if (!uploadResponse.ok) {
+        const uploadErrText = await uploadResponse.text().catch(() => "");
+        throw new Error(`MinerU upload URL rejected source PDF: ${uploadResponse.status} ${uploadErrText.slice(0, 300)}`);
+      }
     }
 
     const now = new Date().toISOString();
