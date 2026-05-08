@@ -32,7 +32,7 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full -mx-5 -my-8 md:-mx-8">
       <div className="px-6 py-4">
         <SectionHeading
           title={`${workspace.attempt.student}'s Submission`}
