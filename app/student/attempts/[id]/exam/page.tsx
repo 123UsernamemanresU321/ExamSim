@@ -101,6 +101,7 @@ function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
         <QuestionPaper 
           questions={assessmentPackage.questions} 
           attemptId={id}
+          stateToken={stateToken}
           responses={responses}
         />
         <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">

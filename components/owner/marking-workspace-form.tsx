@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Send, Save, FileText, Paperclip } from "lucide-react";
+import { Download, Send, Save, FileText, Paperclip, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -14,12 +14,14 @@ export function MarkingWorkspaceForm({
   textResponses,
   uploadSlots,
   marks: initialMarks,
+  annotations = [],
 }: {
   attemptId: string;
   questionNodes: QuestionNodeRow[];
   textResponses: TextResponse[];
   uploadSlots: UploadSlot[];
   marks: Mark[];
+  annotations?: any[];
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");
@@ -135,11 +137,18 @@ export function MarkingWorkspaceForm({
           return (
             <section key={node.id} className="rounded-lg border border-[var(--border)] bg-white p-4 shadow-sm">
               <div className="mb-4 flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold text-[var(--ink)]">
-                    {node.node_key}. {node.title || "Question"}
-                  </h3>
-                  <p className="text-xs text-[var(--muted)]">Maximum: {node.marks ?? 0} marks</p>
+                <div className="flex items-start gap-3">
+                  {annotations.some(a => a.question_node_id === node.id && a.annotation_type === "student_flag" && a.content === "flagged") && (
+                    <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600" title="Flagged by student">
+                      <AlertCircle size={14} />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="font-semibold text-[var(--ink)]">
+                      {node.node_key}. {node.title || "Question"}
+                    </h3>
+                    <p className="text-xs text-[var(--muted)]">Maximum: {node.marks ?? 0} marks</p>
+                  </div>
                 </div>
                 <Input
                   className="w-24 text-right font-bold"

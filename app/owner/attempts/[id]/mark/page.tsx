@@ -41,6 +41,7 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
               textResponses={workspace.textResponses}
               uploadSlots={workspace.uploadSlots}
               marks={workspace.marks}
+              annotations={workspace.annotations}
             />
           </Card>
         </aside>

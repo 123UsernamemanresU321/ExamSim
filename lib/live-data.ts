@@ -1,4 +1,5 @@
 import { computeAttemptState, getCountdownTarget } from "@/lib/attempt-state";
+import { loadAssessmentPackage } from "@/lib/package-loader";
 import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import type { AttemptState } from "@/lib/constants";
 import { attemptWithState, sampleAssessment, sampleAttempts, samplePackage, sampleStudents } from "@/lib/demo-data";
@@ -480,11 +481,6 @@ async function mapAttemptCollections(attempts: Attempt[]): Promise<AttemptSummar
   return attempts.map((attempt) => mapAttemptSummary(attempt, assessmentById, profileById));
 }
 
-export function packageFromVersion(version: AssessmentVersion | null): NormalizedAssessmentPackage | null {
-  if (!version?.normalized_package_json) return null;
-  const parsed = normalizedPackageSchema.safeParse(version.normalized_package_json);
-  return parsed.success ? parsed.data : null;
-}
 
 export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise<AttemptReviewWorkspace> {
   if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
@@ -548,7 +544,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     uploadSlots: uploadSlots ?? [],
     textResponses: textResponses ?? [],
     moderationReport: moderationReport ?? null,
-    package: packageFromVersion(version ?? null),
+    package: await loadAssessmentPackage(version ?? {}),
     marks: marks ?? [],
     annotations: annotations ?? [],
     feedbackRelease: feedbackRelease ?? null,

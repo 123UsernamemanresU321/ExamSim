@@ -440,3 +440,38 @@ values
   ('answer-uploads', 'answer-uploads', false),
   ('marking-packets', 'marking-packets', false)
 on conflict (id) do update set public = false;
+
+-- Storage Policies
+create policy "owner manages all objects" on storage.objects for all to authenticated
+  using (public.is_owner()) with check (public.is_owner());
+
+create policy "student reads assigned assessment package" on storage.objects for select to authenticated
+  using (
+    bucket_id = 'assessment-packages' and
+    exists (
+      select 1 from public.attempts a
+      join public.assessment_versions v on v.id = a.assessment_version_id
+      where v.normalized_package_path = storage.objects.name
+        and a.assignee_profile_id = public.current_profile_id()
+    )
+  );
+
+create policy "student manages own answer uploads" on storage.objects for all to authenticated
+  using (
+    bucket_id = 'answer-uploads' and
+    (storage.foldername(name))[1] = 'attempts' and
+    exists (
+      select 1 from public.attempts a
+      where a.id::text = (storage.foldername(name))[2]
+        and a.assignee_profile_id = public.current_profile_id()
+    )
+  )
+  with check (
+    bucket_id = 'answer-uploads' and
+    (storage.foldername(name))[1] = 'attempts' and
+    exists (
+      select 1 from public.attempts a
+      where a.id::text = (storage.foldername(name))[2]
+        and a.assignee_profile_id = public.current_profile_id()
+    )
+  );
