@@ -21,7 +21,7 @@ export function MarkingWorkspaceForm({
   textResponses: TextResponse[];
   uploadSlots: UploadSlot[];
   marks: Mark[];
-  annotations?: any[];
+  annotations?: { question_node_id: string; annotation_type: string; content?: string }[];
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");

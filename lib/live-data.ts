@@ -1,6 +1,6 @@
 import { computeAttemptState, getCountdownTarget } from "@/lib/attempt-state";
 import { loadAssessmentPackage } from "@/lib/package-loader";
-import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import type { AttemptState } from "@/lib/constants";
 import { attemptWithState, sampleAssessment, sampleAttempts, samplePackage, sampleStudents } from "@/lib/demo-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
@@ -66,6 +66,7 @@ export type AttemptSummary = {
   state: AttemptState;
   countdown_target_utc: string | null;
   server_now_utc: string;
+  owner_profile_id: string;
 };
 
 export type AssessmentWorkspace = {
@@ -121,6 +122,7 @@ function demoAttemptSummaries(): AttemptSummary[] {
       state: withState.state,
       countdown_target_utc: withState.countdown_target_utc,
       server_now_utc: withState.server_now_utc,
+      owner_profile_id: "demo_owner",
     };
   });
 }
@@ -158,6 +160,7 @@ function mapAttemptSummary(
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
     }),
     server_now_utc: serverNowUtc,
+    owner_profile_id: assessment?.owner_profile_id ?? "",
   };
 }
 

@@ -49,6 +49,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
       state: attempt.state,
       countdown_target_utc: attempt.countdown_target_utc,
       server_now_utc: attempt.server_now_utc,
+      owner_profile_id: "demo_owner",
     },
     stateToken: "demo-state-token",
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,
@@ -132,5 +133,6 @@ function mapScreenAttempt(attempt: Attempt, assessment: Assessment, state: Attem
     state: state.state,
     countdown_target_utc: state.countdown_target_utc,
     server_now_utc: state.server_now_utc,
+    owner_profile_id: assessment.owner_profile_id,
   };
 }

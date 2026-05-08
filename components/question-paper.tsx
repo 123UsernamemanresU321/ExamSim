@@ -14,12 +14,14 @@ function QuestionBlock({
   node, 
   readonly = false, 
   attemptId,
+  ownerProfileId,
   stateToken,
   responses = [] 
 }: { 
   node: QuestionNode; 
   readonly?: boolean;
   attemptId?: string;
+  ownerProfileId?: string;
   stateToken?: string;
   responses?: { question_node_id: string; answer_text: string }[];
 }) {
@@ -35,8 +37,10 @@ function QuestionBlock({
       await supabase.from("submission_annotations").insert({
         attempt_id: attemptId,
         question_node_id: node.node_id,
+        owner_profile_id: ownerProfileId!,
         annotation_type: "student_flag",
-        content: isFlagged ? "unflagged" : "flagged",
+        body: isFlagged ? "unflagged" : "flagged",
+        anchor_json: {},
       });
       setIsFlagged(!isFlagged);
     } catch (e) {
@@ -58,6 +62,8 @@ function QuestionBlock({
         body: { attempt_id: attemptId, question_node_id: node.node_id, state_token: stateToken },
       });
       
+      if (!slot) throw new Error("Could not issue upload URL");
+
       const { error: uploadError } = await supabase.storage
         .from(slot.bucket)
         .uploadToSignedUrl(slot.path, slot.upload_token, file, {
@@ -140,6 +146,7 @@ function QuestionBlock({
           node={child} 
           readonly={readonly} 
           attemptId={attemptId}
+          ownerProfileId={ownerProfileId}
           stateToken={stateToken}
           responses={responses}
         />
@@ -147,14 +154,18 @@ function QuestionBlock({
     </article>
   );
 }
-
+export function QuestionPaper({ 
+  questions, 
+  readonly = false,
   attemptId,
+  ownerProfileId,
   stateToken,
   responses = []
 }: { 
   questions: QuestionNode[]; 
   readonly?: boolean;
   attemptId?: string;
+  ownerProfileId?: string;
   stateToken?: string;
   responses?: { question_node_id: string; answer_text: string }[];
 }) {
@@ -167,6 +178,7 @@ function QuestionBlock({
             node={node} 
             readonly={readonly} 
             attemptId={attemptId}
+            ownerProfileId={ownerProfileId}
             stateToken={stateToken}
             responses={responses}
           />

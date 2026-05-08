@@ -475,3 +475,29 @@ create policy "student manages own answer uploads" on storage.objects for all to
         and a.assignee_profile_id = public.current_profile_id()
     )
   );
+
+-- Update submission_annotations for student flagging
+alter table public.submission_annotations drop constraint if exists submission_annotations_annotation_type_check;
+alter table public.submission_annotations
+  add constraint submission_annotations_annotation_type_check 
+  check (annotation_type in ('note', 'rubric', 'moderation', 'feedback', 'student_flag'));
+
+create policy "students insert own flags" on public.submission_annotations
+  for insert to authenticated with check (
+    annotation_type = 'student_flag' and
+    exists (
+      select 1 from public.attempts a
+      where a.id = submission_annotations.attempt_id
+        and a.assignee_profile_id = public.current_profile_id()
+    )
+  );
+
+create policy "students read own flags" on public.submission_annotations
+  for select to authenticated using (
+    annotation_type = 'student_flag' and
+    exists (
+      select 1 from public.attempts a
+      where a.id = submission_annotations.attempt_id
+        and a.assignee_profile_id = public.current_profile_id()
+    )
+  );

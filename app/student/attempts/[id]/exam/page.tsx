@@ -16,6 +16,13 @@ export function generateStaticParams() {
   return demoAttemptParams();
 }
 
+function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
+  if (responses.length === 0) return <Badge tone="neutral">Not saved yet</Badge>;
+  const latest = [...responses].sort((a, b) => Date.parse(b.saved_at) - Date.parse(a.saved_at))[0];
+  const time = new Date(latest.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  return <Badge tone="success">Last saved {time} UTC</Badge>;
+}
+
 export default async function ActiveExamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const screenData = await getAttemptScreenData(id, true).catch((error: unknown) => ({
@@ -40,12 +47,6 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
   if (attempt.state === "UPLOAD_ONLY") redirect(`/student/attempts/${id}/upload`);
   if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
 
-function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
-  if (responses.length === 0) return <Badge tone="neutral">Not saved yet</Badge>;
-  const latest = [...responses].sort((a, b) => Date.parse(b.saved_at) - Date.parse(a.saved_at))[0];
-  const time = new Date(latest.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-  return <Badge tone="success">Last saved {time} UTC</Badge>;
-}
 
   if (!assessmentPackage) {
     return (
@@ -101,6 +102,7 @@ function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
         <QuestionPaper 
           questions={assessmentPackage.questions} 
           attemptId={id}
+          ownerProfileId={attempt.owner_profile_id}
           stateToken={stateToken}
           responses={responses}
         />

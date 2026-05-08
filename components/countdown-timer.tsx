@@ -30,6 +30,7 @@ export function CountdownTimer({
   const refreshCalled = useRef(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

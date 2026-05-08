@@ -1,8 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { normalizedPackageSchema } from "@/lib/assessment-package";
 
 export async function loadAssessmentPackage(version: {
-  normalized_package_json?: any;
+  normalized_package_json?: unknown;
   normalized_package_path?: string | null;
 }) {
   if (version.normalized_package_json) {

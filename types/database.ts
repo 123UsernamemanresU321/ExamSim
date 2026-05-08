@@ -242,7 +242,7 @@ export type SubmissionAnnotation = {
   attempt_id: string;
   question_node_id: string | null;
   owner_profile_id: string;
-  annotation_type: "note" | "rubric" | "moderation" | "feedback";
+  annotation_type: "note" | "rubric" | "moderation" | "feedback" | "student_flag";
   body: string;
   anchor_json: Json;
   created_at: string;
