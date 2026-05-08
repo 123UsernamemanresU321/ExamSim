@@ -54,6 +54,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
               {/* Right Panel: Response & Controls */}
               <section className="w-[380px] flex-shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-6">
                 <MarkingResponseWorkspace
+                  key={selectedNodeId ?? "none"}
                   attemptId={attemptId}
                   node={selectedNode}
                   response={workspace.textResponses.find((r) => r.question_node_id === selectedNodeId)}

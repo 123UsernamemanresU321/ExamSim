@@ -36,6 +36,7 @@ const questionNodeBaseSchema = z.object({
       latex: z.string().optional(),
     })
     .optional(),
+  markscheme_html: z.string().optional(),
   interaction: interactionSchema.optional(),
 });
 
@@ -58,6 +59,8 @@ export const normalizedPackageSchema = z.object({
     authoring_origin: z.enum(AUTHORING_ORIGINS),
     external_schedule_ref: z.string().optional(),
     display_timezone: z.string().default(DEFAULT_TIMEZONE),
+    markscheme_html: z.string().optional(),
+    markscheme_pdf_path: z.string().optional(),
   }),
   delivery: z.object({
     delivery_mode: z.enum(DELIVERY_MODES),
@@ -103,6 +106,8 @@ export function reconstructQuestionTree(rows: QuestionNodeRow[]): QuestionNode[]
         html: row.prompt_html || undefined,
         latex: row.prompt_latex || undefined,
       } : undefined,
+      markscheme_html: (row as { markscheme_html?: string | null }).markscheme_html ?? null,
+      markscheme_pdf_path: (row as { markscheme_pdf_path?: string | null }).markscheme_pdf_path ?? null,
       interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" } | undefined,
       children: [],
     };

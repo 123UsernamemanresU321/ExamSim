@@ -1,8 +1,7 @@
 import { computeAttemptState, getCountdownTarget } from "@/lib/attempt-state";
-import { loadAssessmentPackage } from "@/lib/package-loader";
-import { reconstructQuestionTree, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import type { AttemptState } from "@/lib/constants";
-import { attemptWithState, sampleAssessment, sampleAttempts, samplePackage, sampleStudents } from "@/lib/demo-data";
+import { attemptWithState, sampleAssessment, sampleAttempts, sampleStudents } from "@/lib/demo-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
@@ -13,7 +12,6 @@ import type {
   FeedbackRelease,
   Mark,
   ModerationReport,
-  OwnerSettings,
   ParseJob,
   ParseJobArtifact,
   Profile,
@@ -94,7 +92,7 @@ export type AttemptReviewWorkspace = {
   feedbackRelease: FeedbackRelease | null;
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
-  commentBank: any[];
+  commentBank: unknown[];
 };
 
 function demoAssessmentSummary(): AssessmentSummary {
@@ -619,6 +617,6 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     feedbackRelease: feedbackRelease ?? null,
     markschemeHtml: version?.markscheme_html ?? null,
     markschemePdfPath: version?.markscheme_pdf_path ?? null,
-    commentBank: (ownerSettings?.comment_bank as any[]) ?? [],
+    commentBank: (ownerSettings?.comment_bank as unknown[]) ?? [],
   };
 }

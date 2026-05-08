@@ -11,6 +11,7 @@ export type EditableQuestionNode = {
   marks: number | null;
   response_mode: QuestionNodeRow["response_mode"];
   interaction_json: Json | null;
+  markscheme_html: string | null;
   source_page_start: number | null;
   source_page_end: number | null;
 };
@@ -40,6 +41,7 @@ export function serializeEditableQuestionNodes(nodes: QuestionNodeRow[]) {
     marks: node.marks,
     response_mode: node.response_mode,
     interaction_json: node.interaction_json,
+    markscheme_html: (node as QuestionNodeRow & { markscheme_html?: string | null }).markscheme_html ?? null,
     source_page_start: node.source_page_start,
     source_page_end: node.source_page_end,
   }));
@@ -90,6 +92,7 @@ function normalizePackageQuestions(questions: unknown[]) {
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isJsonRecord(rawNode.interaction_json) ? rawNode.interaction_json : isJsonRecord(rawNode.interaction) ? rawNode.interaction : null,
+      markscheme_html: stringValue(rawNode.markscheme_html),
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
     });
@@ -115,6 +118,7 @@ function normalizeNodeArray(rawNodes: unknown[]) {
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isJsonRecord(rawNode.interaction_json) ? rawNode.interaction_json : isJsonRecord(rawNode.interaction) ? rawNode.interaction : null,
+      markscheme_html: stringValue(rawNode.markscheme_html),
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
     };

@@ -105,6 +105,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
           ownerProfileId={attempt.owner_profile_id}
           stateToken={stateToken}
           responses={responses}
+          annotations={screenData.annotations}
         />
         <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm">
@@ -112,10 +113,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               Typed answers autosave during ACTIVE. Upload URLs are issued one slot at a time.
             </p>
-            <Button className="mt-4 w-full" type="button" variant="secondary">
-              Flag current question
-            </Button>
-            <SubmitExamButton attemptId={id} stateToken={stateToken} />
+            <SubmitExamButton attemptId={id} stateToken={stateToken} className="mt-4" />
           </section>
           <div className="lg:hidden">
             <QuestionNavigator questions={assessmentPackage.questions} />

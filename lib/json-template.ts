@@ -11,6 +11,7 @@ export const normalizedJsonTemplate: NormalizedAssessmentPackage = {
     source_kind: "json",
     authoring_origin: "owner_uploaded",
     display_timezone: DEFAULT_TIMEZONE,
+    markscheme_html: "<p>General marking instructions for the whole paper.</p>",
   },
   delivery: {
     delivery_mode: "browser",
@@ -42,6 +43,7 @@ export const normalizedJsonTemplate: NormalizedAssessmentPackage = {
         html: "<p>Prove that for any positive integer $n$, the expression $2^{2n+1} + 1$ is divisible by $3$.</p>",
         latex: "Prove that for any positive integer $n$, the expression $2^{2n+1} + 1$ is divisible by $3$.",
       },
+      markscheme_html: "<p>Award 7 marks for a correct proof using mathematical induction.</p>",
       children: [],
     },
     {

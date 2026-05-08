@@ -31,9 +31,9 @@ export function MarkingSidebarTree({
     const mark = marks.find((m) => m.question_node_id === nodeId);
     if (mark) return "marked";
 
-    const annotation = annotations.find((a) => a.question_node_id === nodeId);
-    if (annotation?.annotation_type === "student_flag") return "flagged";
-    if (annotation?.is_unreadable) return "unreadable";
+    if (annotations.some((a) => a.question_node_id === nodeId && a.annotation_type === "marker_flag")) return "flagged";
+    if (annotations.some((a) => a.question_node_id === nodeId && a.annotation_type === "student_flag" && a.body === "flagged")) return "flagged";
+    if (annotations.some((a) => a.question_node_id === nodeId && a.is_unreadable)) return "unreadable";
 
     const slot = uploadSlots.find((s) => s.question_node_id === nodeId);
     if (slot) {
@@ -116,7 +116,7 @@ export function MarkingSidebarTree({
 }
 
 function StatusBadge({ status }: { status: NodeStatus }) {
-  const configs: Record<NodeStatus, { label: string; tone: "success" | "warning" | "neutral" | "accent"; icon: any }> = {
+  const configs: Record<NodeStatus, { label: string; tone: "success" | "warning" | "neutral" | "accent"; icon: React.ComponentType<{ size?: number; className?: string }> }> = {
     uploaded: { label: "File", tone: "success", icon: Paperclip },
     typed: { label: "Typed", tone: "accent", icon: FileText },
     blank: { label: "Blank", tone: "neutral", icon: Ghost },

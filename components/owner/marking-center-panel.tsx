@@ -97,8 +97,14 @@ export function MarkingCenterPanel({
         {showMarkscheme && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-8 shadow-sm">
-              {markschemeHtml ? (
+              {node?.markscheme_html ? (
                 <div className="prose prose-sm max-w-none">
+                  <div className="mb-2 text-[9px] font-black uppercase tracking-widest text-blue-400">Specific Question Guidance</div>
+                  <MathRenderer html={node.markscheme_html} />
+                </div>
+              ) : markschemeHtml ? (
+                <div className="prose prose-sm max-w-none">
+                  <div className="mb-2 text-[9px] font-black uppercase tracking-widest text-blue-400">Global Assessment Markscheme</div>
                   <MathRenderer html={markschemeHtml} />
                 </div>
               ) : markschemePdfPath ? (

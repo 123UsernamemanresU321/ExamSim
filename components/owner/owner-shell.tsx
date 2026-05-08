@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import { SidebarNav } from "./sidebar-nav";
-import { cn } from "@/lib/utils";
 
 export function OwnerShell({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -10,7 +8,7 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
   return (
     <div 
       className="app-shell-grid transition-all duration-300"
-      style={{ "--sidebar-width": isCollapsed ? "64px" : "256px" } as any}
+      style={{ "--sidebar-width": isCollapsed ? "64px" : "256px" } as React.CSSProperties}
     >
       <SidebarNav isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
       <main className="min-w-0 px-5 py-8 md:px-8 overflow-hidden">{children}</main>

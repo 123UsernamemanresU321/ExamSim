@@ -27,6 +27,7 @@ type FlatNode = {
   marks?: number | null;
   response_mode?: string;
   interaction_json?: unknown;
+  markscheme_html?: string | null;
   parent_node_key?: string | null;
 };
 
@@ -177,6 +178,7 @@ serve(async (request) => {
               authoring_origin: body.source_kind === "pdf" ? "owner_uploaded" : "owner_pasted",
               external_schedule_ref: body.external_schedule_ref,
               display_timezone: "Africa/Johannesburg",
+              markscheme_html: null,
             },
             delivery: {
               delivery_mode: "browser",
@@ -208,6 +210,7 @@ serve(async (request) => {
         source_kind: body.source_kind,
         source_object_path: sourceObjectPath,
         normalized_package_json: packageStorage.encrypted_package_path ? null : normalizedPackage,
+        markscheme_html: (normalizedPackage as any).assessment?.markscheme_html ?? null,
         parse_confidence: parseConfidence,
         requires_owner_review: requiresReview,
         ...packageStorage,
@@ -234,6 +237,7 @@ serve(async (request) => {
       marks: typeof node.marks === "number" ? node.marks : null,
       response_mode: String(node.response_mode ?? "typed_or_upload"),
       interaction_json: typeof node.interaction === "object" ? node.interaction : null,
+      markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
     }));
     const { data: insertedNodes, error: nodeError } = await admin.from("question_nodes").insert(rows).select("id,node_key");
     if (nodeError) throw nodeError;
@@ -364,6 +368,7 @@ function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: st
       marks: typeof node.marks === "number" ? node.marks : null,
       response_mode: String(node.response_mode ?? "typed_or_upload"),
       interaction_json: typeof node.interaction === "object" ? node.interaction : null,
+      markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
     });
     if (Array.isArray(node.children)) {
       flattened.push(...flattenPackageNodes(node.children as Record<string, unknown>[], nodeKey));

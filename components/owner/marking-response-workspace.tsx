@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Download, Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, MessageSquare, History, User, Lock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/form";
@@ -35,19 +36,41 @@ export function MarkingResponseWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  useEffect(() => {
-    setAwarded(mark ? String(mark.awarded_marks) : "");
-    setNotes(mark?.notes ?? "");
-    setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
-    setIsUnreadable(annotations.some(a => a.is_unreadable));
-  }, [node?.id, mark, annotations]);
 
   if (!node) return null;
+
+  const router = useRouter();
 
   async function handleSave() {
     setIsSaving(true);
     const supabase = createSupabaseBrowserClient();
     try {
+      const annotationsToSave = [];
+      if (isFlagged) {
+        annotationsToSave.push({
+          question_node_id: node.id,
+          annotation_type: "marker_flag" as const,
+          body: "Flagged for review",
+          is_unreadable: false,
+        });
+      }
+      if (isUnreadable) {
+        annotationsToSave.push({
+          question_node_id: node.id,
+          annotation_type: "note" as const,
+          body: "Marked as unreadable",
+          is_unreadable: true,
+        });
+      }
+      if (notes.trim()) {
+        annotationsToSave.push({
+          question_node_id: node.id,
+          annotation_type: "note" as const,
+          body: notes.trim(),
+          is_unreadable: false,
+        });
+      }
+
       await invokeEdgeFunction(supabase, "save-marking", {
         body: {
           attempt_id: attemptId,
@@ -56,20 +79,15 @@ export function MarkingResponseWorkspace({
             awarded_marks: Number(awarded) || 0,
             notes: notes,
           }],
-          annotations: [
-            {
-              question_node_id: node.id,
-              annotation_type: isFlagged ? "marker_flag" : "note",
-              is_unreadable: isUnreadable,
-              body: isFlagged ? "Flagged for review" : "",
-            }
-          ],
+          annotations: annotationsToSave,
         },
         requiresAal2: true,
       });
       setLastSaved(new Date());
+      router.refresh();
     } catch (error) {
       console.error("Save failed", error);
+      alert("Failed to save: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsSaving(false);
     }
@@ -78,8 +96,35 @@ export function MarkingResponseWorkspace({
   async function downloadFile(path: string) {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase.storage.from("answer-uploads").createSignedUrl(path, 60);
-    if (error) return alert("Error: " + error.message);
+    if (error) return alert("Could not generate download link: " + error.message + "\nPath: " + path);
     window.open(data.signedUrl, "_blank");
+  }
+
+  async function handleManualUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsSaving(true);
+    const supabase = createSupabaseBrowserClient();
+    try {
+      const path = `attempts/${attemptId}/${node.id}/manual_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage.from("answer-uploads").upload(path, file);
+      if (uploadError) throw uploadError;
+
+      await supabase.from("upload_slots").upsert({
+        attempt_id: attemptId,
+        question_node_id: node.id,
+        object_path: path,
+        status: "uploaded",
+        uploaded_at: new Date().toISOString(),
+      }, { onConflict: "attempt_id,question_node_id" });
+
+      alert("Manual upload successful!");
+      router.refresh();
+    } catch (error) {
+      alert("Manual upload failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const maxMarks = node.marks ?? 0;
@@ -129,6 +174,12 @@ export function MarkingResponseWorkspace({
             </div>
             <p className="text-sm font-bold text-[var(--subtle)] uppercase tracking-tight">No Response Found</p>
             <p className="text-xs text-[var(--muted)] mt-1">Student has not submitted any content for this question.</p>
+            <div className="mt-4">
+              <label className="cursor-pointer">
+                <Input type="file" accept="application/pdf" className="hidden" onChange={handleManualUpload} />
+                <span className="text-xs font-bold text-blue-600 underline hover:text-blue-700">Manual upload on behalf of student</span>
+              </label>
+            </div>
           </div>
         )}
 

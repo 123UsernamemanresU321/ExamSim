@@ -29,6 +29,7 @@ export type AttemptScreenData = {
   package: NormalizedAssessmentPackage | null;
   packageError: string | null;
   responses: { question_node_id: string; answer_text: string; saved_at: string }[];
+  annotations: { question_node_id: string; annotation_type: string; body: string }[];
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
@@ -55,6 +56,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,
     packageError: null,
     responses: [],
+    annotations: [],
   };
 }
 
@@ -85,12 +87,20 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     .eq("attempt_id", attemptId);
   if (responsesError) throw responsesError;
 
+  const { data: annotations, error: annotationsError } = await supabase
+    .from("submission_annotations")
+    .select("question_node_id, annotation_type, body")
+    .eq("attempt_id", attemptId)
+    .eq("annotation_type", "student_flag");
+  if (annotationsError) throw annotationsError;
+
   return {
     attempt: mapScreenAttempt(attempt, assessment, state),
     stateToken: state.state_token,
     package: packageResult.package,
     packageError: packageResult.packageError,
     responses: responses ?? [],
+    annotations: annotations ?? [],
   };
 }
 

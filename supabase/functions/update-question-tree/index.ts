@@ -13,6 +13,7 @@ type FlatNode = {
   marks: number | null;
   response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice";
   interaction_json: unknown;
+  markscheme_html: string | null;
   source_page_start: number | null;
   source_page_end: number | null;
 };
@@ -56,6 +57,7 @@ serve(async (request) => {
       marks: node.marks,
       response_mode: node.response_mode,
       interaction_json: node.interaction_json,
+      markscheme_html: node.markscheme_html,
       source_page_start: node.source_page_start,
       source_page_end: node.source_page_end,
     }));
@@ -112,6 +114,7 @@ function normalizePackageQuestions(questions: unknown[]) {
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : isRecord(rawNode.interaction) ? rawNode.interaction : null,
+      markscheme_html: stringValue(rawNode.markscheme_html),
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
     });
@@ -137,6 +140,7 @@ function normalizeFlatNodes(rawNodes: unknown[]) {
       marks: numberValue(rawNode.marks),
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : isRecord(rawNode.interaction) ? rawNode.interaction : null,
+      markscheme_html: stringValue(rawNode.markscheme_html),
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
     };
@@ -192,6 +196,7 @@ function buildPackageFromNodes(version: Record<string, unknown>, nodes: FlatNode
       source_kind: "json",
       authoring_origin: "owner_pasted",
       display_timezone: "Africa/Johannesburg",
+      markscheme_html: (normalizedPackage as any)?.assessment?.markscheme_html ?? null,
     },
     delivery: {
       delivery_mode: "browser",
@@ -228,6 +233,7 @@ function nestFlatNodes(nodes: FlatNode[]) {
       response_mode: node.response_mode,
       prompt: (html || latex) ? { html, latex } : undefined,
       interaction: normalizeInteraction(node.interaction_json),
+      markscheme_html: node.markscheme_html ?? undefined,
       source_page_start: node.source_page_start ?? undefined,
       source_page_end: node.source_page_end ?? undefined,
       children: [] as Record<string, unknown>[],

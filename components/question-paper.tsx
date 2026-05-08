@@ -16,7 +16,8 @@ function QuestionBlock({
   attemptId,
   ownerProfileId,
   stateToken,
-  responses = [] 
+  responses = [],
+  annotations = []
 }: { 
   node: QuestionNode; 
   readonly?: boolean;
@@ -24,9 +25,10 @@ function QuestionBlock({
   ownerProfileId?: string;
   stateToken?: string;
   responses?: { question_node_id: string; answer_text: string }[];
+  annotations?: { question_node_id: string; annotation_type: string; body: string }[];
 }) {
   const initialValue = responses.find(r => r.question_node_id === node.node_id)?.answer_text ?? "";
-  const [isFlagged, setIsFlagged] = useState(false);
+  const [isFlagged, setIsFlagged] = useState(annotations.some(a => a.question_node_id === node.node_id && a.body === "flagged"));
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createSupabaseBrowserClient();
@@ -134,12 +136,15 @@ function QuestionBlock({
             <UploadCloud size={16} aria-hidden="true" />
             {isUploading ? "Uploading..." : "Request upload slot"}
           </Button>
-          <Button type="button" variant={isFlagged ? "secondary" : "ghost"} disabled={readonly} onClick={toggleFlag}>
-            <Flag size={16} aria-hidden="true" className={isFlagged ? "fill-current" : ""} />
-            {isFlagged ? "Flagged" : "Flag for review"}
-          </Button>
         </div>
       ) : null}
+      <div className="mt-4">
+        <Button type="button" variant={isFlagged ? "secondary" : "ghost"} disabled={readonly} onClick={toggleFlag} className="text-xs font-bold uppercase tracking-widest h-8 px-3">
+          <Flag size={14} aria-hidden="true" className={cn("mr-2", isFlagged && "fill-current text-red-500")} />
+          {isFlagged ? "Question Flagged" : "Flag for review"}
+        </Button>
+      </div>
+
       {node.children?.map((child) => (
         <QuestionBlock 
           key={child.node_id} 
@@ -149,6 +154,7 @@ function QuestionBlock({
           ownerProfileId={ownerProfileId}
           stateToken={stateToken}
           responses={responses}
+          annotations={annotations}
         />
       ))}
     </article>
@@ -160,7 +166,8 @@ export function QuestionPaper({
   attemptId,
   ownerProfileId,
   stateToken,
-  responses = []
+  responses = [],
+  annotations = []
 }: { 
   questions: QuestionNode[]; 
   readonly?: boolean;
@@ -168,6 +175,7 @@ export function QuestionPaper({
   ownerProfileId?: string;
   stateToken?: string;
   responses?: { question_node_id: string; answer_text: string }[];
+  annotations?: { question_node_id: string; annotation_type: string; body: string }[];
 }) {
   return (
     <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-12 md:py-12">
@@ -181,6 +189,7 @@ export function QuestionPaper({
             ownerProfileId={ownerProfileId}
             stateToken={stateToken}
             responses={responses}
+            annotations={annotations}
           />
         ))}
       </div>
