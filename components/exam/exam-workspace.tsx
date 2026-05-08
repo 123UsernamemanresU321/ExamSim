@@ -32,6 +32,7 @@ export function ExamWorkspace({
   const [screenData, setScreenData] = useState<AttemptScreenData>(initialScreenData);
   const [isLoadingPackage, setIsLoadingPackage] = useState(!initialScreenData.package);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     // If the package is already there (e.g. standard browser SSR), we are good.
@@ -40,12 +41,42 @@ export function ExamWorkspace({
     async function loadPackage() {
       setIsLoadingPackage(true);
       setLoadError(null);
+      
+      // Attempt to extract SEB keys from the environment (JS API or User-Agent)
+      let detectedBek: string | null = null;
+      let detectedCk: string | null = null;
+      
+      const sebApi = (window as any).SafeExamBrowser?.security;
+      if (sebApi) {
+        detectedBek = sebApi.browserExamKey || null;
+        detectedCk = sebApi.configKey || null;
+      }
+
+      // Fallback: Check User-Agent (SEB can be configured to append hashes here)
+      if (!detectedBek || !detectedCk) {
+        const ua = navigator.userAgent;
+        const bekMatch = ua.match(/BEK=([a-f0-9]{64})/i);
+        const ckMatch = ua.match(/CK=([a-f0-9]{64})/i);
+        if (bekMatch) detectedBek = bekMatch[1];
+        if (ckMatch) detectedCk = ckMatch[1];
+      }
+
+      setDebugInfo({
+        hasSebApi: !!sebApi,
+        userAgent: navigator.userAgent,
+        detectedBek: detectedBek ? `${detectedBek.substring(0, 8)}...` : "None",
+        detectedCk: detectedCk ? `${detectedCk.substring(0, 8)}...` : "None",
+      });
+
       try {
         const supabase = createSupabaseBrowserClient();
         const response = await invokeEdgeFunction<{ assessment_package: unknown }>(supabase, "get-attempt-package", {
           body: { 
             attempt_id: attemptId, 
-            state_token: initialScreenData.stateToken 
+            state_token: initialScreenData.stateToken,
+            // Pass the keys in the body to bypass header-stripping in cross-domain requests
+            seb_browser_exam_key_hash: detectedBek,
+            seb_config_key_hash: detectedCk,
           },
         });
 
@@ -94,7 +125,7 @@ export function ExamWorkspace({
   // Show error screen if the package is missing after attempt
   if (!assessmentPackage) {
     return (
-      <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
+      <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6 shadow-sm">
         <AttemptStateBadge state={attempt.state} />
         <div>
           <h1 className="text-xl font-semibold text-[var(--ink)]">
@@ -104,7 +135,15 @@ export function ExamWorkspace({
             <p className="font-bold">Verification Error:</p>
             <p>{loadError || packageError || "The server has not released the exam package for this attempt state."}</p>
           </div>
-          {attempt.delivery_mode === "seb_required" && (
+          {debugInfo && (loadError || packageError) && (
+            <div className="mt-4 rounded-md bg-gray-50 p-3 text-[10px] font-mono text-gray-500 border border-gray-200">
+              <p className="font-bold mb-1 uppercase tracking-wider text-[9px]">Environment Debug Info:</p>
+              <p>SEB JS API: {debugInfo.hasSebApi ? "Available" : "Missing"}</p>
+              <p>Detected BEK: {debugInfo.detectedBek}</p>
+              <p>Detected CK: {debugInfo.detectedCk}</p>
+              <p className="mt-1 opacity-60 break-all">UA: {debugInfo.userAgent}</p>
+            </div>
+          )}
             <div className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-[var(--muted)]">
                 This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
@@ -124,7 +163,6 @@ export function ExamWorkspace({
                 </div>
               )}
             </div>
-          )}
           <p className="mt-6 text-xs text-[var(--muted)] border-t border-[var(--border)] pt-4">
             If you are already inside SEB and seeing this error, ensure your network allows access to the verification server.
           </p>
