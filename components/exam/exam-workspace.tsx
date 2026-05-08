@@ -42,11 +42,21 @@ export function ExamWorkspace({
       setIsLoadingPackage(true);
       setLoadError(null);
       
-      // Attempt to extract SEB keys from the environment (JS API or User-Agent)
+      // Stage 1: Update keys (Necessary for some SEB versions on Mac/iOS)
+      const seb = (window as any).SafeExamBrowser;
+      if (seb?.security?.updateKeys) {
+        await new Promise<void>((resolve) => {
+          seb.security.updateKeys(() => resolve());
+          // Safety timeout
+          setTimeout(resolve, 500);
+        });
+      }
+
+      // Stage 2: Extract SEB keys from the environment
       let detectedBek: string | null = null;
       let detectedCk: string | null = null;
       
-      const sebApi = (window as any).SafeExamBrowser?.security;
+      const sebApi = seb?.security;
       if (sebApi) {
         detectedBek = sebApi.browserExamKey || null;
         detectedCk = sebApi.configKey || null;
@@ -63,6 +73,7 @@ export function ExamWorkspace({
 
       setDebugInfo({
         hasSebApi: !!sebApi,
+        hasUpdateKeys: !!seb?.security?.updateKeys,
         userAgent: navigator.userAgent,
         detectedBek: detectedBek ? `${detectedBek.substring(0, 8)}...` : "None",
         detectedCk: detectedCk ? `${detectedCk.substring(0, 8)}...` : "None",
@@ -153,11 +164,20 @@ export function ExamWorkspace({
               </p>
               <div className="flex flex-col gap-3">
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
+                    const supabase = createSupabaseBrowserClient();
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    
                     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
                     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
                     const returnUrl = window.location.href;
-                    window.location.href = `${supabaseUrl}/functions/v1/seb-handshake?attempt_id=${attemptId}&state_token=${encodeURIComponent(stateToken)}&return_url=${encodeURIComponent(returnUrl)}&apikey=${anonKey}`;
+                    
+                    // Add both apikey and bearer token to bypass Supabase Gateway "No Auth Header"
+                    let url = `${supabaseUrl}/functions/v1/seb-handshake?attempt_id=${attemptId}&state_token=${encodeURIComponent(stateToken)}&return_url=${encodeURIComponent(returnUrl)}&apikey=${anonKey}`;
+                    if (token) url += `&bearer=${token}`;
+                    
+                    window.location.href = url;
                   }}
                   className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--ink)] px-4 text-sm font-medium text-white hover:bg-[var(--ink-hover)] transition-colors"
                 >
