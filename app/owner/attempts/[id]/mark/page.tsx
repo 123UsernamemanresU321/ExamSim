@@ -1,10 +1,7 @@
-import { MarkingWorkspaceForm } from "@/components/owner/marking-workspace-form";
-import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
-import { Card } from "@/components/ui/card";
-import { sampleReport } from "@/lib/demo-data";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
 import { demoAttemptParams } from "@/lib/static-params";
+import { MarkingLayout } from "@/components/owner/marking-layout";
 
 export function generateStaticParams() {
   return demoAttemptParams();
@@ -14,50 +11,37 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const workspace = await getOwnerAttemptReviewWorkspace(id);
   
-  if (!workspace.package) {
+  if (!workspace.attempt) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-center">
+        <h2 className="text-xl font-bold text-red-600">Attempt Not Found</h2>
+        <p className="mt-2 text-[var(--muted)]">This attempt could not be retrieved from the server.</p>
+      </div>
+    );
+  }
+
+  if (!workspace.package && !workspace.questionNodes.length) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
-        <h2 className="text-xl font-bold text-red-600">Failed to load assessment package</h2>
+        <h2 className="text-xl font-bold text-red-600">Failed to load assessment content</h2>
         <p className="mt-2 text-[var(--muted)] text-center max-w-md">
-          {workspace.packageError ?? "This attempt's assessment content is missing or invalid."}
+          {workspace.packageError ?? "This attempt's assessment content is missing or invalid. Please check the schema or sync the question tree."}
         </p>
       </div>
     );
   }
 
-  const assessmentPackage = workspace.package;
   return (
-    <>
-      <SectionHeading
-        title="Marking workspace"
-        description={`Attempt ${id}. Save marks, annotations, exports, and explicit feedback release.`}
-      />
-      <div className="grid gap-6 xl:grid-cols-[minmax(620px,840px)_380px] xl:justify-center">
-        <QuestionPaper questions={assessmentPackage.questions} readonly />
-        <aside className="grid content-start gap-4 xl:sticky xl:top-24">
-          <Card className="shadow-none">
-            <h2 className="text-lg font-semibold">Submission summary</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              {workspace.textResponses.length} typed response(s). {workspace.uploadSlots.length} upload slot(s).
-            </p>
-          </Card>
-          <Card className="shadow-none">
-            <h2 className="text-lg font-semibold">Moderation</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">{sampleReport.language}</p>
-          </Card>
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold">Marks and feedback</h2>
-            <MarkingWorkspaceForm
-              attemptId={id}
-              questionNodes={workspace.questionNodes}
-              textResponses={workspace.textResponses}
-              uploadSlots={workspace.uploadSlots}
-              marks={workspace.marks}
-              annotations={workspace.annotations as { question_node_id: string; annotation_type: string; content?: string }[]}
-            />
-          </Card>
-        </aside>
+    <div className="flex flex-col h-full">
+      <div className="px-6 py-4">
+        <SectionHeading
+          title={`${workspace.attempt.student}'s Submission`}
+          description={`Attempt ${id}. Review telemetry, mark responses, and provide feedback.`}
+        />
       </div>
-    </>
+      <div className="flex-1 overflow-hidden px-6 pb-6">
+        <MarkingLayout workspace={workspace} attemptId={id} />
+      </div>
+    </div>
   );
 }

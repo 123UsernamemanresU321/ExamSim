@@ -9,9 +9,11 @@ import type {
   Assessment,
   AssessmentVersion,
   Attempt,
+  AttemptEvent,
   FeedbackRelease,
   Mark,
   ModerationReport,
+  OwnerSettings,
   ParseJob,
   ParseJobArtifact,
   Profile,
@@ -84,11 +86,15 @@ export type AttemptReviewWorkspace = {
   uploadSlots: UploadSlot[];
   textResponses: TextResponse[];
   moderationReport: ModerationReport | null;
+  attemptEvents: AttemptEvent[];
   package: NormalizedAssessmentPackage | null;
   packageError: string | null;
   marks: Mark[];
   annotations: SubmissionAnnotation[];
   feedbackRelease: FeedbackRelease | null;
+  markschemeHtml: string | null;
+  markschemePdfPath: string | null;
+  commentBank: any[];
 };
 
 function demoAssessmentSummary(): AssessmentSummary {
@@ -332,6 +338,8 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
           encryption_metadata_json: {},
           parse_confidence: sampleAssessment.parse_confidence,
           requires_owner_review: false,
+          markscheme_html: "<p>Mock markscheme content for demonstration.</p>",
+          markscheme_pdf_path: null,
           published_at: null,
           created_at: sampleAssessment.created_at,
         },
@@ -351,6 +359,8 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
         encryption_metadata_json: {},
         parse_confidence: sampleAssessment.parse_confidence,
         requires_owner_review: false,
+        markscheme_html: "<p>Mock markscheme content for demonstration.</p>",
+        markscheme_pdf_path: null,
         published_at: null,
         created_at: sampleAssessment.created_at,
       },
@@ -495,11 +505,15 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       uploadSlots: [],
       textResponses: [],
       moderationReport: null,
+      attemptEvents: [],
       package: samplePackage,
       packageError: null,
       marks: [],
       annotations: [],
       feedbackRelease: null,
+      markschemeHtml: "<p>Sample Markscheme for demo purposes.</p>",
+      markschemePdfPath: null,
+      commentBank: [],
     };
   }
 
@@ -507,7 +521,22 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attemptRow) {
-    return { attempt: null, questionNodes: [], uploadSlots: [], textResponses: [], moderationReport: null, package: null, packageError: "Attempt not found.", marks: [], annotations: [], feedbackRelease: null };
+    return {
+      attempt: null,
+      questionNodes: [],
+      uploadSlots: [],
+      textResponses: [],
+      moderationReport: null,
+      attemptEvents: [],
+      package: null,
+      packageError: "Attempt not found.",
+      marks: [],
+      annotations: [],
+      feedbackRelease: null,
+      markschemeHtml: null,
+      markschemePdfPath: null,
+      commentBank: [],
+    };
   }
 
   const [attempt] = await mapAttemptCollections([attemptRow]);
@@ -516,10 +545,12 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     { data: uploadSlots, error: slotError },
     { data: textResponses, error: responseError },
     { data: moderationReport, error: reportError },
+    { data: attemptEvents, error: eventError },
     { data: version, error: versionError },
     { data: marks, error: marksError },
     { data: annotations, error: annotationsError },
     { data: feedbackRelease, error: feedbackError },
+    { data: ownerSettings, error: settingsError },
   ] = await Promise.all([
     supabase
       .from("question_nodes")
@@ -529,19 +560,24 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     supabase.from("upload_slots").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
     supabase.from("text_responses").select("*").eq("attempt_id", attemptId).order("saved_at", { ascending: true }),
     supabase.from("moderation_reports").select("*").eq("attempt_id", attemptId).maybeSingle(),
+    supabase.from("attempt_events").select("*").eq("attempt_id", attemptId).order("server_received_at", { ascending: true }),
     supabase.from("assessment_versions").select("*").eq("id", attemptRow.assessment_version_id).maybeSingle(),
     supabase.from("marks").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
     supabase.from("submission_annotations").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
     supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).maybeSingle(),
+    supabase.from("owner_settings").select("*").eq("owner_profile_id", attempt.owner_profile_id).maybeSingle(),
   ]);
+
   if (nodeError) throw nodeError;
   if (slotError) throw slotError;
   if (responseError) throw responseError;
   if (reportError) throw reportError;
+  if (eventError) throw eventError;
   if (versionError) throw versionError;
   if (marksError) throw marksError;
   if (annotationsError) throw annotationsError;
   if (feedbackError) throw feedbackError;
+  if (settingsError) throw settingsError;
 
   const packageResult = await loadAssessmentPackage(version ?? {});
   const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
@@ -552,6 +588,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     uploadSlots: uploadSlots ?? [],
     textResponses: textResponses ?? [],
     moderationReport: moderationReport ?? null,
+    attemptEvents: attemptEvents ?? [],
     package: packageResult.package ? { ...packageResult.package, questions } : (questions.length > 0 ? {
       schema_version: "reconstructed",
       assessment: {
@@ -580,5 +617,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     marks: marks ?? [],
     annotations: annotations ?? [],
     feedbackRelease: feedbackRelease ?? null,
+    markschemeHtml: version?.markscheme_html ?? null,
+    markschemePdfPath: version?.markscheme_pdf_path ?? null,
+    commentBank: (ownerSettings?.comment_bank as any[]) ?? [],
   };
 }

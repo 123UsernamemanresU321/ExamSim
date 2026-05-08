@@ -42,6 +42,7 @@ export type OwnerSettings = {
   owner_profile_id: string;
   owner_email: string;
   default_timezone: string;
+  comment_bank: Json;
   created_at: string;
   updated_at: string;
 };
@@ -91,6 +92,8 @@ export type AssessmentVersion = {
   encryption_metadata_json: Json;
   parse_confidence: number | null;
   requires_owner_review: boolean;
+  markscheme_html: string | null;
+  markscheme_pdf_path: string | null;
   published_at: string | null;
   created_at: string;
 };
@@ -242,9 +245,10 @@ export type SubmissionAnnotation = {
   attempt_id: string;
   question_node_id: string | null;
   owner_profile_id: string;
-  annotation_type: "note" | "rubric" | "moderation" | "feedback" | "student_flag";
+  annotation_type: "note" | "rubric" | "moderation" | "feedback" | "student_flag" | "marker_flag";
   body: string;
   anchor_json: Json;
+  is_unreadable: boolean;
   created_at: string;
   updated_at: string;
 };
