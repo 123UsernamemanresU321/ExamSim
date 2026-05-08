@@ -1,17 +1,17 @@
 "use client";
 
-import { ChevronDown, ChevronUp, FileText, Info } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Info, Award, HelpCircle } from "lucide-react";
 import { useState } from "react";
-import type { QuestionNode } from "@/lib/assessment-package";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MathRenderer } from "@/components/math-renderer";
 
 export function MarkingCenterPanel({
   node,
   markschemeHtml,
   markschemePdfPath,
 }: {
-  node?: any; // Using any because we pass QuestionNodeRow which matches the fields
+  node?: any;
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
 }) {
@@ -19,86 +19,129 @@ export function MarkingCenterPanel({
 
   if (!node) {
     return (
-      <div className="flex h-full items-center justify-center text-[var(--muted)]">
-        <div className="text-center">
-          <Info size={48} className="mx-auto mb-4 opacity-20" />
-          <p>Select a question from the tree to begin marking.</p>
-        </div>
+      <div className="flex h-full flex-col items-center justify-center text-[var(--muted)] opacity-50">
+        <HelpCircle size={64} strokeWidth={1} className="mb-4" />
+        <p className="text-lg font-medium">Select a question to view details</p>
+        <p className="text-sm">Navigation tree is on the left</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
       {/* Question Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-[var(--ink)]">
-          {node.node_key}. {node.title || "Question"}
-        </h2>
-        <div className="mt-2 flex items-center gap-4 text-sm text-[var(--muted)]">
-          <span className="font-medium px-2 py-0.5 rounded bg-[var(--surface-muted)] text-[var(--ink)]">
+      <div className="flex items-start justify-between border-b border-[var(--border)] pb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--primary)] text-xs font-bold text-white">
+              {node.node_key}
+            </span>
+            <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ink)]">
+              {node.title || "Question Content"}
+            </h2>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--subtle)]">
+            {node.node_type} • Response Mode: <span className="text-[var(--ink)]">{node.response_mode?.replace('_', ' ')}</span>
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge tone="accent" className="px-3 py-1 text-sm font-black italic tracking-tighter">
             {node.marks ?? 0} MARKS
-          </span>
-          <span className="uppercase tracking-wider">{node.node_type}</span>
+          </Badge>
         </div>
       </div>
 
       {/* Question Content */}
-      <Card className="p-6 border-none bg-[var(--surface-muted)] shadow-none">
-        <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-strong:text-[var(--ink)]">
-          {node.prompt_html && (
-            <div dangerouslySetInnerHTML={{ __html: node.prompt_html }} />
-          )}
-          {node.prompt_latex && (
-            <div className="mt-4 p-4 rounded bg-white font-serif italic text-lg text-center border border-[var(--border)]">
-              $${node.prompt_latex}$$
-            </div>
-          )}
-          {!node.prompt_html && !node.prompt_latex && (
-            <p className="italic opacity-50">No prompt content available for this node.</p>
-          )}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--subtle)]">
+          <Info size={12} /> Question Prompt
         </div>
-      </Card>
+        <Card className="overflow-hidden border-none bg-[var(--surface-muted)] shadow-none">
+          <div className="p-8">
+            <div className="prose prose-slate max-w-none prose-p:leading-relaxed prose-strong:text-[var(--ink)]">
+              {node.prompt_html && (
+                <MathRenderer html={node.prompt_html} className="text-[17px]" />
+              )}
+              {node.prompt_latex && (
+                <div className="mt-6 rounded-xl bg-white p-8 shadow-sm border border-[var(--border)]">
+                  <MathRenderer latex={`$$${node.prompt_latex}$$`} className="text-xl" />
+                </div>
+              )}
+              {!node.prompt_html && !node.prompt_latex && (
+                <div className="flex flex-col items-center justify-center py-12 text-[var(--muted)] italic">
+                  <p>No prompt content provided for this node.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      </section>
 
       {/* Markscheme Panel */}
-      <section className="border-t border-[var(--border)] pt-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <FileText size={18} className="text-blue-500" />
-            <h3 className="text-lg font-bold">Markscheme</h3>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-600">
+            <Award size={14} /> Official Markscheme
           </div>
           <Button
             variant="ghost"
             onClick={() => setShowMarkscheme(!showMarkscheme)}
-            className="h-8 gap-2"
+            className="h-8 gap-2 text-xs font-bold uppercase tracking-wider text-blue-600 hover:bg-blue-50 hover:text-blue-700"
           >
             {showMarkscheme ? (
-              <>Hide <ChevronUp size={14} /></>
+              <>Collapse <ChevronUp size={14} /></>
             ) : (
-              <>Show <ChevronDown size={14} /></>
+              <>Expand <ChevronDown size={14} /></>
             )}
           </Button>
         </div>
 
         {showMarkscheme && (
-          <div className="rounded-lg border border-[var(--border)] p-6 bg-blue-50/30">
-            {markschemeHtml ? (
-              <div
-                className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: markschemeHtml }}
-              />
-            ) : markschemePdfPath ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-blue-200 rounded-lg">
-                <FileText size={32} className="text-blue-300 mb-2" />
-                <p className="text-sm text-blue-600 font-medium">Markscheme PDF available</p>
-                <Button variant="secondary" className="mt-4 h-8 text-xs">View full markscheme PDF</Button>
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--muted)] italic">No markscheme has been uploaded for this assessment version.</p>
-            )}
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-8 shadow-sm">
+              {markschemeHtml ? (
+                <div className="prose prose-sm max-w-none">
+                  <MathRenderer html={markschemeHtml} />
+                </div>
+              ) : markschemePdfPath ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-blue-200 rounded-xl bg-white/50">
+                  <FileText size={48} className="text-blue-200 mb-4" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-blue-900 uppercase tracking-wide">Document Reference</p>
+                    <p className="text-xs text-blue-600">Full PDF markscheme is attached to this version.</p>
+                  </div>
+                  <Button variant="secondary" className="mt-6 bg-white shadow-sm border-blue-100 text-blue-700 hover:bg-blue-50">
+                    <FileText size={14} className="mr-2" /> Open Reference PDF
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-[var(--muted)] italic">
+                  <p className="text-sm">No specific markscheme data found for this version.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
     </div>
   );
+}
+
+function Badge({ children, tone, className }: { children: React.ReactNode; tone: "neutral" | "success" | "warning" | "danger" | "accent"; className?: string }) {
+  const tones = {
+    neutral: "border-[var(--border)] bg-white text-[var(--muted)]",
+    success: "border-[#78a86d] bg-[var(--success-bg)] text-[#123d18]",
+    warning: "border-[#d7b85f] bg-[var(--warning-bg)] text-[var(--warning)]",
+    danger: "border-[#e7a09a] bg-[var(--danger-bg)] text-[var(--danger)]",
+    accent: "border-[#9aa7bd] bg-[var(--surface-muted)] text-[var(--primary)]",
+  };
+  return (
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold", tones[tone], className)}>
+      {children}
+    </span>
+  );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(" ");
 }

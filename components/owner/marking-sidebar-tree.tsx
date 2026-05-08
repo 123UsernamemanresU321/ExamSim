@@ -131,7 +131,7 @@ function StatusBadge({ status }: { status: NodeStatus }) {
   if (!config) return null;
 
   return (
-    <Badge tone="neutral" className="h-5 px-1.5 text-[10px] uppercase font-bold tracking-tight gap-1 border-current">
+    <Badge tone={config.tone} className="h-5 px-1.5 text-[10px] uppercase font-bold tracking-tight gap-1">
       <config.icon size={10} />
       {config.label}
     </Badge>

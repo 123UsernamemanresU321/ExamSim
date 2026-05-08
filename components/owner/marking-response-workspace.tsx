@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Download, Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, MessageSquare, History } from "lucide-react";
+import { Download, Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, MessageSquare, History, User, Lock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -35,7 +35,6 @@ export function MarkingResponseWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  // Reset local state when node changes
   useEffect(() => {
     setAwarded(mark ? String(mark.awarded_marks) : "");
     setNotes(mark?.notes ?? "");
@@ -87,171 +86,178 @@ export function MarkingResponseWorkspace({
   const isOverLimit = (Number(awarded) || 0) > maxMarks;
 
   return (
-    <div className="flex flex-col h-full gap-6">
+    <div className="flex flex-col h-full gap-8">
       {/* Response Viewer Area */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--subtle)]">Student Response</h3>
+      <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+        <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Student Submission</h3>
           {slot?.uploaded_at && (
-            <span className="text-[10px] text-[var(--muted)]">
-              Uploaded: {new Date(slot.uploaded_at).toLocaleString()}
-            </span>
+            <Badge tone="neutral" className="text-[9px] bg-transparent border-none opacity-50">
+              {new Date(slot.uploaded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Badge>
           )}
         </div>
 
         {response?.answer_text ? (
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-inner">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--subtle)]">
-              <FileText size={12} /> Typed Answer
+          <div className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
+              <FileText size={12} /> Digital Response
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{response.answer_text}</p>
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ink)] selection:bg-blue-100">{response.answer_text}</p>
           </div>
         ) : slot?.object_path ? (
-          <div className="rounded-lg border border-[var(--border)] p-4 flex flex-col items-center justify-center bg-white shadow-sm gap-4">
-            <Paperclip size={32} className="text-blue-500 opacity-20" />
-            <div className="text-center">
-              <p className="text-sm font-medium">PDF Attachment</p>
-              <p className="text-xs text-[var(--muted)]">Uploaded via mobile or scan</p>
+          <div className="rounded-xl border-2 border-dashed border-blue-100 p-8 flex flex-col items-center justify-center bg-blue-50/10 transition-colors hover:bg-blue-50/20 group">
+            <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
+              <Paperclip size={24} className="text-blue-500" />
             </div>
-            <Button variant="secondary" onClick={() => downloadFile(slot.object_path!)}>
-              <Download size={14} className="mr-2" /> Open PDF in new tab
+            <div className="text-center mb-6">
+              <p className="text-sm font-bold text-blue-900">Attachment Uploaded</p>
+              <p className="text-xs text-blue-600/70">Scanned PDF or mobile capture</p>
+            </div>
+            <Button 
+              variant="secondary" 
+              onClick={() => downloadFile(slot.object_path!)}
+              className="bg-white border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm"
+            >
+              <ExternalLink size={14} className="mr-2" /> View Submission PDF
             </Button>
           </div>
-        ) : slot?.status === "blank_placeholder" ? (
-          <div className="rounded-lg border border-dashed border-[var(--border)] p-8 flex flex-col items-center justify-center text-[var(--muted)]">
-            <Ghost size={32} className="mb-2 opacity-20" />
-            <p className="text-xs font-medium uppercase">Student marked as blank</p>
-          </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-[var(--border)] p-8 flex flex-col items-center justify-center text-[var(--muted)]">
-            <Ban size={32} className="mb-2 opacity-20" />
-            <p className="text-xs font-medium uppercase text-red-500/50">Missing response</p>
+          <div className="rounded-xl border border-dashed border-[var(--border)] p-12 flex flex-col items-center justify-center text-center">
+            <div className="h-12 w-12 rounded-full bg-[var(--surface-muted)] flex items-center justify-center mb-4 opacity-50">
+              <Ban size={20} className="text-[var(--subtle)]" />
+            </div>
+            <p className="text-sm font-bold text-[var(--subtle)] uppercase tracking-tight">No Response Found</p>
+            <p className="text-xs text-[var(--muted)] mt-1">Student has not submitted any content for this question.</p>
           </div>
         )}
 
         {isUnreadable && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-center gap-3 text-red-700">
-            <AlertCircle size={18} />
-            <p className="text-xs font-medium">Marked as unreadable/broken file.</p>
+          <div className="rounded-lg border-2 border-orange-200 bg-orange-50 p-4 flex items-start gap-3 text-orange-800 shadow-sm animate-in zoom-in-95 duration-200">
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-black uppercase tracking-tight">Status: Unreadable</p>
+              <p className="text-xs opacity-80 leading-relaxed">The file is corrupt or the handwriting is not legible. Marks may be affected.</p>
+            </div>
           </div>
         )}
       </div>
 
       {/* Marking Controls */}
-      <div className="pt-4 border-t border-[var(--border)] space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--subtle)] mb-1.5 block">
-              Awarded Marks
-            </label>
-            <div className="relative">
-              <Input
-                type="number"
-                step={0.5}
-                min={0}
-                max={maxMarks}
-                value={awarded}
-                onChange={(e) => setAwarded(e.target.value)}
-                className={cn(
-                  "text-xl font-bold h-12",
-                  isOverLimit && "border-red-500 bg-red-50 text-red-700 focus-visible:ring-red-500"
-                )}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">
-                / {maxMarks}
-              </span>
+      <div className="pt-6 border-t-2 border-[var(--border)] space-y-8 bg-white">
+        <div className="flex flex-col gap-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+                Assessment Outcome
+              </label>
+              <div className="flex items-center gap-2">
+                <Badge tone={isOverLimit ? "danger" : "accent"} className="h-5 px-1.5 font-bold tabular-nums">
+                  {awarded || "0"} / {maxMarks}
+                </Badge>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-5 gap-3">
+              <div className="col-span-3 relative group">
+                <Input
+                  type="number"
+                  step={0.5}
+                  min={0}
+                  max={maxMarks}
+                  value={awarded}
+                  onChange={(e) => setAwarded(e.target.value)}
+                  className={cn(
+                    "text-3xl font-black h-16 pl-6 transition-all",
+                    isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
+                  )}
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-black text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
+                  PTS
+                </div>
+              </div>
+
+              <div className="col-span-2 grid grid-rows-2 gap-2">
+                <Button
+                  variant="secondary"
+                  className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "bg-red-600 border-red-600 text-white hover:bg-red-700")}
+                  onClick={() => setIsFlagged(!isFlagged)}
+                >
+                  <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
+                  {isFlagged ? "Review Required" : "Flag"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "bg-orange-600 border-orange-600 text-white hover:bg-orange-700")}
+                  onClick={() => setIsUnreadable(!isUnreadable)}
+                >
+                  <Ban size={12} className="mr-1.5" />
+                  {isUnreadable ? "Broken/Corrupt" : "Corrupt"}
+                </Button>
+              </div>
             </div>
             {isOverLimit && (
-              <p className="mt-1 text-[10px] font-medium text-red-600 flex items-center gap-1">
-                <AlertCircle size={10} /> Cannot exceed max marks
+              <p className="text-[10px] font-bold text-red-600 flex items-center gap-1.5 px-1">
+                <AlertCircle size={12} /> SCORE CANNOT EXCEED {maxMarks} FOR THIS NODE
               </p>
             )}
           </div>
 
-          <div className="flex flex-col justify-end gap-2">
-            <Button
-              variant="secondary"
-              className={cn("h-10 justify-start px-3", isFlagged && "bg-red-50 border-red-200 text-red-700")}
-              onClick={() => setIsFlagged(!isFlagged)}
-            >
-              <Flag size={14} className={cn("mr-2", isFlagged && "fill-red-700")} />
-              {isFlagged ? "Flagged" : "Flag for review"}
-            </Button>
-            <Button
-              variant="secondary"
-              className={cn("h-10 justify-start px-3", isUnreadable && "bg-orange-50 border-orange-200 text-orange-700")}
-              onClick={() => setIsUnreadable(!isUnreadable)}
-            >
-              <Ban size={14} className="mr-2" />
-              {isUnreadable ? "Unreadable" : "Mark unreadable"}
-            </Button>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
+                <User size={12} /> Student Feedback
+              </label>
+              <Textarea
+                placeholder="Detailed explanation for the student..."
+                className="text-sm min-h-[100px] border-blue-100 focus:border-blue-400 focus:ring-blue-400/20 bg-blue-50/10"
+                value={studentFeedback}
+                onChange={(e) => setStudentFeedback(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <Lock size={12} /> Internal Annotation
+              </label>
+              <Textarea
+                placeholder="Private notes for moderation team..."
+                className="text-sm min-h-[60px] bg-slate-50 border-slate-200 focus:border-slate-400"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[var(--subtle)] mb-1.5">
-              <MessageSquare size={12} /> Student Feedback
-            </label>
-            <Textarea
-              placeholder="Explain why marks were awarded/deducted..."
-              className="text-sm min-h-[80px]"
-              value={studentFeedback}
-              onChange={(e) => setStudentFeedback(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--subtle)] mb-1.5 block">
-              Marker Notes (Private)
-            </label>
-            <Textarea
-              placeholder="Internal notes for moderation..."
-              className="text-sm min-h-[60px] bg-slate-50"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+        <div className="flex items-center justify-between pb-2">
+          <div className="flex items-center gap-3">
             {lastSaved ? (
-              <>
-                <CheckCircle2 size={12} className="text-green-500" />
-                Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </>
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-green-50 text-[10px] font-bold text-green-700 border border-green-100">
+                <CheckCircle2 size={12} />
+                Sync Complete • {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             ) : (
-              <>
-                <History size={12} />
-                Unsaved changes
-              </>
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
+                <History size={12} className="animate-pulse" />
+                Unsaved modifications
+              </div>
             )}
           </div>
-          <Button onClick={handleSave} disabled={isSaving || isOverLimit} className="gap-2">
-            <Save size={14} />
-            {isSaving ? "Saving..." : "Save Progress"}
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving || isOverLimit} 
+            className="px-8 font-black uppercase tracking-widest shadow-lg shadow-blue-500/20"
+          >
+            {isSaving ? (
+              <div className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full mr-2" />
+            ) : (
+              <Save size={16} className="mr-2" />
+            )}
+            {isSaving ? "Syncing..." : "Finalize Change"}
           </Button>
         </div>
       </div>
     </div>
-  );
-}
-
-function Ghost({ size, className }: { size: number; className?: string }) {
-  return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M9 10h.01M15 10h.01M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z" />
-    </svg>
   );
 }
