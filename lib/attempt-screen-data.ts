@@ -100,7 +100,13 @@ async function getReleasedPackageResult(attemptId: string, stateToken: string) {
       state_token: stateToken,
     });
     const parsed = normalizedPackageSchema.safeParse(response.assessment_package);
-    if (!parsed.success) return { package: null, packageError: "Released package failed schema validation." };
+    if (!parsed.success) {
+      console.error("Schema validation failed:", parsed.error.format());
+      return { 
+        package: null, 
+        packageError: `Released package failed schema validation: ${parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", ")}` 
+      };
+    }
     return { package: parsed.data, packageError: null };
   } catch (error) {
     return {
