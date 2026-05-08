@@ -179,7 +179,13 @@ serve(async (request) => {
 });
 
 async function readMineruJsonResponse(response: Response, label: string) {
-  const text = await response.text();
+  const timeoutPromise = new Promise<never>((_, reject) => 
+    setTimeout(() => reject(new Error(`${label} response reading timed out`)), 10000)
+  );
+  
+  const textPromise = response.text();
+  const text = await Promise.race([textPromise, timeoutPromise]);
+  
   let payload: unknown = {};
   try {
     payload = text ? JSON.parse(text) : {};
