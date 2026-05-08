@@ -69,64 +69,79 @@ serve(async (request) => {
       return json({ ok: status !== "failed", status, external_state: result.state, error_message: errorMessage });
     }
 
-    if (!result.fullZipUrl) throw new Error("MinerU result is done but did not include full_zip_url");
-    const zipResponse = await fetch(result.fullZipUrl);
-    if (!zipResponse.ok) throw new Error(`Could not download MinerU result ZIP: ${zipResponse.status}`);
-    const zipBytes = new Uint8Array(await zipResponse.arrayBuffer());
-    const zipPath = `parse-jobs/${parseJob.id}/mineru-hosted-result.zip`;
-    const { error: zipUploadError } = await admin.storage.from("assessment-packages").upload(zipPath, zipBytes, {
-      contentType: "application/zip",
-      upsert: true,
-    });
-    if (zipUploadError) throw zipUploadError;
+    try {
+      if (!result.fullZipUrl) throw new Error("MinerU result is done but did not include full_zip_url");
+      const zipResponse = await fetch(result.fullZipUrl);
+      if (!zipResponse.ok) throw new Error(`Could not download MinerU result ZIP: ${zipResponse.status}`);
+      const zipBytes = new Uint8Array(await zipResponse.arrayBuffer());
+      const zipPath = `parse-jobs/${parseJob.id}/mineru-hosted-result.zip`;
+      const { error: zipUploadError } = await admin.storage.from("assessment-packages").upload(zipPath, zipBytes, {
+        contentType: "application/zip",
+        upsert: true,
+      });
+      if (zipUploadError) throw zipUploadError;
 
-    const artifacts = await extractAndUploadArtifacts(admin, parseJob.id, zipBytes);
-    const now = new Date().toISOString();
-    const { error: artifactError } = await admin.from("parse_job_artifacts").insert([
-      {
-        parse_job_id: parseJob.id,
-        artifact_kind: "zip",
-        object_path: zipPath,
-        content_preview: "Hosted MinerU result ZIP.",
-      },
-      ...artifacts,
-    ]);
-    if (artifactError) throw artifactError;
+      const artifacts = await extractAndUploadArtifacts(admin, parseJob.id, zipBytes);
+      const now = new Date().toISOString();
+      const { error: artifactError } = await admin.from("parse_job_artifacts").insert([
+        {
+          parse_job_id: parseJob.id,
+          artifact_kind: "zip",
+          object_path: zipPath,
+          content_preview: "Hosted MinerU result ZIP.",
+        },
+        ...artifacts,
+      ]);
+      if (artifactError) throw artifactError;
 
-    const primaryArtifact = artifacts.find((artifact) => artifact.artifact_kind === "markdown") ?? artifacts.find((artifact) => artifact.artifact_kind === "json");
-    const { error: updateError } = await admin
-      .from("parse_jobs")
-      .update({
+      const primaryArtifact = artifacts.find((artifact) => artifact.artifact_kind === "markdown") ?? artifacts.find((artifact) => artifact.artifact_kind === "json");
+      const { error: updateError } = await admin
+        .from("parse_jobs")
+        .update({
+          status: "review_required",
+          result_object_path: primaryArtifact?.object_path ?? zipPath,
+          external_state: result.state,
+          error_message: null,
+          completed_at: now,
+          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw, full_zip_url_consumed_at: now },
+        })
+        .eq("id", parseJob.id);
+      if (updateError) throw updateError;
+
+      await admin
+        .from("assessment_versions")
+        .update({
+          parse_confidence: 0.72,
+          requires_owner_review: true,
+          status: "review_required",
+        })
+        .eq("id", parseJob.assessment_version_id);
+
+      await auditOwnerAction(ownerProfile.id, user.id, "mineru_hosted.completed", "parse_jobs", parseJob.id, {
+        artifact_count: artifacts.length + 1,
+        result_object_path: primaryArtifact?.object_path ?? zipPath,
+      });
+
+      return json({
+        ok: true,
         status: "review_required",
         result_object_path: primaryArtifact?.object_path ?? zipPath,
-        external_state: result.state,
-        error_message: null,
-        completed_at: now,
-        metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw, full_zip_url_consumed_at: now },
-      })
-      .eq("id", parseJob.id);
-    if (updateError) throw updateError;
-
-    await admin
-      .from("assessment_versions")
-      .update({
-        parse_confidence: 0.72,
-        requires_owner_review: true,
-        status: "review_required",
-      })
-      .eq("id", parseJob.assessment_version_id);
-
-    await auditOwnerAction(ownerProfile.id, user.id, "mineru_hosted.completed", "parse_jobs", parseJob.id, {
-      artifact_count: artifacts.length + 1,
-      result_object_path: primaryArtifact?.object_path ?? zipPath,
-    });
-
-    return json({
-      ok: true,
-      status: "review_required",
-      result_object_path: primaryArtifact?.object_path ?? zipPath,
-      artifact_count: artifacts.length + 1,
-    });
+        artifact_count: artifacts.length + 1,
+      });
+    } catch (processError) {
+      const message = processError instanceof Error ? processError.message : "Processing MinerU result failed";
+      await admin
+        .from("parse_jobs")
+        .update({
+          status: "failed",
+          external_state: "provider_error",
+          error_message: message,
+          completed_at: new Date().toISOString(),
+          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw, process_error: message },
+        })
+        .eq("id", parseJob.id);
+      return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, statusForMineruError(message));
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "mineru-poll-hosted-job failed";
     return json({ error: message }, statusForMineruError(message));

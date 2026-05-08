@@ -93,7 +93,15 @@ export function pickMineruExtractResult(raw: unknown, dataId: string): MineruExt
     state: normalizeState(stringValue(selected.state ?? selected.status ?? data.state ?? data.status)),
     fileName: stringValue(selected.file_name ?? selected.fileName ?? data.file_name ?? data.fileName),
     dataId: stringValue(selected.data_id ?? selected.dataId) ?? dataId,
-    fullZipUrl: stringValue(selected.full_zip_url ?? selected.fullZipUrl ?? selected.zip_url ?? selected.zipUrl ?? data.full_zip_url ?? data.fullZipUrl),
+    fullZipUrl: stringValue(
+      selected.full_zip_url ?? selected.fullZipUrl ?? 
+      selected.zip_url ?? selected.zipUrl ?? 
+      selected.download_url ?? selected.downloadUrl ??
+      selected.file_url ?? selected.fileUrl ??
+      data.full_zip_url ?? data.fullZipUrl ??
+      data.download_url ?? data.downloadUrl ??
+      data.file_url ?? data.fileUrl
+    ),
     error: stringValue(selected.err_msg ?? selected.error_msg ?? selected.error ?? data.err_msg ?? data.error_msg ?? data.error),
     raw: selected,
   };

@@ -23,18 +23,18 @@ export function MarkingWorkspaceForm({
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");
-  const [localMarks, setLocalMarks] = useState<Record<string, { awarded: number; notes: string }>>(
+  const [localMarks, setLocalMarks] = useState<Record<string, { awarded: string; notes: string }>>(
     questionNodes.reduce((acc, node) => {
       const existing = initialMarks.find((m) => m.question_node_id === node.id);
       acc[node.id] = {
-        awarded: Number(existing?.awarded_marks ?? 0),
+        awarded: existing ? String(existing.awarded_marks) : "",
         notes: existing?.notes ?? "",
       };
       return acc;
-    }, {} as Record<string, { awarded: number; notes: string }>),
+    }, {} as Record<string, { awarded: string; notes: string }>),
   );
 
-  const totalAwarded = Object.values(localMarks).reduce((sum, m) => sum + m.awarded, 0);
+  const totalAwarded = Object.values(localMarks).reduce((sum, m) => sum + (Number(m.awarded) || 0), 0);
   const activeNodes = questionNodes.filter((node) => node.node_type !== "section");
 
   async function downloadFile(path: string) {
@@ -51,11 +51,13 @@ export function MarkingWorkspaceForm({
     event.preventDefault();
     const supabase = createSupabaseBrowserClient();
     try {
-      const markPayload = activeNodes.map((node) => ({
-        question_node_id: node.id,
-        awarded_marks: localMarks[node.id].awarded,
-        notes: localMarks[node.id].notes,
-      }));
+      const markPayload = activeNodes
+        .filter((node) => localMarks[node.id].awarded.trim() !== "")
+        .map((node) => ({
+          question_node_id: node.id,
+          awarded_marks: Number(localMarks[node.id].awarded),
+          notes: localMarks[node.id].notes,
+        }));
 
       await invokeEdgeFunction(supabase, "save-marking", {
         body: {
@@ -149,7 +151,7 @@ export function MarkingWorkspaceForm({
                   onChange={(e) =>
                     setLocalMarks((prev) => ({
                       ...prev,
-                      [node.id]: { ...prev[node.id], awarded: Number(e.target.value) },
+                      [node.id]: { ...prev[node.id], awarded: e.target.value },
                     }))
                   }
                 />

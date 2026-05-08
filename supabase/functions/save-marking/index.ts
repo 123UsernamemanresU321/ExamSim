@@ -55,13 +55,16 @@ serve(async (request) => {
       });
       if (marksError) throw marksError;
     }
+    // Unconditionally delete existing generic marks for this attempt
+    // so that clearing a mark (omitting it from genericRows) actually deletes it.
+    const { error: deleteError } = await admin
+      .from("marks")
+      .delete()
+      .eq("attempt_id", attempt.id)
+      .is("rubric_criteria_id", null);
+    if (deleteError) throw deleteError;
+
     if (genericRows.length > 0) {
-      const { error: deleteError } = await admin
-        .from("marks")
-        .delete()
-        .eq("attempt_id", attempt.id)
-        .is("rubric_criteria_id", null);
-      if (deleteError) throw deleteError;
       const { error: marksError } = await admin.from("marks").insert(genericRows);
       if (marksError) throw marksError;
     }
