@@ -155,8 +155,9 @@ export function ExamWorkspace({
                 <button 
                   onClick={() => {
                     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
                     const returnUrl = window.location.href;
-                    window.location.href = `${supabaseUrl}/functions/v1/seb-handshake?attempt_id=${attemptId}&state_token=${encodeURIComponent(stateToken)}&return_url=${encodeURIComponent(returnUrl)}`;
+                    window.location.href = `${supabaseUrl}/functions/v1/seb-handshake?attempt_id=${attemptId}&state_token=${encodeURIComponent(stateToken)}&return_url=${encodeURIComponent(returnUrl)}&apikey=${anonKey}`;
                   }}
                   className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--ink)] px-4 text-sm font-medium text-white hover:bg-[var(--ink-hover)] transition-colors"
                 >
