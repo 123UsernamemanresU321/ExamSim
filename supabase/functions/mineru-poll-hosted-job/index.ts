@@ -28,10 +28,29 @@ serve(async (request) => {
       return json({ error: "Parse job has not been submitted to hosted MinerU" }, 400);
     }
 
-    const resultResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract-results/batch/${parseJob.external_batch_id}`, {
-      method: "GET",
-      headers: buildMineruAuthHeaders(),
-    });
+    console.log(`Polling MinerU job result for batch: ${parseJob.external_batch_id}`);
+    
+    const pollController = new AbortController();
+    const pollTimeoutId = setTimeout(() => pollController.abort(), 30000); // 30s for lookup
+
+    let resultResponse: Response;
+    try {
+      const pollStartTime = Date.now();
+      resultResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract-results/batch/${parseJob.external_batch_id}`, {
+        method: "GET",
+        headers: buildMineruAuthHeaders(),
+        signal: pollController.signal,
+      });
+      clearTimeout(pollTimeoutId);
+      console.log(`MinerU poll response received in ${Date.now() - pollStartTime}ms. Status: ${resultResponse.status}`);
+    } catch (pollError) {
+      clearTimeout(pollTimeoutId);
+      if (pollError instanceof Error && pollError.name === "AbortError") {
+        throw new Error("MinerU result lookup timed out (30s limit).");
+      }
+      throw pollError;
+    }
+
     let rawResult: unknown;
     try {
       rawResult = await readMineruJsonResponse(resultResponse, "MinerU result lookup");
@@ -49,6 +68,7 @@ serve(async (request) => {
         .eq("id", parseJob.id);
       return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, statusForMineruError(message));
     }
+    
     let result: MineruExtractResult;
     try {
       result = pickMineruExtractResult(rawResult, parseJob.external_data_id ?? parseJob.id);
@@ -71,6 +91,8 @@ serve(async (request) => {
       const staleError = staleMineruError(parseJob);
       const status = result.state === "failed" || result.state === "unknown" || staleError ? "failed" : "running";
       const errorMessage = staleError ?? result.error ?? (result.state === "unknown" ? "MinerU returned an unknown result state." : null);
+      
+      console.log(`MinerU job ${parseJob.id} is ${status}. Provider state: ${result.state}`);
       const { error: updateError } = await admin
         .from("parse_jobs")
         .update({
@@ -87,9 +109,29 @@ serve(async (request) => {
 
     try {
       if (!result.fullZipUrl) throw new Error("MinerU result is done but did not include full_zip_url");
-      const zipResponse = await fetch(result.fullZipUrl);
-      if (!zipResponse.ok) throw new Error(`Could not download MinerU result ZIP: ${zipResponse.status}`);
+      
+      console.log(`MinerU job done. Downloading result ZIP: ${result.fullZipUrl}`);
+      const zipController = new AbortController();
+      const zipTimeoutId = setTimeout(() => zipController.abort(), 90000); // 90s for zip download
+      
+      let zipResponse: Response;
+      try {
+        const zipStartTime = Date.now();
+        zipResponse = await fetch(result.fullZipUrl, { signal: zipController.signal });
+        clearTimeout(zipTimeoutId);
+        if (!zipResponse.ok) throw new Error(`Could not download MinerU result ZIP: ${zipResponse.status}`);
+        console.log(`MinerU ZIP download response received in ${Date.now() - zipStartTime}ms.`);
+      } catch (zipError) {
+        clearTimeout(zipTimeoutId);
+        if (zipError instanceof Error && zipError.name === "AbortError") {
+          throw new Error("MinerU result ZIP download timed out (90s limit).");
+        }
+        throw zipError;
+      }
+      
       const zipBytes = new Uint8Array(await zipResponse.arrayBuffer());
+      console.log(`Result ZIP downloaded (${zipBytes.byteLength} bytes). Processing artifacts...`);
+      
       const zipPath = `parse-jobs/${parseJob.id}/mineru-hosted-result.zip`;
       const { error: zipUploadError } = await admin.storage.from("assessment-packages").upload(zipPath, zipBytes, {
         contentType: "application/zip",
