@@ -2,14 +2,14 @@ import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import type { NormalizedAssessmentPackage } from "@/lib/assessment-package";
 
 export const normalizedJsonTemplate: NormalizedAssessmentPackage = {
-  schema_version: "2026-05-06",
+  schema_version: "2026-05-07",
   assessment: {
-    id: "replace-with-assessment-id",
-    title: "Untitled Exam",
-    paper_code: "PAPER-CODE",
+    id: "assess_unique_id",
+    title: "International Mathematical Olympiad 2026",
+    paper_code: "IMO-2026-P1",
     assessment_kind: "exam",
     source_kind: "json",
-    authoring_origin: "imported",
+    authoring_origin: "owner_uploaded",
     display_timezone: DEFAULT_TIMEZONE,
   },
   delivery: {
@@ -25,7 +25,7 @@ export const normalizedJsonTemplate: NormalizedAssessmentPackage = {
     },
   },
   source: {
-    normalized_by: "owner-template",
+    normalized_by: "manual_upload",
     parse_confidence: 1,
     requires_owner_review: true,
   },
@@ -35,23 +35,36 @@ export const normalizedJsonTemplate: NormalizedAssessmentPackage = {
       node_key: "1",
       ordinal: 1,
       node_type: "question",
-      title: "Question 1",
-      marks: 10,
+      title: "Problem 1",
+      marks: 7,
       response_mode: "typed_or_upload",
       prompt: {
-        latex: "Solve $x^2 = 4$.",
+        html: "<p>Prove that for any positive integer $n$, the expression $2^{2n+1} + 1$ is divisible by $3$.</p>",
+        latex: "Prove that for any positive integer $n$, the expression $2^{2n+1} + 1$ is divisible by $3$.",
       },
+      children: [],
+    },
+    {
+      node_id: "q2",
+      node_key: "2",
+      ordinal: 2,
+      node_type: "section",
+      title: "Geometry Section",
+      response_mode: "none",
       children: [
         {
-          node_id: "q1a",
-          node_key: "1(a)",
+          node_id: "q2a",
+          node_key: "2(a)",
           ordinal: 1,
           node_type: "subquestion",
-          marks: 4,
+          title: "Part A",
+          marks: 3,
           response_mode: "typed_text",
           prompt: {
-            html: "<p>Find the positive root.</p>",
+            html: "<p>Define a cyclic quadrilateral.</p>",
+            latex: "Define a cyclic quadrilateral.",
           },
+          children: [],
         },
       ],
     },
