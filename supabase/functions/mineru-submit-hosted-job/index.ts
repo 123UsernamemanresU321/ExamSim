@@ -42,6 +42,9 @@ serve(async (request) => {
       signedUrl = signed.signedUrl;
     }
 
+    const modelVersion = Deno.env.get("MINERU_MODEL_VERSION") || "pipeline";
+    console.log(`Submitting MinerU job ${parseJob.id} using mode: ${uploadMode}, model: ${modelVersion}`);
+
     const response = await fetch(`${mineruApiBaseUrl()}${uploadMode === "file_upload" ? "/api/v4/file-urls/batch" : "/api/v4/extract/task/batch"}`, {
       method: "POST",
       headers: buildMineruAuthHeaders(),
@@ -51,6 +54,7 @@ serve(async (request) => {
           signedUrl,
           fileName,
           uploadMode,
+          modelVersion,
         }),
       ),
     });

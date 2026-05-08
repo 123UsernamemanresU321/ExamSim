@@ -145,18 +145,25 @@ serve(async (request) => {
         artifact_count: artifacts.length + 1,
       });
     } catch (processError) {
-      const message = processError instanceof Error ? processError.message : "Processing MinerU result failed";
+      console.error("Processing MinerU result failed:", processError);
+      const message = processError instanceof Error ? processError.message : String(processError || "Processing MinerU result failed");
       await admin
         .from("parse_jobs")
         .update({
           status: "failed",
           external_state: "provider_error",
-          error_message: message,
+          error_message: `Processing failed: ${message}`,
           completed_at: new Date().toISOString(),
-          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw, process_error: message },
+          metadata_json: { 
+            ...(parseJob.metadata_json ?? {}), 
+            last_mineru_result: result.raw, 
+            process_error: message,
+            process_error_stack: processError instanceof Error ? processError.stack : undefined,
+            full_zip_url: result.fullZipUrl
+          },
         })
         .eq("id", parseJob.id);
-      return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, statusForMineruError(message));
+      return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, 500);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "mineru-poll-hosted-job failed";

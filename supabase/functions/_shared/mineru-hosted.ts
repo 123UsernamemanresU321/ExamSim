@@ -48,9 +48,10 @@ export function buildMineruBatchRequest(input: {
   signedUrl?: string;
   fileName?: string;
   uploadMode: MineruUploadMode;
+  modelVersion?: string;
 }): MineruBatchRequest {
   const language = Deno.env.get("MINERU_LANGUAGE") || "en";
-  const modelVersion = Deno.env.get("MINERU_MODEL_VERSION") || "vlm";
+  const modelVersion = input.modelVersion || Deno.env.get("MINERU_MODEL_VERSION") || "pipeline";
   return {
     enable_formula: true,
     enable_table: true,
