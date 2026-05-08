@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { QuestionNodeRow } from "@/types/database";
 import {
   ASSESSMENT_KINDS,
   AUTHORING_ORIGINS,
@@ -81,6 +82,46 @@ export const normalizedPackageSchema = z.object({
 });
 
 export type NormalizedAssessmentPackage = z.infer<typeof normalizedPackageSchema>;
+
+export function reconstructQuestionTree(rows: QuestionNodeRow[]): QuestionNode[] {
+  const nodeMap = new Map<string, QuestionNode>();
+  const roots: QuestionNode[] = [];
+
+  // Sort by ordinal first to ensure children are in order
+  const sortedRows = [...rows].sort((a, b) => a.ordinal - b.ordinal);
+
+  for (const row of sortedRows) {
+    const node: QuestionNode = {
+      node_id: row.id,
+      node_key: row.node_key,
+      ordinal: row.ordinal,
+      node_type: row.node_type as "section" | "question" | "subquestion" | "part",
+      title: row.title || undefined,
+      marks: row.marks || undefined,
+      response_mode: row.response_mode as "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice",
+      prompt: (row.prompt_html || row.prompt_latex) ? {
+        html: row.prompt_html || undefined,
+        latex: row.prompt_latex || undefined,
+      } : undefined,
+      interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" } | undefined,
+      children: [],
+    };
+    nodeMap.set(row.id, node);
+  }
+
+  for (const row of sortedRows) {
+    const node = nodeMap.get(row.id)!;
+    if (row.parent_node_id && nodeMap.has(row.parent_node_id)) {
+      const parent = nodeMap.get(row.parent_node_id)!;
+      parent.children = parent.children || [];
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
 
 export function flattenQuestionNodes(nodes: QuestionNode[]): QuestionNode[] {
   return nodes.flatMap((node) => [node, ...flattenQuestionNodes(node.children ?? [])]);

@@ -2,7 +2,7 @@ import { MarkingWorkspaceForm } from "@/components/owner/marking-workspace-form"
 import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { samplePackage, sampleReport } from "@/lib/demo-data";
+import { sampleReport } from "@/lib/demo-data";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
 import { demoAttemptParams } from "@/lib/static-params";
 
@@ -13,7 +13,19 @@ export function generateStaticParams() {
 export default async function MarkAttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const workspace = await getOwnerAttemptReviewWorkspace(id);
-  const assessmentPackage = workspace.package ?? samplePackage;
+  
+  if (!workspace.package) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
+        <h2 className="text-xl font-bold text-red-600">Failed to load assessment package</h2>
+        <p className="mt-2 text-[var(--muted)] text-center max-w-md">
+          {workspace.packageError ?? "This attempt's assessment content is missing or invalid."}
+        </p>
+      </div>
+    );
+  }
+
+  const assessmentPackage = workspace.package;
   return (
     <>
       <SectionHeading

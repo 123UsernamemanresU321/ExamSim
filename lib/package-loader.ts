@@ -1,13 +1,14 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { normalizedPackageSchema } from "@/lib/assessment-package";
+import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 
 export async function loadAssessmentPackage(version: {
   normalized_package_json?: unknown;
   normalized_package_path?: string | null;
-}) {
+}): Promise<{ package: NormalizedAssessmentPackage | null; error: string | null }> {
   if (version.normalized_package_json) {
     const parsed = normalizedPackageSchema.safeParse(version.normalized_package_json);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) return { package: parsed.data, error: null };
+    return { package: null, error: `JSON validation failed: ${parsed.error.message}` };
   }
 
   if (version.normalized_package_path) {
@@ -17,20 +18,19 @@ export async function loadAssessmentPackage(version: {
       .download(version.normalized_package_path);
     
     if (error) {
-      console.error("Failed to download assessment package:", error);
-      return null;
+      return { package: null, error: `Download failed: ${error.message}` };
     }
     
     const text = await data.text();
     try {
       const json = JSON.parse(text);
       const parsed = normalizedPackageSchema.safeParse(json);
-      return parsed.success ? parsed.data : null;
+      if (parsed.success) return { package: parsed.data, error: null };
+      return { package: null, error: `Schema validation failed: ${parsed.error.message}` };
     } catch (e) {
-      console.error("Failed to parse assessment package JSON:", e);
-      return null;
+      return { package: null, error: `Invalid JSON in package file: ${e instanceof Error ? e.message : "Parse error"}` };
     }
   }
 
-  return null;
+  return { package: null, error: "No package content found in database or storage." };
 }

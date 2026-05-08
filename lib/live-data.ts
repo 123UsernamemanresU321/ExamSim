@@ -1,6 +1,6 @@
 import { computeAttemptState, getCountdownTarget } from "@/lib/attempt-state";
 import { loadAssessmentPackage } from "@/lib/package-loader";
-import { type NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { reconstructQuestionTree, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import type { AttemptState } from "@/lib/constants";
 import { attemptWithState, sampleAssessment, sampleAttempts, samplePackage, sampleStudents } from "@/lib/demo-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
@@ -85,6 +85,7 @@ export type AttemptReviewWorkspace = {
   textResponses: TextResponse[];
   moderationReport: ModerationReport | null;
   package: NormalizedAssessmentPackage | null;
+  packageError: string | null;
   marks: Mark[];
   annotations: SubmissionAnnotation[];
   feedbackRelease: FeedbackRelease | null;
@@ -495,6 +496,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       textResponses: [],
       moderationReport: null,
       package: samplePackage,
+      packageError: null,
       marks: [],
       annotations: [],
       feedbackRelease: null,
@@ -505,7 +507,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attemptRow) {
-    return { attempt: null, questionNodes: [], uploadSlots: [], textResponses: [], moderationReport: null, package: null, marks: [], annotations: [], feedbackRelease: null };
+    return { attempt: null, questionNodes: [], uploadSlots: [], textResponses: [], moderationReport: null, package: null, packageError: "Attempt not found.", marks: [], annotations: [], feedbackRelease: null };
   }
 
   const [attempt] = await mapAttemptCollections([attemptRow]);
@@ -541,13 +543,40 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   if (annotationsError) throw annotationsError;
   if (feedbackError) throw feedbackError;
 
+  const packageResult = await loadAssessmentPackage(version ?? {});
+  const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
+
   return {
     attempt,
     questionNodes: questionNodes ?? [],
     uploadSlots: uploadSlots ?? [],
     textResponses: textResponses ?? [],
     moderationReport: moderationReport ?? null,
-    package: await loadAssessmentPackage(version ?? {}),
+    package: packageResult.package ? { ...packageResult.package, questions } : (questions.length > 0 ? {
+      schema_version: "reconstructed",
+      assessment: {
+        id: attemptRow.assessment_id,
+        title: attempt.title,
+        paper_code: attempt.paper_code,
+        assessment_kind: "exam",
+        source_kind: "json",
+        authoring_origin: "imported",
+        display_timezone: attempt.display_timezone,
+      },
+      delivery: {
+        delivery_mode: attempt.delivery_mode as "browser" | "seb_required",
+        solutions_requested: attempt.solutions_requested,
+        response_policy: {
+          typed_allowed: true,
+          mixed_mode_allowed: true,
+          per_question_pdf_upload: true,
+          blank_submission_required_for_unattempted: false,
+        },
+      },
+      source: { requires_owner_review: false },
+      questions,
+    } as NormalizedAssessmentPackage : null),
+    packageError: packageResult.error,
     marks: marks ?? [],
     annotations: annotations ?? [],
     feedbackRelease: feedbackRelease ?? null,
