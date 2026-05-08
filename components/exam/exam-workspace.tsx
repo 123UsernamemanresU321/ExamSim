@@ -65,8 +65,9 @@ export function ExamWorkspace({
       // Fallback: Check User-Agent (SEB can be configured to append hashes here)
       if (!detectedBek || !detectedCk) {
         const ua = navigator.userAgent;
-        const bekMatch = ua.match(/BEK=([a-f0-9]{64})/i);
-        const ckMatch = ua.match(/CK=([a-f0-9]{64})/i);
+        // Search for BEK and CK in the User-Agent string (case insensitive, allowing for flexible separators)
+        const bekMatch = ua.match(/BEK[=:][\s]*([a-f0-9]{64})/i);
+        const ckMatch = ua.match(/CK[=:][\s]*([a-f0-9]{64})/i);
         if (bekMatch) detectedBek = bekMatch[1];
         if (ckMatch) detectedCk = ckMatch[1];
       }
@@ -152,7 +153,7 @@ export function ExamWorkspace({
               <p>SEB JS API: {debugInfo.hasSebApi ? "Available" : "Missing"}</p>
               <p>Detected BEK: {debugInfo.detectedBek}</p>
               <p>Detected CK: {debugInfo.detectedCk}</p>
-              <p className="mt-1 opacity-60 break-all">UA: {debugInfo.userAgent}</p>
+              <p className="mt-1 opacity-60 break-all leading-relaxed">UA: {debugInfo.userAgent}</p>
             </div>
           )}
 
@@ -162,31 +163,6 @@ export function ExamWorkspace({
                 This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
                 inside the Safe Exam Browser application with the correct configuration file provided by your institution.
               </p>
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={async () => {
-                    const supabase = createSupabaseBrowserClient();
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const token = session?.access_token;
-                    
-                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-                    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-                    const returnUrl = window.location.href;
-                    
-                    // Add both apikey and bearer token to bypass Supabase Gateway "No Auth Header"
-                    let url = `${supabaseUrl}/functions/v1/seb-handshake?attempt_id=${attemptId}&state_token=${encodeURIComponent(stateToken)}&return_url=${encodeURIComponent(returnUrl)}&apikey=${anonKey}`;
-                    if (token) url += `&bearer=${token}`;
-                    
-                    window.location.href = url;
-                  }}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--ink)] px-4 text-sm font-medium text-white hover:bg-[var(--ink-hover)] transition-colors"
-                >
-                  Verify Environment Securely
-                </button>
-                <p className="text-xs text-[var(--subtle)]">
-                  If you are already inside SEB, use the button above to perform a secure environment handshake.
-                </p>
-              </div>
               {sebConfigUrl && (
                 <div className="flex flex-col gap-3 sm:flex-row border-t border-[var(--border)] pt-4 mt-4">
                   <a 
