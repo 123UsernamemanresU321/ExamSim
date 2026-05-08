@@ -163,5 +163,6 @@ function mapScreenAttempt(attempt: Attempt, assessment: Assessment, state: Attem
     server_now_utc: state.server_now_utc,
     owner_profile_id: assessment.owner_profile_id,
     seb_config_path: attempt.seb_config_path,
+    seb_config_url: null,
   };
 }
