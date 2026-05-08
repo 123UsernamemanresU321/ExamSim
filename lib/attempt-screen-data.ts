@@ -54,6 +54,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
       server_now_utc: attempt.server_now_utc,
       owner_profile_id: "demo_owner",
       seb_config_path: null,
+      seb_config_url: null,
     },
     stateToken: "demo-state-token",
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,

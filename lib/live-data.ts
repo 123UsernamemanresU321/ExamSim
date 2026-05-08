@@ -471,16 +471,7 @@ export async function listStudentAttempts(): Promise<AttemptSummary[]> {
       .order("start_at_utc", { ascending: false });
     if (attemptError) throw attemptError;
 
-    const summaries = await mapAttemptCollections(attempts ?? []);
-    for (const s of summaries) {
-      if (s.seb_config_path) {
-        const { data } = await supabase.storage.from("assessment-sources").createSignedUrl(s.seb_config_path, 3600);
-        s.seb_config_url = data?.signedUrl ?? null;
-      } else {
-        s.seb_config_url = null;
-      }
-    }
-    return summaries;
+    return mapAttemptCollections(attempts ?? []);
   } catch (error) {
     if (isDemoModeEnabled()) return demoAttemptSummaries();
     throw error;
@@ -506,7 +497,19 @@ async function mapAttemptCollections(attempts: Attempt[]): Promise<AttemptSummar
     for (const profile of profiles ?? []) profileById.set(profile.id, profile);
   }
 
-  return attempts.map((attempt) => mapAttemptSummary(attempt, assessmentById, profileById));
+  const summaries = attempts.map((attempt) => mapAttemptSummary(attempt, assessmentById, profileById));
+  
+  // Generate signed URLs for SEB config if present
+  for (const s of summaries) {
+    if (s.seb_config_path) {
+      const { data } = await supabase.storage.from("assessment-sources").createSignedUrl(s.seb_config_path, 3600);
+      s.seb_config_url = data?.signedUrl ?? null;
+    } else {
+      s.seb_config_url = null;
+    }
+  }
+
+  return summaries;
 }
 
 
