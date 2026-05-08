@@ -47,7 +47,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
 
       <nav className={cn("grid gap-1 text-sm font-semibold text-[var(--muted)]", isCollapsed ? "px-2" : "")}>
         {ownerNav.map(({ href, label, Icon }) => {
-          const isActive = pathname === href || pathname.startsWith(href + "/");
+          const isActive = href === "/owner" ? pathname === href : pathname === href || pathname.startsWith(href + "/");
           return (
             <Link 
               key={href} 
