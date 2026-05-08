@@ -106,7 +106,7 @@ serve(async (request) => {
           object_path: zipPath,
           content_preview: "Hosted MinerU result ZIP.",
         },
-        ...artifacts,
+        ...artifacts.map((a) => ({ ...a, parse_job_id: parseJob.id })),
       ]);
       if (artifactError) throw artifactError;
 
@@ -146,13 +146,25 @@ serve(async (request) => {
       });
     } catch (processError) {
       console.error("Processing MinerU result failed:", processError);
-      const message = processError instanceof Error ? processError.message : String(processError || "Processing MinerU result failed");
+      let message = "Unknown processing error";
+      if (processError instanceof Error) {
+        message = processError.message;
+      } else if (typeof processError === "object" && processError !== null) {
+        try {
+          message = JSON.stringify(processError);
+        } catch (_) {
+          message = String(processError);
+        }
+      } else {
+        message = String(processError);
+      }
+      
       await admin
         .from("parse_jobs")
         .update({
           status: "failed",
           external_state: "provider_error",
-          error_message: `Processing failed: ${message}`,
+          error_message: `Extraction failed: ${message.slice(0, 500)}`,
           completed_at: new Date().toISOString(),
           metadata_json: { 
             ...(parseJob.metadata_json ?? {}), 
