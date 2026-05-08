@@ -6,7 +6,7 @@ import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 
 type Body = {
   assessment_version_id: string;
-  source_kind: "pdf" | "latex" | "json" | "mineru";
+  source_kind: "pdf" | "latex" | "json" | "mineru" | "raw_text";
   source_text?: string;
   artifact_object_path?: string;
   owner_notes?: string;
@@ -46,14 +46,18 @@ serve(async (request) => {
     if (versionError) throw versionError;
     if (version.assessments?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
 
-    const sourceText = await loadSourceText(admin, body);
-    const originalSourceText = version.source_object_path 
+    const sourceText = await loadSourceText(admin, body, version);
+    const originalSourceText = version.source_object_path && !version.source_object_path.toLowerCase().endsWith(".pdf")
       ? await fetchSourceFromStorage(admin, version.source_object_path, "assessment-sources")
       : "";
 
     const existingPackage = await loadNormalizedPackage(admin, version);
-    if (!sourceText.trim() && !originalSourceText.trim()) {
-      return json({ error: "source_text or original source is required" }, 400);
+    if (!sourceText.trim() && !originalSourceText.trim() && version.source_kind !== "pdf") {
+      return json({ error: "source_text or readable original source is required for non-PDF sources" }, 400);
+    }
+    
+    if (version.source_kind === "pdf" && !sourceText.trim()) {
+      return json({ error: "The PDF has not been parsed by MinerU yet. Please run MinerU first, then use AI Suggestion." }, 400);
     }
 
     const { data: parseJob, error: parseJobError } = await admin
@@ -480,13 +484,39 @@ serve(async (request) => {
   }
 });
 
-async function loadSourceText(admin: StorageAdmin, body: Body) {
+async function loadSourceText(admin: any, body: Body, version: any) {
   if (body.source_text?.trim()) return body.source_text;
-  if (!body.artifact_object_path) return "";
-  return await fetchSourceFromStorage(admin, body.artifact_object_path, "assessment-packages");
+  
+  // If an artifact path is provided (e.g. from a specific parse job result), use it
+  if (body.artifact_object_path && !body.artifact_object_path.toLowerCase().endsWith(".pdf")) {
+    return await fetchSourceFromStorage(admin, body.artifact_object_path, "assessment-packages");
+  }
+
+  // If source is PDF, find the best MinerU artifact automatically
+  if (version.source_kind === "pdf" || body.source_kind === "mineru") {
+    const { data: parseJobs } = await admin
+      .from("parse_jobs")
+      .select("*")
+      .eq("assessment_version_id", version.id)
+      .in("parser", ["mineru", "mineru_hosted"])
+      .eq("status", "review_required")
+      .order("completed_at", { ascending: false });
+    
+    const latestJob = parseJobs?.[0];
+    if (latestJob?.result_object_path) {
+      console.log(`[AI Parse] Automatically using MinerU artifact: ${latestJob.result_object_path}`);
+      return await fetchSourceFromStorage(admin, latestJob.result_object_path, "assessment-packages");
+    }
+  }
+
+  return "";
 }
 
 async function fetchSourceFromStorage(admin: StorageAdmin, path: string, bucket: string) {
+  if (path.toLowerCase().endsWith(".pdf")) {
+    console.warn(`[AI Parse] Attempted to fetch binary PDF as text: ${path}. Skipping.`);
+    return "";
+  }
   const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 60);
   if (error) throw error;
   if (!data?.signedUrl) throw new Error(`Could not sign artifact in ${bucket}`);
