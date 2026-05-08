@@ -43,7 +43,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
           <TabsContent value="marking" className="flex-1 overflow-hidden mt-0">
             <div className="flex h-full gap-4">
               {/* Center Panel: Question & Markscheme */}
-              <section className="flex-1 min-w-[600px] overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-8">
+              <section className="flex-1 min-w-[450px] overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-8">
                 <MarkingCenterPanel
                   node={selectedNode}
                   markschemeHtml={workspace.markschemeHtml}
@@ -52,7 +52,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
               </section>
 
               {/* Right Panel: Response & Controls */}
-              <section className="w-[420px] flex-shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-6">
+              <section className="w-[380px] flex-shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-6">
                 <MarkingResponseWorkspace
                   attemptId={attemptId}
                   node={selectedNode}

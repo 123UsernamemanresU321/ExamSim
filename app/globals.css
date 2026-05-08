@@ -77,11 +77,13 @@ select {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-height: calc(100vh - 64px);
+  --sidebar-width: 256px;
 }
 
 @media (min-width: 768px) {
   .app-shell-grid {
-    grid-template-columns: 256px minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    transition: grid-template-columns 0.3s ease;
   }
 }
 

@@ -59,15 +59,13 @@ export function MarkingCenterPanel({
         <Card className="overflow-hidden border-none bg-[var(--surface-muted)] shadow-none">
           <div className="p-8">
             <div className="prose prose-slate max-w-none prose-p:leading-relaxed prose-strong:text-[var(--ink)]">
-              {node.prompt_html && (
+              {node.prompt_html ? (
                 <MathRenderer html={node.prompt_html} className="text-[17px]" />
-              )}
-              {node.prompt_latex && (
+              ) : node.prompt_latex ? (
                 <div className="mt-6 rounded-xl bg-white p-8 shadow-sm border border-[var(--border)]">
                   <MathRenderer latex={`$$${node.prompt_latex}$$`} className="text-xl" />
                 </div>
-              )}
-              {!node.prompt_html && !node.prompt_latex && (
+              ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-[var(--muted)] italic">
                   <p>No prompt content provided for this node.</p>
                 </div>
