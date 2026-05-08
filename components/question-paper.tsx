@@ -2,9 +2,22 @@ import { Flag, UploadCloud } from "lucide-react";
 import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ResponseTextArea } from "@/components/response-text-area";
 import type { QuestionNode } from "@/lib/assessment-package";
 
-function QuestionBlock({ node, readonly = false }: { node: QuestionNode; readonly?: boolean }) {
+function QuestionBlock({ 
+  node, 
+  readonly = false, 
+  attemptId, 
+  responses = [] 
+}: { 
+  node: QuestionNode; 
+  readonly?: boolean;
+  attemptId?: string;
+  responses?: { question_node_id: string; answer_text: string }[];
+}) {
+  const initialValue = responses.find(r => r.question_node_id === node.node_id)?.answer_text ?? "";
+
   return (
     <article id={node.node_id} className="scroll-mt-24 border-t border-[#dde3ee] py-6 first:border-t-0 first:pt-0">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -23,15 +36,16 @@ function QuestionBlock({ node, readonly = false }: { node: QuestionNode; readonl
       <div className="paper-body prose question-prompt max-w-none text-lg leading-relaxed">
         <MathRenderer html={node.prompt?.html} latex={node.prompt?.html ? undefined : node.prompt?.latex} />
       </div>
-      {node.response_mode === "typed_text" || node.response_mode === "typed_or_upload" ? (
-        <label className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
+      {(node.response_mode === "typed_text" || node.response_mode === "typed_or_upload") && attemptId ? (
+        <div className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
           Typed response
-          <textarea
-            className="paper-body min-h-32 rounded-md border border-[var(--border)] bg-white p-3 text-base"
-            disabled={readonly}
-            defaultValue={readonly ? "Readonly after writing time." : ""}
+          <ResponseTextArea 
+            attemptId={attemptId} 
+            questionNodeId={node.node_id} 
+            initialValue={initialValue}
+            readonly={readonly}
           />
-        </label>
+        </div>
       ) : null}
       {node.response_mode === "upload_pdf" || node.response_mode === "typed_or_upload" ? (
         <div className="mt-4 flex flex-wrap gap-2">
@@ -45,17 +59,41 @@ function QuestionBlock({ node, readonly = false }: { node: QuestionNode; readonl
           </Button>
         </div>
       ) : null}
-      {node.children?.map((child) => <QuestionBlock key={child.node_id} node={child} readonly={readonly} />)}
+      {node.children?.map((child) => (
+        <QuestionBlock 
+          key={child.node_id} 
+          node={child} 
+          readonly={readonly} 
+          attemptId={attemptId}
+          responses={responses}
+        />
+      ))}
     </article>
   );
 }
 
-export function QuestionPaper({ questions, readonly = false }: { questions: QuestionNode[]; readonly?: boolean }) {
+export function QuestionPaper({ 
+  questions, 
+  readonly = false,
+  attemptId,
+  responses = []
+}: { 
+  questions: QuestionNode[]; 
+  readonly?: boolean;
+  attemptId?: string;
+  responses?: { question_node_id: string; answer_text: string }[];
+}) {
   return (
     <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-12 md:py-12">
       <div className="mx-auto max-w-[920px]">
         {questions.map((node) => (
-          <QuestionBlock key={node.node_id} node={node} readonly={readonly} />
+          <QuestionBlock 
+            key={node.node_id} 
+            node={node} 
+            readonly={readonly} 
+            attemptId={attemptId}
+            responses={responses}
+          />
         ))}
       </div>
     </main>

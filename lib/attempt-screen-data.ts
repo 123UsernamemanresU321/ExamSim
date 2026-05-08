@@ -28,6 +28,7 @@ export type AttemptScreenData = {
   stateToken: string;
   package: NormalizedAssessmentPackage | null;
   packageError: string | null;
+  responses: { question_node_id: string; answer_text: string; saved_at: string }[];
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
@@ -52,6 +53,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     stateToken: "demo-state-token",
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,
     packageError: null,
+    responses: [],
   };
 }
 
@@ -76,11 +78,18 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     ? await getReleasedPackageResult(attemptId, state.state_token)
     : { package: null, packageError: null };
 
+  const { data: responses, error: responsesError } = await supabase
+    .from("text_responses")
+    .select("question_node_id, answer_text, saved_at")
+    .eq("attempt_id", attemptId);
+  if (responsesError) throw responsesError;
+
   return {
     attempt: mapScreenAttempt(attempt, assessment, state),
     stateToken: state.state_token,
     package: packageResult.package,
     packageError: packageResult.packageError,
+    responses: responses ?? [],
   };
 }
 

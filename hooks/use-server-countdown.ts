@@ -7,6 +7,7 @@ export function useServerCountdown(serverNowUtc: string, targetUtc: string | nul
   const [serverEstimatedNow, setServerEstimatedNow] = useState(serverNowMs);
   const [hasExpired, setHasExpired] = useState(false);
   const onExpireRef = useRef(onExpire);
+  const offsetRef = useRef<number | null>(null);
 
   useEffect(() => {
     onExpireRef.current = onExpire;
@@ -15,9 +16,17 @@ export function useServerCountdown(serverNowUtc: string, targetUtc: string | nul
   useEffect(() => {
     if (!targetUtc) return;
 
-    const localOffset = Date.now() - serverNowMs;
+    // Initialize or re-sync offset only if it's missing or drifted significantly (> 5s)
+    const currentLocalNow = Date.now();
+    const currentLocalOffset = currentLocalNow - serverNowMs;
+    if (offsetRef.current === null || Math.abs(offsetRef.current - currentLocalOffset) > 5000) {
+      offsetRef.current = currentLocalOffset;
+    }
+
     const id = window.setInterval(() => {
-      const now = Date.now() - localOffset;
+      if (offsetRef.current === null) return;
+      
+      const now = Date.now() - offsetRef.current;
       setServerEstimatedNow(now);
       
       const remaining = Date.parse(targetUtc) - now;
@@ -25,7 +34,7 @@ export function useServerCountdown(serverNowUtc: string, targetUtc: string | nul
         setHasExpired(true);
         onExpireRef.current?.();
       }
-    }, 1000);
+    }, 200); // 200ms for smoother ticking
 
     return () => window.clearInterval(id);
   }, [serverNowMs, targetUtc, hasExpired]);

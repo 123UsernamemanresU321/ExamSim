@@ -34,11 +34,18 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
     );
   }
 
-  const { attempt, package: assessmentPackage, packageError, stateToken } = screenData;
+  const { attempt, package: assessmentPackage, packageError, stateToken, responses } = screenData;
 
   if (attempt.state === "WAITING") redirect(`/student/attempts/${id}/waiting`);
   if (attempt.state === "UPLOAD_ONLY") redirect(`/student/attempts/${id}/upload`);
   if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
+
+function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
+  if (responses.length === 0) return <Badge tone="neutral">Not saved yet</Badge>;
+  const latest = [...responses].sort((a, b) => Date.parse(b.saved_at) - Date.parse(a.saved_at))[0];
+  const time = new Date(latest.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  return <Badge tone="success">Last saved {time} UTC</Badge>;
+}
 
   if (!assessmentPackage) {
     return (
@@ -78,7 +85,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Badge tone="success">Saved 08:14:42 UTC</Badge>
+            <LastSavedBadge responses={responses} />
             <CountdownTimer
               serverNowUtc={attempt.server_now_utc}
               targetUtc={attempt.countdown_target_utc}
@@ -91,7 +98,11 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
         <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
           <QuestionNavigator questions={assessmentPackage.questions} />
         </div>
-        <QuestionPaper questions={assessmentPackage.questions} />
+        <QuestionPaper 
+          questions={assessmentPackage.questions} 
+          attemptId={id}
+          responses={responses}
+        />
         <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-[var(--ink)]">Response panel</h2>
