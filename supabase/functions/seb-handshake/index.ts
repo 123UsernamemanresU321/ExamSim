@@ -37,24 +37,26 @@ serve(async (req) => {
     });
 
     if (validation.ok) {
-      // 4. Record verification in the most recent session for this attempt
-      const { data: session } = await supabase
-        .from("attempt_sessions")
-        .select("id")
-        .eq("attempt_id", attemptId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (session) {
-        await supabase
-          .from("attempt_sessions")
-          .update({
-            seb_verified: true,
-            browser_exam_key_hash: keys.browserExamKeyHash,
-            config_key_hash: keys.configKeyHash,
-          })
-          .eq("id", session.id);
+      // 4. Record verification in the session associated with the state token
+      const stateToken = url.searchParams.get("state_token");
+      if (stateToken) {
+        try {
+          const { verifyStateToken } = await import("../_shared/state-token.ts");
+          const tokenPayload = await verifyStateToken(stateToken);
+          
+          if (tokenPayload?.attempt_session_id) {
+            await supabase
+              .from("attempt_sessions")
+              .update({
+                seb_verified: true,
+                browser_exam_key_hash: keys.browserExamKeyHash,
+                config_key_hash: keys.configKeyHash,
+              })
+              .eq("id", tokenPayload.attempt_session_id);
+          }
+        } catch (e) {
+          console.warn("State token verification failed during handshake, but SEB keys were valid.", e);
+        }
       }
     }
 
