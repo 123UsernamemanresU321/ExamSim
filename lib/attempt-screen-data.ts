@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import { attemptWithState, samplePackage } from "@/lib/demo-data";
 import { invokeEdgeFunctionServer } from "@/lib/edge/server";
@@ -106,9 +107,15 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
 
 async function getReleasedPackageResult(attemptId: string, stateToken: string) {
   try {
+    const head = await headers();
+    const sebBrowserExamKeyHash = head.get("x-safeexambrowser-browserexamkeyhash");
+    const sebConfigKeyHash = head.get("x-safeexambrowser-configkeyhash");
+
     const response = await invokeEdgeFunctionServer<AttemptPackageResponse>("get-attempt-package", {
       attempt_id: attemptId,
       state_token: stateToken,
+      seb_browser_exam_key_hash: sebBrowserExamKeyHash,
+      seb_config_key_hash: sebConfigKeyHash,
     });
     const parsed = normalizedPackageSchema.safeParse(response.assessment_package);
     if (!parsed.success) {

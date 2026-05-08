@@ -53,10 +53,19 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
       <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
         <AttemptStateBadge state={attempt.state} />
         <div>
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Exam content is not available here yet</h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            {packageError ?? "The server has not released the exam package for this attempt state."}
-          </p>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">
+            {attempt.delivery_mode === "seb_required" ? "Safe Exam Browser Required" : "Exam content is not available yet"}
+          </h1>
+          <div className="mt-4 rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100">
+            <p className="font-bold">Verification Error:</p>
+            <p>{packageError ?? "The server has not released the exam package for this attempt state."}</p>
+          </div>
+          {attempt.delivery_mode === "seb_required" && (
+            <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
+              This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
+              inside the Safe Exam Browser application with the correct configuration file provided by your institution.
+            </p>
+          )}
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
             Current server state: {attempt.state}. Use the attempt dashboard to open the correct waiting, writing,
             upload, or finished screen.
@@ -81,7 +90,7 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
             <div>
               <h1 className="font-semibold">{assessmentPackage.assessment.title}</h1>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--subtle)]">
-                {assessmentPackage.assessment.paper_code} · Browser Mode
+                {assessmentPackage.assessment.paper_code} · {attempt.delivery_mode === "seb_required" ? "Safe Exam Browser Mode" : "Browser Mode (Standard)"}
               </p>
             </div>
           </div>
