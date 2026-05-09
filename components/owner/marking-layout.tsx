@@ -70,8 +70,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
             </TabsList>
 
             <Button
-              variant={workspace.feedbackRelease ? "outline" : "default"}
-              size="sm"
+              variant={workspace.feedbackRelease ? "secondary" : "primary"}
               onClick={handleRelease}
               disabled={isReleasing}
               className="gap-2 font-black uppercase tracking-widest text-[10px] h-9"
