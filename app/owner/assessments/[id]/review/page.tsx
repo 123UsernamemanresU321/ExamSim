@@ -1,26 +1,53 @@
+"use client";
+import { useEffect, useState, use } from "react";
 import { AiParseReviewPanel } from "@/components/owner/ai-parse-review-panel";
 import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { getAssessmentWorkspace } from "@/lib/live-data";
-import { demoAssessmentParams } from "@/lib/static-params";
+import { getAssessmentWorkspaceClient, type AssessmentWorkspace } from "@/lib/live-data";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export function generateStaticParams() {
-  return demoAssessmentParams();
-}
+export default function ParseReviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const [workspace, setWorkspace] = useState<AssessmentWorkspace | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default async function ParseReviewPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const workspace = await getAssessmentWorkspace(id);
-  if (!workspace?.latestVersion) {
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true);
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const data = await getAssessmentWorkspaceClient(id, supabase);
+        setWorkspace(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load workspace");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, [id]);
+
+  if (isLoading) {
     return (
       <SectionHeading
         title="Parse review"
-        description="Assessment or draft version was not found."
+        description="Loading assessment workspace..."
       />
     );
   }
+
+  if (error || !workspace?.latestVersion) {
+    return (
+      <SectionHeading
+        title="Parse review"
+        description={error || "Assessment or draft version was not found."}
+      />
+    );
+  }
+
   return (
     <>
       <SectionHeading

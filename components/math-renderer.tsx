@@ -6,16 +6,18 @@ import renderMathInElement from "katex/dist/contrib/auto-render";
 export function MathRenderer({ latex, html, className }: { latex?: string; html?: string; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   
-  // Prevent the browser from misinterpreting mathematical inequalities as HTML tags.
-  // We escape < only if it is NOT followed by a known safe HTML tag.
-  const sanitize = (str: string) => {
+  // Unescape double backslashes that were likely caused by double-stringification
+  // but avoid breaking actual LaTeX newlines (which are also \\).
+  // In our context, most double-escaped commands like \\mathbb should be \mathbb.
+  const unescape = (str: string) => {
     if (!str) return "";
-    return str
-      .replace(/<(?!(?:\/?(?:p|strong|em|br|ol|ul|li|div|span))(?:\s|>))/gi, "&lt;")
-      .replace(/(?<!(?:p|strong|em|br|ol|ul|li|div|span|"))>/gi, "&gt;");
+    // If we see \\ followed by a command-like character, it's likely double-escaped.
+    // However, to be safe and handle the current broken state, we'll replace \\ with \ 
+    // when it precedes a character that isn't a newline or space.
+    return str.replace(/\\\\(?=[a-zA-Z{])/g, "\\");
   };
 
-  const content = html ? sanitize(html) : (latex ? sanitize(latex) : "");
+  const content = html ? unescape(html) : (latex ? unescape(latex) : "");
 
   useEffect(() => {
     if (ref.current) {
