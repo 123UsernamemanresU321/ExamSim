@@ -205,6 +205,20 @@ serve(async (request) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "mineru-submit-hosted-job failed";
+    try {
+      // If we have a job ID, mark it as failed in the DB so the UI updates
+      const jobId = body?.parse_job_id;
+      if (jobId) {
+        const { admin } = await requireOwnerAal2(request);
+        await admin.from("parse_jobs").update({
+          status: "failed",
+          error_message: message,
+          completed_at: new Date().toISOString()
+        }).eq("id", jobId);
+      }
+    } catch (dbError) {
+      console.error("Failed to update parse job status on error:", dbError);
+    }
     return json({ error: message }, statusForMineruError(message));
   }
 });

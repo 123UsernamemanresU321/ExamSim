@@ -60,7 +60,7 @@ export function buildMineruBatchRequest(input: {
     model_version: modelVersion,
     files: [
       {
-        url: input.signedUrl || `https://exam-vault.internal/placeholder/${input.fileName}`,
+        ...(input.signedUrl ? { url: input.signedUrl } : {}),
         name: input.fileName,
         is_ocr: true,
         data_id: input.dataId
