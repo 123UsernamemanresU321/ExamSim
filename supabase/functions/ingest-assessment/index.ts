@@ -287,7 +287,8 @@ serve(async (request) => {
       parse_job_id: parseJobId,
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "ingest-assessment failed" }, 401);
+    console.error("Ingest assessment error:", error);
+    return json({ error: error instanceof Error ? error.message : "ingest-assessment failed" }, 500);
   }
 });
 

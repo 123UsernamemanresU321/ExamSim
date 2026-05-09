@@ -525,7 +525,8 @@ serve(async (request) => {
 
     return json({ ok: true, suggestion: saved });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "ai-parse-assessment failed" }, 401);
+    console.error("AI Parse error:", error);
+    return json({ error: error instanceof Error ? error.message : "ai-parse-assessment failed" }, 500);
   }
 });
 

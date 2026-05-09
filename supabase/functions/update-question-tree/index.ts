@@ -70,7 +70,8 @@ serve(async (request) => {
     if (replaceError) throw replaceError;
     return json({ ok: true, node_count: Number(nodeCount ?? rows.length) });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "update-question-tree failed" }, 401);
+    console.error("Update question tree error:", error);
+    return json({ error: error instanceof Error ? error.message : "update-question-tree failed" }, 500);
   }
 });
 
