@@ -5,70 +5,57 @@ import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { FileCheck, Award, Calendar, Loader2 } from "lucide-react";
-import type { AttemptSummary } from "@/lib/live-data-client";
-import type { FeedbackRelease, Attempt, Assessment } from "@/types/database";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { computeAttemptState } from "@/lib/attempt-state";
+
+interface ResultItem {
+  attempt_id: string;
+  assessment_title: string;
+  paper_code: string | null;
+  released_at: string;
+  total_awarded_marks: number;
+  total_available_marks: number;
+}
 
 export function StudentResultsListClient() {
-  const [results, setResults] = useState<(AttemptSummary & { feedback: FeedbackRelease })[] | null>(null);
+  const [results, setResults] = useState<ResultItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
         const supabase = createSupabaseBrowserClient();
-        const { data: attempts, error: attemptsError } = await supabase
-          .from("attempts")
-          .select(`*, feedback_releases!inner(*)`)
-          .order("created_at", { ascending: false });
 
-        if (attemptsError) throw attemptsError;
+        // Query feedback_releases directly — RLS ensures only this student's released results are returned
+        const { data: releases, error: releasesError } = await supabase
+          .from("feedback_releases")
+          .select(`
+            attempt_id,
+            released_at,
+            total_awarded_marks,
+            total_available_marks,
+            attempts!inner(assessment_id, assessments!inner(title, paper_code))
+          `)
+          .eq("visible_to_student", true)
+          .order("released_at", { ascending: false });
 
-        const assessmentIds = Array.from(new Set(attempts.map((a) => a.assessment_id)));
-        const { data: assessments } = await supabase.from("assessments").select("*").in("id", assessmentIds);
-        const assessmentMap = new Map((assessments ?? []).map((a) => [a.id, a as Assessment]));
+        if (releasesError) throw releasesError;
 
-        const summaries = (attempts ?? []).map((a) => {
-          const attempt = a as unknown as Attempt;
-          const serverNowUtc = new Date().toISOString();
-          const state = computeAttemptState({
-            serverNowUtc,
-            startAtUtc: attempt.start_at_utc,
-            endAtUtc: attempt.end_at_utc,
-            uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
-            solutionsRequested: attempt.solutions_requested,
-          });
-          const assessment = assessmentMap.get(attempt.assessment_id);
-          
-          const summary: AttemptSummary = {
-            id: attempt.id,
-            title: assessment?.title ?? "Untitled assessment",
-            paper_code: assessment?.paper_code ?? null,
-            student: "Student", // We don't need the exact name for this view
-            start_at_utc: attempt.start_at_utc,
-            end_at_utc: attempt.end_at_utc,
-            upload_deadline_at_utc: attempt.upload_deadline_at_utc,
-            duration_seconds: attempt.duration_seconds,
-            display_timezone: attempt.display_timezone,
-            solutions_requested: attempt.solutions_requested,
-            delivery_mode: attempt.delivery_mode,
-            state,
-            countdown_target_utc: attempt.upload_deadline_at_utc ?? attempt.end_at_utc,
-            server_now_utc: serverNowUtc,
-            owner_profile_id: assessment?.owner_profile_id ?? "",
-            seb_config_path: (assessment as any)?.seb_config_path ?? null,
-            seb_config_url: null,
-          };
-
+        const items: ResultItem[] = (releases ?? []).map((r) => {
+          const attempt = (r as Record<string, unknown>).attempts as Record<string, unknown>;
+          const assessment = attempt.assessments as Record<string, unknown>;
           return {
-            ...summary,
-            feedback: (a as unknown as { feedback_releases: FeedbackRelease[] }).feedback_releases[0]
+            attempt_id: r.attempt_id,
+            assessment_title: (assessment?.title as string) ?? "Untitled assessment",
+            paper_code: (assessment?.paper_code as string) ?? null,
+            released_at: r.released_at,
+            total_awarded_marks: Number(r.total_awarded_marks),
+            total_available_marks: Number(r.total_available_marks),
           };
         });
 
-        setResults(summaries);
+        setResults(items);
       } catch (err) {
+        console.error("Failed to load student results:", err);
         setError(err instanceof Error ? err.message : "Failed to load results");
       }
     }
@@ -117,7 +104,7 @@ export function StudentResultsListClient() {
           </Card>
         ) : (
           results.map((result) => (
-            <Card key={result.id} className="group transition-all hover:shadow-md hover:border-[var(--primary)]/30">
+            <Card key={result.attempt_id} className="group transition-all hover:shadow-md hover:border-[var(--primary)]/30">
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -126,12 +113,12 @@ export function StudentResultsListClient() {
                      </span>
                   </div>
                   <h2 className="text-xl font-extrabold tracking-tight text-[var(--ink)] group-hover:text-[var(--primary)] transition-colors">
-                    {result.title}
+                    {result.assessment_title}
                   </h2>
                   <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--muted)]">
                     <span className="flex items-center gap-1.5">
                       <Calendar size={14} />
-                      Released {new Date(result.feedback.released_at).toLocaleDateString()}
+                      Released {new Date(result.released_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
@@ -142,12 +129,12 @@ export function StudentResultsListClient() {
                       <Award size={12} /> Score
                     </div>
                     <div className="text-2xl font-black italic tracking-tighter text-[var(--ink)]">
-                      {result.feedback.total_awarded_marks}
-                      <span className="text-sm font-bold text-[var(--subtle)] ml-1">/ {result.feedback.total_available_marks}</span>
+                      {result.total_awarded_marks}
+                      <span className="text-sm font-bold text-[var(--subtle)] ml-1">/ {result.total_available_marks}</span>
                     </div>
                   </div>
                   <ButtonLink 
-                    href={`/student/attempts/${result.id}/results`}
+                    href={`/student/attempts/${result.attempt_id}/results`}
                     className="h-12 px-6 font-black uppercase tracking-widest shadow-sm"
                   >
                     Review feedback
