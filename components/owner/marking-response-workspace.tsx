@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
