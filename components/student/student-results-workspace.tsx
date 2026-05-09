@@ -4,12 +4,10 @@ import { useState } from "react";
 import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import { MarkingSidebarTree } from "@/components/owner/marking-sidebar-tree";
 import { MarkingCenterPanel } from "@/components/owner/marking-center-panel";
-import { Card } from "@/components/ui/card";
 import { MathRenderer } from "@/components/math-renderer";
 import { FileText, MessageSquare, Award, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
+export function StudentResultsWorkspace({ workspace }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     workspace.questionNodes.find((n) => n.node_type !== "section")?.id ?? null
   );
@@ -82,7 +80,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                 {/* Feedback */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
-                    <MessageSquare size={14} /> Teacher's Feedback
+                    <MessageSquare size={14} /> Teacher&apos;s Feedback
                   </div>
                   {feedback.length > 0 ? (
                     <div className="space-y-3">

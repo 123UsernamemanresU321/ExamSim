@@ -1,7 +1,8 @@
-import type { AssessmentWorkspace, AttemptReviewWorkspace } from "./live-data";
-export type { AssessmentWorkspace, AttemptReviewWorkspace };
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AssessmentWorkspace, AttemptReviewWorkspace, AttemptSummary } from "./live-data";
+export type { AssessmentWorkspace, AttemptReviewWorkspace, AttemptSummary };
 
-export async function getAssessmentWorkspaceClient(assessmentId: string, supabase: any): Promise<AssessmentWorkspace | null> {
+export async function getAssessmentWorkspaceClient(assessmentId: string, supabase: SupabaseClient): Promise<AssessmentWorkspace | null> {
   const { data: assessment, error: assessmentError } = await supabase
     .from("assessments")
     .select("*")
@@ -36,7 +37,7 @@ export async function getAssessmentWorkspaceClient(assessmentId: string, supabas
     : { data: [], error: null };
   if (parseJobError) throw parseJobError;
 
-  const parseJobIds = (parseJobs ?? []).map((job: any) => job.id);
+  const parseJobIds = (parseJobs ?? []).map((job: { id: string }) => job.id);
   const { data: parseArtifacts, error: artifactError } = parseJobIds.length
     ? await supabase
         .from("parse_job_artifacts")
@@ -55,7 +56,7 @@ export async function getAssessmentWorkspaceClient(assessmentId: string, supabas
     parseArtifacts: parseArtifacts ?? [],
   };
 }
-export async function getStudentAttemptResultsWorkspaceClient(attemptId: string, supabase: any): Promise<AttemptReviewWorkspace | null> {
+export async function getStudentAttemptResultsWorkspaceClient(attemptId: string, supabase: SupabaseClient): Promise<AttemptReviewWorkspace | null> {
   const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attemptRow) return null;
@@ -116,7 +117,7 @@ export async function getStudentAttemptResultsWorkspaceClient(attemptId: string,
   };
 
   return {
-    attempt: attempt as any,
+    attempt: attempt as unknown as AttemptSummary,
     questionNodes: questionNodes ?? [],
     uploadSlots: uploadSlots ?? [],
     textResponses: textResponses ?? [],

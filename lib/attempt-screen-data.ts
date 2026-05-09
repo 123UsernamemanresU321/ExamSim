@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+
 import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import { attemptWithState, samplePackage } from "@/lib/demo-data";
 import { invokeEdgeFunctionServer } from "@/lib/edge/server";

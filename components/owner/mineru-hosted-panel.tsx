@@ -33,12 +33,11 @@ export function MineruHostedPanel({
     );
     const supabase = createSupabaseBrowserClient();
     try {
-      const startTime = Date.now();
       const data = await invokeEdgeFunction<{ status?: string; external_state?: string; artifact_count?: number; error_message?: string; upload_mode?: string; restarted?: boolean }>(supabase, functionName, {
         body: { parse_job_id: parseJobId, force: options.force ?? false },
         requiresAal2: true,
       });
-      console.log(`[MinerU] ${functionName} response received in ${Date.now() - startTime}ms:`, data);
+      console.log(`[MinerU] ${functionName} response received:`, data);
       setMessage(
         functionName === "mineru-submit-hosted-job"
           ? `Hosted MinerU job ${data?.restarted ? "restarted" : "submitted"}. Status: ${data?.status ?? "running"}. Upload mode: ${data?.upload_mode ?? "server-side"}.`

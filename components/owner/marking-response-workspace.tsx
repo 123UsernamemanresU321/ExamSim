@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, MessageSquare, History, User, Lock, ExternalLink } from "lucide-react";
+import { Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation } from "@/types/database";
 
 export function MarkingResponseWorkspace({
   attemptId,
@@ -18,16 +18,15 @@ export function MarkingResponseWorkspace({
   slot,
   mark,
   annotations,
-  commentBank,
 }: {
   attemptId: string;
-  node?: any;
-  response?: any;
-  slot?: any;
-  mark?: any;
-  annotations: any[];
-  commentBank: any[];
+  node?: QuestionNodeRow;
+  response?: TextResponse;
+  slot?: UploadSlot;
+  mark?: Mark;
+  annotations: SubmissionAnnotation[];
 }) {
+  const router = useRouter();
   const [awarded, setAwarded] = useState(mark ? String(mark.awarded_marks) : "");
   const [notes, setNotes] = useState(mark?.notes ?? "");
   const [studentFeedback, setStudentFeedback] = useState("");
@@ -36,12 +35,10 @@ export function MarkingResponseWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-
   if (!node) return null;
 
-  const router = useRouter();
-
   async function handleSave() {
+    if (!node) return;
     setIsSaving(true);
     const supabase = createSupabaseBrowserClient();
     try {
@@ -101,6 +98,7 @@ export function MarkingResponseWorkspace({
   }
 
   async function handleManualUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!node) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setIsSaving(true);

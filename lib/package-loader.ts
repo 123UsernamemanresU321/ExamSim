@@ -1,9 +1,11 @@
 import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 export async function loadAssessmentPackage(version: {
   normalized_package_json?: unknown;
   normalized_package_path?: string | null;
-}, supabase?: any): Promise<{ package: NormalizedAssessmentPackage | null; error: string | null }> {
+}, supabase?: SupabaseClient): Promise<{ package: NormalizedAssessmentPackage | null; error: string | null }> {
   if (version.normalized_package_json) {
     const parsed = normalizedPackageSchema.safeParse(version.normalized_package_json);
     if (parsed.success) return { package: parsed.data, error: null };

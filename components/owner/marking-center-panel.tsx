@@ -5,13 +5,15 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MathRenderer } from "@/components/math-renderer";
+import { cn } from "@/lib/utils";
+import type { QuestionNodeRow } from "@/types/database";
 
 export function MarkingCenterPanel({
   node,
   markschemeHtml,
   markschemePdfPath,
 }: {
-  node?: any;
+  node?: QuestionNodeRow;
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
 }) {
@@ -97,10 +99,10 @@ export function MarkingCenterPanel({
         {showMarkscheme && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-8 shadow-sm">
-              {node?.markscheme_html ? (
+              {(node as unknown as { markscheme_html?: string })?.markscheme_html ? (
                 <div className="prose prose-sm max-w-none">
                   <div className="mb-2 text-[9px] font-black uppercase tracking-widest text-blue-400">Specific Question Guidance</div>
-                  <MathRenderer html={node.markscheme_html} />
+                  <MathRenderer html={(node as unknown as { markscheme_html: string }).markscheme_html} />
                 </div>
               ) : markschemeHtml ? (
                 <div className="prose prose-sm max-w-none">
@@ -144,8 +146,4 @@ function Badge({ children, tone, className }: { children: React.ReactNode; tone:
       {children}
     </span>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
 }

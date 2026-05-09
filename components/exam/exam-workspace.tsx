@@ -10,7 +10,7 @@ import { UploadSlotCard } from "@/components/upload-slot-card";
 import { SubmitExamButton } from "@/components/submit-exam-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { flattenQuestionNodes, normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { flattenQuestionNodes, normalizedPackageSchema } from "@/lib/assessment-package";
 import type { AttemptScreenData } from "@/lib/attempt-screen-data";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
@@ -32,7 +32,7 @@ export function ExamWorkspace({
   const [screenData, setScreenData] = useState<AttemptScreenData>(initialScreenData);
   const [isLoadingPackage, setIsLoadingPackage] = useState(!initialScreenData.package);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
     // If the package is already there (e.g. standard browser SSR), we are good.
@@ -43,10 +43,11 @@ export function ExamWorkspace({
       setLoadError(null);
       
       // Stage 1: Update keys (Necessary for some SEB versions on Mac/iOS)
-      const seb = (window as any).SafeExamBrowser;
+      type SebType = { security?: { updateKeys?: (cb: () => void) => void; configKey?: string; browserExamKey?: string } };
+      const seb = (window as unknown as { SafeExamBrowser?: SebType }).SafeExamBrowser;
       if (seb?.security?.updateKeys) {
         await new Promise<void>((resolve) => {
-          seb.security.updateKeys(() => resolve());
+          seb.security?.updateKeys?.(() => resolve());
           // Safety timeout
           setTimeout(resolve, 500);
         });
@@ -73,8 +74,8 @@ export function ExamWorkspace({
       }
 
       setDebugInfo({
-        hasSebApi: !!sebApi,
-        hasUpdateKeys: !!seb?.security?.updateKeys,
+        hasSebApi: String(!!sebApi),
+        hasUpdateKeys: String(!!seb?.security?.updateKeys),
         userAgent: navigator.userAgent,
         detectedBek: detectedBek ? `${detectedBek.substring(0, 8)}...` : "None",
         detectedCk: detectedCk ? `${detectedCk.substring(0, 8)}...` : "None",

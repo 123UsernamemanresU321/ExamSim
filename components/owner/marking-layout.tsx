@@ -61,7 +61,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   slot={workspace.uploadSlots.find((s) => s.question_node_id === selectedNodeId)}
                   mark={workspace.marks.find((m) => m.question_node_id === selectedNodeId)}
                   annotations={workspace.annotations.filter((a) => a.question_node_id === selectedNodeId)}
-                  commentBank={workspace.commentBank}
+
                 />
               </section>
             </div>

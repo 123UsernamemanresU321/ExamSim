@@ -9,7 +9,6 @@ import {
   ShieldCheck, 
   Users, 
   ChevronLeft, 
-  ChevronRight,
   Menu
 } from "lucide-react";
 import { cn } from "@/lib/utils";

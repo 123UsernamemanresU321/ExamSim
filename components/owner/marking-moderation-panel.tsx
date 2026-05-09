@@ -12,7 +12,7 @@ export function MarkingModerationPanel({
   report: ModerationReport | null;
   events: AttemptEvent[];
 }) {
-  const summary = report?.summary_json as any || {};
+  const summary = (report?.summary_json as Record<string, number>) || {};
 
   const signals = [
     { label: "Fullscreen Exits", count: summary.fullscreenExitCount ?? 0, icon: Maximize, color: "text-red-500", bg: "bg-red-50" },
@@ -85,7 +85,7 @@ export function MarkingModerationPanel({
                     </span>
                   </div>
                   <p className="text-xs text-[var(--muted)] leading-relaxed">
-                    {formatPayload(event.event_type, event.payload_json as any)}
+                    {formatPayload(event.event_type, event.payload_json as Record<string, unknown>)}
                   </p>
                 </div>
               );
@@ -98,7 +98,7 @@ export function MarkingModerationPanel({
 }
 
 function getEventConfig(type: string) {
-  const configs: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+  const configs: Record<string, { label: string; icon: import("lucide-react").LucideIcon; color: string; bg: string }> = {
     "fullscreen.exit": { label: "Security: Fullscreen Exit", icon: Maximize, color: "text-red-600", bg: "bg-red-100" },
     "visibility.hidden": { label: "Security: Tab Switched", icon: Eye, color: "text-orange-600", bg: "bg-orange-100" },
     "visibility.visible": { label: "Security: Tab Returned", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
@@ -112,7 +112,7 @@ function getEventConfig(type: string) {
   return configs[type] || { label: type, icon: Info, color: "text-slate-600", bg: "bg-slate-100" };
 }
 
-function formatPayload(type: string, payload: any): string {
+function formatPayload(type: string, payload: Record<string, unknown>): string {
   if (type === "fullscreen.exit") return "The student exited the mandatory fullscreen mode.";
   if (type === "visibility.hidden") return "The exam window was hidden or the student switched tabs.";
   if (type === "visibility.visible") return "The student returned to the exam window.";
