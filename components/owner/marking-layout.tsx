@@ -32,7 +32,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
 
       {/* Main Content Area */}
       <main className="flex flex-1 gap-4 overflow-hidden">
-        <Tabs defaultValue="marking" className="flex flex-1 flex-col gap-4 overflow-x-auto overflow-y-hidden">
+        <Tabs defaultValue="marking" className="flex flex-1 flex-col gap-4 overflow-hidden">
           <div className="flex items-center justify-between px-1">
             <TabsList>
               <TabsTrigger value="marking">Marking</TabsTrigger>
@@ -40,8 +40,8 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
             </TabsList>
           </div>
 
-          <TabsContent value="marking" className="flex-1 mt-0">
-            <div className="flex h-full gap-4 min-w-[900px]">
+          <TabsContent value="marking" className="flex-1 mt-0 overflow-hidden">
+            <div className="flex h-full gap-4 min-w-[900px] overflow-x-auto overflow-y-hidden pb-2">
               {/* Center Panel: Question & Markscheme */}
               <section className="flex-1 min-w-[300px] overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-8">
                 <MarkingCenterPanel
@@ -52,7 +52,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
               </section>
 
               {/* Right Panel: Response & Controls */}
-              <section className="w-[380px] flex-shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-6">
+              <section className="w-[380px] flex-shrink-0 rounded-lg border border-[var(--border)] bg-white shadow-sm p-6">
                 <MarkingResponseWorkspace
                   key={selectedNodeId ?? "none"}
                   attemptId={attemptId}
