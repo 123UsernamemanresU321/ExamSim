@@ -84,6 +84,20 @@ serve(async (request) => {
         body: annotation.body.trim(),
         anchor_json: annotation.anchor_json ?? {},
       }));
+
+    // Delete existing annotations for the specific nodes being updated (incremental, like marks)
+    const annotationNodeIds = [...new Set(
+      (body.annotations ?? []).map(a => a.question_node_id).filter(Boolean)
+    )];
+    if (annotationNodeIds.length > 0) {
+      const { error: deleteAnnotationError } = await admin
+        .from("submission_annotations")
+        .delete()
+        .eq("attempt_id", attempt.id)
+        .in("question_node_id", annotationNodeIds);
+      if (deleteAnnotationError) throw deleteAnnotationError;
+    }
+
     if (annotationRows.length > 0) {
       const { error: annotationError } = await admin.from("submission_annotations").insert(annotationRows);
       if (annotationError) throw annotationError;

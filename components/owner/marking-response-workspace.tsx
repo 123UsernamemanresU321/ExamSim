@@ -29,7 +29,8 @@ export function MarkingResponseWorkspace({
   const router = useRouter();
   const [awarded, setAwarded] = useState(mark ? String(mark.awarded_marks) : "");
   const [notes, setNotes] = useState(mark?.notes ?? "");
-  const [studentFeedback, setStudentFeedback] = useState("");
+  const existingFeedback = annotations.find(a => a.annotation_type === "feedback");
+  const [studentFeedback, setStudentFeedback] = useState(existingFeedback?.body ?? "");
   const [isFlagged, setIsFlagged] = useState(annotations.some(a => a.annotation_type === "marker_flag"));
   const [isUnreadable, setIsUnreadable] = useState(annotations.some(a => a.is_unreadable));
   const [isSaving, setIsSaving] = useState(false);
@@ -64,6 +65,14 @@ export function MarkingResponseWorkspace({
           question_node_id: node.id,
           annotation_type: "note" as const,
           body: notes.trim(),
+          is_unreadable: false,
+        });
+      }
+      if (studentFeedback.trim()) {
+        annotationsToSave.push({
+          question_node_id: node.id,
+          annotation_type: "feedback" as const,
+          body: studentFeedback.trim(),
           is_unreadable: false,
         });
       }

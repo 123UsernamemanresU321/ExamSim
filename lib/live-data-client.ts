@@ -57,7 +57,7 @@ export async function getAssessmentWorkspaceClient(assessmentId: string, supabas
   };
 }
 export async function getStudentAttemptResultsWorkspaceClient(attemptId: string, supabase: SupabaseClient): Promise<AttemptReviewWorkspace | null> {
-  const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
+  const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*, assessments(title, paper_code)").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attemptRow) return null;
 
@@ -87,19 +87,28 @@ export async function getStudentAttemptResultsWorkspaceClient(attemptId: string,
   if (annotationsError) throw annotationsError;
   if (versionError) throw versionError;
 
-  // Since we are in the client, we can't easily run loadAssessmentPackage (which might have node deps)
-  // But actually loadAssessmentPackage in this repo is browser safe!
-  const { loadAssessmentPackage } = await import("@/lib/package-loader");
-  const { reconstructQuestionTree } = await import("@/lib/assessment-package");
+  // Try loading the assessment package, but don't block results if it fails
+  let packageData = null;
+  let packageLoadError: string | null = null;
+  try {
+    const { loadAssessmentPackage } = await import("@/lib/package-loader");
+    const { reconstructQuestionTree } = await import("@/lib/assessment-package");
+    const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
+    const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
+    packageData = packageResult.package ? { ...packageResult.package, questions } : null;
+    packageLoadError = packageResult.error;
+  } catch {
+    // Package loading failed — this is fine for results view, marks/feedback are still available
+    packageLoadError = null;
+  }
 
-  const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
-  const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
+  const assessmentData = (attemptRow as unknown as { assessments: { title: string; paper_code: string | null } | null }).assessments;
 
   // Map attempt row (minimal version)
   const attempt = {
     id: attemptRow.id,
-    title: attemptRow.assessment_id, // Placeholder
-    paper_code: null,
+    title: assessmentData?.title ?? "Untitled assessment",
+    paper_code: assessmentData?.paper_code ?? null,
     student: attemptRow.assignee_profile_id,
     start_at_utc: attemptRow.start_at_utc,
     end_at_utc: attemptRow.end_at_utc,
@@ -116,6 +125,9 @@ export async function getStudentAttemptResultsWorkspaceClient(attemptId: string,
     seb_config_url: null,
   };
 
+  // Only show "Feedback Pending" if the release doesn't exist or isn't visible
+  const feedbackNotReleased = !feedbackRelease || !feedbackRelease.visible_to_student;
+
   return {
     attempt: attempt as unknown as AttemptSummary,
     questionNodes: questionNodes ?? [],
@@ -123,8 +135,8 @@ export async function getStudentAttemptResultsWorkspaceClient(attemptId: string,
     textResponses: textResponses ?? [],
     moderationReport: null,
     attemptEvents: [],
-    package: packageResult.package ? { ...packageResult.package, questions } : null,
-    packageError: !feedbackRelease || !feedbackRelease.visible_to_student ? "Feedback for this attempt has not been released yet." : packageResult.error,
+    package: packageData,
+    packageError: feedbackNotReleased ? "Feedback for this attempt has not been released yet." : null,
     marks: marks ?? [],
     annotations: annotations ?? [],
     feedbackRelease: feedbackRelease ?? null,
