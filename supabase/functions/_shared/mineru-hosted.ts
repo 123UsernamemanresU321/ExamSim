@@ -70,13 +70,31 @@ export function buildMineruBatchRequest(input: {
 export function normalizeMineruBatchSubmitResponse(raw: unknown): MineruBatchSubmit {
   const record = asRecord(raw);
   if (Number(record.code ?? 0) !== 0) throw new Error(String(record.msg || "MinerU batch submission failed"));
-  const data = asRecord(record.data);
-  const batchId = stringValue(data.batch_id);
-  if (!batchId) throw new Error("MinerU response did not include batch_id");
+  
+  const dataRaw = record.data;
+  const data = Array.isArray(dataRaw) ? asRecord(dataRaw[0]) : asRecord(dataRaw);
+  
+  const batchId = stringValue(data.batch_id ?? record.batch_id ?? (Array.isArray(dataRaw) ? dataRaw[0]?.batch_id : null));
+  if (!batchId) {
+    console.error("MinerU response missing batch_id. Raw response:", JSON.stringify(raw));
+    throw new Error("MinerU response did not include batch_id");
+  }
+  
+  // Search for upload URLs in the data object/array and the root record
+  const uploadUrls = [
+    ...extractMineruUploadUrls(data),
+    ...extractMineruUploadUrls(record),
+    ...(Array.isArray(dataRaw) ? extractMineruUploadUrls(dataRaw[0]) : []),
+  ].filter((url, index, self) => self.indexOf(url) === index); // Unique URLs
+
+  if (uploadUrls.length === 0) {
+    console.error("MinerU response missing upload URLs. Raw response:", JSON.stringify(raw));
+  }
+
   return {
     batchId,
     traceId: stringValue(record.trace_id),
-    uploadUrls: extractMineruUploadUrls(data),
+    uploadUrls,
   };
 }
 
