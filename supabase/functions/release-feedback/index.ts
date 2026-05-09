@@ -18,23 +18,15 @@ serve(async (request) => {
     if (marksError) throw marksError;
     if (attemptError) throw attemptError;
 
-    const { data: rubrics, error: rubricsError } = await admin
-      .from("rubrics")
-      .select("id")
+    // Fetch question nodes to get the total available marks
+    const { data: nodes, error: nodesError } = await admin
+      .from("question_nodes")
+      .select("marks")
       .eq("assessment_version_id", attempt.assessment_version_id);
-    if (rubricsError) throw rubricsError;
-
-    const rubricIds = (rubrics ?? []).map((rubric) => rubric.id);
-    const { data: criteria, error: criteriaError } = rubricIds.length > 0
-      ? await admin.from("rubric_criteria").select("max_marks").in("rubric_id", rubricIds)
-      : { data: [], error: null };
-    if (criteriaError) throw criteriaError;
+    if (nodesError) throw nodesError;
 
     const totalAwarded = (marks ?? []).reduce((sum, mark) => sum + Number(mark.awarded_marks || 0), 0);
-    const totalAvailable = (criteria ?? []).reduce(
-      (sum, criterion) => sum + Number(criterion.max_marks || 0),
-      0,
-    );
+    const totalAvailable = (nodes ?? []).reduce((sum, node) => sum + Number(node.marks || 0), 0);
 
     const { data: release, error: releaseError } = await admin
       .from("feedback_releases")
@@ -53,6 +45,12 @@ serve(async (request) => {
       .select("*")
       .single();
     if (releaseError) throw releaseError;
+
+    // Mark the attempt as finished if it wasn't already
+    await admin
+      .from("attempts")
+      .update({ status: "finished" })
+      .eq("id", body.attempt_id);
 
     await auditOwnerAction(ownerProfile.id, user.id, "feedback.released", "attempts", body.attempt_id, {
       total_awarded_marks: totalAwarded,

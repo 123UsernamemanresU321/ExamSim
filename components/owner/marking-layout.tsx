@@ -1,19 +1,49 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Send, CheckCircle2, Loader2 } from "lucide-react";
 import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import { MarkingSidebarTree } from "./marking-sidebar-tree";
 import { MarkingCenterPanel } from "./marking-center-panel";
 import { MarkingResponseWorkspace } from "./marking-response-workspace";
 import { MarkingModerationPanel } from "./marking-moderation-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
+  const router = useRouter();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     workspace.questionNodes.find((n) => n.node_type !== "section")?.id ?? null
   );
+  const [isReleasing, setIsReleasing] = useState(false);
 
   const selectedNode = workspace.questionNodes.find((n) => n.id === selectedNodeId);
+
+  async function handleRelease() {
+    if (workspace.feedbackRelease) {
+      if (!confirm("Feedback has already been released. Do you want to re-release with updated marks?")) return;
+    } else {
+      if (!confirm("Are you sure you want to release these marks to the student? This will make the score and feedback visible on their dashboard.")) return;
+    }
+
+    setIsReleasing(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await invokeEdgeFunction(supabase, "release-feedback", {
+        body: { attempt_id: attemptId },
+        requiresAal2: true,
+      });
+      router.refresh();
+    } catch (error) {
+      console.error("Release failed", error);
+      alert("Failed to release marks: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsReleasing(false);
+    }
+  }
 
   return (
     <div className="flex h-full gap-4 overflow-hidden p-1">
@@ -38,6 +68,23 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
               <TabsTrigger value="marking">Marking</TabsTrigger>
               <TabsTrigger value="moderation">Moderation & Timeline</TabsTrigger>
             </TabsList>
+
+            <Button
+              variant={workspace.feedbackRelease ? "outline" : "default"}
+              size="sm"
+              onClick={handleRelease}
+              disabled={isReleasing}
+              className="gap-2 font-black uppercase tracking-widest text-[10px] h-9"
+            >
+              {isReleasing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : workspace.feedbackRelease ? (
+                <CheckCircle2 size={14} className="text-green-600" />
+              ) : (
+                <Send size={14} />
+              )}
+              {workspace.feedbackRelease ? "Results Released" : "Release Results"}
+            </Button>
           </div>
 
           <TabsContent value="marking" className="flex-1 mt-0 overflow-hidden">
