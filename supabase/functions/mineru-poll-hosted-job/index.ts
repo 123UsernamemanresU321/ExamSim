@@ -36,7 +36,7 @@ serve(async (request) => {
     let resultResponse: Response;
     try {
       const pollStartTime = Date.now();
-      resultResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch?batch_id=${parseJob.external_batch_id}`, {
+      resultResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract-results/batch/${parseJob.external_batch_id}`, {
         method: "GET",
         headers: buildMineruAuthHeaders(),
         signal: pollController.signal,
