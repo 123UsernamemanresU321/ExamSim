@@ -58,11 +58,9 @@ export function buildMineruBatchRequest(input: {
     language,
     model_version: modelVersion,
     files: [
-      {
-        url: input.uploadMode === "signed_url" ? input.signedUrl : input.fileName,
-        is_ocr: true,
-        data_id: input.dataId,
-      },
+      input.uploadMode === "signed_url"
+        ? { url: input.signedUrl, is_ocr: true, data_id: input.dataId }
+        : { name: input.fileName, is_ocr: true, data_id: input.dataId },
     ],
   };
 }

@@ -61,7 +61,7 @@ serve(async (request) => {
 
     try {
       const submitStartTime = Date.now();
-      const response = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch`, {
+      const response = await fetch(`${mineruApiBaseUrl()}${uploadMode === "file_upload" ? "/api/v4/file-urls/batch" : "/api/v4/extract/task/batch"}`, {
         method: "POST",
         headers: buildMineruAuthHeaders(),
         signal: controller.signal,
@@ -127,7 +127,26 @@ serve(async (request) => {
             const uploadErrText = await uploadResponse.text().catch(() => "");
             throw new Error(`MinerU upload URL rejected source PDF: ${uploadResponse.status} ${uploadErrText.slice(0, 300)}`);
           }
-          console.log("MinerU upload successful. Extraction task should start automatically.");
+          
+          console.log("MinerU upload successful. Triggering extraction task...");
+          const triggerResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch`, {
+            method: "POST",
+            headers: buildMineruAuthHeaders(),
+            body: JSON.stringify(
+              buildMineruBatchRequest({
+                dataId: parseJob.id,
+                fileName,
+                uploadMode,
+                modelVersion,
+              }),
+            ),
+          });
+          const triggerBody = await readMineruJsonResponse(triggerResponse, "MinerU task trigger");
+          const triggerSubmission = normalizeMineruBatchSubmitResponse(triggerBody);
+          console.log(`MinerU extraction triggered. Final BatchId: ${triggerSubmission.batchId}`);
+          
+          // Use the final batch ID for tracking
+          submission.batchId = triggerSubmission.batchId;
         } catch (uploadError) {
           clearTimeout(uploadTimeoutId);
           if (uploadError instanceof Error && uploadError.name === "AbortError") {
