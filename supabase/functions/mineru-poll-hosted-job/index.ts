@@ -303,7 +303,7 @@ async function extractAndUploadArtifacts(
     rows.push({
       artifact_kind: kind,
       object_path: objectPath,
-      content_preview: typeof content === "string" ? content.slice(0, 3000) : undefined,
+      content_preview: typeof content === "string" ? content.slice(0, 16000) : undefined,
     });
   }
   return rows;
