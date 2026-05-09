@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Flag, UploadCloud } from "lucide-react";
 import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,35 @@ import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
 import type { QuestionNode } from "@/lib/assessment-package";
 import { cn } from "@/lib/utils";
+
+function AssetImage({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const supabase = createSupabaseBrowserClient();
+
+  useEffect(() => {
+    let cancelled = false;
+    async function resolve() {
+      try {
+        const { data } = await supabase.storage.from("assessment-packages").createSignedUrl(path, 3600);
+        if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
+      } catch {
+        /* ignore – image is optional */
+      }
+    }
+    resolve();
+    return () => { cancelled = true; };
+  }, [path, supabase]);
+
+  if (!url) return null;
+  return (
+    <img
+      src={url}
+      alt="Question diagram"
+      className="max-h-80 max-w-full rounded-lg border border-[var(--border)] bg-white object-contain shadow-sm"
+      loading="lazy"
+    />
+  );
+}
 
 function QuestionBlock({ 
   node, 
@@ -110,6 +139,13 @@ function QuestionBlock({
       <div className="paper-body prose question-prompt max-w-none text-lg leading-relaxed">
         <MathRenderer html={node.prompt?.html} latex={node.prompt?.html ? undefined : node.prompt?.latex} />
       </div>
+      {node.assets && node.assets.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-4">
+          {node.assets.map((assetPath, idx) => (
+            <AssetImage key={`${node.node_id}-asset-${idx}`} path={assetPath} />
+          ))}
+        </div>
+      )}
       {(node.response_mode === "typed_text" || node.response_mode === "typed_or_upload") && attemptId ? (
         <div className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
           Typed response

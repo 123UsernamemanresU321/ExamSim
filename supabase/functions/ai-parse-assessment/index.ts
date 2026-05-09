@@ -74,6 +74,38 @@ serve(async (request) => {
       .single();
     if (parseJobError) throw parseJobError;
 
+    // Collect any image artifacts extracted from MinerU so DeepSeek can assign them to questions
+    const imagePaths: string[] = [];
+    try {
+      const { data: imageArtifacts } = await admin
+        .from("parse_job_artifacts")
+        .select("object_path")
+        .in("parse_job_id", admin.from("parse_jobs").select("id").eq("assessment_version_id", body.assessment_version_id))
+        .eq("artifact_kind", "layout")
+        .like("object_path", "%.png")
+        .limit(30);
+      if (imageArtifacts) {
+        for (const a of imageArtifacts) {
+          if (a.object_path) imagePaths.push(a.object_path);
+        }
+      }
+      // Also check for .jpg/.jpeg
+      const { data: jpgArtifacts } = await admin
+        .from("parse_job_artifacts")
+        .select("object_path")
+        .in("parse_job_id", admin.from("parse_jobs").select("id").eq("assessment_version_id", body.assessment_version_id))
+        .eq("artifact_kind", "layout")
+        .like("object_path", "%.jpg")
+        .limit(20);
+      if (jpgArtifacts) {
+        for (const a of jpgArtifacts) {
+          if (a.object_path) imagePaths.push(a.object_path);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch image artifacts for AI context:", e);
+    }
+
     const deepseekResponse = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
@@ -191,6 +223,7 @@ serve(async (request) => {
               "    \"html\": string,",
               "    \"latex\": string",
               "  },",
+              "  \"assets\": [] | [string, ...],",
               "  \"children\": []",
               "}",
               "",
@@ -200,6 +233,9 @@ serve(async (request) => {
               "- marks must be null if not explicitly given.",
               "- Do not invent marks.",
               "- For Olympiad/proof questions, use response_mode \"typed_or_upload\".",
+              "- assets is an optional array of image paths from the extracted diagrams.",
+              "- If the user provides a list of available image paths, assign each image to the question node it most likely belongs to based on proximity in the source text.",
+              "- If no images are available, omit the assets field entirely.",
               "",
               "==================================================",
               "QUESTION BOUNDARY RULES FOR RAW TEXT",
@@ -414,6 +450,7 @@ serve(async (request) => {
               `Owner notes: ${body.owner_notes ?? ""}`,
               `Original source text (full context): ${originalSourceText.slice(0, 80_000)}`,
               `Review context (nodes/artifacts): ${sourceText.slice(0, 80_000)}`,
+              ...(imagePaths.length > 0 ? [`Available diagram image paths (assign to the matching question's "assets" array): ${JSON.stringify(imagePaths)}`] : []),
             ].join("\n\n"),
           },
         ],

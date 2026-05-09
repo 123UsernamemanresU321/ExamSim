@@ -38,6 +38,7 @@ const questionNodeBaseSchema = z.object({
     .optional(),
   markscheme_html: z.string().optional(),
   markscheme_pdf_path: z.string().optional(),
+  assets: z.array(z.string()).optional(),
   interaction: interactionSchema.optional(),
 });
 

@@ -296,7 +296,7 @@ async function extractAndUploadArtifacts(
     const textKind = kind === "markdown" || kind === "json" || kind === "html" || kind === "log";
     const content = textKind ? await entry.async("string") : new Uint8Array(await entry.async("arraybuffer"));
     const { error } = await admin.storage.from("assessment-packages").upload(objectPath, content, {
-      contentType: contentTypeForKind(kind),
+      contentType: contentTypeForKind(kind, entry.name),
       upsert: true,
     });
     if (error) throw error;
@@ -316,10 +316,17 @@ function artifactKind(name: string): "markdown" | "json" | "html" | "layout" | "
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
   if (lower.endsWith(".txt") || lower.endsWith(".log")) return "log";
   if (lower.includes("layout")) return "layout";
+  if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".svg")) return "layout";
   return null;
 }
 
-function contentTypeForKind(kind: "markdown" | "json" | "html" | "layout" | "log") {
+function contentTypeForKind(kind: "markdown" | "json" | "html" | "layout" | "log", filename?: string) {
+  if (kind === "layout" && filename) {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
+  }
   return {
     markdown: "text/markdown",
     json: "application/json",
