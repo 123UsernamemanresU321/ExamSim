@@ -30,6 +30,13 @@ serve(async (request) => {
     const versionId = stringValue(body.version_id) ?? stringValue(body.assessment_version_id);
     if (!versionId) return json({ error: "version_id is required" }, 400);
     const normalizedPackage = extractNormalizedPackage(body);
+    if (normalizedPackage) {
+      const parsed = normalizedPackageSchema.safeParse(normalizedPackage);
+      if (!parsed.success) {
+        console.error("Package validation failed:", parsed.error.format());
+        throw new Error(`Package failed schema validation: ${parsed.error.errors[0]?.path.join(".") || "unknown field"} is ${parsed.error.errors[0]?.message || "invalid"}`);
+      }
+    }
     const nodes = extractNodes(body, normalizedPackage);
     if (!nodes.length) {
       return json({ error: "nodes are required. Paste a node array, a normalized package with questions, or an object with nodes/questions." }, 400);
@@ -61,7 +68,7 @@ serve(async (request) => {
       source_page_start: node.source_page_start,
       source_page_end: node.source_page_end,
     }));
-    const packageJson = normalizedPackage ?? buildPackageFromNodes(version, nodes);
+    const packageJson = normalizedPackage ?? normalizePackageWithQuestions(version.normalized_package_json as Record<string, unknown>, nestFlatNodes(nodes));
     const { data: nodeCount, error: replaceError } = await admin.rpc("replace_question_tree_for_version", {
       p_version_id: versionId,
       p_nodes: rows,
@@ -182,9 +189,6 @@ function validateNodeTree(nodes: FlatNode[]) {
 }
 
 function buildPackageFromNodes(version: Record<string, unknown>, nodes: FlatNode[]) {
-  if (isRecord(version.normalized_package_json)) {
-    return { ...version.normalized_package_json, questions: nestFlatNodes(nodes) };
-  }
   const assessment = isRecord(version.assessments) ? version.assessments : {};
   return {
     schema_version: "2026-05-07",
@@ -196,7 +200,6 @@ function buildPackageFromNodes(version: Record<string, unknown>, nodes: FlatNode
       source_kind: "json",
       authoring_origin: "owner_pasted",
       display_timezone: "Africa/Johannesburg",
-      markscheme_html: (normalizedPackage as any)?.assessment?.markscheme_html ?? null,
     },
     delivery: {
       delivery_mode: "browser",
@@ -214,6 +217,14 @@ function buildPackageFromNodes(version: Record<string, unknown>, nodes: FlatNode
       requires_owner_review: false,
     },
     questions: nestFlatNodes(nodes),
+  };
+}
+
+function normalizePackageWithQuestions(existing: Record<string, unknown>, questions: Record<string, unknown>[]) {
+  const base = isRecord(existing) && Object.keys(existing).length > 2 ? existing : buildPackageFromNodes({}, []);
+  return {
+    ...base,
+    questions,
   };
 }
 
