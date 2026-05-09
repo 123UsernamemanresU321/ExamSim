@@ -745,10 +745,11 @@ export async function listStudentResults(): Promise<(AttemptSummary & { feedback
   
   const assessmentIds = Array.from(new Set(attempts.map((a) => a.assessment_id)));
   const { data: assessments } = await supabase.from("assessments").select("*").in("id", assessmentIds);
-  const assessmentById = Object.fromEntries((assessments ?? []).map((a) => [a.id, a]));
+  const assessmentMap = new Map((assessments ?? []).map((a) => [a.id, a]));
+  const emptyProfileMap = new Map<string, Profile>();
   
   const summaries = (attempts ?? []).map((a) => {
-    const summary = mapAttemptSummary(a, assessmentById, {});
+    const summary = mapAttemptSummary(a as any, assessmentMap, emptyProfileMap);
     return {
       ...summary,
       feedback: (a as any).feedback_releases[0] as FeedbackRelease
