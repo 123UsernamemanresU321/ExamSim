@@ -45,13 +45,10 @@ serve(async (request) => {
 
     const uploadMode = mineruUploadMode();
     const fileName = parseJob.source_object_path.split("/").pop() || `${parseJob.id}.pdf`;
-    let signedUrl: string | undefined;
-    if (uploadMode === "signed_url") {
-      const { data: signed, error: signedError } = await admin.storage.from("assessment-sources").createSignedUrl(parseJob.source_object_path, 3600);
-      if (signedError) throw signedError;
-      if (!signed?.signedUrl) throw new Error("Could not sign source PDF URL");
-      signedUrl = signed.signedUrl;
-    }
+    const { data: signed, error: signedError } = await admin.storage.from("assessment-sources").createSignedUrl(parseJob.source_object_path, 3600);
+    if (signedError) throw signedError;
+    if (!signed?.signedUrl) throw new Error("Could not sign source PDF URL");
+    const signedUrl = signed.signedUrl;
 
     const modelVersion = Deno.env.get("MINERU_MODEL_VERSION") || "pipeline";
     console.log(`Submitting MinerU job ${parseJob.id} using mode: ${uploadMode}, model: ${modelVersion}`);
@@ -137,10 +134,11 @@ serve(async (request) => {
             body: JSON.stringify(
               buildMineruBatchRequest({
                 dataId: parseJob.id,
+                signedUrl,
                 fileName,
                 uploadMode,
                 modelVersion,
-                isTrigger: true, // This ensures 'url' is included for this endpoint
+                isTrigger: true,
               }),
             ),
           });
