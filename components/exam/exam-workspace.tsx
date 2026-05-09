@@ -104,7 +104,7 @@ export function ExamWorkspace({
         const parsed = normalizedPackageSchema.safeParse(response.assessment_package);
         if (!parsed.success) {
           console.error("Package validation failed:", parsed.error.format());
-          throw new Error(`Released package failed schema validation: ${parsed.error.errors[0]?.path.join(".") || "unknown field"} is ${parsed.error.errors[0]?.message || "invalid"}`);
+          throw new Error(`Released package failed schema validation: ${parsed.error.issues[0]?.path.join(".") || "unknown field"} is ${parsed.error.issues[0]?.message || "invalid"}`);
         }
 
         setScreenData(prev => ({
