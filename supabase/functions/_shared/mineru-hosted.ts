@@ -112,9 +112,11 @@ export function pickMineruExtractResult(raw: unknown, dataId: string): MineruExt
 
 export function extractMineruUploadUrls(rawData: unknown): string[] {
   const data = asRecord(rawData);
-  const direct = data.file_urls ?? data.fileUrls ?? data.upload_urls ?? data.uploadUrls;
+  const direct = data.file_urls ?? data.fileUrls ?? data.upload_urls ?? data.uploadUrls ?? data.upload_url ?? data.uploadUrl ?? data.file_url ?? data.fileUrl;
   if (Array.isArray(direct)) return direct.map((value) => String(value)).filter(Boolean);
+  if (typeof direct === "string" && direct.trim()) return [direct.trim()];
   if (direct && typeof direct === "object") return Object.values(direct).map((value) => String(value)).filter(Boolean);
+  
   const files = data.files;
   if (!Array.isArray(files)) return [];
   return files
