@@ -1,4 +1,5 @@
-export type { AssessmentWorkspace } from "./live-data";
+import type { AssessmentWorkspace } from "./live-data";
+export type { AssessmentWorkspace };
 
 export async function getAssessmentWorkspaceClient(assessmentId: string, supabase: any): Promise<AssessmentWorkspace | null> {
   const { data: assessment, error: assessmentError } = await supabase
