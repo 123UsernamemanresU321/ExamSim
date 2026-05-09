@@ -61,7 +61,7 @@ serve(async (request) => {
 
     try {
       const submitStartTime = Date.now();
-      const response = await fetch(`${mineruApiBaseUrl()}${uploadMode === "file_upload" ? "/api/v4/file-urls/batch" : "/api/v4/extract/task/batch"}`, {
+      const response = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch`, {
         method: "POST",
         headers: buildMineruAuthHeaders(),
         signal: controller.signal,
@@ -94,12 +94,17 @@ serve(async (request) => {
         const fileBytes = await sourceBlob.arrayBuffer();
         console.log(`Source PDF downloaded (${fileBytes.byteLength} bytes). Uploading to MinerU...`);
 
-        // MinerU docs: PUT requires Authorization header, must NOT send Content-Type
-        const apiKey = Deno.env.get("MINERU_API_KEY");
+        // MinerU docs: PUT must NOT send Content-Type. 
+        // Note: Pre-signed URLs (S3/OSS/COS) will fail if we send Authorization or token headers.
         const uploadHeaders: Record<string, string> = {};
-        if (apiKey) uploadHeaders["Authorization"] = `Bearer ${apiKey}`;
-        const accountToken = Deno.env.get("MINERU_ACCOUNT_TOKEN");
-        if (accountToken) uploadHeaders["token"] = accountToken;
+        const isPreSigned = /Signature=|AWSAccessKeyId=|OSSAccessKeyId=|AccessKeyId=|Expires=/i.test(uploadUrl);
+        
+        if (!isPreSigned) {
+          const apiKey = Deno.env.get("MINERU_API_KEY");
+          if (apiKey) uploadHeaders["Authorization"] = `Bearer ${apiKey}`;
+          const accountToken = Deno.env.get("MINERU_ACCOUNT_TOKEN");
+          if (accountToken) uploadHeaders["token"] = accountToken;
+        }
         
         const uploadController = new AbortController();
         const uploadTimeoutId = setTimeout(() => uploadController.abort(), 90000); // 90s for actual upload
@@ -119,30 +124,11 @@ serve(async (request) => {
             const uploadErrText = await uploadResponse.text().catch(() => "");
             throw new Error(`MinerU upload URL rejected source PDF: ${uploadResponse.status} ${uploadErrText.slice(0, 300)}`);
           }
-
-          console.log(`MinerU upload complete. Triggering extraction task...`);
-          const triggerResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch`, {
-            method: "POST",
-            headers: buildMineruAuthHeaders(),
-            body: JSON.stringify(
-              buildMineruBatchRequest({
-                dataId: parseJob.id,
-                fileName,
-                uploadMode,
-                modelVersion,
-              }),
-            ),
-          });
-          const triggerBody = await readMineruJsonResponse(triggerResponse, "MinerU task trigger");
-          const triggerSubmission = normalizeMineruBatchSubmitResponse(triggerBody);
-          console.log(`MinerU extraction triggered. New BatchId: ${triggerSubmission.batchId}`);
-          
-          // Use the final batch ID for tracking
-          submission.batchId = triggerSubmission.batchId;
+          console.log("MinerU upload successful. Extraction task should start automatically.");
         } catch (uploadError) {
           clearTimeout(uploadTimeoutId);
           if (uploadError instanceof Error && uploadError.name === "AbortError") {
-            throw new Error("MinerU file upload or task trigger timed out (90s limit).");
+            throw new Error("MinerU file upload timed out (90s limit).");
           }
           throw uploadError;
         }
