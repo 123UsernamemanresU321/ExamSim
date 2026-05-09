@@ -100,7 +100,7 @@ serve(async (request) => {
         // MinerU docs: PUT must NOT send Content-Type. 
         // Note: Pre-signed URLs (S3/OSS/COS) will fail if we send Authorization or token headers.
         const uploadHeaders: Record<string, string> = {};
-        const isPreSigned = /Signature=|AWSAccessKeyId=|OSSAccessKeyId=|AccessKeyId=|Expires=/i.test(uploadUrl);
+        const isPreSigned = /Signature=|AWSAccessKeyId=|OSSAccessKeyId=|AccessKeyId=|Expires=|policy=|security-token=/i.test(uploadUrl);
         
         if (!isPreSigned) {
           const apiKey = Deno.env.get("MINERU_API_KEY");
@@ -109,8 +109,10 @@ serve(async (request) => {
           if (accountToken) uploadHeaders["token"] = accountToken;
         }
         
+        console.log(`Uploading to ${isPreSigned ? "pre-signed" : "direct"} URL. Headers: ${Object.keys(uploadHeaders).join(", ")}`);
+        
         const uploadController = new AbortController();
-        const uploadTimeoutId = setTimeout(() => uploadController.abort(), 90000); // 90s for actual upload
+        const uploadTimeoutId = setTimeout(() => uploadController.abort(), 120000); // 120s for actual upload
         
         const uploadStartTime = Date.now();
         try {
@@ -138,6 +140,7 @@ serve(async (request) => {
                 fileName,
                 uploadMode,
                 modelVersion,
+                isTrigger: true, // This ensures 'url' is included for this endpoint
               }),
             ),
           });
@@ -150,7 +153,7 @@ serve(async (request) => {
         } catch (uploadError) {
           clearTimeout(uploadTimeoutId);
           if (uploadError instanceof Error && uploadError.name === "AbortError") {
-            throw new Error("MinerU file upload timed out (90s limit).");
+            throw new Error("MinerU file upload timed out (120s limit).");
           }
           throw uploadError;
         }

@@ -12,7 +12,7 @@ type Body = {
   }[];
   annotations?: {
     question_node_id?: string | null;
-    annotation_type: "note" | "rubric" | "moderation" | "feedback";
+    annotation_type: "note" | "rubric" | "moderation" | "feedback" | "student_flag" | "marker_flag";
     body: string;
     anchor_json?: Record<string, unknown>;
   }[];
@@ -94,7 +94,8 @@ serve(async (request) => {
         .from("submission_annotations")
         .delete()
         .eq("attempt_id", attempt.id)
-        .in("question_node_id", annotationNodeIds);
+        .in("question_node_id", annotationNodeIds)
+        .in("annotation_type", ["note", "rubric", "feedback", "marker_flag"]); // Do NOT delete student_flag
       if (deleteAnnotationError) throw deleteAnnotationError;
     }
 

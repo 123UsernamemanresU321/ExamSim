@@ -49,6 +49,7 @@ export function buildMineruBatchRequest(input: {
   fileName?: string;
   uploadMode: MineruUploadMode;
   modelVersion?: string;
+  isTrigger?: boolean;
 }): MineruBatchRequest {
   const language = Deno.env.get("MINERU_LANGUAGE") || "en";
   const modelVersion = input.modelVersion || Deno.env.get("MINERU_MODEL_VERSION") || "pipeline";
@@ -58,8 +59,8 @@ export function buildMineruBatchRequest(input: {
     language,
     model_version: modelVersion,
     files: [
-      input.uploadMode === "signed_url"
-        ? { url: input.signedUrl, is_ocr: true, data_id: input.dataId }
+      (input.uploadMode === "signed_url" || input.isTrigger)
+        ? { url: input.signedUrl || input.fileName, is_ocr: true, data_id: input.dataId }
         : { name: input.fileName, is_ocr: true, data_id: input.dataId },
     ],
   };

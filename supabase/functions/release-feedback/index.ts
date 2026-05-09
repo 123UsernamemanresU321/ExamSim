@@ -49,7 +49,7 @@ serve(async (request) => {
     // Mark the attempt as finished if it wasn't already
     await admin
       .from("attempts")
-      .update({ status: "finished" })
+      .update({ state_cache: "FINISHED_REVIEW" })
       .eq("id", body.attempt_id);
 
     await auditOwnerAction(ownerProfile.id, user.id, "feedback.released", "attempts", body.attempt_id, {

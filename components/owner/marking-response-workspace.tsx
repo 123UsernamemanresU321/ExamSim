@@ -36,6 +36,15 @@ export function MarkingResponseWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
+  // Sync state when props change (e.g. after router.refresh)
+  useEffect(() => {
+    setAwarded(mark ? String(mark.awarded_marks) : "");
+    setNotes(mark?.notes ?? "");
+    setStudentFeedback(existingFeedback?.body ?? "");
+    setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
+    setIsUnreadable(annotations.some(a => a.is_unreadable));
+  }, [mark, existingFeedback, annotations]);
+
   if (!node) return null;
 
   async function handleSave() {
