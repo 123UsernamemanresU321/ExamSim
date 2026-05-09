@@ -77,29 +77,28 @@ serve(async (request) => {
     // Collect any image artifacts extracted from MinerU so DeepSeek can assign them to questions
     const imagePaths: string[] = [];
     try {
-      const { data: imageArtifacts } = await admin
-        .from("parse_job_artifacts")
-        .select("object_path")
-        .in("parse_job_id", admin.from("parse_jobs").select("id").eq("assessment_version_id", body.assessment_version_id))
-        .eq("artifact_kind", "layout")
-        .like("object_path", "%.png")
-        .limit(30);
-      if (imageArtifacts) {
-        for (const a of imageArtifacts) {
-          if (a.object_path) imagePaths.push(a.object_path);
-        }
-      }
-      // Also check for .jpg/.jpeg
-      const { data: jpgArtifacts } = await admin
-        .from("parse_job_artifacts")
-        .select("object_path")
-        .in("parse_job_id", admin.from("parse_jobs").select("id").eq("assessment_version_id", body.assessment_version_id))
-        .eq("artifact_kind", "layout")
-        .like("object_path", "%.jpg")
-        .limit(20);
-      if (jpgArtifacts) {
-        for (const a of jpgArtifacts) {
-          if (a.object_path) imagePaths.push(a.object_path);
+      // Get all parse job IDs for this version to check for artifacts
+      const { data: jobs } = await admin
+        .from("parse_jobs")
+        .select("id")
+        .eq("assessment_version_id", body.assessment_version_id)
+        .eq("external_provider", "mineru_hosted");
+      
+      const jobIds = (jobs ?? []).map(j => j.id);
+
+      if (jobIds.length > 0) {
+        const { data: imageArtifacts } = await admin
+          .from("parse_job_artifacts")
+          .select("object_path")
+          .in("parse_job_id", jobIds)
+          .eq("artifact_kind", "layout")
+          .or("object_path.ilike.%.png,object_path.ilike.%.jpg,object_path.ilike.%.jpeg,object_path.ilike.%.svg")
+          .limit(50);
+        
+        if (imageArtifacts) {
+          for (const a of imageArtifacts) {
+            if (a.object_path) imagePaths.push(a.object_path);
+          }
         }
       }
     } catch (e) {

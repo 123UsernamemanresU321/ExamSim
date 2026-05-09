@@ -47,7 +47,7 @@ serve(async (request) => {
     const fileName = parseJob.source_object_path.split("/").pop() || `${parseJob.id}.pdf`;
     let signedUrl: string | undefined;
     if (uploadMode === "signed_url") {
-      const { data: signed, error: signedError } = await admin.storage.from("assessment-sources").createSignedUrl(parseJob.source_object_path, 600);
+      const { data: signed, error: signedError } = await admin.storage.from("assessment-sources").createSignedUrl(parseJob.source_object_path, 3600);
       if (signedError) throw signedError;
       if (!signed?.signedUrl) throw new Error("Could not sign source PDF URL");
       signedUrl = signed.signedUrl;

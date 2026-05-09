@@ -89,10 +89,18 @@ serve(async (request) => {
 
     if (result.state !== "done") {
       const staleError = staleMineruError(parseJob);
-      const status = result.state === "failed" || result.state === "unknown" || staleError ? "failed" : "running";
-      const errorMessage = staleError ?? result.error ?? (result.state === "unknown" ? "MinerU returned an unknown result state." : null);
+      const mineruFailed = result.state === "failed" || result.state === "unknown";
+      const prevFailCount = Number((parseJob.metadata_json as Record<string, unknown>)?.poll_fail_count ?? 0);
+      const failCount = mineruFailed ? prevFailCount + 1 : 0;
       
-      console.log(`MinerU job ${parseJob.id} is ${status}. Provider state: ${result.state}`);
+      // Only mark as truly failed if MinerU failed on 2+ consecutive polls or the job is stale
+      const isTerminalFailure = staleError || (mineruFailed && failCount >= 2);
+      const status = isTerminalFailure ? "failed" : "running";
+      const errorMessage = isTerminalFailure 
+        ? (staleError ?? result.error ?? "MinerU could not process the file after multiple attempts.")
+        : null;
+      
+      console.log(`MinerU job ${parseJob.id}: provider_state=${result.state}, poll_fail_count=${failCount}, our_status=${status}`);
       const { error: updateError } = await admin
         .from("parse_jobs")
         .update({
@@ -100,7 +108,7 @@ serve(async (request) => {
           external_state: result.state,
           error_message: errorMessage,
           completed_at: status === "failed" ? new Date().toISOString() : null,
-          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw },
+          metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_result: result.raw, poll_fail_count: failCount },
         })
         .eq("id", parseJob.id);
       if (updateError) throw updateError;
