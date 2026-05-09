@@ -129,20 +129,40 @@ export function pickMineruExtractResult(raw: unknown, dataId: string): MineruExt
 }
 
 export function extractMineruUploadUrls(rawData: unknown): string[] {
-  const data = asRecord(rawData);
-  const direct = data.file_urls ?? data.fileUrls ?? data.upload_urls ?? data.uploadUrls ?? data.upload_url ?? data.uploadUrl ?? data.file_url ?? data.fileUrl;
-  if (Array.isArray(direct)) return direct.map((value) => String(value)).filter(Boolean);
-  if (typeof direct === "string" && direct.trim()) return [direct.trim()];
-  if (direct && typeof direct === "object") return Object.values(direct).map((value) => String(value)).filter(Boolean);
+  const urls: string[] = [];
   
-  const files = data.files;
-  if (!Array.isArray(files)) return [];
-  return files
-    .map((file) => {
-      const record = asRecord(file);
-      return stringValue(record.upload_url ?? record.uploadUrl ?? record.url);
-    })
-    .filter((value): value is string => Boolean(value));
+  function findUrls(obj: unknown) {
+    if (!obj || typeof obj !== "object") return;
+    
+    if (Array.isArray(obj)) {
+      for (const item of obj) findUrls(item);
+      return;
+    }
+    
+    const record = obj as Record<string, unknown>;
+    // Check known fields first
+    const direct = record.file_urls ?? record.fileUrls ?? record.upload_urls ?? record.uploadUrls ?? record.upload_url ?? record.uploadUrl ?? record.file_url ?? record.fileUrl ?? record.url;
+    if (Array.isArray(direct)) {
+      for (const v of direct) if (typeof v === "string" && v.startsWith("http")) urls.push(v);
+    } else if (typeof direct === "string" && direct.startsWith("http")) {
+      urls.push(direct);
+    }
+    
+    // Check all values in this object
+    for (const key in record) {
+      const value = record[key];
+      if (typeof value === "string") {
+        if (value.startsWith("http") && (value.includes("upload") || value.includes("Signature=") || value.includes("Expires="))) {
+          urls.push(value);
+        }
+      } else if (value && typeof value === "object") {
+        findUrls(value);
+      }
+    }
+  }
+
+  findUrls(rawData);
+  return urls.filter((url, index, self) => self.indexOf(url) === index && url.trim().length > 0);
 }
 
 function normalizeResultList(value: unknown): Record<string, unknown>[] {

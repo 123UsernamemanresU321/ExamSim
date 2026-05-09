@@ -84,7 +84,10 @@ serve(async (request) => {
 
       if (uploadMode === "file_upload") {
         const uploadUrl = submission.uploadUrls[0];
-        if (!uploadUrl) throw new Error("MinerU did not return an upload URL");
+        if (!uploadUrl) {
+          console.error("MinerU did not return an upload URL. Raw response:", JSON.stringify(submitBody));
+          throw new Error(`MinerU did not return an upload URL. Response keys: ${Object.keys(submitBody).join(", ")}`);
+        }
         
         console.log(`Downloading source PDF from storage: ${parseJob.source_object_path}`);
         const { data: sourceBlob, error: downloadError } = await admin.storage.from("assessment-sources").download(parseJob.source_object_path);
