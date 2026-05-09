@@ -91,7 +91,7 @@ export async function getStudentAttemptResultsWorkspaceClient(attemptId: string,
   const { loadAssessmentPackage } = await import("@/lib/package-loader");
   const { reconstructQuestionTree } = await import("@/lib/assessment-package");
 
-  const packageResult = await loadAssessmentPackage(version ?? {});
+  const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
   const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
 
   // Map attempt row (minimal version)

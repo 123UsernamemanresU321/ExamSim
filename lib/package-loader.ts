@@ -1,10 +1,9 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 
 export async function loadAssessmentPackage(version: {
   normalized_package_json?: unknown;
   normalized_package_path?: string | null;
-}): Promise<{ package: NormalizedAssessmentPackage | null; error: string | null }> {
+}, supabase?: any): Promise<{ package: NormalizedAssessmentPackage | null; error: string | null }> {
   if (version.normalized_package_json) {
     const parsed = normalizedPackageSchema.safeParse(version.normalized_package_json);
     if (parsed.success) return { package: parsed.data, error: null };
@@ -12,7 +11,9 @@ export async function loadAssessmentPackage(version: {
   }
 
   if (version.normalized_package_path) {
-    const supabase = await createSupabaseServerClient();
+    if (!supabase) {
+      return { package: null, error: "Supabase client required for storage downloads." };
+    }
     const { data, error } = await supabase.storage
       .from("assessment-packages")
       .download(version.normalized_package_path);

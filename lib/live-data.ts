@@ -596,7 +596,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   if (feedbackError) throw feedbackError;
   if (settingsError) throw settingsError;
 
-  const packageResult = await loadAssessmentPackage(version ?? {});
+  const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
   const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
 
   return {
