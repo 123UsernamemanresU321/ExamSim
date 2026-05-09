@@ -42,44 +42,49 @@ export function ExamWorkspace({
       setIsLoadingPackage(true);
       setLoadError(null);
       
+      let sebKeys = { bek: null as string | null, ck: null as string | null };
+
       // Stage 1: Update keys (Necessary for some SEB versions on Mac/iOS)
-      type SebType = { security?: { updateKeys?: (cb: () => void) => void; configKey?: string; browserExamKey?: string } };
-      const seb = (window as unknown as { SafeExamBrowser?: SebType }).SafeExamBrowser;
-      if (seb?.security?.updateKeys) {
-        await new Promise<void>((resolve) => {
-          seb.security?.updateKeys?.(() => resolve());
-          // Safety timeout
-          setTimeout(resolve, 500);
+      if (initialScreenData.attempt.delivery_mode === "seb_required") {
+        type SebType = { security?: { updateKeys?: (cb: () => void) => void; configKey?: string; browserExamKey?: string } };
+        const seb = (window as unknown as { SafeExamBrowser?: SebType }).SafeExamBrowser;
+        if (seb?.security?.updateKeys) {
+          await new Promise<void>((resolve) => {
+            seb.security?.updateKeys?.(() => resolve());
+            // Safety timeout
+            setTimeout(resolve, 500);
+          });
+        }
+
+        // Stage 2: Extract SEB keys from the environment
+        let detectedBek: string | null = null;
+        let detectedCk: string | null = null;
+        
+        const sebApi = seb?.security;
+        if (sebApi) {
+          detectedBek = sebApi.browserExamKey || null;
+          detectedCk = sebApi.configKey || null;
+        }
+
+        // Fallback: Check User-Agent (SEB can be configured to append hashes here)
+        if (!detectedBek || !detectedCk) {
+          const ua = navigator.userAgent;
+          const bekMatch = ua.match(/BEK[=:][\s]*([a-f0-9]{64})/i);
+          const ckMatch = ua.match(/CK[=:][\s]*([a-f0-9]{64})/i);
+          if (bekMatch) detectedBek = bekMatch[1];
+          if (ckMatch) detectedCk = ckMatch[1];
+        }
+
+        setDebugInfo({
+          hasSebApi: String(!!sebApi),
+          hasUpdateKeys: String(!!seb?.security?.updateKeys),
+          userAgent: navigator.userAgent,
+          detectedBek: detectedBek ? `${detectedBek.substring(0, 8)}...` : "None",
+          detectedCk: detectedCk ? `${detectedCk.substring(0, 8)}...` : "None",
         });
-      }
 
-      // Stage 2: Extract SEB keys from the environment
-      let detectedBek: string | null = null;
-      let detectedCk: string | null = null;
-      
-      const sebApi = seb?.security;
-      if (sebApi) {
-        detectedBek = sebApi.browserExamKey || null;
-        detectedCk = sebApi.configKey || null;
+        sebKeys = { bek: detectedBek, ck: detectedCk };
       }
-
-      // Fallback: Check User-Agent (SEB can be configured to append hashes here)
-      if (!detectedBek || !detectedCk) {
-        const ua = navigator.userAgent;
-        // Search for BEK and CK in the User-Agent string (case insensitive, allowing for flexible separators)
-        const bekMatch = ua.match(/BEK[=:][\s]*([a-f0-9]{64})/i);
-        const ckMatch = ua.match(/CK[=:][\s]*([a-f0-9]{64})/i);
-        if (bekMatch) detectedBek = bekMatch[1];
-        if (ckMatch) detectedCk = ckMatch[1];
-      }
-
-      setDebugInfo({
-        hasSebApi: String(!!sebApi),
-        hasUpdateKeys: String(!!seb?.security?.updateKeys),
-        userAgent: navigator.userAgent,
-        detectedBek: detectedBek ? `${detectedBek.substring(0, 8)}...` : "None",
-        detectedCk: detectedCk ? `${detectedCk.substring(0, 8)}...` : "None",
-      });
 
       try {
         const supabase = createSupabaseBrowserClient();
@@ -87,9 +92,8 @@ export function ExamWorkspace({
           body: { 
             attempt_id: attemptId, 
             state_token: initialScreenData.stateToken,
-            // Pass the keys in the body to bypass header-stripping in cross-domain requests
-            seb_browser_exam_key_hash: detectedBek,
-            seb_config_key_hash: detectedCk,
+            seb_browser_exam_key_hash: sebKeys.bek,
+            seb_config_key_hash: sebKeys.ck,
           },
         });
 
@@ -115,18 +119,23 @@ export function ExamWorkspace({
     }
 
     loadPackage();
-  }, [attemptId, initialScreenData.stateToken, screenData.package]);
+  }, [attemptId, initialScreenData.stateToken, screenData.package, initialScreenData.attempt.delivery_mode]);
 
   const { attempt, package: assessmentPackage, packageError, stateToken, responses, sebConfigUrl, annotations } = screenData;
 
   // Show "Verifying..." if we are fetching the package on the client
   if (isLoadingPackage) {
+    const isSeb = initialScreenData.attempt.delivery_mode === "seb_required";
     return (
       <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
         <AttemptStateBadge state={attempt.state} />
-        <h1 className="text-xl font-semibold text-[var(--ink)]">Verifying Exam Environment...</h1>
+        <h1 className="text-xl font-semibold text-[var(--ink)]">
+          {isSeb ? "Verifying Exam Environment..." : "Unlocking Exam Content..."}
+        </h1>
         <p className="text-sm leading-6 text-[var(--muted)] italic">
-          Checking Safe Exam Browser security keys and unlocking assessment content. Please wait.
+          {isSeb 
+            ? "Checking Safe Exam Browser security keys and unlocking assessment content. Please wait."
+            : "Decrypting and preparing your exam package. Please wait."}
         </p>
         <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
           <div className="h-full w-1/3 animate-[shimmer_1.5s_infinite] bg-[var(--ink)]" />
