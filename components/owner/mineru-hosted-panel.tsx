@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { RefreshCw, UploadCloud, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { RefreshCw, UploadCloud, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
@@ -11,11 +10,12 @@ import type { ParseJob, ParseJobArtifact } from "@/types/database";
 export function MineruHostedPanel({
   parseJobs,
   artifacts,
+  onRefresh,
 }: {
   parseJobs: ParseJob[];
   artifacts: ParseJobArtifact[];
+  onRefresh?: () => void | Promise<void>;
 }) {
-  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
   const hostedJobs = useMemo(
@@ -43,16 +43,19 @@ export function MineruHostedPanel({
           ? `Hosted MinerU job ${data?.restarted ? "restarted" : "submitted"}. Status: ${data?.status ?? "running"}. Upload mode: ${data?.upload_mode ?? "server-side"}.`
           : data?.status === "failed"
             ? `Hosted MinerU check failed: ${data.error_message ?? data.external_state ?? "provider did not complete the job"}.`
-            : `Hosted MinerU check complete. Status: ${data?.status ?? data?.external_state ?? "running"}.`,
+            : data?.status === "review_required"
+              ? `MinerU extraction complete! ${data.artifact_count ?? 0} artifact(s) extracted. Refresh the workspace to see them.`
+              : `Hosted MinerU check complete. Status: ${data?.status ?? data?.external_state ?? "running"}.`,
       );
-      router.refresh();
+      // Re-fetch workspace data so the UI updates immediately
+      if (onRefresh) await onRefresh();
     } catch (error) {
       console.error(`[MinerU] ${functionName} failed:`, error);
       setMessage(error instanceof Error ? error.message : "Hosted MinerU request failed.");
     } finally {
       setBusyJobId(null);
     }
-  }, [router]);
+  }, [onRefresh]);
 
   // Automatic polling for running jobs
   useEffect(() => {
@@ -89,16 +92,19 @@ export function MineruHostedPanel({
         const jobArtifacts = artifacts.filter((artifact) => artifact.parse_job_id === job.id);
         const canSubmit = job.status === "queued" || job.status === "failed";
         const canPoll = job.status === "running" && Boolean(job.external_batch_id);
-        const canRestart = canPoll;
+        const isDone = job.status === "review_required" || job.status === "succeeded";
+        const canRestart = canPoll || isDone;
         const isBusy = busyJobId === job.id;
 
         return (
           <div key={job.id} className="rounded-md border border-[var(--border)] bg-white p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">
-                {job.status} {job.external_state ? `· ${job.external_state}` : ""}
+                <span className={isDone ? "text-green-600" : canPoll ? "text-amber-600" : ""}>{job.status}</span>
+                {job.external_state ? ` · ${job.external_state}` : ""}
               </p>
               {isBusy && <Loader2 size={14} className="animate-spin text-[var(--muted)]" />}
+              {isDone && !isBusy && <CheckCircle2 size={14} className="text-green-600" />}
             </div>
             <p className="mt-1 break-all text-xs text-[var(--muted)]">Source: {job.source_object_path}</p>
             {job.external_batch_id ? <p className="mt-1 break-all text-xs text-[var(--muted)]">Batch: {job.external_batch_id}</p> : null}
@@ -135,6 +141,7 @@ export function MineruHostedPanel({
                     {artifact.artifact_kind}: {artifact.object_path}
                   </li>
                 ))}
+                {jobArtifacts.length > 5 ? <li className="font-medium">…and {jobArtifacts.length - 5} more</li> : null}
               </ul>
             ) : null}
           </div>

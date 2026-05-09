@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use, useMemo } from "react";
+import { useEffect, useState, use, useMemo, useCallback } from "react";
 import { AiParseReviewPanel } from "@/components/owner/ai-parse-review-panel";
 import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
@@ -72,21 +72,25 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const data = await getAssessmentWorkspaceClient(id, supabase);
-        setWorkspace(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load workspace");
-      } finally {
-        setIsLoading(false);
-      }
+  const loadWorkspace = useCallback(async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const data = await getAssessmentWorkspaceClient(id, supabase);
+      setWorkspace(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load workspace");
     }
-    load();
   }, [id]);
+
+  const refreshWorkspace = useCallback(async () => {
+    await loadWorkspace();
+  }, [loadWorkspace]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    loadWorkspace().finally(() => setIsLoading(false));
+  }, [loadWorkspace]);
+
 
   if (isLoading) {
     return (
@@ -142,7 +146,7 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
             </div>
           ))}
           <ExtractedDiagrams artifacts={workspace.parseArtifacts} />
-          <MineruHostedPanel parseJobs={workspace.parseJobs} artifacts={workspace.parseArtifacts} />
+          <MineruHostedPanel parseJobs={workspace.parseJobs} artifacts={workspace.parseArtifacts} onRefresh={refreshWorkspace} />
           <AiParseReviewPanel version={workspace.latestVersion} nodes={workspace.questionNodes} artifacts={workspace.parseArtifacts} />
           <ReviewQuestionTreeForm versionId={workspace.latestVersion.id} nodes={workspace.questionNodes} />
         </Card>
