@@ -5,7 +5,8 @@ import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { getAssessmentWorkspaceClient, type AssessmentWorkspace } from "@/lib/live-data";
+import { type AssessmentWorkspace } from "@/lib/live-data";
+import { getAssessmentWorkspaceClient } from "@/lib/live-data-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function ParseReviewPage({ params }: { params: Promise<{ id: string }> }) {
