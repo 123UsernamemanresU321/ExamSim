@@ -639,3 +639,94 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     commentBank: (ownerSettings?.comment_bank as unknown[]) ?? [],
   };
 }
+export async function getStudentAttemptResultsWorkspace(attemptId: string): Promise<AttemptReviewWorkspace> {
+  const supabase = await createSupabaseServerClient();
+  const { data: attemptRow, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
+  if (attemptError) throw attemptError;
+  
+  if (!attemptRow) {
+    return {
+      attempt: null,
+      questionNodes: [],
+      uploadSlots: [],
+      textResponses: [],
+      moderationReport: null,
+      attemptEvents: [],
+      package: null,
+      packageError: "Attempt not found.",
+      marks: [],
+      annotations: [],
+      feedbackRelease: null,
+      markschemeHtml: null,
+      markschemePdfPath: null,
+      commentBank: [],
+    };
+  }
+
+  const [attempt] = await mapAttemptCollections([attemptRow]);
+
+  const [
+    { data: feedbackRelease, error: feedbackError },
+    { data: questionNodes, error: nodeError },
+    { data: uploadSlots, error: slotError },
+    { data: textResponses, error: responseError },
+    { data: marks, error: marksError },
+    { data: annotations, error: annotationsError },
+    { data: version, error: versionError },
+  ] = await Promise.all([
+    supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).maybeSingle(),
+    supabase.from("question_nodes").select("*").eq("assessment_version_id", attemptRow.assessment_version_id).order("ordinal", { ascending: true }),
+    supabase.from("upload_slots").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
+    supabase.from("text_responses").select("*").eq("attempt_id", attemptId).order("saved_at", { ascending: true }),
+    supabase.from("marks").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
+    supabase.from("submission_annotations").select("*").eq("attempt_id", attemptId).eq("annotation_type", "feedback").order("created_at", { ascending: true }),
+    supabase.from("assessment_versions").select("*").eq("id", attemptRow.assessment_version_id).maybeSingle(),
+  ]);
+
+  if (feedbackError) throw feedbackError;
+  if (!feedbackRelease || !feedbackRelease.visible_to_student) {
+    return {
+      attempt,
+      questionNodes: [],
+      uploadSlots: [],
+      textResponses: [],
+      moderationReport: null,
+      attemptEvents: [],
+      package: null,
+      packageError: "Feedback for this attempt has not been released yet.",
+      marks: [],
+      annotations: [],
+      feedbackRelease: null,
+      markschemeHtml: null,
+      markschemePdfPath: null,
+      commentBank: [],
+    };
+  }
+
+  if (nodeError) throw nodeError;
+  if (slotError) throw slotError;
+  if (responseError) throw responseError;
+  if (marksError) throw marksError;
+  if (annotationsError) throw annotationsError;
+  if (versionError) throw versionError;
+
+  const packageResult = await loadAssessmentPackage(version ?? {});
+  const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
+
+  return {
+    attempt,
+    questionNodes: questionNodes ?? [],
+    uploadSlots: uploadSlots ?? [],
+    textResponses: textResponses ?? [],
+    moderationReport: null, // Students don't see moderation reports
+    attemptEvents: [], // Students don't see telemetry
+    package: packageResult.package ? { ...packageResult.package, questions } : null,
+    packageError: packageResult.error,
+    marks: marks ?? [],
+    annotations: annotations ?? [],
+    feedbackRelease: feedbackRelease ?? null,
+    markschemeHtml: version?.markscheme_html ?? null,
+    markschemePdfPath: version?.markscheme_pdf_path ?? null,
+    commentBank: [],
+  };
+}
