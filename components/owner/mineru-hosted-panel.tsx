@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { RefreshCw, UploadCloud } from "lucide-react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { RefreshCw, UploadCloud, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -23,7 +23,7 @@ export function MineruHostedPanel({
     [parseJobs],
   );
 
-  async function invoke(functionName: "mineru-submit-hosted-job" | "mineru-poll-hosted-job", parseJobId: string, options: { force?: boolean } = {}) {
+  const invoke = useCallback(async (functionName: "mineru-submit-hosted-job" | "mineru-poll-hosted-job", parseJobId: string, options: { force?: boolean } = {}) => {
     console.log(`[MinerU] Calling ${functionName} for job ${parseJobId}...`);
     setBusyJobId(parseJobId);
     setMessage(
@@ -52,7 +52,21 @@ export function MineruHostedPanel({
     } finally {
       setBusyJobId(null);
     }
-  }
+  }, [router]);
+
+  // Automatic polling for running jobs
+  useEffect(() => {
+    const runningJobs = hostedJobs.filter(job => job.status === "running" && job.external_batch_id);
+    if (runningJobs.length === 0 || busyJobId) return;
+
+    const interval = setInterval(() => {
+      // Poll the oldest running job
+      const jobToPoll = runningJobs[0];
+      void invoke("mineru-poll-hosted-job", jobToPoll.id);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [hostedJobs, busyJobId, invoke]);
 
   if (!hostedJobs.length) {
     return (
@@ -76,29 +90,34 @@ export function MineruHostedPanel({
         const canSubmit = job.status === "queued" || job.status === "failed";
         const canPoll = job.status === "running" && Boolean(job.external_batch_id);
         const canRestart = canPoll;
+        const isBusy = busyJobId === job.id;
+
         return (
           <div key={job.id} className="rounded-md border border-[var(--border)] bg-white p-4">
-            <p className="text-sm font-semibold">
-              {job.status} {job.external_state ? `· ${job.external_state}` : ""}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">
+                {job.status} {job.external_state ? `· ${job.external_state}` : ""}
+              </p>
+              {isBusy && <Loader2 size={14} className="animate-spin text-[var(--muted)]" />}
+            </div>
             <p className="mt-1 break-all text-xs text-[var(--muted)]">Source: {job.source_object_path}</p>
             {job.external_batch_id ? <p className="mt-1 break-all text-xs text-[var(--muted)]">Batch: {job.external_batch_id}</p> : null}
             {job.error_message ? <p className="mt-2 text-sm text-[var(--danger)]">{job.error_message}</p> : null}
             <div className="mt-3 flex flex-wrap gap-2">
               {canSubmit ? (
-                <Button type="button" variant="secondary" disabled={busyJobId === job.id} onClick={() => void invoke("mineru-submit-hosted-job", job.id)}>
+                <Button type="button" variant="secondary" disabled={isBusy} onClick={() => void invoke("mineru-submit-hosted-job", job.id)}>
                   <UploadCloud size={16} aria-hidden="true" />
                   Submit to MinerU
                 </Button>
               ) : null}
               {canPoll ? (
-                <Button type="button" variant="secondary" disabled={busyJobId === job.id} onClick={() => void invoke("mineru-poll-hosted-job", job.id)}>
-                  <RefreshCw size={16} aria-hidden="true" />
+                <Button type="button" variant="secondary" disabled={isBusy} onClick={() => void invoke("mineru-poll-hosted-job", job.id)}>
+                  <RefreshCw size={16} className={isBusy ? "animate-spin" : ""} aria-hidden="true" />
                   Check result
                 </Button>
               ) : null}
               {canRestart ? (
-                <Button type="button" variant="secondary" disabled={busyJobId === job.id} onClick={() => void invoke("mineru-submit-hosted-job", job.id, { force: true })}>
+                <Button type="button" variant="secondary" disabled={isBusy} onClick={() => void invoke("mineru-submit-hosted-job", job.id, { force: true })}>
                   <UploadCloud size={16} aria-hidden="true" />
                   Restart MinerU job
                 </Button>
@@ -106,8 +125,7 @@ export function MineruHostedPanel({
             </div>
             {canPoll ? (
               <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                If a job stays pending/running for a long time, restart it. Exam Vault will use server-side file upload
-                to avoid signed URL fetch timeouts.
+                Status is automatically checked every 15s. If a job stays running for a long time, restart it. 
               </p>
             ) : null}
             {jobArtifacts.length ? (

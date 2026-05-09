@@ -176,7 +176,7 @@ serve(async (request) => {
         .update({
           parser: "mineru_hosted",
           status: "running",
-          started_at: parseJob.started_at ?? now,
+          started_at: now,
           completed_at: null,
           error_message: null,
           external_provider: "mineru_hosted",
