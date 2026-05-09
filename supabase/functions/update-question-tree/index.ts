@@ -30,13 +30,6 @@ serve(async (request) => {
     const versionId = stringValue(body.version_id) ?? stringValue(body.assessment_version_id);
     if (!versionId) return json({ error: "version_id is required" }, 400);
     const normalizedPackage = extractNormalizedPackage(body);
-    if (normalizedPackage) {
-      const parsed = normalizedPackageSchema.safeParse(normalizedPackage);
-      if (!parsed.success) {
-        console.error("Package validation failed:", parsed.error.format());
-        throw new Error(`Package failed schema validation: ${parsed.error.errors[0]?.path.join(".") || "unknown field"} is ${parsed.error.errors[0]?.message || "invalid"}`);
-      }
-    }
     const nodes = extractNodes(body, normalizedPackage);
     if (!nodes.length) {
       return json({ error: "nodes are required. Paste a node array, a normalized package with questions, or an object with nodes/questions." }, 400);

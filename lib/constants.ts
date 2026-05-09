@@ -9,7 +9,7 @@ export type AssessmentKind = (typeof ASSESSMENT_KINDS)[number];
 export const SOURCE_KINDS = ["pdf", "latex", "json"] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
-export const AUTHORING_ORIGINS = ["owner_uploaded", "owner_pasted", "imported"] as const;
+export const AUTHORING_ORIGINS = ["owner_uploaded", "owner_pasted", "imported", "ai_generated"] as const;
 export type AuthoringOrigin = (typeof AUTHORING_ORIGINS)[number];
 
 export const DELIVERY_MODES = ["browser", "seb_required"] as const;
