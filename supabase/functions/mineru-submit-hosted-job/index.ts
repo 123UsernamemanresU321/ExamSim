@@ -119,10 +119,30 @@ serve(async (request) => {
             const uploadErrText = await uploadResponse.text().catch(() => "");
             throw new Error(`MinerU upload URL rejected source PDF: ${uploadResponse.status} ${uploadErrText.slice(0, 300)}`);
           }
+
+          console.log(`MinerU upload complete. Triggering extraction task...`);
+          const triggerResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch`, {
+            method: "POST",
+            headers: buildMineruAuthHeaders(),
+            body: JSON.stringify(
+              buildMineruBatchRequest({
+                dataId: parseJob.id,
+                fileName,
+                uploadMode,
+                modelVersion,
+              }),
+            ),
+          });
+          const triggerBody = await readMineruJsonResponse(triggerResponse, "MinerU task trigger");
+          const triggerSubmission = normalizeMineruBatchSubmitResponse(triggerBody);
+          console.log(`MinerU extraction triggered. New BatchId: ${triggerSubmission.batchId}`);
+          
+          // Use the final batch ID for tracking
+          submission.batchId = triggerSubmission.batchId;
         } catch (uploadError) {
           clearTimeout(uploadTimeoutId);
           if (uploadError instanceof Error && uploadError.name === "AbortError") {
-            throw new Error("MinerU file upload timed out (90s limit). If this persists, check network or file size.");
+            throw new Error("MinerU file upload or task trigger timed out (90s limit).");
           }
           throw uploadError;
         }

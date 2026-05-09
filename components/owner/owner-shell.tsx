@@ -12,7 +12,7 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
       style={{ "--sidebar-width": isCollapsed ? "64px" : "256px" } as React.CSSProperties}
     >
       <SidebarNav isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
-      <main className="min-w-0 flex flex-col h-full px-5 py-8 md:px-8 overflow-hidden">{children}</main>
+      <main className="min-w-0 flex flex-col h-full px-5 py-8 md:px-8 overflow-y-auto">{children}</main>
     </div>
   );
 }

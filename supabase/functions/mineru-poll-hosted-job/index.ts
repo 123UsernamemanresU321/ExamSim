@@ -36,7 +36,7 @@ serve(async (request) => {
     let resultResponse: Response;
     try {
       const pollStartTime = Date.now();
-      resultResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract-results/batch/${parseJob.external_batch_id}`, {
+      resultResponse = await fetch(`${mineruApiBaseUrl()}/api/v4/extract/task/batch/${parseJob.external_batch_id}`, {
         method: "GET",
         headers: buildMineruAuthHeaders(),
         signal: pollController.signal,
@@ -277,7 +277,18 @@ async function extractAndUploadArtifacts(
 ) {
   const zip = await JSZip.loadAsync(zipBytes);
   const rows: { artifact_kind: "markdown" | "json" | "html" | "layout" | "log"; object_path: string; content_preview?: string }[] = [];
-  const entries = Object.values(zip.files).filter((entry) => !entry.dir).slice(0, 50);
+  
+  // Sort entries to process important files first (MD, JSON) and limit to 50
+  const entries = Object.values(zip.files)
+    .filter((entry) => !entry.dir)
+    .sort((a, b) => {
+      const aKind = artifactKind(a.name);
+      const bKind = artifactKind(b.name);
+      if (aKind === "markdown" || aKind === "json") return -1;
+      if (bKind === "markdown" || bKind === "json") return 1;
+      return 0;
+    })
+    .slice(0, 50);
   for (const entry of entries) {
     const kind = artifactKind(entry.name);
     if (!kind) continue;
