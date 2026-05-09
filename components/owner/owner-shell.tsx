@@ -8,11 +8,11 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div 
-      className="app-shell-grid transition-all duration-300"
+      className="app-shell-grid h-[calc(100vh-64px)] transition-all duration-300 overflow-hidden"
       style={{ "--sidebar-width": isCollapsed ? "64px" : "256px" } as React.CSSProperties}
     >
       <SidebarNav isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
-      <main className="min-w-0 px-5 py-8 md:px-8 overflow-hidden">{children}</main>
+      <main className="min-w-0 flex flex-col h-full px-5 py-8 md:px-8 overflow-hidden">{children}</main>
     </div>
   );
 }

@@ -282,6 +282,7 @@ serve(async (request) => {
               "- Every paragraph must be wrapped in <p>...</p>.",
               "- DO NOT use <br><br> for paragraph spacing.",
               "- Inline math must be preserved as raw LaTeX ($...$) inside the paragraph.",
+              "- CRITICAL: All mathematical variables (e.g. x, y, n), functions (e.g. f(x), g(y-1)), and equations MUST be wrapped in $...$ delimiters, even if they are simple characters. Do not leave them as plain text.",
               "- CRITICAL: Do not wrap individual variables, numbers, or short expressions in their own <p> tags. Keep whole sentences or paragraphs together in a single <p>.",
               "- Display math should use <div class=\"math\">...</div>.",
               "",

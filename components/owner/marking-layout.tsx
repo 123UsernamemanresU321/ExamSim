@@ -16,7 +16,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
   const selectedNode = workspace.questionNodes.find((n) => n.id === selectedNodeId);
 
   return (
-    <div className="flex h-[calc(100vh-160px)] gap-4 overflow-hidden p-1">
+    <div className="flex h-full gap-4 overflow-hidden p-1">
       {/* Left Panel: Question Tree */}
       <aside className="w-72 flex-shrink-0 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm">
         <MarkingSidebarTree
