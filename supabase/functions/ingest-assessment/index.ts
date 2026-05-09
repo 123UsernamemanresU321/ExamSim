@@ -238,6 +238,7 @@ serve(async (request) => {
       response_mode: String(node.response_mode ?? "typed_or_upload"),
       interaction_json: typeof node.interaction === "object" ? node.interaction : null,
       markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
+      assets: Array.isArray(node.assets) ? node.assets : [],
     }));
     const { data: insertedNodes, error: nodeError } = await admin.from("question_nodes").insert(rows).select("id,node_key");
     if (nodeError) throw nodeError;
@@ -370,6 +371,7 @@ function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: st
       response_mode: String(node.response_mode ?? "typed_or_upload"),
       interaction_json: typeof node.interaction === "object" ? node.interaction : null,
       markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
+      assets: Array.isArray(node.assets) ? node.assets : [],
     });
     if (Array.isArray(node.children)) {
       flattened.push(...flattenPackageNodes(node.children as Record<string, unknown>[], nodeKey));

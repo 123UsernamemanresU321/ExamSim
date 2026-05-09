@@ -58,6 +58,7 @@ serve(async (request) => {
       response_mode: node.response_mode,
       interaction_json: node.interaction_json,
       markscheme_html: node.markscheme_html,
+      assets: node.assets || [],
       source_page_start: node.source_page_start,
       source_page_end: node.source_page_end,
     }));
@@ -116,6 +117,7 @@ function normalizePackageQuestions(questions: unknown[]) {
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : isRecord(rawNode.interaction) ? rawNode.interaction : null,
       markscheme_html: stringValue(rawNode.markscheme_html),
+      assets: Array.isArray(rawNode.assets) ? rawNode.assets.filter(a => typeof a === "string") : [],
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
     });
@@ -142,6 +144,7 @@ function normalizeFlatNodes(rawNodes: unknown[]) {
       response_mode: normalizeResponseMode(rawNode.response_mode),
       interaction_json: isRecord(rawNode.interaction_json) ? rawNode.interaction_json : isRecord(rawNode.interaction) ? rawNode.interaction : null,
       markscheme_html: stringValue(rawNode.markscheme_html),
+      assets: Array.isArray(rawNode.assets) ? rawNode.assets.filter(a => typeof a === "string") : [],
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
     };
@@ -239,6 +242,7 @@ function nestFlatNodes(nodes: FlatNode[]) {
       prompt: (html || latex) ? { html, latex } : undefined,
       interaction: normalizeInteraction(node.interaction_json),
       markscheme_html: node.markscheme_html ?? undefined,
+      assets: Array.isArray(node.assets) ? node.assets : [],
       source_page_start: node.source_page_start ?? undefined,
       source_page_end: node.source_page_end ?? undefined,
       children: [] as Record<string, unknown>[],
