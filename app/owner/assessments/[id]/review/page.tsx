@@ -5,9 +5,13 @@ import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { type AssessmentWorkspace } from "@/lib/live-data";
-import { getAssessmentWorkspaceClient } from "@/lib/live-data-client";
+import { getAssessmentWorkspaceClient, type AssessmentWorkspace } from "@/lib/live-data-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { demoAssessmentParams } from "@/lib/static-params";
+
+export function generateStaticParams() {
+  return demoAssessmentParams();
+}
 
 export default function ParseReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
