@@ -131,9 +131,9 @@ export function MarkingResponseWorkspace({
   const isOverLimit = (Number(awarded) || 0) > maxMarks;
 
   return (
-    <div className="flex flex-col h-full gap-8">
-      {/* Response Viewer Area */}
-      <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+    <div className="flex h-full gap-8 overflow-hidden">
+      {/* Left Column: Response Viewer Area */}
+      <div className="flex-1 overflow-y-auto space-y-6 pr-4">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Student Submission</h3>
           {slot?.uploaded_at && (
@@ -194,8 +194,8 @@ export function MarkingResponseWorkspace({
         )}
       </div>
 
-      {/* Marking Controls */}
-      <div className="pt-6 border-t-2 border-[var(--border)] space-y-8 bg-white">
+      {/* Right Column: Marking Controls */}
+      <div className="w-[400px] flex-shrink-0 flex flex-col h-full pl-6 border-l border-[var(--border)] overflow-y-auto space-y-6">
         <div className="flex flex-col gap-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
