@@ -49,20 +49,25 @@ serve(async (request) => {
     });
     const rubricRows = markRows.filter((row) => row.rubric_criteria_id);
     const genericRows = markRows.filter((row) => !row.rubric_criteria_id);
+    
     if (rubricRows.length > 0) {
       const { error: marksError } = await admin.from("marks").upsert(rubricRows, {
         onConflict: "attempt_id,rubric_criteria_id",
       });
       if (marksError) throw marksError;
     }
-    // Unconditionally delete existing generic marks for this attempt
-    // so that clearing a mark (omitting it from genericRows) actually deletes it.
-    const { error: deleteError } = await admin
-      .from("marks")
-      .delete()
-      .eq("attempt_id", attempt.id)
-      .is("rubric_criteria_id", null);
-    if (deleteError) throw deleteError;
+
+    // Only delete generic marks for the specific nodes being updated in this request.
+    const genericNodeIds = [...new Set(genericRows.map(r => r.question_node_id).filter(Boolean))];
+    if (genericNodeIds.length > 0) {
+      const { error: deleteError } = await admin
+        .from("marks")
+        .delete()
+        .eq("attempt_id", attempt.id)
+        .in("question_node_id", genericNodeIds)
+        .is("rubric_criteria_id", null);
+      if (deleteError) throw deleteError;
+    }
 
     if (genericRows.length > 0) {
       const { error: marksError } = await admin.from("marks").insert(genericRows);

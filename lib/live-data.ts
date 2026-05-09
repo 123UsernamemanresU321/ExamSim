@@ -730,3 +730,30 @@ export async function getStudentAttemptResultsWorkspace(attemptId: string): Prom
     commentBank: [],
   };
 }
+
+export async function listStudentResults(): Promise<(AttemptSummary & { feedback: FeedbackRelease })[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data: attempts, error } = await supabase
+    .from("attempts")
+    .select(`
+      *,
+      feedback_releases!inner(*)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  
+  const assessmentIds = Array.from(new Set(attempts.map((a) => a.assessment_id)));
+  const { data: assessments } = await supabase.from("assessments").select("*").in("id", assessmentIds);
+  const assessmentById = Object.fromEntries((assessments ?? []).map((a) => [a.id, a]));
+  
+  const summaries = (attempts ?? []).map((a) => {
+    const summary = mapAttemptSummary(a, assessmentById, {});
+    return {
+      ...summary,
+      feedback: (a as any).feedback_releases[0] as FeedbackRelease
+    };
+  });
+
+  return summaries;
+}

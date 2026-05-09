@@ -18,9 +18,9 @@ export default async function StudentLayout({ children }: { children: React.Reac
               <Home size={17} aria-hidden="true" />
               Dashboard
             </Link>
-            <Link className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href="/student">
+            <Link className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href="/student/results">
               <ClipboardList size={17} aria-hidden="true" />
-              Assigned attempts
+              Marked exams
             </Link>
             <Link className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href="/student/security">
               <ShieldCheck size={17} aria-hidden="true" />
