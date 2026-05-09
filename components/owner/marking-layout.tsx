@@ -32,18 +32,18 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
 
       {/* Main Content Area */}
       <main className="flex flex-1 gap-4 overflow-hidden">
-        <Tabs defaultValue="marking" className="flex flex-1 flex-col gap-4 overflow-hidden">
-          <div className="flex items-center justify-between">
+        <Tabs defaultValue="marking" className="flex flex-1 flex-col gap-4 overflow-x-auto overflow-y-hidden">
+          <div className="flex items-center justify-between px-1">
             <TabsList>
               <TabsTrigger value="marking">Marking</TabsTrigger>
               <TabsTrigger value="moderation">Moderation & Timeline</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="marking" className="flex-1 overflow-hidden mt-0">
-            <div className="flex h-full gap-4">
+          <TabsContent value="marking" className="flex-1 mt-0">
+            <div className="flex h-full gap-4 min-w-[900px]">
               {/* Center Panel: Question & Markscheme */}
-              <section className="flex-1 min-w-[450px] overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-8">
+              <section className="flex-1 min-w-[300px] overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-8">
                 <MarkingCenterPanel
                   node={selectedNode}
                   markschemeHtml={workspace.markschemeHtml}
