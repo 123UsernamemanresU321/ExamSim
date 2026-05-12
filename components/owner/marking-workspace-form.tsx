@@ -41,12 +41,16 @@ export function MarkingWorkspaceForm({
 
   async function downloadFile(path: string) {
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.storage.from("answer-uploads").createSignedUrl(path, 60);
-    if (error) {
-      alert("Could not generate download link: " + error.message);
-      return;
+    try {
+      const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+        body: { bucket: "answer-uploads", object_path: path, purpose: "answer_upload", expires_in_seconds: 300 },
+        requiresAal2: true,
+      });
+      if (!data?.signed_url) throw new Error("Could not generate download link");
+      window.open(data.signed_url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      alert("Could not generate download link: " + (error instanceof Error ? error.message : "Unknown error"));
     }
-    window.open(data.signedUrl, "_blank");
   }
 
   async function saveMarking(event: React.FormEvent) {

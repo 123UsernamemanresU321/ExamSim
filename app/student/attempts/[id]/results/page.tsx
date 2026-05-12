@@ -1,18 +1,21 @@
-import { demoAttemptParams } from "@/lib/static-params";
-import { StudentResultsClient } from "@/components/student/student-results-client";
-
-export function generateStaticParams() {
-  return demoAttemptParams();
-}
+import { SectionHeading } from "@/components/section-heading";
+import { StudentResultsWorkspace } from "@/components/student/student-results-workspace";
+import { getStudentAttemptResultsWorkspace } from "@/lib/live-data";
 
 /**
- * Server Wrapper for Student Results Page.
- * This is a Server Component to support static export (generateStaticParams),
- * but it renders a Client Component to handle data fetching in the browser
- * (to avoid 'cookies()' errors during static build).
+ * Server wrapper for the released student results page.
  */
 export default async function StudentResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  
-  return <StudentResultsClient id={id} />;
+  const workspace = await getStudentAttemptResultsWorkspace(id);
+
+  if (!workspace.attempt) {
+    return <SectionHeading title="Attempt not found" description="Open the student dashboard and choose a released result." />;
+  }
+
+  if (workspace.packageError) {
+    return <SectionHeading title="Results not available" description={workspace.packageError} />;
+  }
+
+  return <StudentResultsWorkspace workspace={workspace} attemptId={id} />;
 }

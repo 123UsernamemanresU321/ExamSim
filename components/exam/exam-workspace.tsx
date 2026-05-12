@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionNavigator } from "@/components/question-navigator";
@@ -33,14 +33,53 @@ export function ExamWorkspace({
   const [isLoadingPackage, setIsLoadingPackage] = useState(!initialScreenData.package);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<Record<string, string> | null>(null);
+  const [attemptSessionId, setAttemptSessionId] = useState<string | undefined>();
+  const sessionStarted = useRef(false);
 
   useEffect(() => {
-    // If the package is already there (e.g. standard browser SSR), we are good.
-    if (screenData.package) return;
+    if (sessionStarted.current) return;
+    sessionStarted.current = true;
 
-    async function loadPackage() {
-      setIsLoadingPackage(true);
+    async function startSessionAndLoadPackage() {
       setLoadError(null);
+      const supabase = createSupabaseBrowserClient();
+      let freshStateToken = initialScreenData.stateToken;
+      let sessionId: string | undefined;
+
+      try {
+        const session = await invokeEdgeFunction<{ attempt_session_id: string }>(supabase, "start-attempt-session", {
+          body: { attempt_id: attemptId },
+        });
+        sessionId = session?.attempt_session_id;
+        setAttemptSessionId(sessionId);
+        if (sessionId) {
+          const state = await invokeEdgeFunction<{ state_token: string; server_now_utc: string; countdown_target_utc: string | null }>(
+            supabase,
+            "get-attempt-state",
+            { body: { attempt_id: attemptId, attempt_session_id: sessionId } },
+          );
+          if (state?.state_token) {
+            freshStateToken = state.state_token;
+            setScreenData((prev) => ({
+              ...prev,
+              stateToken: state.state_token,
+              attempt: {
+                ...prev.attempt,
+                server_now_utc: state.server_now_utc,
+                countdown_target_utc: state.countdown_target_utc,
+              },
+            }));
+          }
+        }
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : "Could not start attempt session.");
+      }
+
+      // If the package is already present and this is standard Browser Mode, the
+      // session wiring above is enough for telemetry and subsequent token refreshes.
+      if (screenData.package && initialScreenData.attempt.delivery_mode !== "seb_required") return;
+
+      setIsLoadingPackage(true);
       
       let sebKeys = { bek: null as string | null, ck: null as string | null };
 
@@ -87,11 +126,10 @@ export function ExamWorkspace({
       }
 
       try {
-        const supabase = createSupabaseBrowserClient();
-        const response = await invokeEdgeFunction<{ assessment_package: unknown }>(supabase, "get-attempt-package", {
+        const response = await invokeEdgeFunction<{ assessment_package: unknown; asset_urls?: Record<string, string> }>(supabase, "get-attempt-package", {
           body: { 
             attempt_id: attemptId, 
-            state_token: initialScreenData.stateToken,
+            state_token: freshStateToken,
             seb_browser_exam_key_hash: sebKeys.bek,
             seb_config_key_hash: sebKeys.ck,
           },
@@ -110,6 +148,8 @@ export function ExamWorkspace({
         setScreenData(prev => ({
           ...prev,
           package: parsed.data,
+          assetUrls: response.asset_urls ?? {},
+          stateToken: freshStateToken,
           packageError: null
         }));
       } catch (error) {
@@ -119,10 +159,10 @@ export function ExamWorkspace({
       }
     }
 
-    loadPackage();
+    void startSessionAndLoadPackage();
   }, [attemptId, initialScreenData.stateToken, screenData.package, initialScreenData.attempt.delivery_mode]);
 
-  const { attempt, package: assessmentPackage, packageError, stateToken, responses, sebConfigUrl, annotations } = screenData;
+  const { attempt, package: assessmentPackage, packageError, stateToken, assetUrls, responses, sebConfigUrl, annotations } = screenData;
 
   // Show "Verifying..." if we are fetching the package on the client
   if (isLoadingPackage) {
@@ -206,7 +246,7 @@ export function ExamWorkspace({
 
   return (
     <div className="exam-mode">
-      <TelemetryListener attemptId={attemptId} stateToken={stateToken} />
+      <TelemetryListener attemptId={attemptId} attemptSessionId={attemptSessionId} stateToken={stateToken} />
       <header className="sticky top-0 z-10 -mx-5 mb-8 border-b border-[var(--border)] bg-[rgba(246,249,255,0.96)] px-5 py-3 backdrop-blur md:-mx-8 md:px-8">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -237,6 +277,7 @@ export function ExamWorkspace({
           attemptId={attemptId}
           ownerProfileId={attempt.owner_profile_id}
           stateToken={stateToken}
+          assetUrls={assetUrls}
           responses={responses}
           annotations={annotations}
         />

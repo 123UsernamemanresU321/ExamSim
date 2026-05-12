@@ -3,23 +3,18 @@ import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
-import { isDemoModeEnabled } from "@/lib/runtime";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { demoAttemptParams } from "@/lib/static-params";
+import { getStudentAttemptResultsWorkspace } from "@/lib/live-data";
 import type { FeedbackRelease } from "@/types/database";
-
-export function generateStaticParams() {
-  return demoAttemptParams();
-}
 
 export default async function FinishedReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { package: assessmentPackage } = await getAttemptScreenData(id, true);
+  const { package: assessmentPackage, assetUrls } = await getAttemptScreenData(id, true);
   let feedback: FeedbackRelease | null = null;
-  if (!isDemoModeEnabled()) {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.from("feedback_releases").select("*").eq("attempt_id", id).maybeSingle();
-    feedback = data;
+  try {
+    const results = await getStudentAttemptResultsWorkspace(id);
+    feedback = results.feedbackRelease;
+  } catch {
+    feedback = null;
   }
   return (
     <div className="mx-auto max-w-[980px]">
@@ -50,7 +45,7 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
           </div>
         </Card>
       ) : null}
-      {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} readonly /> : null}
+      {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} assetUrls={assetUrls} readonly /> : null}
     </div>
   );
 }

@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function ResponseTextArea({
   attemptId,
   questionNodeId,
+  stateToken,
   initialValue,
   readonly = false,
   onSaveStatusChange,
 }: {
   attemptId: string;
   questionNodeId: string;
+  stateToken: string;
   initialValue: string;
   readonly?: boolean;
   onSaveStatusChange?: (status: "idle" | "saving" | "saved" | "error") => void;
@@ -34,17 +37,14 @@ export function ResponseTextArea({
     
     onSaveStatusChange?.("saving");
     try {
-      const { error } = await supabase.from("text_responses").upsert(
-        {
+      await invokeEdgeFunction(supabase, "save-text-response", {
+        body: {
           attempt_id: attemptId,
           question_node_id: questionNodeId,
           answer_text: currentText,
-          saved_at: new Date().toISOString(),
+          state_token: stateToken,
         },
-        { onConflict: "attempt_id,question_node_id" }
-      );
-      
-      if (error) throw error;
+      });
       lastSavedText.current = currentText;
       onSaveStatusChange?.("saved");
     } catch (err) {

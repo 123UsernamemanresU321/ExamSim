@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
   title: string;
@@ -127,7 +127,7 @@ serve(async (request) => {
     });
     return json({ ok: true, assessment_id: assessment.id, draft_version_id: version.id, question_count: questions.length });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "qti-import-assessment failed" }, 401);
+    return errorResponse(error, "qti-import-assessment failed");
   }
 });
 

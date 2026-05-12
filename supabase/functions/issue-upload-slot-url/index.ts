@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { computeAttemptState } from "../_shared/attempt-state.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
@@ -71,6 +71,6 @@ serve(async (request) => {
       slot_status: slot.status,
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "issue-upload-slot-url failed" }, 401);
+    return errorResponse(error, "issue-upload-slot-url failed");
   }
 });

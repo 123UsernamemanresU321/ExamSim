@@ -16,7 +16,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
           <nav className="grid gap-1 text-sm font-semibold text-[var(--muted)]">
             <Link className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href="/student">
               <Home size={17} aria-hidden="true" />
-              Dashboard
+              Assigned attempts
             </Link>
             <Link className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white" href="/student/results">
               <ClipboardList size={17} aria-hidden="true" />

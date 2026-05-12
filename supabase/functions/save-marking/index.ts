@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
   attempt_id: string;
@@ -111,6 +111,6 @@ serve(async (request) => {
 
     return json({ ok: true, mark_count: markRows.length, annotation_count: annotationRows.length });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "save-marking failed" }, 401);
+    return errorResponse(error, "save-marking failed");
   }
 });

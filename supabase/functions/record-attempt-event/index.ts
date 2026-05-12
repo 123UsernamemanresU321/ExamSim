@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -22,6 +22,16 @@ serve(async (request) => {
     const { data: attempt, error } = await admin.from("attempts").select("id, assignee_profile_id").eq("id", body.attempt_id).single();
     if (error) throw error;
     if (profile.app_role !== "owner" && attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (body.attempt_session_id) {
+      const { data: session, error: sessionError } = await admin
+        .from("attempt_sessions")
+        .select("id")
+        .eq("id", body.attempt_session_id)
+        .eq("attempt_id", attempt.id)
+        .maybeSingle();
+      if (sessionError) throw sessionError;
+      if (!session) return json({ error: "Attempt session does not match this attempt" }, 403);
+    }
 
     const { error: insertError } = await admin.from("attempt_events").insert({
       attempt_id: body.attempt_id,
@@ -33,8 +43,15 @@ serve(async (request) => {
       state_token_id: body.state_token ? body.state_token.slice(0, 24) : null,
     });
     if (insertError) throw insertError;
+    if (body.attempt_session_id && body.event_type === "heartbeat") {
+      await admin
+        .from("attempt_sessions")
+        .update({ last_heartbeat_at: new Date().toISOString() })
+        .eq("id", body.attempt_session_id)
+        .eq("attempt_id", attempt.id);
+    }
     return json({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "record-attempt-event failed" }, 401);
+    return errorResponse(error, "record-attempt-event failed");
   }
 });

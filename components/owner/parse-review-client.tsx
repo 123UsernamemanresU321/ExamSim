@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState, use, useMemo, useCallback } from "react";
 import { AiParseReviewPanel } from "@/components/owner/ai-parse-review-panel";
@@ -8,6 +9,7 @@ import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAssessmentWorkspaceClient, type AssessmentWorkspace } from "@/lib/live-data-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 const IMAGE_EXTS = /\.(png|jpe?g|svg)$/i;
 
@@ -17,24 +19,32 @@ function ExtractedDiagrams({ artifacts }: { artifacts: { artifact_kind: string; 
     [artifacts],
   );
   const [urls, setUrls] = useState<Record<string, string>>({});
-  const supabase = createSupabaseBrowserClient();
 
   useEffect(() => {
     if (!imageArtifacts.length) return;
     let cancelled = false;
     async function resolve() {
+      const supabase = createSupabaseBrowserClient();
       const resolved: Record<string, string> = {};
       for (const a of imageArtifacts) {
         try {
-          const { data } = await supabase.storage.from("assessment-packages").createSignedUrl(a.object_path, 3600);
-          if (data?.signedUrl) resolved[a.object_path] = data.signedUrl;
+          const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+            body: {
+              bucket: "assessment-packages",
+              object_path: a.object_path,
+              purpose: "parse_artifact",
+              expires_in_seconds: 300,
+            },
+            requiresAal2: true,
+          });
+          if (data?.signed_url) resolved[a.object_path] = data.signed_url;
         } catch { /* skip */ }
       }
       if (!cancelled) setUrls(resolved);
     }
     resolve();
     return () => { cancelled = true; };
-  }, [imageArtifacts, supabase]);
+  }, [imageArtifacts]);
 
   if (!imageArtifacts.length) return null;
 
@@ -73,12 +83,16 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState<string | null>(null);
 
   const loadWorkspace = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const supabase = createSupabaseBrowserClient();
       const data = await getAssessmentWorkspaceClient(id, supabase);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load workspace");
+    } finally {
+      setIsLoading(false);
     }
   }, [id]);
 
@@ -87,8 +101,10 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
   }, [loadWorkspace]);
 
   useEffect(() => {
-    setIsLoading(true);
-    loadWorkspace().finally(() => setIsLoading(false));
+    const timer = window.setTimeout(() => {
+      void loadWorkspace();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadWorkspace]);
 
 

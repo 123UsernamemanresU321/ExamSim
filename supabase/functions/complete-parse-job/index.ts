@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
   parse_job_id: string;
@@ -21,7 +21,7 @@ serve(async (request) => {
     const workerSecret = Deno.env.get("MINERU_WORKER_SECRET");
     if (!workerSecret) return json({ error: "MINERU_WORKER_SECRET is not configured" }, 500);
     const provided = request.headers.get("x-mineru-worker-secret") ?? "";
-    if (provided !== workerSecret) return json({ error: "Unauthorized parser worker" }, 401);
+    if (provided !== workerSecret) return errorResponse(new Error("Unauthorized parser worker"), "complete-parse-job failed");
 
     const body = await readJson<Body>(request);
     if (!body.parse_job_id) return json({ error: "parse_job_id is required" }, 400);
@@ -67,6 +67,6 @@ serve(async (request) => {
 
     return json({ ok: true, status: body.ok ? "review_required" : "failed" });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "complete-parse-job failed" }, 500);
+    return errorResponse(error, "complete-parse-job failed");
   }
 });

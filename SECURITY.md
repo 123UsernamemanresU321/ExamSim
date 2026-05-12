@@ -26,10 +26,11 @@ without a session is sent to `/login`, and a signed-in user with the wrong role 
 These guards improve navigation and admin isolation, but RLS and Edge Function authorization remain the data security
 boundary.
 
-The local Playwright/demo bypass is controlled by `EXAM_VAULT_DEMO_MODE=1`; the GitHub Pages static export uses
-`NEXT_PUBLIC_STATIC_EXPORT=1` to pre-render demo-safe pages because static hosting has no request-time auth context.
-Neither mode grants database access. Real data and sensitive actions still require Supabase Auth, RLS, and Edge Function
-checks.
+The local Playwright/demo bypass is controlled by `EXAM_VAULT_DEMO_MODE=1` and is ignored in production builds. It does
+not grant database access. Real data and sensitive actions always require Supabase Auth, RLS, and Edge Function checks.
+
+Production requires Vercel SSR. Static export hosting is not supported because it cannot refresh Supabase sessions or
+run server-side route guards at request time.
 
 ## Owner MFA
 

@@ -6,6 +6,8 @@ QTI, KMS envelopes, and marking packet exports live in
 `supabase/migrations/202605060002_full_production_completion.sql`.
 Hosted MinerU API metadata lives in `supabase/migrations/202605060003_hosted_mineru_api.sql`.
 Atomic question-tree review replacement lives in `supabase/migrations/202605070001_atomic_question_tree_review.sql`.
+Production content-release boundary hardening lives in
+`supabase/migrations/202605120001_harden_content_release_boundaries.sql`.
 
 ## Tables
 
@@ -65,7 +67,9 @@ The TypeScript equivalent of the state machine lives in `lib/attempt-state.ts` a
 - Moderation reports are owner-only by default.
 - Owner-created groups and group memberships are owner-managed; students can only see group links involving themselves.
 - Marking, rubrics, annotations, feedback releases, parse jobs, retention requests, and audit logs are owner-managed.
-- Students can read released feedback/marks only after an explicit visible feedback release.
+- Students read released feedback/marks through the checked `get-student-results` Edge Function after an explicit visible
+  feedback release; direct student result policies are not used for question metadata, version rows, marks, or feedback
+  annotations.
 
 ## Indexes
 

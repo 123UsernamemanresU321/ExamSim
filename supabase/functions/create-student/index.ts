@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { randomCode, sha256Hex } from "../_shared/hash.ts";
 
@@ -60,6 +60,6 @@ serve(async (request) => {
 
     return json({ login_code: loginCode, activation_code: activationCode });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "create-student failed" }, 401);
+    return errorResponse(error, "create-student failed");
   }
 });

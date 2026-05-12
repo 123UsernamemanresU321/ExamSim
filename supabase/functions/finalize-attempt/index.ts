@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
@@ -33,6 +33,6 @@ serve(async (request) => {
     });
     return json({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "finalize-attempt failed" }, 401);
+    return errorResponse(error, "finalize-attempt failed");
   }
 });

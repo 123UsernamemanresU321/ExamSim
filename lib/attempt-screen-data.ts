@@ -22,12 +22,14 @@ type AttemptPackageResponse = {
   attempt_id: string;
   state: AttemptSummary["state"];
   assessment_package: unknown;
+  asset_urls?: Record<string, string>;
 };
 
 export type AttemptScreenData = {
   attempt: AttemptSummary;
   stateToken: string;
   package: NormalizedAssessmentPackage | null;
+  assetUrls: Record<string, string>;
   packageError: string | null;
   responses: { question_node_id: string; answer_text: string; saved_at: string }[];
   annotations: { question_node_id: string | null; annotation_type: string; body: string }[];
@@ -58,6 +60,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     },
     stateToken: "demo-state-token",
     package: includePackage && attempt.state !== "WAITING" ? samplePackage : null,
+    assetUrls: {},
     packageError: null,
     responses: [],
     annotations: [],
@@ -84,7 +87,7 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
   const state = await invokeEdgeFunctionServer<AttemptStateResponse>("get-attempt-state", { attempt_id: attemptId });
   const packageResult = includePackage && state.state !== "WAITING"
     ? await getReleasedPackageResult(attemptId, state.state_token)
-    : { package: null, packageError: null };
+    : { package: null, assetUrls: {}, packageError: null };
 
   const { data: responses, error: responsesError } = await supabase
     .from("text_responses")
@@ -109,6 +112,7 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     attempt: mapScreenAttempt(attempt, assessment, state),
     stateToken: state.state_token,
     package: packageResult.package,
+    assetUrls: packageResult.assetUrls,
     packageError: packageResult.packageError,
     responses: responses ?? [],
     annotations: annotations ?? [],
@@ -126,14 +130,16 @@ async function getReleasedPackageResult(attemptId: string, stateToken: string) {
     if (!parsed.success) {
       console.error("Schema validation failed:", parsed.error.format());
       return { 
-        package: null, 
-        packageError: `Released package failed schema validation: ${parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", ")}` 
+      package: null,
+      assetUrls: {},
+      packageError: `Released package failed schema validation: ${parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", ")}`,
       };
     }
-    return { package: parsed.data, packageError: null };
+    return { package: parsed.data, assetUrls: response.asset_urls ?? {}, packageError: null };
   } catch (error) {
     return {
       package: null,
+      assetUrls: {},
       packageError: error instanceof Error ? error.message : "Exam content could not be loaded.",
     };
   }

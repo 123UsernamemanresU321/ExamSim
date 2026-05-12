@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 import { sha256Hex } from "../_shared/hash.ts";
 
@@ -46,6 +46,6 @@ serve(async (request) => {
 
     return json({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "activate-student failed" }, 400);
+    return errorResponse(error, "activate-student failed");
   }
 });

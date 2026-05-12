@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { corsHeaders, handleOptions, readJson } from "../_shared/http.ts";
+import { corsHeaders, errorResponse, handleOptions, readJson } from "../_shared/http.ts";
 
 function csvCell(value: unknown) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -45,9 +45,6 @@ serve(async (request) => {
       },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "export-marks-csv failed" }), {
-      status: 401,
-      headers: { ...corsHeaders, "content-type": "application/json" },
-    });
+    return errorResponse(error, "export-marks-csv failed");
   }
 });
