@@ -4,11 +4,6 @@ import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-but
 import { QtiExportButton } from "@/components/owner/qti-export-button";
 import { SectionHeading } from "@/components/section-heading";
 import { getAssessmentWorkspace } from "@/lib/live-data";
-import { demoAssessmentParams } from "@/lib/static-params";
-
-export function generateStaticParams() {
-  return demoAssessmentParams();
-}
 
 export default async function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import {
   buildMineruAuthHeaders,
   buildMineruBatchRequest,
@@ -217,7 +217,7 @@ serve(async (request) => {
     } catch (dbError) {
       console.error("Failed to update parse job status on error:", dbError);
     }
-    return json({ error: message }, statusForMineruError(message));
+    return errorResponse(error, "mineru-submit-hosted-job failed");
   }
 });
 
@@ -241,11 +241,4 @@ async function readMineruJsonResponse(response: Response, label: string) {
     throw new Error(`${label} failed: ${response.status} ${String(record.msg ?? record.error ?? record.message ?? "").slice(0, 300)}`.trim());
   }
   return payload;
-}
-
-function statusForMineruError(message: string) {
-  if (/MFA|AAL2|Owner role|Forbidden|bearer token/i.test(message)) return 403;
-  if (/required|not configured|must be hosted|not submitted|invalid|rejected|PDF/i.test(message)) return 400;
-  if (/MinerU .*failed: 4\d\d/i.test(message)) return 502;
-  return 500;
 }

@@ -38,11 +38,14 @@ export function MarkingResponseWorkspace({
 
   // Sync state when props change (e.g. after router.refresh)
   useEffect(() => {
-    setAwarded(mark ? String(mark.awarded_marks) : "");
-    setNotes(mark?.notes ?? "");
-    setStudentFeedback(existingFeedback?.body ?? "");
-    setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
-    setIsUnreadable(annotations.some(a => a.is_unreadable));
+    const id = window.setTimeout(() => {
+      setAwarded(mark ? String(mark.awarded_marks) : "");
+      setNotes(mark?.notes ?? "");
+      setStudentFeedback(existingFeedback?.body ?? "");
+      setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
+      setIsUnreadable(annotations.some(a => a.is_unreadable));
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [mark, existingFeedback, annotations]);
 
   if (!node) return null;
@@ -110,36 +113,15 @@ export function MarkingResponseWorkspace({
 
   async function downloadFile(path: string) {
     const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.storage.from("answer-uploads").createSignedUrl(path, 60);
-    if (error) return alert("Could not generate download link: " + error.message + "\nPath: " + path);
-    window.open(data.signedUrl, "_blank");
-  }
-
-  async function handleManualUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!node) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsSaving(true);
-    const supabase = createSupabaseBrowserClient();
     try {
-      const path = `attempts/${attemptId}/${node.id}/manual_${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage.from("answer-uploads").upload(path, file);
-      if (uploadError) throw uploadError;
-
-      await supabase.from("upload_slots").upsert({
-        attempt_id: attemptId,
-        question_node_id: node.id,
-        object_path: path,
-        status: "uploaded",
-        uploaded_at: new Date().toISOString(),
-      }, { onConflict: "attempt_id,question_node_id" });
-
-      alert("Manual upload successful!");
-      router.refresh();
+      const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+        body: { bucket: "answer-uploads", object_path: path, purpose: "answer_upload", expires_in_seconds: 300 },
+        requiresAal2: true,
+      });
+      if (!data?.signed_url) throw new Error("Could not generate download link");
+      window.open(data.signed_url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      alert("Manual upload failed: " + (error instanceof Error ? error.message : "Unknown error"));
-    } finally {
-      setIsSaving(false);
+      alert("Could not generate download link: " + (error instanceof Error ? error.message : "Unknown error") + "\nPath: " + path);
     }
   }
 
@@ -190,12 +172,6 @@ export function MarkingResponseWorkspace({
             </div>
             <p className="text-sm font-bold text-[var(--subtle)] uppercase tracking-tight">No Response Found</p>
             <p className="text-xs text-[var(--muted)] mt-1">Student has not submitted any content for this question.</p>
-            <div className="mt-4">
-              <label className="cursor-pointer">
-                <Input type="file" accept="application/pdf" className="hidden" onChange={handleManualUpload} />
-                <span className="text-xs font-bold text-blue-600 underline hover:text-blue-700">Manual upload on behalf of student</span>
-              </label>
-            </div>
           </div>
         )}
 

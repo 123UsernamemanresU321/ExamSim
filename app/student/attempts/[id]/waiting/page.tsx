@@ -5,11 +5,6 @@ import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
 import { formatInTimezone } from "@/lib/attempt-state";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
-import { demoAttemptParams } from "@/lib/static-params";
-
-export function generateStaticParams() {
-  return demoAttemptParams();
-}
 
 export default async function WaitingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

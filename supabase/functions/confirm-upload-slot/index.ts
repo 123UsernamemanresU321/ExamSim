@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { computeAttemptState } from "../_shared/attempt-state.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
@@ -33,7 +33,8 @@ serve(async (request) => {
       solutionsRequested: attempt.solutions_requested,
     });
     if (state !== "ACTIVE" && state !== "UPLOAD_ONLY") return json({ error: "Upload confirmation not allowed in current state", state }, 403);
-    if (!body.object_path.endsWith("/current.pdf")) return json({ error: "Invalid upload object path" }, 400);
+    const expectedPath = `attempts/${body.attempt_id}/${body.question_node_id}/current.pdf`;
+    if (body.object_path !== expectedPath) return json({ error: "Invalid upload object path" }, 400);
     if (body.content_type && body.content_type !== "application/pdf") return json({ error: "Only PDF uploads are accepted" }, 400);
     if (typeof body.file_size_bytes !== "number" || body.file_size_bytes <= 0 || body.file_size_bytes > 10485760) {
       return json({ error: "PDF uploads must be 10MB or smaller" }, 400);
@@ -69,6 +70,6 @@ serve(async (request) => {
     });
     return json({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "confirm-upload-slot failed" }, 401);
+    return errorResponse(error, "confirm-upload-slot failed");
   }
 });

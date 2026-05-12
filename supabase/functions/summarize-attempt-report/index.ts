@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { requireOwner } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -12,6 +12,6 @@ serve(async (request) => {
     if (error) throw error;
     return json({ attempt_id: body.attempt_id, summary: data });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "summarize-attempt-report failed" }, 401);
+    return errorResponse(error, "summarize-attempt-report failed");
   }
 });

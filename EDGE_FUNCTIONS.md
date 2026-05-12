@@ -1,6 +1,6 @@
 # Edge Functions
 
-All sensitive functions validate authentication, parse JSON input, and use server-side authorization helpers. State-sensitive functions recompute attempt state before acting.
+All sensitive functions validate authentication, parse JSON input, and use server-side authorization helpers. State-sensitive functions recompute attempt state before acting. Shared error handling maps authentication errors to `401/403`, validation and state conflicts to `400/409`, provider failures to `502`, and unexpected failures to `500`.
 
 ## create-student
 
@@ -40,7 +40,9 @@ known private Storage objects. Storage removal is best-effort and warnings are w
 
 ## get-attempt-state
 
-Student or owner. Returns server-computed state, server time, countdown target, policy details, and short-lived state token.
+Student or owner. Input: `{ attempt_id, attempt_session_id? }`. Returns server-computed state, server time, countdown
+target, policy details, and a short-lived state token. When `attempt_session_id` is supplied, the token is bound to that
+session after the function verifies the session belongs to the same attempt.
 
 ## start-attempt-session
 
@@ -49,8 +51,11 @@ Student only for own attempt. Creates a session and stores hashes for user agent
 ## get-attempt-package
 
 Student only for own attempt. Validates ownership, fresh state, token, and delivery mode. Denies content during
-`WAITING`. Returns normalized package only when server state permits. `seb_required` attempts additionally require
-matching Browser Exam Key and Config Key hashes from SEB headers or the JavaScript API relay payload.
+`WAITING`. Returns `{ assessment_package, asset_urls, state, seb_verified }` only when server state permits. Package
+asset signed URLs are generated server-side from private `assessment-packages` and are never returned before server
+state is `ACTIVE`, `UPLOAD_ONLY`, or `FINISHED_REVIEW`. `seb_required` attempts additionally require matching Browser
+Exam Key and Config Key hashes from SEB headers, the JavaScript API relay payload, or a still-current verified attempt
+session whose stored hashes still match the attempt configuration.
 
 ## issue-upload-slot-url
 
@@ -70,6 +75,12 @@ Student only for own attempt. Records a standardized blank placeholder for a slo
 ## save-text-response
 
 Student only for own attempt. Autosaves typed answers during `ACTIVE` when typed responses are enabled.
+
+## set-question-flag
+
+Student only for own attempt. Input: `{ attempt_id, question_node_id, flagged, state_token }`. Validates the state token,
+recomputes attempt state, checks that the question belongs to the released attempt version, and records the flag through
+server-side `submission_annotations` writes plus an audit event. The browser no longer inserts flag rows directly.
 
 ## finalize-attempt
 
@@ -138,7 +149,9 @@ Owner AAL2 only. Exports owner-visible marks summary as CSV.
 
 ## record-attempt-event
 
-Student only for own attempt. Inserts append-only telemetry events such as fullscreen, visibility, focus, heartbeat, reconnect, and upload events.
+Student only for own attempt. Inserts append-only telemetry events such as fullscreen, visibility, focus, heartbeat,
+reconnect, and upload events. If an `attempt_session_id` is supplied, the function verifies it belongs to the attempt
+and updates `attempt_sessions.last_heartbeat_at` for heartbeat events.
 
 ## summarize-attempt-report
 
@@ -149,3 +162,21 @@ Owner or scheduled job. Aggregates telemetry, upload slots, hidden time, heartbe
 Owner AAL2 only. Builds a real ZIP containing the assessment package, question tree, typed responses, upload manifest,
 short-lived upload download links, moderation report, marks, annotations, feedback release state, and audit manifest.
 If the Cloudflare KMS wrapper is configured, the ZIP object is AES-GCM encrypted before it is written to private Storage.
+
+## owner-sign-storage-url
+
+Owner AAL2 only. Issues short-lived signed URLs for owner-only parse artifacts, answer uploads, and marking packet
+objects after checking the object belongs to the owner. Every issuance is audited. This replaces direct client-side
+Storage signing in parse review and marking views.
+
+## get-student-results
+
+Student or owner. Returns released student feedback only through a checked Edge boundary. Students receive sanitized
+question metadata, marks, feedback annotations, and their own response summaries only after `feedback_releases` is
+visible. Moderation reports, attempt events, private package objects, and unreleased feedback remain owner-only.
+
+## list-student-results
+
+Student only. Lists the student's attempts with visible feedback releases and sanitized assessment metadata. This keeps
+the student results list off direct `feedback_releases`/`assessments` browser queries after direct student result
+policies are removed.

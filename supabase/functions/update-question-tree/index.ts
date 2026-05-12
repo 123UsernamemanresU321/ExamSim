@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { requireOwner } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type FlatNode = {
   node_key: string;
@@ -72,7 +72,7 @@ serve(async (request) => {
     return json({ ok: true, node_count: Number(nodeCount ?? rows.length) });
   } catch (error) {
     console.error("Update question tree error:", error);
-    return json({ error: error instanceof Error ? error.message : "update-question-tree failed" }, 500);
+    return errorResponse(error, "update-question-tree failed");
   }
 });
 

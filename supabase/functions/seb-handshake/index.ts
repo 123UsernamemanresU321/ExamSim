@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
+import { errorResponse } from "../_shared/http.ts";
 import { extractSebKeys, validateSebKeys } from "../_shared/seb.ts";
 
 serve(async (req) => {
@@ -44,15 +45,17 @@ serve(async (req) => {
           const { verifyStateToken } = await import("../_shared/state-token.ts");
           const tokenPayload = await verifyStateToken(stateToken);
           
-          if (tokenPayload?.attempt_session_id) {
+          if (tokenPayload?.attempt_session_id && tokenPayload.attempt_id === attemptId) {
             await supabase
               .from("attempt_sessions")
               .update({
                 seb_verified: true,
                 browser_exam_key_hash: keys.browserExamKeyHash,
                 config_key_hash: keys.configKeyHash,
+                last_heartbeat_at: new Date().toISOString(),
               })
-              .eq("id", tokenPayload.attempt_session_id);
+              .eq("id", tokenPayload.attempt_session_id)
+              .eq("attempt_id", attemptId);
           }
         } catch (e) {
           console.warn("State token verification failed during handshake, but SEB keys were valid.", e);
@@ -72,6 +75,6 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Handshake failed:", error);
-    return new Response(`Handshake error: ${error instanceof Error ? error.message : "Unknown"}`, { status: 500 });
+    return errorResponse(error, "seb-handshake failed");
   }
 });

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { parseAiJsonObject } from "../_shared/ai-json.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 
 type Body = {
@@ -570,7 +570,7 @@ serve(async (request) => {
     return json({ ok: true, suggestion: saved });
   } catch (error) {
     console.error("AI Parse error:", error);
-    return json({ error: error instanceof Error ? error.message : "ai-parse-assessment failed" }, 500);
+    return errorResponse(error, "ai-parse-assessment failed");
   }
 });
 

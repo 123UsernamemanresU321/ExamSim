@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { FileCheck, Award, Calendar, Loader2 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 interface ResultItem {
   attempt_id: string;
@@ -24,36 +25,8 @@ export function StudentResultsListClient() {
     async function load() {
       try {
         const supabase = createSupabaseBrowserClient();
-
-        // Query feedback_releases directly — RLS ensures only this student's released results are returned
-        const { data: releases, error: releasesError } = await supabase
-          .from("feedback_releases")
-          .select(`
-            attempt_id,
-            released_at,
-            total_awarded_marks,
-            total_available_marks,
-            attempts!inner(assessment_id, assessments!inner(title, paper_code))
-          `)
-          .eq("visible_to_student", true)
-          .order("released_at", { ascending: false });
-
-        if (releasesError) throw releasesError;
-
-        const items: ResultItem[] = (releases ?? []).map((r) => {
-          const attempt = (r as Record<string, unknown>).attempts as Record<string, unknown>;
-          const assessment = attempt.assessments as Record<string, unknown>;
-          return {
-            attempt_id: r.attempt_id,
-            assessment_title: (assessment?.title as string) ?? "Untitled assessment",
-            paper_code: (assessment?.paper_code as string) ?? null,
-            released_at: r.released_at,
-            total_awarded_marks: Number(r.total_awarded_marks),
-            total_available_marks: Number(r.total_available_marks),
-          };
-        });
-
-        setResults(items);
+        const data = await invokeEdgeFunction<{ results: ResultItem[] }>(supabase, "list-student-results", { body: {} });
+        setResults(data?.results ?? []);
       } catch (err) {
         console.error("Failed to load student results:", err);
         setError(err instanceof Error ? err.message : "Failed to load results");

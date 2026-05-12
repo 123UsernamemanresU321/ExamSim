@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { sha256Hex } from "../_shared/hash.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -27,6 +27,6 @@ serve(async (request) => {
     if (sessionError) throw sessionError;
     return json({ attempt_session_id: session.id });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "start-attempt-session failed" }, 401);
+    return errorResponse(error, "start-attempt-session failed");
   }
 });

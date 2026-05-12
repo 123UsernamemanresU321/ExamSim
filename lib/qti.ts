@@ -16,7 +16,7 @@ export type QtiManifest = {
 
 export function normalizedPackageToQtiManifest(pkg: NormalizedAssessmentPackage): QtiManifest {
   const identifier =
-    pkg.assessment.id === "replace-with-assessment-id"
+    pkg.assessment.id === "replace-with-assessment-id" || pkg.assessment.id === "assess_unique_id"
       ? "exam-vault-template"
       : slugIdentifier(pkg.assessment.paper_code || pkg.assessment.title || pkg.assessment.id);
   return {

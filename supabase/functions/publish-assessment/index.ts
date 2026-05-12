@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
   assessment_id: string;
@@ -142,8 +142,7 @@ serve(async (request) => {
     });
     return json({ ok: true, attempt_ids: attempts?.map((attempt) => attempt.id) ?? [] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "publish-assessment failed";
-    return json({ error: message }, statusForPublishError(message));
+    return errorResponse(error, "publish-assessment failed");
   }
 });
 
@@ -166,10 +165,4 @@ function parseLocalTimeToUtc(localTime: string, timezone: string): Date {
   const minutes = match[3] ? parseInt(match[3], 10) : 0;
   const offsetMinutes = sign * (hours * 60 + minutes);
   return new Date(localDate.getTime() - offsetMinutes * 60 * 1000);
-}
-
-function statusForPublishError(message: string) {
-  if (/MFA|AAL2|Owner role|Forbidden|bearer token/i.test(message)) return 403;
-  if (/Missing|review is required|invalid/i.test(message)) return 400;
-  return 500;
 }

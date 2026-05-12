@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 
 serve(async (request) => {
@@ -152,7 +152,7 @@ serve(async (request) => {
     await auditOwnerAction(ownerProfile.id, user.id, "marking_packet.exported", "attempts", body.attempt_id);
     return json(packet);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "owner-download-marking-packet failed" }, 401);
+    return errorResponse(error, "owner-download-marking-packet failed");
   }
 });
 

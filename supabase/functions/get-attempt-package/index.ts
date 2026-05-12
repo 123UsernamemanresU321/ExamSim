@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { computeAttemptState } from "../_shared/attempt-state.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 import { extractSebKeys, validateSebKeys } from "../_shared/seb.ts";
 import { verifyStateToken } from "../_shared/state-token.ts";
@@ -52,21 +52,34 @@ serve(async (request) => {
       if (!validation.ok && tokenPayload.attempt_session_id) {
         const { data: session } = await admin
           .from("attempt_sessions")
-          .select("seb_verified, browser_exam_key_hash, config_key_hash")
+          .select("seb_verified, browser_exam_key_hash, config_key_hash, ended_at")
           .eq("id", tokenPayload.attempt_session_id)
+          .eq("attempt_id", attempt.id)
           .single();
-        
-        if (session?.seb_verified) {
-          validation = { ok: true, reason: null };
-          keys.browserExamKeyHash = session.browser_exam_key_hash;
-          keys.configKeyHash = session.config_key_hash;
+
+        if (session?.seb_verified && !session.ended_at) {
+          const storedValidation = validateSebKeys({
+            expectedBrowserExamKeyHashes: attempt.seb_browser_exam_key_hashes,
+            expectedConfigKeyHashes: attempt.seb_config_key_hashes,
+            receivedBrowserExamKeyHash: session.browser_exam_key_hash,
+            receivedConfigKeyHash: session.config_key_hash,
+          });
+          if (storedValidation.ok) {
+            validation = storedValidation;
+            keys.browserExamKeyHash = session.browser_exam_key_hash;
+            keys.configKeyHash = session.config_key_hash;
+          }
+        }
+
+        if (!validation.ok && session?.seb_verified) {
+          validation = { ok: false, reason: "Stored SEB session no longer matches this attempt configuration." };
         }
       }
 
       if (!validation.ok) {
         return json({ error: validation.reason, state, seb_required: true }, 403);
       }
-      
+
       sebVerified = true;
       if (tokenPayload.attempt_session_id) {
         await admin
@@ -75,6 +88,7 @@ serve(async (request) => {
             seb_verified: true,
             browser_exam_key_hash: keys.browserExamKeyHash,
             config_key_hash: keys.configKeyHash,
+            last_heartbeat_at: new Date().toISOString(),
           })
           .eq("id", tokenPayload.attempt_session_id)
           .eq("attempt_id", attempt.id);
@@ -88,6 +102,7 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
     const assessmentPackage = await loadNormalizedPackage(admin, version);
+    const assetUrls = await signPackageAssetUrls(admin, assessmentPackage);
 
     return json({
       attempt_id: attempt.id,
@@ -96,8 +111,50 @@ serve(async (request) => {
       rendering_mode: "normalized_html",
       seb_verified: sebVerified,
       assessment_package: assessmentPackage,
+      asset_urls: assetUrls,
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "get-attempt-package failed" }, 401);
+    return errorResponse(error, "get-attempt-package failed");
   }
 });
+
+async function signPackageAssetUrls(
+  admin: {
+    storage: {
+      from(bucket: string): {
+        createSignedUrl(path: string, expiresIn: number): Promise<{ data: { signedUrl: string } | null; error: Error | null }>;
+      };
+    };
+  },
+  assessmentPackage: Record<string, unknown>,
+) {
+  const paths = new Set<string>();
+  collectAssetPaths(assessmentPackage.questions, paths);
+  const urls: Record<string, string> = {};
+  for (const path of paths) {
+    if (!isSafePackageAssetPath(path)) continue;
+    const { data, error } = await admin.storage.from("assessment-packages").createSignedUrl(path, 300);
+    if (error) throw error;
+    if (data?.signedUrl) urls[path] = data.signedUrl;
+  }
+  return urls;
+}
+
+function collectAssetPaths(value: unknown, paths: Set<string>) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectAssetPaths(item, paths);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  if (Array.isArray(record.assets)) {
+    for (const asset of record.assets) {
+      if (typeof asset === "string") paths.add(asset);
+    }
+  }
+  collectAssetPaths(record.children, paths);
+}
+
+function isSafePackageAssetPath(path: string) {
+  return Boolean(path.trim()) && !path.includes("..") && !path.startsWith("/") && !path.includes("\\");
+}

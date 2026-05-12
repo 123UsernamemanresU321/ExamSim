@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+/* eslint-disable @next/next/no-img-element */
+import { useState, useRef } from "react";
 import { Flag, UploadCloud } from "lucide-react";
 import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
@@ -11,29 +12,10 @@ import { validatePdfUpload } from "@/lib/upload-policy";
 import type { QuestionNode } from "@/lib/assessment-package";
 import { cn } from "@/lib/utils";
 
-function AssetImage({ path }: { path: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-  const supabase = createSupabaseBrowserClient();
+function AssetImage({ path, signedUrl }: { path: string; signedUrl?: string }) {
+  const url = signedUrl ?? null;
 
-  useEffect(() => {
-    let cancelled = false;
-    async function resolve() {
-      try {
-        const { data, error: signError } = await supabase.storage.from("assessment-packages").createSignedUrl(path, 3600);
-        if (signError) throw signError;
-        if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
-      } catch (e) {
-        console.error("Asset resolve failed", e);
-        if (!cancelled) setError(true);
-      }
-    }
-    resolve();
-    return () => { cancelled = true; };
-  }, [path, supabase]);
-
-  if (error) return <div className="text-xs text-red-500 italic">Diagram missing: {path.split("/").pop()}</div>;
-  if (!url) return <div className="h-40 w-full animate-pulse rounded-lg bg-gray-100" />;
+  if (!url) return <div className="text-xs text-red-500 italic">Diagram unavailable: {path.split("/").pop()}</div>;
 
   return (
     <div className="my-4">
@@ -53,6 +35,7 @@ function QuestionBlock({
   attemptId,
   ownerProfileId,
   stateToken,
+  assetUrls = {},
   responses = [],
   annotations = [],
   depth = 0
@@ -62,6 +45,7 @@ function QuestionBlock({
   attemptId?: string;
   ownerProfileId?: string;
   stateToken?: string;
+  assetUrls?: Record<string, string>;
   responses?: { question_node_id: string; answer_text: string }[];
   annotations?: { question_node_id: string | null; annotation_type: string; body: string }[];
   depth?: number;
@@ -73,15 +57,15 @@ function QuestionBlock({
   const supabase = createSupabaseBrowserClient();
 
   async function toggleFlag() {
-    if (!attemptId || readonly) return;
+    if (!attemptId || !stateToken || readonly) return;
     try {
-      await supabase.from("submission_annotations").insert({
-        attempt_id: attemptId,
-        question_node_id: node.node_id,
-        owner_profile_id: ownerProfileId!,
-        annotation_type: "student_flag",
-        body: isFlagged ? "unflagged" : "flagged",
-        anchor_json: {},
+      await invokeEdgeFunction(supabase, "set-question-flag", {
+        body: {
+          attempt_id: attemptId,
+          question_node_id: node.node_id,
+          flagged: !isFlagged,
+          state_token: stateToken,
+        },
       });
       setIsFlagged(!isFlagged);
     } catch (e) {
@@ -166,19 +150,20 @@ function QuestionBlock({
       {node.assets && node.assets.length > 0 && (
         <div className="mt-4 flex flex-col gap-4">
           {node.assets.map((assetPath, idx) => (
-            <AssetImage key={`${node.node_id}-asset-${idx}`} path={assetPath} />
+            <AssetImage key={`${node.node_id}-asset-${idx}`} path={assetPath} signedUrl={assetUrls[assetPath]} />
           ))}
         </div>
       )}
 
       {hasInputs && (
         <>
-          {(node.response_mode === "typed_text" || node.response_mode === "typed_or_upload") && attemptId ? (
+          {(node.response_mode === "typed_text" || node.response_mode === "typed_or_upload") && attemptId && stateToken ? (
             <div className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
               Typed response
               <ResponseTextArea 
                 attemptId={attemptId} 
                 questionNodeId={node.node_id} 
+                stateToken={stateToken}
                 initialValue={initialValue}
                 readonly={readonly}
               />
@@ -219,6 +204,7 @@ function QuestionBlock({
           attemptId={attemptId}
           ownerProfileId={ownerProfileId}
           stateToken={stateToken}
+          assetUrls={assetUrls}
           responses={responses}
           annotations={annotations}
           depth={depth + 1}
@@ -233,6 +219,7 @@ export function QuestionPaper({
   attemptId,
   ownerProfileId,
   stateToken,
+  assetUrls = {},
   responses = [],
   annotations = []
 }: { 
@@ -241,6 +228,7 @@ export function QuestionPaper({
   attemptId?: string;
   ownerProfileId?: string;
   stateToken?: string;
+  assetUrls?: Record<string, string>;
   responses?: { question_node_id: string; answer_text: string }[];
   annotations?: { question_node_id: string | null; annotation_type: string; body: string }[];
 }) {
@@ -255,6 +243,7 @@ export function QuestionPaper({
             attemptId={attemptId}
             ownerProfileId={ownerProfileId}
             stateToken={stateToken}
+            assetUrls={assetUrls}
             responses={responses}
             annotations={annotations}
           />

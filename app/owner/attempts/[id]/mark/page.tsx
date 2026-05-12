@@ -1,11 +1,6 @@
 import { SectionHeading } from "@/components/section-heading";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
-import { demoAttemptParams } from "@/lib/static-params";
 import { MarkingLayout } from "@/components/owner/marking-layout";
-
-export function generateStaticParams() {
-  return demoAttemptParams();
-}
 
 export default async function MarkAttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

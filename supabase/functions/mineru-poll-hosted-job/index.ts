@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import {
   buildMineruAuthHeaders,
   mineruApiBaseUrl,
@@ -66,7 +66,7 @@ serve(async (request) => {
           metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_poll_error: message },
         })
         .eq("id", parseJob.id);
-      return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, statusForMineruError(message));
+      return errorResponse(new Error(message), "mineru-poll-hosted-job failed");
     }
     
     let result: MineruExtractResult;
@@ -225,11 +225,10 @@ serve(async (request) => {
           },
         })
         .eq("id", parseJob.id);
-      return json({ ok: false, status: "failed", external_state: "provider_error", error_message: message }, 500);
+      return errorResponse(new Error(`Extraction failed: ${message}`), "mineru-poll-hosted-job failed");
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "mineru-poll-hosted-job failed";
-    return json({ error: message }, statusForMineruError(message));
+    return errorResponse(error, "mineru-poll-hosted-job failed");
   }
 });
 
@@ -263,13 +262,6 @@ function staleMineruError(parseJob: { started_at?: string | null; updated_at?: s
   if (elapsedSeconds < staleAfterSeconds) return null;
   const uploadMode = typeof parseJob.metadata_json?.upload_mode === "string" ? parseJob.metadata_json.upload_mode : "unknown";
   return `MinerU has not completed after ${Math.round(elapsedSeconds / 60)} minutes. The job was marked failed so it can be restarted; server-side file upload mode is recommended over signed URL mode. Last upload mode: ${uploadMode}.`;
-}
-
-function statusForMineruError(message: string) {
-  if (/MFA|AAL2|Owner role|Forbidden|bearer token/i.test(message)) return 403;
-  if (/required|not configured|not submitted|invalid/i.test(message)) return 400;
-  if (/MinerU .*failed: 4\d\d|provider_error/i.test(message)) return 502;
-  return 500;
 }
 
 async function extractAndUploadArtifacts(

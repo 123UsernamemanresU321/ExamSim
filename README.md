@@ -135,7 +135,7 @@ Private buckets expected by the app:
 Create them as private buckets. Do not use public URLs for real assessment material.
 
 The hosted production database starts blank. Do not seed sample assessments into production; local/demo data lives only
-behind `EXAM_VAULT_DEMO_MODE=1` or static export guards.
+behind `EXAM_VAULT_DEMO_MODE=1` in development and test.
 
 ## Verification Commands
 
@@ -166,8 +166,9 @@ Supabase session. Production never honors this bypass.
 
 ## Vercel
 
-Vercel is the preferred production host for the full Next.js app. The linked Vercel project should use the normal
-Next.js build, not the GitHub Pages static export path.
+Vercel SSR is the required production host for the full Next.js app. Static export hosting is not supported for
+production because Exam Vault depends on server-side route guards, Supabase session refresh, and request-time content
+release checks.
 
 Build settings:
 
@@ -185,10 +186,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_DEFAULT_TIMEZONE
 ```
 
-Do not set `NEXT_PUBLIC_DEPLOY_TARGET=github-pages` or `NEXT_PUBLIC_STATIC_EXPORT=1` on Vercel. Keep
-`SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, and `ATTEMPT_STATE_TOKEN_SECRET` out of Vercel unless a future Vercel-side
-server workflow explicitly requires them. The current sensitive workflows run in Supabase Edge Functions, where those
-server-side secrets belong.
+Do not add static export flags to Vercel. Keep `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, and
+`ATTEMPT_STATE_TOKEN_SECRET` out of Vercel unless a future Vercel-side server workflow explicitly requires them. The
+current sensitive workflows run in Supabase Edge Functions, where those server-side secrets belong.
 
 Custom domain target: `examvault.tutor-mcp.com`. See [docs/CLOUDFLARE_DOMAIN.md](docs/CLOUDFLARE_DOMAIN.md) for the
 Cloudflare CNAME and TLS verification steps.
@@ -205,29 +205,3 @@ Cloudflare CNAME and TLS verification steps.
 - QTI import creates review-required drafts; QTI export is conservative and includes the Exam Vault normalized package JSON for lossless metadata recovery.
 - Marking packet export creates a private ZIP. If the Cloudflare KMS wrapper is configured, the ZIP object is envelope-encrypted before upload.
 - Feedback is hidden until the owner explicitly releases it.
-
-## GitHub Pages
-
-GitHub Pages is static hosting, so it cannot run Next.js API routes, proxy middleware, server actions, or server-side
-route guards. Exam Vault supports this by using Supabase Auth, RLS, and Edge Functions as the runtime backend from the
-browser. Sensitive content remains gated by Supabase Edge Functions; the static frontend is not trusted for timing or
-authorization.
-
-The workflow at `.github/workflows/deploy-pages.yml` builds with:
-
-```bash
-npm run build:pages
-```
-
-Add these GitHub repository secrets:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-```
-
-Then enable Pages in GitHub repository settings with source `GitHub Actions`.
-
-The static export pre-generates the demo dynamic routes used by smoke tests. Newly created live assessment/attempt IDs
-are still protected by Supabase, but static hosting cannot SSR arbitrary new dynamic paths. For broad production use on
-GitHub Pages, prefer query-based client routes for new IDs or deploy the same app to a server-capable host.

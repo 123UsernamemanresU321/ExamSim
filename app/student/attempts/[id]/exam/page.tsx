@@ -1,11 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
-import { demoAttemptParams } from "@/lib/static-params";
 import { ExamWorkspace } from "@/components/exam/exam-workspace";
-
-export function generateStaticParams() {
-  return demoAttemptParams();
-}
 
 export default async function ActiveExamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

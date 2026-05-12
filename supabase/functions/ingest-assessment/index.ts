@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwner } from "../_shared/auth.ts";
-import { handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import type { getAdminClient } from "../_shared/supabase.ts";
 
 type IngestBody = {
@@ -289,7 +289,7 @@ serve(async (request) => {
     });
   } catch (error) {
     console.error("Ingest assessment error:", error);
-    return json({ error: error instanceof Error ? error.message : "ingest-assessment failed" }, 500);
+    return errorResponse(error, "ingest-assessment failed");
   }
 });
 

@@ -2,11 +2,6 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
 import { listOwnerAttempts } from "@/lib/live-data";
-import { demoAttemptParams } from "@/lib/static-params";
-
-export function generateStaticParams() {
-  return demoAttemptParams();
-}
 
 export default async function OwnerAttemptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
