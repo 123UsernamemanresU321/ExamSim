@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPromptContent } from "@/components/math-renderer";
+import { formatPromptContent, renderMathMarkup } from "@/components/math-renderer";
 
 describe("prompt rendering", () => {
   it("preserves tab-separated fraction choices as evenly spread math cells", () => {
@@ -37,5 +37,13 @@ describe("prompt rendering", () => {
 
     expect(html).toContain("$\\frac{1}{2}$");
     expect(html).toContain("$\\frac{1}{3}$");
+  });
+
+  it("renders KaTeX markup before React writes prompt HTML to the DOM", () => {
+    const html = renderMathMarkup(formatPromptContent({ latex: "Find $x$ and compare 500/1000\t501/1001." }));
+
+    expect(html).toContain("katex");
+    expect(html).not.toContain("$x$");
+    expect(html).not.toContain("$\\frac{500}{1000}$");
   });
 });

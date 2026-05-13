@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import renderMathInElement from "katex/dist/contrib/auto-render";
+import katex from "katex";
 
 export function formatPromptContent({ latex, html }: { latex?: string; html?: string }) {
   if (html) return formatHtmlPromptContent(unescapeMath(html));
@@ -36,32 +35,105 @@ function formatHtmlPromptContent(html: string) {
 }
 
 export function MathRenderer({ latex, html, className }: { latex?: string; html?: string; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const content = formatPromptContent({ latex, html });
-
-  useEffect(() => {
-    if (ref.current) {
-      renderMathInElement(ref.current, {
-        delimiters: [
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false },
-          { left: "\\(", right: "\\)", display: false },
-          { left: "\\[", right: "\\]", display: true },
-        ],
-        throwOnError: false,
-      });
-    }
-  }, [content]);
+  const content = renderMathMarkup(formatPromptContent({ latex, html }));
 
   if (!content) return null;
 
   return (
     <div
-      ref={ref}
       className={className}
       dangerouslySetInnerHTML={{ __html: content }}
     />
   );
+}
+
+export function renderMathMarkup(content: string) {
+  if (!content) return "";
+
+  let rendered = "";
+  let index = 0;
+
+  while (index < content.length) {
+    const next = findNextMathDelimiter(content, index);
+    if (!next) {
+      rendered += content.slice(index);
+      break;
+    }
+
+    rendered += content.slice(index, next.start);
+    const close = findClosingDelimiter(content, next.contentStart, next.close);
+    if (close === -1) {
+      rendered += content.slice(next.start);
+      break;
+    }
+
+    const source = content.slice(next.contentStart, close);
+    rendered += renderKatex(source, next.display, content.slice(next.start, close + next.close.length));
+    index = close + next.close.length;
+  }
+
+  return rendered;
+}
+
+type MathDelimiter = {
+  start: number;
+  contentStart: number;
+  close: "$$" | "$" | "\\]" | "\\)";
+  display: boolean;
+};
+
+function findNextMathDelimiter(content: string, from: number): MathDelimiter | null {
+  const candidates: MathDelimiter[] = [];
+  const displayDollar = content.indexOf("$$", from);
+  if (displayDollar !== -1) {
+    candidates.push({ start: displayDollar, contentStart: displayDollar + 2, close: "$$", display: true });
+  }
+
+  const displayBracket = content.indexOf("\\[", from);
+  if (displayBracket !== -1) {
+    candidates.push({ start: displayBracket, contentStart: displayBracket + 2, close: "\\]", display: true });
+  }
+
+  const inlineParen = content.indexOf("\\(", from);
+  if (inlineParen !== -1) {
+    candidates.push({ start: inlineParen, contentStart: inlineParen + 2, close: "\\)", display: false });
+  }
+
+  const inlineDollar = findInlineDollar(content, from);
+  if (inlineDollar !== -1) {
+    candidates.push({ start: inlineDollar, contentStart: inlineDollar + 1, close: "$", display: false });
+  }
+
+  return candidates.sort((a, b) => a.start - b.start)[0] ?? null;
+}
+
+function findInlineDollar(content: string, from: number) {
+  for (let i = from; i < content.length; i += 1) {
+    if (content[i] !== "$") continue;
+    if (content[i - 1] === "\\" || content[i + 1] === "$" || content[i - 1] === "$") continue;
+    return i;
+  }
+  return -1;
+}
+
+function findClosingDelimiter(content: string, from: number, close: MathDelimiter["close"]) {
+  for (let i = from; i < content.length; i += 1) {
+    if (content.startsWith(close, i) && content[i - 1] !== "\\") return i;
+  }
+  return -1;
+}
+
+function renderKatex(source: string, displayMode: boolean, fallback: string) {
+  try {
+    return katex.renderToString(source, {
+      displayMode,
+      throwOnError: false,
+      strict: "warn",
+      trust: false,
+    });
+  } catch {
+    return fallback;
+  }
 }
 
 function formatPromptLine(line: string) {

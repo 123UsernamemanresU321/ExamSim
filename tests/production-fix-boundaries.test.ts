@@ -178,4 +178,10 @@ describe("prompt rendering and AAL2 stability", () => {
     expect(helper).not.toContain("refreshSession");
     expect(helper).toContain("getAuthenticatorAssuranceLevel");
   });
+
+  it("does not rely on post-render DOM mutation for KaTeX prompts", () => {
+    const source = read("components/math-renderer.tsx");
+    expect(source).toContain("renderMathMarkup");
+    expect(source).not.toContain("renderMathInElement");
+  });
 });
