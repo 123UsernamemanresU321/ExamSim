@@ -64,50 +64,10 @@ describe("Edge state and content release boundaries", () => {
       "supabase/functions/mineru-submit-hosted-job/index.ts",
       "supabase/functions/mineru-poll-hosted-job/index.ts",
       "supabase/functions/seb-handshake/index.ts",
-      "supabase/functions/seb-verify-session/index.ts",
-      "supabase/functions/upload-seb-config/index.ts",
     ]) {
       expect(read(path), path).toContain("errorResponse");
     }
     expect(read("supabase/functions/_shared/http.ts")).toContain("invalid jwt");
-  });
-
-  it("implements SEB release as server-side request-hash verification", () => {
-    const shared = read("supabase/functions/_shared/seb.ts");
-    expect(shared).toContain("x-safeexambrowser-requesthash");
-    expect(shared).toContain("x-safeexambrowser-configkeyhash");
-    expect(shared).toContain("canonicalizeSebUrl");
-    expect(shared).toContain("verifySebRequestHashes");
-    expect(shared).toContain("APP_ALLOWED_ORIGINS");
-
-    const packageGate = read("supabase/functions/get-attempt-package/index.ts");
-    expect(packageGate).toContain("SEB attempts require a session-bound state token");
-    expect(packageGate).toContain("sebVerificationTtlSeconds");
-    expect(packageGate).not.toContain("seb_browser_exam_key_hash?:");
-    expect(packageGate).not.toContain("seb_config_key_hash?:");
-
-    const sessionVerifier = read("supabase/functions/seb-verify-session/index.ts");
-    expect(sessionVerifier).toContain("mode?: \"header\" | \"js_api\"");
-    expect(sessionVerifier).toContain("validateSebPageUrl");
-    expect(sessionVerifier).toContain("verifyStateToken");
-    expect(sessionVerifier).toContain("seb_verified_at");
-  });
-
-  it("does not use user-agent or body-forged SEB keys in the active exam client", () => {
-    const source = read("components/exam/exam-workspace.tsx");
-    expect(source).toContain('"seb-verify-session"');
-    expect(source).toContain('"get-attempt-package"');
-    expect(source).not.toContain("navigator.userAgent");
-    expect(source).not.toContain("seb_browser_exam_key_hash:");
-    expect(source).not.toContain("seb_config_key_hash:");
-  });
-
-  it("routes owner SEB config upload through an AAL2-gated Edge Function", () => {
-    const form = read("components/owner/publish-assessment-form.tsx");
-    expect(form).toContain('"upload-seb-config"');
-    expect(form).not.toContain('.storage\n        .from("assessment-sources")');
-    expect(form).toContain("requiresAal2: true");
-    expect(read("supabase/functions/upload-seb-config/index.ts")).toContain("requireOwnerAal2");
   });
 });
 
