@@ -35,8 +35,7 @@ describe("prompt rendering", () => {
   it("wraps bare latex commands inside html paragraphs for KaTeX auto-render", () => {
     const html = formatPromptContent({ html: "<p>Simplify \\frac{1}{2}+\\frac{1}{3}.</p>" });
 
-    expect(html).toContain("$\\frac{1}{2}$");
-    expect(html).toContain("$\\frac{1}{3}$");
+    expect(html).toContain("$\\frac{1}{2}+\\frac{1}{3}$");
   });
 
   it("renders KaTeX markup before React writes prompt HTML to the DOM", () => {
@@ -45,5 +44,23 @@ describe("prompt rendering", () => {
     expect(html).toContain("katex");
     expect(html).not.toContain("$x$");
     expect(html).not.toContain("$\\frac{500}{1000}$");
+  });
+
+  it("keeps nested root expressions as one KaTeX formula", () => {
+    const expression = "\\sqrt[4]{25 + \\sqrt[4]{14 + \\sqrt{2 + \\sqrt[3]{8}}}}^4";
+    const formatted = formatPromptContent({ html: `<p>${expression}</p>` });
+    const rendered = renderMathMarkup(formatted);
+
+    expect(formatted).toContain(`$${expression}$`);
+    expect(rendered.match(/class="katex"/g)).toHaveLength(1);
+  });
+
+  it("keeps nested root expressions embedded in prose as one KaTeX formula", () => {
+    const expression = "\\sqrt[4]{25 + \\sqrt[4]{14 + \\sqrt{2 + \\sqrt[3]{8}}}}^4";
+    const formatted = formatPromptContent({ html: `<p>Evaluate ${expression}.</p>` });
+    const rendered = renderMathMarkup(formatted);
+
+    expect(formatted).toContain(`Evaluate $${expression}$`);
+    expect(rendered.match(/class="katex"/g)).toHaveLength(1);
   });
 });

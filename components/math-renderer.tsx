@@ -163,10 +163,147 @@ function formatPromptSegment(segment: string) {
   if (hasMathDelimiters(segment)) return escaped;
   if (looksLikeBareMath(segment)) return `$${escaped}$`;
 
-  return escaped.replace(
-    /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|leq|geq|neq|infty|angle|triangle)(?:\s*\{[^{}]*\}){0,3}/g,
-    (match) => `$${match}$`,
-  );
+  return wrapBareLatexRuns(segment);
+}
+
+const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|leq|geq|neq|infty|angle|triangle)\b/g;
+
+function wrapBareLatexRuns(segment: string) {
+  let output = "";
+  let index = 0;
+  BARE_LATEX_COMMAND_PATTERN.lastIndex = 0;
+
+  while (true) {
+    const match = BARE_LATEX_COMMAND_PATTERN.exec(segment);
+    if (!match) break;
+    const start = match.index;
+    if (start < index) continue;
+
+    output += escapeHtml(segment.slice(index, start));
+    const end = consumeMathRun(segment, start);
+    if (end <= start) {
+      output += escapeHtml(match[0]);
+      index = start + match[0].length;
+    } else {
+      output += `$${escapeHtml(segment.slice(start, end).trim())}$`;
+      index = end;
+    }
+    BARE_LATEX_COMMAND_PATTERN.lastIndex = index;
+  }
+
+  return output + escapeHtml(segment.slice(index));
+}
+
+function consumeMathRun(value: string, start: number) {
+  let index = consumeMathAtom(value, start);
+  if (index === start) return start;
+
+  while (index < value.length) {
+    const afterSpaces = consumeSpaces(value, index);
+    const operatorEnd = consumeMathOperator(value, afterSpaces);
+    if (operatorEnd === afterSpaces) break;
+
+    const atomStart = consumeSpaces(value, operatorEnd);
+    const atomEnd = consumeMathAtom(value, atomStart);
+    if (atomEnd === atomStart) break;
+    index = atomEnd;
+  }
+
+  return trimRunEnd(value, index);
+}
+
+function consumeMathAtom(value: string, start: number) {
+  let index = consumeSpaces(value, start);
+  if (index >= value.length) return start;
+
+  if (value[index] === "\\") return consumeScripts(value, consumeLatexCommand(value, index));
+  if (value[index] === "{") return consumeScripts(value, consumeBalanced(value, index, "{", "}"));
+  if (value[index] === "(") return consumeScripts(value, consumeBalanced(value, index, "(", ")"));
+
+  if (/[0-9.]/.test(value[index])) {
+    while (index < value.length && /[0-9.]/.test(value[index])) index += 1;
+    return consumeScripts(value, index);
+  }
+
+  if (/[a-zA-Z]/.test(value[index]) && !/[a-zA-Z]/.test(value[index + 1] ?? "")) {
+    return consumeScripts(value, index + 1);
+  }
+
+  return start;
+}
+
+function consumeLatexCommand(value: string, start: number) {
+  let index = start + 1;
+  while (index < value.length && /[a-zA-Z]/.test(value[index])) index += 1;
+
+  index = consumeSpaces(value, index);
+  if (value[index] === "[") index = consumeBalanced(value, index, "[", "]");
+
+  while (index < value.length) {
+    const beforeGroup = consumeSpaces(value, index);
+    if (value[beforeGroup] !== "{") break;
+    index = consumeBalanced(value, beforeGroup, "{", "}");
+  }
+
+  return consumeScripts(value, index);
+}
+
+function consumeScripts(value: string, start: number) {
+  let index = start;
+  while (index < value.length) {
+    const scriptStart = consumeSpaces(value, index);
+    if (value[scriptStart] !== "^" && value[scriptStart] !== "_") break;
+    const atomStart = consumeSpaces(value, scriptStart + 1);
+    if (value[atomStart] === "{" || value[atomStart] === "[" || value[atomStart] === "(") {
+      const close = value[atomStart] === "{" ? "}" : value[atomStart] === "[" ? "]" : ")";
+      index = consumeBalanced(value, atomStart, value[atomStart], close);
+    } else if (value[atomStart] === "\\") {
+      index = consumeLatexCommand(value, atomStart);
+    } else if (/[a-zA-Z0-9]/.test(value[atomStart] ?? "")) {
+      index = atomStart + 1;
+    } else {
+      break;
+    }
+  }
+  return index;
+}
+
+function consumeBalanced(value: string, start: number, open: string, close: string) {
+  let depth = 0;
+  for (let index = start; index < value.length; index += 1) {
+    if (value[index] === "\\" && index + 1 < value.length) {
+      index += 1;
+      continue;
+    }
+    if (value[index] === open) depth += 1;
+    if (value[index] === close) {
+      depth -= 1;
+      if (depth === 0) return index + 1;
+    }
+  }
+  return start;
+}
+
+function consumeMathOperator(value: string, start: number) {
+  if (/^[+\-*/=<>≤≥×÷·]$/.test(value[start] ?? "")) return start + 1;
+  if (value.startsWith("\\cdot", start)) return start + "\\cdot".length;
+  if (value.startsWith("\\times", start)) return start + "\\times".length;
+  if (value.startsWith("\\leq", start) || value.startsWith("\\geq", start) || value.startsWith("\\neq", start)) {
+    return start + 4;
+  }
+  return start;
+}
+
+function consumeSpaces(value: string, start: number) {
+  let index = start;
+  while (index < value.length && /\s/.test(value[index])) index += 1;
+  return index;
+}
+
+function trimRunEnd(value: string, end: number) {
+  let index = end;
+  while (index > 0 && /\s/.test(value[index - 1])) index -= 1;
+  return index;
 }
 
 function hasMathDelimiters(value: string) {
@@ -175,6 +312,7 @@ function hasMathDelimiters(value: string) {
 
 function looksLikeBareMath(value: string) {
   const trimmed = value.trim();
+  if (trimmed.startsWith("\\") && hasBareLatexCommand(trimmed)) return true;
   if (!trimmed || (/\s/.test(trimmed) && /[a-zA-Z]{4,}/.test(trimmed))) return false;
   return /\\[a-zA-Z]+|[=^_]|[<>≤≥]/.test(trimmed);
 }
