@@ -9,27 +9,20 @@ export function formatPromptContent({ latex, html }: { latex?: string; html?: st
   const normalized = unescapeMath(latex).replace(/\r\n/g, "\n").trim();
   if (!normalized) return "";
 
-  return normalized
-    .split("\n")
-    .map((line) => formatPromptLine(line))
-    .join("");
+  return formatPromptLines(normalized.split("\n"));
 }
 
 function formatHtmlPromptContent(html: string) {
   if (!html.trim()) return "";
-  if (!html.includes("\t") && !hasBareLatexCommand(html)) return html;
 
   if (!/<[a-z][\s\S]*>/i.test(html)) {
-    return html
-      .split(/\r?\n/)
-      .map((line) => formatPromptLine(line))
-      .join("");
+    return formatPromptLines(html.replace(/\r\n/g, "\n").split("\n"));
   }
 
   return html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (_match, attrs: string, body: string) => {
     const text = body.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ").trim();
     if (text.includes("\t")) return formatPromptLine(text);
-    if (hasBareLatexCommand(text)) return `<p${attrs}>${formatPromptSegment(text)}</p>`;
+    if (hasBareLatexCommand(text) || looksLikeBareMath(text)) return `<p${attrs}>${formatPromptSegment(text)}</p>`;
     return `<p${attrs}>${body}</p>`;
   });
 }
@@ -41,7 +34,7 @@ export function MathRenderer({ latex, html, className }: { latex?: string; html?
 
   return (
     <div
-      className={className}
+      className={["ev-math-content", className].filter(Boolean).join(" ")}
       dangerouslySetInnerHTML={{ __html: content }}
     />
   );
@@ -50,25 +43,26 @@ export function MathRenderer({ latex, html, className }: { latex?: string; html?
 export function renderMathMarkup(content: string) {
   if (!content) return "";
 
+  const preparedContent = renderDelimiterFreeMathDivs(content);
   let rendered = "";
   let index = 0;
 
-  while (index < content.length) {
-    const next = findNextMathDelimiter(content, index);
+  while (index < preparedContent.length) {
+    const next = findNextMathDelimiter(preparedContent, index);
     if (!next) {
-      rendered += content.slice(index);
+      rendered += preparedContent.slice(index);
       break;
     }
 
-    rendered += content.slice(index, next.start);
-    const close = findClosingDelimiter(content, next.contentStart, next.close);
+    rendered += preparedContent.slice(index, next.start);
+    const close = findClosingDelimiter(preparedContent, next.contentStart, next.close);
     if (close === -1) {
-      rendered += content.slice(next.start);
+      rendered += preparedContent.slice(next.start);
       break;
     }
 
-    const source = content.slice(next.contentStart, close);
-    rendered += renderKatex(source, next.display, content.slice(next.start, close + next.close.length));
+    const source = preparedContent.slice(next.contentStart, close);
+    rendered += renderKatex(source, next.display, preparedContent.slice(next.start, close + next.close.length));
     index = close + next.close.length;
   }
 
@@ -136,6 +130,119 @@ function renderKatex(source: string, displayMode: boolean, fallback: string) {
   }
 }
 
+function renderDelimiterFreeMathDivs(content: string) {
+  return content.replace(
+    /<div([^>]*\bclass=(["'])[^"']*\bmath\b[^"']*\2[^>]*)>([\s\S]*?)<\/div>/gi,
+    (match, attrs: string, _quote: string, body: string) => {
+      if (hasMathDelimiters(body)) return match;
+
+      const source = unescapeHtml(body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+      if (!source || !looksLikeBareMath(source)) return match;
+
+      const normalized = normalizeBareMathSource(source);
+      return `<div${attrs}>${renderKatex(normalized, true, escapeHtml(source))}</div>`;
+    },
+  );
+}
+
+function formatPromptLines(lines: string[]) {
+  let output = "";
+  let index = 0;
+
+  while (index < lines.length) {
+    const table = collectTableBlock(lines, index);
+    if (table) {
+      output += renderPromptTable(table.rows);
+      index = table.endIndex;
+      continue;
+    }
+
+    output += formatPromptLine(lines[index] ?? "");
+    index += 1;
+  }
+
+  return output;
+}
+
+type TableBlock = {
+  rows: string[][];
+  endIndex: number;
+};
+
+function collectTableBlock(lines: string[], startIndex: number): TableBlock | null {
+  const rows: string[][] = [];
+  let index = startIndex;
+  let hasExplicitSeparator = false;
+
+  while (index < lines.length) {
+    const parsed = splitTableRow(lines[index] ?? "");
+    if (!parsed) break;
+    rows.push(parsed.cells);
+    hasExplicitSeparator ||= parsed.separator !== "single-space-grid";
+    index += 1;
+  }
+
+  if (rows.length < 2) return null;
+  const maxColumns = Math.max(...rows.map((row) => row.length));
+  if (maxColumns < 2 || maxColumns > 8) return null;
+  if (!hasExplicitSeparator && !rows.every((row) => row.every(isShortMathGridCell))) return null;
+
+  return {
+    rows: rows.map((row) => [...row, ...Array.from({ length: maxColumns - row.length }, () => "")]),
+    endIndex: index,
+  };
+}
+
+function splitTableRow(line: string): { cells: string[]; separator: "tab" | "wide-space" | "single-space-grid" } | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  if (line.includes("\t")) {
+    return {
+      cells: line.split(/\t/).map((cell) => cell.trim()),
+      separator: "tab",
+    };
+  }
+
+  if (/\s{2,}/.test(line)) {
+    return {
+      cells: line.split(/\s{2,}/).map((cell) => cell.trim()).filter((cell) => cell.length > 0),
+      separator: "wide-space",
+    };
+  }
+
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2 && tokens.length <= 8 && tokens.every(isShortMathGridCell)) {
+    return { cells: tokens, separator: "single-space-grid" };
+  }
+
+  return null;
+}
+
+function renderPromptTable(rows: string[][]) {
+  return [
+    '<div class="ev-prompt-table-wrap">',
+    '<table class="ev-prompt-table"><tbody>',
+    rows
+      .map(
+        (row) =>
+          `<tr>${row
+            .map((cell) => `<td>${formatPromptTableCell(cell)}</td>`)
+            .join("")}</tr>`,
+      )
+      .join(""),
+    "</tbody></table>",
+    "</div>",
+  ].join("");
+}
+
+function formatPromptTableCell(cell: string) {
+  const trimmed = cell.trim();
+  if (!trimmed) return "";
+  if (looksLikeTableMathCell(trimmed) && !hasMathDelimiters(trimmed)) return `$${escapeHtml(normalizeBareMathSource(trimmed))}$`;
+  return formatPromptSegment(trimmed);
+}
+
 function formatPromptLine(line: string) {
   if (!line.trim()) return '<div class="ev-prompt-gap" aria-hidden="true"></div>';
 
@@ -161,12 +268,41 @@ function formatPromptSegment(segment: string) {
 
   const escaped = escapeHtml(segment);
   if (hasMathDelimiters(segment)) return escaped;
-  if (looksLikeBareMath(segment)) return `$${escaped}$`;
+  if (looksLikeBareMath(segment)) return `$${escapeHtml(normalizeBareMathSource(segment))}$`;
 
+  return wrapBareMathRuns(segment);
+}
+
+const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|omega|Gamma)\b/g;
+const OCR_PRODUCT_PATTERN = /((?:\d\s*){1,4}(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z])(?:\s*(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z]))*[?!.]?)/g;
+
+function wrapBareMathRuns(segment: string) {
+  const withProductRuns = wrapOcrProductRuns(segment);
+  if (withProductRuns.wrapped) return withProductRuns.html;
   return wrapBareLatexRuns(segment);
 }
 
-const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|leq|geq|neq|infty|angle|triangle)\b/g;
+function wrapOcrProductRuns(segment: string) {
+  let output = "";
+  let index = 0;
+  let wrapped = false;
+
+  OCR_PRODUCT_PATTERN.lastIndex = 0;
+  while (true) {
+    const match = OCR_PRODUCT_PATTERN.exec(segment);
+    if (!match) break;
+    const start = match.index;
+    const rawRun = match[0];
+    if (start < index || !rawRun.includes("\\")) continue;
+
+    output += escapeHtml(segment.slice(index, start));
+    output += `$${escapeHtml(normalizeBareMathSource(rawRun))}$`;
+    index = start + rawRun.length;
+    wrapped = true;
+  }
+
+  return { html: output + escapeHtml(segment.slice(index)), wrapped };
+}
 
 function wrapBareLatexRuns(segment: string) {
   let output = "";
@@ -185,7 +321,7 @@ function wrapBareLatexRuns(segment: string) {
       output += escapeHtml(match[0]);
       index = start + match[0].length;
     } else {
-      output += `$${escapeHtml(segment.slice(start, end).trim())}$`;
+      output += `$${escapeHtml(normalizeBareMathSource(segment.slice(start, end)))}$`;
       index = end;
     }
     BARE_LATEX_COMMAND_PATTERN.lastIndex = index;
@@ -313,12 +449,62 @@ function hasMathDelimiters(value: string) {
 function looksLikeBareMath(value: string) {
   const trimmed = value.trim();
   if (trimmed.startsWith("\\") && hasBareLatexCommand(trimmed)) return true;
-  if (!trimmed || (/\s/.test(trimmed) && /[a-zA-Z]{4,}/.test(trimmed))) return false;
-  return /\\[a-zA-Z]+|[=^_]|[<>≤≥]/.test(trimmed);
+  if (!trimmed) return false;
+
+  const withoutLatexCommands = trimmed
+    .replace(/\\[a-zA-Z]+\s*(?=\{|\[|\s|$)/g, " ")
+    .replace(/\\text\s*\{[^}]*\}/g, " ");
+  const hasNaturalWords = /[a-zA-Z]{4,}/.test(withoutLatexCommands);
+  const mathSignalCount = [
+    /\\[a-zA-Z]+/.test(trimmed),
+    /[=^_<>≤≥]/.test(trimmed),
+    /(?:\\times|\\cdot|×|·|\*)/.test(trimmed),
+    /\d\s+\d/.test(trimmed),
+    /[+\-*/]/.test(trimmed) && /\d|[a-zA-Z]/.test(trimmed),
+  ].filter(Boolean).length;
+
+  if (hasNaturalWords && !/\\text\s*\{/.test(trimmed)) return false;
+  return mathSignalCount > 0;
 }
 
 function hasBareLatexCommand(value: string) {
-  return /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|leq|geq|neq|infty|angle|triangle)/.test(value);
+  return /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|omega|Gamma)/.test(value);
+}
+
+function normalizeBareMathSource(value: string) {
+  let normalized = value.trim();
+
+  let previous = "";
+  while (previous !== normalized) {
+    previous = normalized;
+    normalized = normalized.replace(/\b(\d)\s+(\d)\b/g, "$1$2");
+  }
+
+  normalized = normalized
+    .replace(/\\text\s*\{([^}]*)\}/g, (_match, text: string) => `\\text{${text.replace(/\s+/g, " ")}}`)
+    .replace(/\s*([_^])\s*\{\s*([^{}]*?)\s*\}/g, (_match, script: string, body: string) => `${script}{${body.trim()}}`)
+    .replace(/\s*([_^])\s*([a-zA-Z0-9])/g, "$1$2")
+    .replace(/\s+([,.;:?!])/g, "$1")
+    .replace(/\s{2,}/g, " ");
+
+  return normalized;
+}
+
+function looksLikeTableMathCell(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^[a-zA-Z]$/.test(trimmed)) return true;
+  if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) return true;
+  if (/^-?\d+(?:\.\d+)?\s*\/\s*-?\d+(?:\.\d+)?$/.test(trimmed)) return true;
+  return looksLikeBareMath(trimmed);
+}
+
+function isShortMathGridCell(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 12) return false;
+  if (!/^[a-zA-Z0-9()[\]{}^_+\-*/\\.=]+$/.test(trimmed)) return false;
+  if (/[a-zA-Z]{3,}/.test(trimmed)) return false;
+  return true;
 }
 
 function unescapeMath(str: string) {
@@ -327,4 +513,11 @@ function unescapeMath(str: string) {
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function unescapeHtml(value: string) {
+  return value
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
 }
