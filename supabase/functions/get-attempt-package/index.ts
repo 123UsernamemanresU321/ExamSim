@@ -128,7 +128,8 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
     const assessmentPackage = await loadNormalizedPackage(admin, version);
-    const assetUrls = await signPackageAssetUrls(admin, assessmentPackage);
+    const assessmentPackageWithDatabaseIds = await hydratePackageQuestionNodeIds(admin, assessmentPackage, attempt.assessment_version_id);
+    const assetUrls = await signPackageAssetUrls(admin, assessmentPackageWithDatabaseIds);
 
     return json({
       attempt_id: attempt.id,
@@ -136,13 +137,51 @@ serve(async (request) => {
       package_version_id: version.id,
       rendering_mode: "normalized_html",
       seb_verified: sebVerified,
-      assessment_package: assessmentPackage,
+      assessment_package: assessmentPackageWithDatabaseIds,
       asset_urls: assetUrls,
     });
   } catch (error) {
     return errorResponse(error, "get-attempt-package failed");
   }
 });
+
+async function hydratePackageQuestionNodeIds(
+  admin: {
+    from(table: "question_nodes"): {
+      select(columns: string): {
+        eq(column: string, value: string): Promise<{ data: { id: string; node_key: string }[] | null; error: Error | null }>;
+      };
+    };
+  },
+  assessmentPackage: Record<string, unknown>,
+  assessmentVersionId: string,
+) {
+  const { data, error } = await admin
+    .from("question_nodes")
+    .select("id,node_key")
+    .eq("assessment_version_id", assessmentVersionId);
+  if (error) throw error;
+
+  const idByNodeKey = new Map((data ?? []).map((node) => [node.node_key, node.id]));
+  return {
+    ...assessmentPackage,
+    questions: hydrateQuestionNodes(assessmentPackage.questions, idByNodeKey),
+  };
+}
+
+function hydrateQuestionNodes(value: unknown, idByNodeKey: Map<string, string>): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+    const node = item as Record<string, unknown>;
+    const nodeKey = typeof node.node_key === "string" ? node.node_key : "";
+    return {
+      ...node,
+      node_id: idByNodeKey.get(nodeKey) ?? node.node_id,
+      children: hydrateQuestionNodes(node.children, idByNodeKey),
+    };
+  });
+}
 
 async function signPackageAssetUrls(
   admin: {

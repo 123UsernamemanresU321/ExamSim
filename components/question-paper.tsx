@@ -64,6 +64,7 @@ function QuestionBlock({
         body: {
           attempt_id: attemptId,
           question_node_id: node.node_id,
+          question_node_key: node.node_key,
           flagged: !isFlagged,
           state_token: stateToken,
         },
@@ -85,7 +86,7 @@ function QuestionBlock({
     setIsUploading(true);
     try {
       const slot = await invokeEdgeFunction<{ bucket: string; path: string; upload_token: string; question_node_id: string }>(supabase, "issue-upload-slot-url", {
-        body: { attempt_id: attemptId, question_node_id: node.node_id, state_token: stateToken },
+        body: { attempt_id: attemptId, question_node_id: node.node_id, question_node_key: node.node_key, state_token: stateToken },
       });
       
       if (!slot) throw new Error("Could not issue upload URL");
@@ -164,6 +165,7 @@ function QuestionBlock({
               <ResponseTextArea 
                 attemptId={attemptId} 
                 questionNodeId={node.node_id} 
+                questionNodeKey={node.node_key}
                 stateToken={stateToken}
                 initialValue={initialValue}
                 readonly={readonly}

@@ -7,6 +7,7 @@ import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 export function ResponseTextArea({
   attemptId,
   questionNodeId,
+  questionNodeKey,
   stateToken,
   initialValue,
   readonly = false,
@@ -14,6 +15,7 @@ export function ResponseTextArea({
 }: {
   attemptId: string;
   questionNodeId: string;
+  questionNodeKey?: string;
   stateToken: string;
   initialValue: string;
   readonly?: boolean;
@@ -41,6 +43,7 @@ export function ResponseTextArea({
         body: {
           attempt_id: attemptId,
           question_node_id: questionNodeId,
+          question_node_key: questionNodeKey,
           answer_text: currentText,
           state_token: stateToken,
         },
