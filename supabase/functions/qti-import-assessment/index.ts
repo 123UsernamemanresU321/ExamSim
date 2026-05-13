@@ -31,14 +31,23 @@ serve(async (request) => {
       itemRefs.map(async (item, index) => {
         const itemXml = item.href ? await zip.file(item.href)?.async("string") : null;
         const title = itemXml?.match(/title="([^"]+)"/i)?.[1] ?? item.identifier;
+        const isChoice = /choiceInteraction/i.test(itemXml ?? "");
+        const isNumerical = /baseType="(?:float|integer)"/i.test(itemXml ?? "") || /(?:textEntryInteraction|extendedTextInteraction)[\s\S]{0,200}(?:numeric|number|decimal)/i.test(itemXml ?? "");
+        const choices = isChoice ? extractChoices(itemXml ?? "") : [];
+        const responseMode = isChoice ? "multiple_choice" : isNumerical ? "numerical" : "typed_text";
         return {
           node_id: item.identifier,
           node_key: item.identifier,
           ordinal: index + 1,
           node_type: "question",
           title,
-          response_mode: /choiceInteraction/i.test(itemXml ?? "") ? "multiple_choice" : "typed_text",
+          response_mode: responseMode,
           marks: null,
+          interaction: isChoice
+            ? { kind: "choice", max_choices: /maxChoices="([2-9]\d*)"/i.test(itemXml ?? "") ? Number((itemXml ?? "").match(/maxChoices="([2-9]\d*)"/i)?.[1]) : 1, choices }
+            : isNumerical
+              ? { kind: "numerical" }
+              : undefined,
           prompt: { html: `<p>${escapeHtml(title)}</p>` },
         };
       }),
@@ -117,6 +126,7 @@ serve(async (request) => {
       title: node.title,
       response_mode: node.response_mode,
       prompt_html: node.prompt.html,
+      interaction_json: node.interaction ?? null,
     }));
     const { error: nodeError } = await admin.from("question_nodes").insert(nodeRows);
     if (nodeError) throw nodeError;
@@ -133,4 +143,13 @@ serve(async (request) => {
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function extractChoices(itemXml: string) {
+  return [...itemXml.matchAll(/<simpleChoice\b[^>]*identifier="([^"]+)"[^>]*>([\s\S]*?)<\/simpleChoice>/gi)]
+    .map((match) => ({
+      choice_id: match[1],
+      content_html: `<p>${escapeHtml(match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || match[1])}</p>`,
+    }))
+    .filter((choice) => choice.choice_id && choice.content_html);
 }

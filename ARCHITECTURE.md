@@ -39,6 +39,8 @@ All stored times are UTC. The default display timezone is `Africa/Johannesburg`.
 - RLS protects metadata and prevents direct student reads of sensitive question/package tables.
 - Edge Functions handle privileged workflows and recompute attempt state server-side.
 - Private Storage stores source papers, normalized packages, answer uploads, and marking packets.
+- Question response modes are normalized into `none`, `typed_text`, `upload_pdf`, `typed_or_upload`,
+  `multiple_choice`, or `numerical`. Structured browser controls save through Edge Functions, not direct table writes.
 - Hosted MinerU runs through Supabase Edge Functions. Edge Functions sign or upload the private PDF, poll MinerU by
   batch id, and write draft artifacts back to private Storage for owner review.
 - The self-hosted MinerU worker remains an optional fallback if hosted processing is too limited or privacy requirements

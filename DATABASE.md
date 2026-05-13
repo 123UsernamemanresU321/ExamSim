@@ -8,6 +8,8 @@ Hosted MinerU API metadata lives in `supabase/migrations/202605060003_hosted_min
 Atomic question-tree review replacement lives in `supabase/migrations/202605070001_atomic_question_tree_review.sql`.
 Production content-release boundary hardening lives in
 `supabase/migrations/202605120001_harden_content_release_boundaries.sql`.
+Numerical response-mode support is added for hosted databases in
+`supabase/migrations/202605130002_add_numerical_response_mode.sql`.
 
 ## Tables
 
@@ -80,6 +82,9 @@ feedback releases, parser jobs, and owner audit logs.
 ## Production Constraints
 
 - `upload_slots` includes file metadata and enforces PDF content type plus a 10MB maximum when file size is known.
+- `question_nodes.response_mode` supports `none`, `typed_text`, `upload_pdf`, `typed_or_upload`, `multiple_choice`,
+  and `numerical`. Multi-select choices use `interaction_json.max_choices`; numerical answers use
+  `interaction_json.kind = "numerical"` with optional numeric bounds/unit metadata.
 - `marks` and `feedback_releases` store owner-controlled marking totals; feedback is invisible to students until released.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.

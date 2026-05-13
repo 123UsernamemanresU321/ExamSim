@@ -28,6 +28,7 @@ type FlatNode = {
   response_mode?: string;
   interaction_json?: unknown;
   markscheme_html?: string | null;
+  assets?: string[];
   parent_node_key?: string | null;
 };
 
@@ -45,6 +46,31 @@ function cleanLatexTitle(line: string) {
 function extractMarks(line: string) {
   const match = line.match(/(?:\[|\()(\d+(?:\.\d+)?)\s*(?:marks?|pts?|points?)(?:\]|\))/i);
   return match ? Number(match[1]) : null;
+}
+
+function extractResponseMode(line: string) {
+  if (/(?:multiple\s+choice|choose\s+all|select\s+all|choose\s+one|\\begin\{(?:choices|checkboxes)\}|\\choice\b)/i.test(line)) {
+    return "multiple_choice";
+  }
+  if (/(?:numerical\s+answer|numeric\s+answer|answer\s+as\s+a\s+number|give\s+your\s+answer\s+to|decimal\s+places?)/i.test(line)) {
+    return "numerical";
+  }
+  return "typed_or_upload";
+}
+
+function extractInteraction(line: string) {
+  const responseMode = extractResponseMode(line);
+  if (responseMode === "numerical") return { kind: "numerical" };
+  if (responseMode !== "multiple_choice") return null;
+
+  const choices = [...line.matchAll(/\b([A-H])[\).:]\s*([^A-H]+?)(?=\s+[A-H][\).:]|$)/g)]
+    .map((match) => ({ choice_id: match[1].toLowerCase(), content_html: `<p>${escapeHtml(match[2].trim())}</p>` }))
+    .filter((choice) => choice.content_html !== "<p></p>");
+  return {
+    kind: "choice",
+    max_choices: /(?:choose|select)\s+(?:all|two|three|more than one)|multiple\s+answers?/i.test(line) ? Math.max(2, choices.length || 2) : 1,
+    choices: choices.length ? choices : undefined,
+  };
 }
 
 function latexToNodes(source: string): FlatNode[] {
@@ -88,7 +114,8 @@ function latexToNodes(source: string): FlatNode[] {
         node_type: "question",
         title: cleanLatexTitle(line),
         prompt_latex: line,
-        response_mode: "typed_or_upload",
+        response_mode: extractResponseMode(line),
+        interaction_json: extractInteraction(line),
         marks: extractMarks(line),
       });
       questionOrdinal += 1;
@@ -106,7 +133,8 @@ function latexToNodes(source: string): FlatNode[] {
         node_type: "subquestion",
         title: `Part (${label})`,
         prompt_latex: line,
-        response_mode: "typed_or_upload",
+        response_mode: extractResponseMode(line),
+        interaction_json: extractInteraction(line),
         marks: extractMarks(line),
       });
       subOrdinal += 1;
@@ -122,7 +150,8 @@ function latexToNodes(source: string): FlatNode[] {
         node_type: "part",
         title: `Part (${label})`,
         prompt_latex: line,
-        response_mode: "typed_or_upload",
+        response_mode: extractResponseMode(line),
+        interaction_json: extractInteraction(line),
         marks: extractMarks(line),
       });
       partOrdinal += 1;
@@ -235,8 +264,8 @@ serve(async (request) => {
       prompt_html: typeof node.prompt_html === "string" ? node.prompt_html : typeof node.prompt === "object" ? (node.prompt as { html?: string }).html ?? null : null,
       prompt_latex: typeof node.prompt_latex === "string" ? node.prompt_latex : typeof node.prompt === "object" ? (node.prompt as { latex?: string }).latex ?? null : null,
       marks: typeof node.marks === "number" ? node.marks : null,
-      response_mode: String(node.response_mode ?? "typed_or_upload"),
-      interaction_json: typeof node.interaction === "object" ? node.interaction : null,
+      response_mode: normalizeResponseMode(node.response_mode),
+      interaction_json: typeof node.interaction_json === "object" ? node.interaction_json : typeof node.interaction === "object" ? node.interaction : null,
       markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
       assets: Array.isArray(node.assets) ? node.assets : [],
     }));
@@ -368,8 +397,8 @@ function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: st
       prompt_html: typeof node.prompt_html === "string" ? node.prompt_html : prompt.html ?? null,
       prompt_latex: typeof node.prompt_latex === "string" ? node.prompt_latex : prompt.latex ?? null,
       marks: typeof node.marks === "number" ? node.marks : null,
-      response_mode: String(node.response_mode ?? "typed_or_upload"),
-      interaction_json: typeof node.interaction === "object" ? node.interaction : null,
+      response_mode: normalizeResponseMode(node.response_mode),
+      interaction_json: typeof node.interaction_json === "object" ? node.interaction_json : typeof node.interaction === "object" ? node.interaction : null,
       markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
       assets: Array.isArray(node.assets) ? node.assets : [],
     });
@@ -378,6 +407,21 @@ function flattenPackageNodes(nodes: Record<string, unknown>[], parentNodeKey: st
     }
   });
   return flattened;
+}
+
+function normalizeResponseMode(value: unknown) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_") : "";
+  if (["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice", "numerical"].includes(normalized)) return normalized;
+  if (["typed", "text", "written", "essay", "short_answer", "long_answer"].includes(normalized)) return "typed_text";
+  if (["choice", "mcq", "multiple_choice_question", "multi_select", "multiple_response"].includes(normalized)) return "multiple_choice";
+  if (["numeric", "number", "decimal", "integer", "calculation"].includes(normalized)) return "numerical";
+  if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
+  if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
+  return "typed_or_upload";
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 async function storeNormalizedPackageObject(

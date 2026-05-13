@@ -8,7 +8,7 @@ import type { FeedbackRelease } from "@/types/database";
 
 export default async function FinishedReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { package: assessmentPackage, assetUrls } = await getAttemptScreenData(id, true);
+  const { package: assessmentPackage, assetUrls, responses, annotations, stateToken } = await getAttemptScreenData(id, true);
   let feedback: FeedbackRelease | null = null;
   try {
     const results = await getStudentAttemptResultsWorkspace(id);
@@ -45,7 +45,17 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
           </div>
         </Card>
       ) : null}
-      {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} assetUrls={assetUrls} readonly /> : null}
+      {assessmentPackage ? (
+        <QuestionPaper
+          questions={assessmentPackage.questions}
+          attemptId={id}
+          stateToken={stateToken}
+          assetUrls={assetUrls}
+          responses={responses}
+          annotations={annotations}
+          readonly
+        />
+      ) : null}
     </div>
   );
 }

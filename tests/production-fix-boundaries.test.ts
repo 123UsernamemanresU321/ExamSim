@@ -142,3 +142,25 @@ describe("client sensitive write cleanup", () => {
     expect(read("lib/live-data.ts")).toContain('"get-student-results"');
   });
 });
+
+describe("student response type controls", () => {
+  it("renders structured response controls through Edge-saved text responses", () => {
+    const questionPaper = read("components/question-paper.tsx");
+    expect(questionPaper).toContain("ChoiceResponseControl");
+    expect(questionPaper).toContain("NumericalResponseControl");
+
+    const structuredControl = read("components/structured-response-control.tsx");
+    expect(structuredControl).toContain("type=\"checkbox\"");
+    expect(structuredControl).toContain("type=\"radio\"");
+    expect(structuredControl).toContain("inputMode=\"decimal\"");
+    expect(structuredControl).toContain('"save-text-response"');
+    expect(structuredControl).not.toContain('from("text_responses")');
+  });
+
+  it("updates database and parser response mode allowlists for numerical responses", () => {
+    expect(read("lib/constants.ts")).toContain('"numerical"');
+    expect(read("supabase/functions/update-question-tree/index.ts")).toContain('"numerical"');
+    expect(read("supabase/functions/ai-parse-assessment/index.ts")).toContain('"numerical"');
+    expect(read("supabase/migrations/202605130002_add_numerical_response_mode.sql")).toContain("'numerical'");
+  });
+});

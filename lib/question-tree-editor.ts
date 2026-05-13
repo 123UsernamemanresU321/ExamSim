@@ -26,7 +26,7 @@ type NormalizedPackageLike = Record<string, unknown> & {
 };
 
 const NODE_TYPES = new Set(["section", "question", "subquestion", "part"]);
-const RESPONSE_MODES = new Set(["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice"]);
+const RESPONSE_MODES = new Set(["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice", "numerical"]);
 
 export function serializeEditableQuestionNodes(nodes: QuestionNodeRow[]) {
   const keyById = new Map(nodes.map((node) => [node.id, node.node_key]));
@@ -137,7 +137,8 @@ function normalizeResponseMode(value: unknown): EditableQuestionNode["response_m
   if (["typed", "text", "written", "essay", "short_answer", "long_answer"].includes(normalized)) return "typed_text";
   if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
   if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
-  if (["choice", "mcq", "multiple_choice_question"].includes(normalized)) return "multiple_choice";
+  if (["choice", "mcq", "multiple_choice_question", "multi_select", "multiple_response"].includes(normalized)) return "multiple_choice";
+  if (["numeric", "number", "numerical", "decimal", "integer", "calculation"].includes(normalized)) return "numerical";
   return "typed_or_upload";
 }
 

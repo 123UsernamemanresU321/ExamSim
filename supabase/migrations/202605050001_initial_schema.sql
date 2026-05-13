@@ -77,7 +77,7 @@ create table public.question_nodes (
   prompt_html text null,
   prompt_latex text null,
   marks numeric null check (marks is null or marks >= 0),
-  response_mode text not null check (response_mode in ('none', 'typed_text', 'upload_pdf', 'typed_or_upload', 'multiple_choice')),
+  response_mode text not null check (response_mode in ('none', 'typed_text', 'upload_pdf', 'typed_or_upload', 'multiple_choice', 'numerical')),
   interaction_json jsonb null,
   source_page_start integer null,
   source_page_end integer null,

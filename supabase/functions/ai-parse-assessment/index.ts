@@ -217,7 +217,7 @@ serve(async (request) => {
               "  \"ordinal\": number,",
               "  \"title\": string | null,",
               "  \"marks\": number | null,",
-              "  \"response_mode\": \"none\" | \"typed_text\" | \"upload_pdf\" | \"typed_or_upload\" | \"multiple_choice\",",
+              "  \"response_mode\": \"none\" | \"typed_text\" | \"upload_pdf\" | \"typed_or_upload\" | \"multiple_choice\" | \"numerical\",",
               "  \"prompt\": {",
               "    \"html\": string,",
               "    \"latex\": string",
@@ -231,13 +231,15 @@ serve(async (request) => {
               "==================================================",
               "",
               "1. LEAF NODES (No children):",
-              "   - Must have a valid response_mode (e.g. \"typed_or_upload\", \"multiple_choice\").",
+              "   - Must have a valid response_mode (e.g. \"typed_or_upload\", \"multiple_choice\", \"numerical\").",
               "   - This is where the student provides their answer.",
               "",
               "2. PARENT NODES (Has children):",
               "   - Must have response_mode: \"none\".",
               "   - This ensures students don't see a \"blank\" answer box for a question that only serves as a container for parts (a), (b), etc.",
               "   - Example: If Question 3 has parts (a) and (b), Question 3 itself should have response_mode: \"none\", and parts (a) and (b) should have \"typed_or_upload\".",
+              "   - Use response_mode \"multiple_choice\" with interaction.kind \"choice\" and max_choices > 1 for multi-select questions.",
+              "   - Use response_mode \"numerical\" with interaction.kind \"numerical\" for a typed numeric answer; include unit, min_value, max_value, step, or tolerance only when explicit in the source.",
               "",
               "3. HIERARCHY:",
               "   - \"subquestion\" nodes must be inside the \"children\" array of a \"question\" node.",
@@ -738,8 +740,9 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
 function normalizeInteraction(raw: unknown) {
   if (!isRecord(raw)) return undefined;
   const kindStr = String(raw.kind ?? raw.type ?? "").toLowerCase().replaceAll("-", "_");
-  let kind: "choice" | "short_text" | "extended_text" = "extended_text";
+  let kind: "choice" | "short_text" | "extended_text" | "numerical" = "extended_text";
   if (kindStr.includes("choice")) kind = "choice";
+  else if (kindStr.includes("numeric") || kindStr.includes("number") || kindStr.includes("decimal")) kind = "numerical";
   else if (kindStr.includes("short")) kind = "short_text";
 
   const choices = Array.isArray(raw.choices)
@@ -758,6 +761,11 @@ function normalizeInteraction(raw: unknown) {
     max_choices: numberValue(raw.max_choices) !== null ? Math.max(1, numberValue(raw.max_choices)!) : undefined,
     shuffle: booleanValue(raw.shuffle) ?? undefined,
     choices: choices?.length ? choices : undefined,
+    min_value: numberValue(raw.min_value) ?? undefined,
+    max_value: numberValue(raw.max_value) ?? undefined,
+    step: numberValue(raw.step) !== null && numberValue(raw.step)! > 0 ? numberValue(raw.step)! : undefined,
+    tolerance: numberValue(raw.tolerance) !== null ? Math.max(0, numberValue(raw.tolerance)!) : undefined,
+    unit: stringValue(raw.unit) ?? undefined,
   };
 }
 
@@ -778,9 +786,16 @@ function normalizeNodeType(value: unknown) {
 }
 
 function normalizeResponseMode(value: unknown) {
-  return ["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice"].includes(String(value))
-    ? String(value)
-    : "typed_or_upload";
+  const normalized = typeof value === "string" ? value.trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_") : "";
+  if (["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice", "numerical"].includes(normalized)) {
+    return normalized;
+  }
+  if (["typed", "text", "written", "essay", "short_answer", "long_answer"].includes(normalized)) return "typed_text";
+  if (["choice", "mcq", "multiple_choice_question", "multi_select", "multiple_response"].includes(normalized)) return "multiple_choice";
+  if (["numeric", "number", "decimal", "integer", "calculation"].includes(normalized)) return "numerical";
+  if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
+  if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
+  return "typed_or_upload";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -792,7 +807,10 @@ function stringValue(value: unknown) {
 }
 
 function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function booleanValue(value: unknown) {

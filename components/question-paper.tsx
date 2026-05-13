@@ -6,6 +6,7 @@ import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ResponseTextArea } from "@/components/response-text-area";
+import { ChoiceResponseControl, NumericalResponseControl } from "@/components/structured-response-control";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
@@ -168,6 +169,24 @@ function QuestionBlock({
                 readonly={readonly}
               />
             </div>
+          ) : null}
+          {node.response_mode === "multiple_choice" && attemptId && stateToken ? (
+            <ChoiceResponseControl
+              attemptId={attemptId}
+              questionNode={node}
+              stateToken={stateToken}
+              initialValue={initialValue}
+              readonly={readonly}
+            />
+          ) : null}
+          {node.response_mode === "numerical" && attemptId && stateToken ? (
+            <NumericalResponseControl
+              attemptId={attemptId}
+              questionNode={node}
+              stateToken={stateToken}
+              initialValue={initialValue}
+              readonly={readonly}
+            />
           ) : null}
           {node.response_mode === "upload_pdf" || node.response_mode === "typed_or_upload" ? (
             <div className="mt-4 flex flex-wrap gap-2">
