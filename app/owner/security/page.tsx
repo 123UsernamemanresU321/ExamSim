@@ -20,14 +20,15 @@ export default function OwnerSecurityPage() {
             <li>Owner MFA uses Supabase TOTP and upgrades the session to AAL2.</li>
             <li>Student accounts use owner-issued aliases and activation codes, not real email delivery.</li>
             <li>Browser Mode remains tamper-evident. Server functions enforce timing, release, uploads, and exports.</li>
-            <li>SEB Secure Mode requires Browser Exam Key and Config Key hashes on publish; user-agent checks are not accepted.</li>
+            <li>SEB Secure Mode requires copied Browser Exam Key and Config Key values on publish; user-agent checks are not accepted.</li>
             <li>Students must be 13+ for production v1; the app stores an owner attestation, not a date of birth.</li>
           </ul>
           <div className="mt-5 rounded-md border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)]">
             <p className="font-semibold text-[var(--ink)]">SEB setup</p>
             <p>
-              Generate the Safe Exam Browser configuration for the assessment, copy the Browser Exam Key hash and Config
-              Key hash into the publish form, and test with SEB before assigning students.
+              Generate and save the final Safe Exam Browser configuration for the assessment, then copy the Browser Exam
+              Key and Config Key into the publish form. Exam Vault verifies SEB request hashes server-side for the exact
+              exam URL; test the final `.seb` file before assigning students.
             </p>
           </div>
         </Card>

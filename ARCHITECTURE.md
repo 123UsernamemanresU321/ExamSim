@@ -45,14 +45,17 @@ All stored times are UTC. The default display timezone is `Africa/Johannesburg`.
   require keeping PDFs on infrastructure you control.
 - DeepSeek is used only for AI-assisted parse proposals. Zod validation and owner review remain mandatory before publish.
 - The Cloudflare KMS wrapper can envelope-encrypt normalized package objects and marking packet ZIP objects before they are written to private Storage.
-- SEB Secure Mode validates Browser Exam Key and Config Key hashes server-side for `seb_required` attempts. Browser user-agent checks are not treated as proof.
+- SEB Secure Mode validates URL-specific Browser Exam Key and Config Key request hashes server-side for `seb_required` attempts. Browser user-agent checks are not treated as proof.
 - QTI import/export maps a conservative subset of the normalized package into QTI 2.1-oriented ZIP packages.
 
 ## Content Release Model
 
 The waiting page renders metadata only. It does not request or preload the normalized package. `get-attempt-package` validates JWT ownership, recomputes state, validates a short-lived state token, and denies content during `WAITING`.
 
-For `delivery_mode = seb_required`, package release also requires a matching Browser Exam Key hash and Config Key hash supplied by SEB headers or the SEB JavaScript API relay path. Missing or mismatched hashes fail closed.
+For `delivery_mode = seb_required`, package release also requires matching BEK/CK request hashes. Classic SEB sends
+official request headers to Edge Functions. Modern SEB WKWebView clients use the JavaScript API relay path, which is
+accepted only with a session-bound state token and an allowlisted exam page URL. Missing, expired, or mismatched
+verification fails closed.
 
 ## Storage Strategy
 

@@ -86,7 +86,8 @@ feedback releases, parser jobs, and owner audit logs.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.
 - `parse_jobs` stores hosted MinerU batch ids, external state, and provider metadata when `MINERU_PROVIDER=hosted`.
 - `parse_job_artifacts` supports hosted MinerU ZIP artifacts plus extracted Markdown/JSON/HTML/log previews.
-- `attempts` stores expected SEB Browser Exam Key and Config Key hashes for `seb_required` delivery.
+- `attempts` stores copied SEB Browser Exam Key and Config Key values for `seb_required` delivery. Package release verifies
+  URL-specific request hashes against those copied keys; `attempt_sessions` stores the received request-hash evidence.
 - `assessment_versions` can point at encrypted normalized package objects and associated wrapped data keys.
 - `encrypted_object_envelopes` tracks Cloudflare KMS envelope metadata for encrypted package and marking packet objects.
 - `marking_packet_exports` records owner-only generated ZIP packet paths and audit metadata.

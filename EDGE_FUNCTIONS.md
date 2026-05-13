@@ -48,14 +48,28 @@ session after the function verifies the session belongs to the same attempt.
 
 Student only for own attempt. Creates a session and stores hashes for user agent, IP, device id, and future SEB metadata.
 
+## seb-verify-session
+
+Student only for own attempt. Input: `{ attempt_id, attempt_session_id, state_token, mode, browser_exam_request_hash?,
+config_key_request_hash?, page_url?, seb_version? }`. Requires a session-bound state token and a matching active
+attempt session. Header mode verifies official `X-SafeExamBrowser-RequestHash` and `X-SafeExamBrowser-ConfigKeyHash`
+against the Edge Function request URL. JavaScript API mode verifies the supplied request hashes against an allowlisted
+`/student/attempts/{attempt_id}/exam` page URL. On success it stores request-hash evidence, method, URL, SEB version, and
+`seb_verified_at` on `attempt_sessions`.
+
 ## get-attempt-package
 
 Student only for own attempt. Validates ownership, fresh state, token, and delivery mode. Denies content during
 `WAITING`. Returns `{ assessment_package, asset_urls, state, seb_verified }` only when server state permits. Package
 asset signed URLs are generated server-side from private `assessment-packages` and are never returned before server
-state is `ACTIVE`, `UPLOAD_ONLY`, or `FINISHED_REVIEW`. `seb_required` attempts additionally require matching Browser
-Exam Key and Config Key hashes from SEB headers, the JavaScript API relay payload, or a still-current verified attempt
-session whose stored hashes still match the attempt configuration.
+state is `ACTIVE`, `UPLOAD_ONLY`, or `FINISHED_REVIEW`. `seb_required` attempts additionally require a state token bound
+to an attempt session. The function accepts valid current-request SEB headers, or a still-current verified attempt
+session whose stored request hashes still match the attempt configuration and verification URL.
+
+## upload-seb-config
+
+Owner AAL2 only. Input: `{ assessment_id, version_id, file_name, content_base64 }`. Accepts `.seb` files up to 1MB,
+stores them in private `assessment-sources` under a controlled owner/assessment/version path, and audits the upload.
 
 ## issue-upload-slot-url
 
