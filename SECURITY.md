@@ -74,9 +74,26 @@ verify the token signature and still recompute state/ownership server-side befor
 
 ## SEB Secure Mode
 
-`delivery_mode = seb_required` blocks package release unless server-side validation receives expected Browser Exam Key and
-Config Key hashes. Classic SEB headers and the JavaScript API relay path are accepted inputs. User-agent checks alone are
-insufficient and are not used as proof.
+`delivery_mode = seb_required` blocks package release unless server-side validation proves both the Browser Exam Key and
+Config Key for the exact request/page URL. Owners paste the copied 64-character BEK and CK values after saving the final
+`.seb` configuration. Edge Functions then verify URL-specific SHA-256 request hashes over the canonical URL with fragments
+removed: BEK uses copied key plus URL; CK uses URL plus copied key.
+
+Classic SEB clients can provide official request headers:
+
+- `X-SafeExamBrowser-RequestHash`
+- `X-SafeExamBrowser-ConfigKeyHash`
+
+Modern macOS/iOS SEB WKWebView clients that cannot send those headers use the JavaScript API relay path. The relay is
+accepted only for allowed app origins and the exact `/student/attempts/{attempt_id}/exam` page. It verifies a
+session-bound state token before storing `seb_verified_at`, request-hash evidence, the verification URL, method, and
+optional SEB version on the attempt session. Normal browser body fields, fake client state, and user-agent strings are
+not accepted as proof.
+
+Required Edge configuration:
+
+- `APP_ALLOWED_ORIGINS=https://examvault.tutor-mcp.com,https://exam-vault-zeta.vercel.app,http://localhost:3000`
+- `SEB_SESSION_VERIFICATION_TTL_SECONDS=300`
 
 ## External KMS
 

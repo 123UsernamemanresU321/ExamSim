@@ -3,7 +3,12 @@ import { computeAttemptState } from "../_shared/attempt-state.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
-import { extractSebKeys, validateSebKeys } from "../_shared/seb.ts";
+import {
+  canonicalizeSebUrl,
+  extractSebRequestHashes,
+  sebVerificationTtlSeconds,
+  verifySebRequestHashes,
+} from "../_shared/seb.ts";
 import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
@@ -15,8 +20,6 @@ serve(async (request) => {
     const body = await readJson<{
       attempt_id: string;
       state_token: string;
-      seb_browser_exam_key_hash?: string;
-      seb_config_key_hash?: string;
     }>(request);
     if (!body.attempt_id || !body.state_token) return json({ error: "attempt_id and state_token are required" }, 400);
     const tokenPayload = await verifyStateToken(body.state_token);
@@ -37,61 +40,84 @@ serve(async (request) => {
     });
     if (state === "WAITING") return json({ error: "Content not available yet", state }, 403);
     let sebVerified = attempt.delivery_mode === "browser";
-    let keys = extractSebKeys(request, body);
 
     if (attempt.delivery_mode === "seb_required") {
-      // 1. Try to validate current request keys
-      let validation = validateSebKeys({
-        expectedBrowserExamKeyHashes: attempt.seb_browser_exam_key_hashes,
-        expectedConfigKeyHashes: attempt.seb_config_key_hashes,
-        receivedBrowserExamKeyHash: keys.browserExamKeyHash,
-        receivedConfigKeyHash: keys.configKeyHash,
-      });
-
-      // 2. Fallback: Check if there is a recently verified session for this attempt
-      if (!validation.ok && tokenPayload.attempt_session_id) {
-        const { data: session } = await admin
-          .from("attempt_sessions")
-          .select("seb_verified, browser_exam_key_hash, config_key_hash, ended_at")
-          .eq("id", tokenPayload.attempt_session_id)
-          .eq("attempt_id", attempt.id)
-          .single();
-
-        if (session?.seb_verified && !session.ended_at) {
-          const storedValidation = validateSebKeys({
-            expectedBrowserExamKeyHashes: attempt.seb_browser_exam_key_hashes,
-            expectedConfigKeyHashes: attempt.seb_config_key_hashes,
-            receivedBrowserExamKeyHash: session.browser_exam_key_hash,
-            receivedConfigKeyHash: session.config_key_hash,
-          });
-          if (storedValidation.ok) {
-            validation = storedValidation;
-            keys.browserExamKeyHash = session.browser_exam_key_hash;
-            keys.configKeyHash = session.config_key_hash;
-          }
-        }
-
-        if (!validation.ok && session?.seb_verified) {
-          validation = { ok: false, reason: "Stored SEB session no longer matches this attempt configuration." };
-        }
+      if (!tokenPayload.attempt_session_id) {
+        return json({ error: "SEB attempts require a session-bound state token", state, seb_required: true }, 403);
       }
 
-      if (!validation.ok) {
-        return json({ error: validation.reason, state, seb_required: true }, 403);
+      const { data: session } = await admin
+        .from("attempt_sessions")
+        .select("seb_verified, browser_exam_key_hash, config_key_hash, ended_at, seb_verified_at, seb_verification_url")
+        .eq("id", tokenPayload.attempt_session_id)
+        .eq("attempt_id", attempt.id)
+        .single();
+
+      if (!session || session.ended_at) {
+        return json({ error: "SEB attempt session is not active", state, seb_required: true }, 403);
       }
 
-      sebVerified = true;
-      if (tokenPayload.attempt_session_id) {
+      const currentHashes = extractSebRequestHashes(request);
+      const hasCurrentHeaderHashes = Boolean(currentHashes.browserExamRequestHash || currentHashes.configKeyRequestHash);
+
+      if (hasCurrentHeaderHashes) {
+        const validation = await verifySebRequestHashes({
+          expectedBrowserExamKeys: attempt.seb_browser_exam_key_hashes,
+          expectedConfigKeys: attempt.seb_config_key_hashes,
+          receivedBrowserExamRequestHash: currentHashes.browserExamRequestHash,
+          receivedConfigKeyRequestHash: currentHashes.configKeyRequestHash,
+          url: request.url,
+        });
+        if (!validation.ok) return json({ error: validation.reason, state, seb_required: true }, 403);
+
+        sebVerified = true;
         await admin
           .from("attempt_sessions")
           .update({
             seb_verified: true,
-            browser_exam_key_hash: keys.browserExamKeyHash,
-            config_key_hash: keys.configKeyHash,
+            browser_exam_key_hash: currentHashes.browserExamRequestHash,
+            config_key_hash: currentHashes.configKeyRequestHash,
+            seb_verified_at: new Date().toISOString(),
+            seb_verification_method: "header",
+            seb_verification_url: canonicalizeSebUrl(request.url),
+            seb_last_error: null,
             last_heartbeat_at: new Date().toISOString(),
           })
           .eq("id", tokenPayload.attempt_session_id)
           .eq("attempt_id", attempt.id);
+      } else {
+        if (!session.seb_verified || !session.seb_verified_at || !session.seb_verification_url) {
+          return json({ error: "Safe Exam Browser verification is required before content release", state, seb_required: true }, 403);
+        }
+
+        const verifiedAtMs = Date.parse(session.seb_verified_at);
+        if (!Number.isFinite(verifiedAtMs) || verifiedAtMs + sebVerificationTtlSeconds() * 1000 < Date.now()) {
+          return json({ error: "Safe Exam Browser verification expired. Refresh verification before content release.", state, seb_required: true }, 403);
+        }
+
+        const storedValidation = await verifySebRequestHashes({
+          expectedBrowserExamKeys: attempt.seb_browser_exam_key_hashes,
+          expectedConfigKeys: attempt.seb_config_key_hashes,
+          receivedBrowserExamRequestHash: session.browser_exam_key_hash,
+          receivedConfigKeyRequestHash: session.config_key_hash,
+          url: session.seb_verification_url,
+        });
+        if (!storedValidation.ok) {
+          return json({ error: "Stored SEB session no longer matches this attempt configuration.", state, seb_required: true }, 403);
+        }
+
+        sebVerified = true;
+        await admin
+          .from("attempt_sessions")
+          .update({
+            last_heartbeat_at: new Date().toISOString(),
+          })
+          .eq("id", tokenPayload.attempt_session_id)
+          .eq("attempt_id", attempt.id);
+      }
+
+      if (!sebVerified) {
+        return json({ error: "Safe Exam Browser verification is required before content release", state, seb_required: true }, 403);
       }
     }
 

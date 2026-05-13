@@ -190,6 +190,13 @@ Do not add static export flags to Vercel. Keep `SUPABASE_SERVICE_ROLE_KEY`, `OWN
 `ATTEMPT_STATE_TOKEN_SECRET` out of Vercel unless a future Vercel-side server workflow explicitly requires them. The
 current sensitive workflows run in Supabase Edge Functions, where those server-side secrets belong.
 
+Set these Supabase Edge Function secrets for production SEB verification:
+
+```bash
+APP_ALLOWED_ORIGINS=https://examvault.tutor-mcp.com,https://exam-vault-zeta.vercel.app,http://localhost:3000
+SEB_SESSION_VERIFICATION_TTL_SECONDS=300
+```
+
 Custom domain target: `examvault.tutor-mcp.com`. See [docs/CLOUDFLARE_DOMAIN.md](docs/CLOUDFLARE_DOMAIN.md) for the
 Cloudflare CNAME and TLS verification steps.
 
@@ -201,7 +208,8 @@ Cloudflare CNAME and TLS verification steps.
   Functions, and owner review remains mandatory before publish. The self-hosted MinerU worker remains an optional
   fallback for stricter privacy requirements.
 - DeepSeek AI parse suggestions are stored as review-required evidence only. They never publish or replace owner review automatically.
-- `seb_required` attempts require server-side Browser Exam Key and Config Key hash validation before package release.
+- `seb_required` attempts require server-side SEB request-hash validation before package release. Copy Browser Exam Key
+  and Config Key values only after saving the final `.seb` configuration; user-agent strings are never accepted.
 - QTI import creates review-required drafts; QTI export is conservative and includes the Exam Vault normalized package JSON for lossless metadata recovery.
 - Marking packet export creates a private ZIP. If the Cloudflare KMS wrapper is configured, the ZIP object is envelope-encrypted before upload.
 - Feedback is hidden until the owner explicitly releases it.

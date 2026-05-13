@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { validateSebPublishKeys } from "../_shared/seb.ts";
 
 type Body = {
   assessment_id: string;
@@ -33,6 +34,15 @@ serve(async (request) => {
       return json({ error: "Missing publish fields" }, 400);
     }
     const ownerProfile = await profileForAuthUser(user.id);
+    const sebBrowserExamKeys = normalizeHashList(body.seb_browser_exam_key_hashes);
+    const sebConfigKeys = normalizeHashList(body.seb_config_key_hashes);
+    const sebValidation = validateSebPublishKeys({
+      deliveryMode: body.delivery_mode,
+      browserExamKeys: sebBrowserExamKeys,
+      configKeys: sebConfigKeys,
+    });
+    if (!sebValidation.ok) return json({ error: sebValidation.reason }, 400);
+
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
       .select("*")
@@ -73,8 +83,8 @@ serve(async (request) => {
       typed_enabled: body.typed_enabled ?? true,
       per_question_upload_enabled: body.per_question_upload_enabled ?? true,
       require_blank_for_skipped: body.require_blank_for_skipped ?? false,
-      seb_browser_exam_key_hashes: normalizeHashList(body.seb_browser_exam_key_hashes),
-      seb_config_key_hashes: normalizeHashList(body.seb_config_key_hashes),
+      seb_browser_exam_key_hashes: sebBrowserExamKeys,
+      seb_config_key_hashes: sebConfigKeys,
       seb_config_path: body.seb_config_path ?? null,
     };
 

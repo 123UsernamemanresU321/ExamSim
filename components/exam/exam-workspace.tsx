@@ -32,7 +32,6 @@ export function ExamWorkspace({
   const [screenData, setScreenData] = useState<AttemptScreenData>(initialScreenData);
   const [isLoadingPackage, setIsLoadingPackage] = useState(!initialScreenData.package);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<Record<string, string> | null>(null);
   const [attemptSessionId, setAttemptSessionId] = useState<string | undefined>();
   const sessionStarted = useRef(false);
 
@@ -80,58 +79,33 @@ export function ExamWorkspace({
       if (screenData.package && initialScreenData.attempt.delivery_mode !== "seb_required") return;
 
       setIsLoadingPackage(true);
-      
-      let sebKeys = { bek: null as string | null, ck: null as string | null };
 
-      // Stage 1: Update keys (Necessary for some SEB versions on Mac/iOS)
-      if (initialScreenData.attempt.delivery_mode === "seb_required") {
-        type SebType = { security?: { updateKeys?: (cb: () => void) => void; configKey?: string; browserExamKey?: string } };
-        const seb = (window as unknown as { SafeExamBrowser?: SebType }).SafeExamBrowser;
-        if (seb?.security?.updateKeys) {
-          await new Promise<void>((resolve) => {
-            seb.security?.updateKeys?.(() => resolve());
-            // Safety timeout
-            setTimeout(resolve, 500);
+      try {
+        if (initialScreenData.attempt.delivery_mode === "seb_required") {
+          if (!sessionId) throw new Error("Could not create a session-bound SEB verification token.");
+          const sebEvidence = await readSebJsApiEvidence();
+          await invokeEdgeFunction(supabase, "seb-verify-session", {
+            body: {
+              attempt_id: attemptId,
+              attempt_session_id: sessionId,
+              state_token: freshStateToken,
+              ...(sebEvidence
+                ? {
+                    mode: "js_api",
+                    browser_exam_request_hash: sebEvidence.browserExamRequestHash,
+                    config_key_request_hash: sebEvidence.configKeyRequestHash,
+                    page_url: window.location.href,
+                    seb_version: sebEvidence.version,
+                  }
+                : { mode: "header" }),
+            },
           });
         }
 
-        // Stage 2: Extract SEB keys from the environment
-        let detectedBek: string | null = null;
-        let detectedCk: string | null = null;
-        
-        const sebApi = seb?.security;
-        if (sebApi) {
-          detectedBek = sebApi.browserExamKey || null;
-          detectedCk = sebApi.configKey || null;
-        }
-
-        // Fallback: Check User-Agent (SEB can be configured to append hashes here)
-        if (!detectedBek || !detectedCk) {
-          const ua = navigator.userAgent;
-          const bekMatch = ua.match(/BEK[=:][\s]*([a-f0-9]{64})/i);
-          const ckMatch = ua.match(/CK[=:][\s]*([a-f0-9]{64})/i);
-          if (bekMatch) detectedBek = bekMatch[1];
-          if (ckMatch) detectedCk = ckMatch[1];
-        }
-
-        setDebugInfo({
-          hasSebApi: String(!!sebApi),
-          hasUpdateKeys: String(!!seb?.security?.updateKeys),
-          userAgent: navigator.userAgent,
-          detectedBek: detectedBek ? `${detectedBek.substring(0, 8)}...` : "None",
-          detectedCk: detectedCk ? `${detectedCk.substring(0, 8)}...` : "None",
-        });
-
-        sebKeys = { bek: detectedBek, ck: detectedCk };
-      }
-
-      try {
         const response = await invokeEdgeFunction<{ assessment_package: unknown; asset_urls?: Record<string, string> }>(supabase, "get-attempt-package", {
           body: { 
             attempt_id: attemptId, 
             state_token: freshStateToken,
-            seb_browser_exam_key_hash: sebKeys.bek,
-            seb_config_key_hash: sebKeys.ck,
           },
         });
 
@@ -198,21 +172,12 @@ export function ExamWorkspace({
             <p className="font-bold">Verification Error:</p>
             <p>{loadError || packageError || "The server has not released the exam package for this attempt state."}</p>
           </div>
-          {debugInfo && (loadError || packageError) && (
-            <div className="mt-4 rounded-md bg-gray-50 p-3 text-[10px] font-mono text-gray-500 border border-gray-200">
-              <p className="font-bold mb-1 uppercase tracking-wider text-[9px]">Environment Debug Info:</p>
-              <p>SEB JS API: {debugInfo.hasSebApi ? "Available" : "Missing"}</p>
-              <p>Detected BEK: {debugInfo.detectedBek}</p>
-              <p>Detected CK: {debugInfo.detectedCk}</p>
-              <p className="mt-1 opacity-60 break-all leading-relaxed">UA: {debugInfo.userAgent}</p>
-            </div>
-          )}
 
           {attempt.delivery_mode === "seb_required" && (
             <div className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-[var(--muted)]">
-                This exam is locked to a specific Safe Exam Browser configuration. Please ensure you are opening this page 
-                inside the Safe Exam Browser application with the correct configuration file provided by your institution.
+                This exam is locked to a specific Safe Exam Browser configuration. Open this attempt in SEB with the final
+                configuration file, then refresh this page inside SEB. Normal browsers cannot release this exam package.
               </p>
               {sebConfigUrl && (
                 <div className="flex flex-col gap-3 sm:flex-row border-t border-[var(--border)] pt-4 mt-4">
@@ -309,4 +274,40 @@ export function ExamWorkspace({
       </div>
     </div>
   );
+}
+
+async function readSebJsApiEvidence() {
+  type SebApi = {
+    version?: string;
+    security?: {
+      updateKeys?: (callback: () => void) => void;
+      browserExamKey?: string;
+      configKey?: string;
+    };
+  };
+  const seb = (window as unknown as { SafeExamBrowser?: SebApi }).SafeExamBrowser;
+  if (!seb?.security) return null;
+
+  if (seb.security.updateKeys) {
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+      };
+      seb.security?.updateKeys?.(finish);
+      window.setTimeout(finish, 800);
+    });
+  }
+
+  const browserExamRequestHash = seb.security.browserExamKey?.trim() || null;
+  const configKeyRequestHash = seb.security.configKey?.trim() || null;
+  if (!browserExamRequestHash || !configKeyRequestHash) return null;
+  return {
+    browserExamRequestHash,
+    configKeyRequestHash,
+    version: seb.version,
+  };
 }

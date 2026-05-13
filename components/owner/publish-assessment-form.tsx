@@ -35,18 +35,41 @@ export function PublishAssessmentForm({
 
     const supabase = createSupabaseBrowserClient();
     let sebConfigPath: string | null = null;
+    const deliveryMode = String(form.get("delivery_mode") || "browser");
+    const browserExamKeys = splitHashes(String(form.get("seb_browser_exam_key_hashes") ?? ""));
+    const configKeys = splitHashes(String(form.get("seb_config_key_hashes") ?? ""));
 
-    if (sebConfigFile && sebConfigFile.size > 0) {
-      const fileName = `${assessmentId}/${versionId}/${crypto.randomUUID()}.seb`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("assessment-sources")
-        .upload(fileName, sebConfigFile);
-      if (uploadError) {
-        setMessage(`SEB config upload failed: ${uploadError.message}`);
+    if (deliveryMode === "seb_required") {
+      const invalidKey = [...browserExamKeys, ...configKeys].find((key) => !/^[a-f0-9]{64}$/i.test(key));
+      if (browserExamKeys.length === 0 || configKeys.length === 0 || invalidKey) {
+        setMessage("SEB-required attempts need at least one 64-character Browser Exam Key and one 64-character Config Key copied after saving the final .seb file.");
         setIsSubmitting(false);
         return;
       }
-      sebConfigPath = uploadData.path;
+    }
+
+    if (sebConfigFile && sebConfigFile.size > 0) {
+      if (sebConfigFile.size > 1024 * 1024) {
+        setMessage("SEB configuration upload failed: .seb files must be 1MB or smaller.");
+        setIsSubmitting(false);
+        return;
+      }
+      try {
+        const uploadData = await invokeEdgeFunction<{ seb_config_path: string }>(supabase, "upload-seb-config", {
+          body: {
+            assessment_id: assessmentId,
+            version_id: versionId,
+            file_name: sebConfigFile.name,
+            content_base64: await fileToBase64(sebConfigFile),
+          },
+          requiresAal2: true,
+        });
+        sebConfigPath = uploadData?.seb_config_path ?? null;
+      } catch (error) {
+        setMessage(error instanceof Error ? `SEB config upload failed: ${error.message}` : "SEB config upload failed.");
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     const body = {
@@ -55,7 +78,7 @@ export function PublishAssessmentForm({
       start_at_local: String(form.get("start_at_local")),
       display_timezone: String(form.get("display_timezone") || DEFAULT_TIMEZONE),
       duration_seconds: Number(form.get("duration_seconds") || 7200),
-      delivery_mode: String(form.get("delivery_mode") || "browser"),
+      delivery_mode: deliveryMode,
       solutions_requested: form.get("solutions_requested") === "on",
       upload_only_grace_seconds: Number(form.get("upload_only_grace_seconds") || 0),
       assigned_profile_ids: assignedProfileIds,
@@ -63,8 +86,8 @@ export function PublishAssessmentForm({
       per_question_upload_enabled: form.get("per_question_upload_enabled") === "on",
       require_blank_for_skipped: form.get("require_blank_for_skipped") === "on",
       assigned_group_ids: assignedGroupIds,
-      seb_browser_exam_key_hashes: splitHashes(String(form.get("seb_browser_exam_key_hashes") ?? "")),
-      seb_config_key_hashes: splitHashes(String(form.get("seb_config_key_hashes") ?? "")),
+      seb_browser_exam_key_hashes: browserExamKeys,
+      seb_config_key_hashes: configKeys,
       seb_config_path: sebConfigPath,
     };
 
@@ -100,19 +123,19 @@ export function PublishAssessmentForm({
         <Field label="Display timezone" description="Timezone shown to users. Stored attempt timestamps remain UTC internally.">
           <Input name="display_timezone" defaultValue={DEFAULT_TIMEZONE} required />
         </Field>
-        <Field label="Delivery mode" description="Browser mode is tamper-evident. SEB-required mode blocks package release unless the configured SEB key hashes match.">
+        <Field label="Delivery mode" description="Browser mode is tamper-evident. SEB-required mode blocks package release unless server-verified SEB Browser Exam Key and Config Key request hashes match.">
           <select name="delivery_mode" className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3">
             <option value="browser">browser</option>
             <option value="seb_required">seb_required</option>
           </select>
         </Field>
-        <Field label="SEB Browser Exam Key hashes" description="Required only for SEB attempts. Copy the expected Browser Exam Key hash from your SEB configuration.">
-          <Input name="seb_browser_exam_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
+        <Field label="Browser Exam Key" description="Required for SEB attempts. Copy the 64-character Browser Exam Key from Safe Exam Browser only after the final .seb configuration is saved.">
+          <Input name="seb_browser_exam_key_hashes" placeholder="64-character hex key; comma or line separated for multiple SEB versions" />
         </Field>
-        <Field label="SEB Config Key hashes" description="Required only for SEB attempts. Copy the expected Config Key hash from your SEB configuration. User-agent checks are not accepted.">
-          <Input name="seb_config_key_hashes" placeholder="Required only for seb_required; comma or line separated" />
+        <Field label="Config Key" description="Required for SEB attempts. Copy the 64-character Config Key after saving the final .seb file. The server validates URL-specific request hashes, not user-agent strings.">
+          <Input name="seb_config_key_hashes" placeholder="64-character hex key; comma or line separated" />
         </Field>
-        <Field label="SEB Configuration File (.seb)" description="Optional. Upload the configuration file so students can download it from their dashboard.">
+        <Field label="SEB Configuration File (.seb)" description="Optional. Uploaded through an owner MFA-gated Edge Function into private Storage so students can download the exact configuration from their dashboard.">
           <input name="seb_config_file" type="file" accept=".seb" className="flex h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm" />
         </Field>
       </div>
@@ -168,4 +191,14 @@ export function PublishAssessmentForm({
 
 function splitHashes(value: string) {
   return value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean);
+}
+
+async function fileToBase64(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
 }

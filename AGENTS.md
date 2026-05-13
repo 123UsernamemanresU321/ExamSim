@@ -16,5 +16,5 @@ Future coding agents working on Exam Vault must:
 - Do not let AI parse suggestions publish or replace owner review automatically.
 - Keep `DEEPSEEK_API_KEY`, `MINERU_API_KEY`, Cloudflare KMS secrets, and optional RunPod worker secrets server-only.
 - Do not send PDFs to hosted MinerU from browser code; all hosted MinerU calls must go through Edge Functions.
-- Do not use SEB user-agent strings as proof of secure mode; validate Browser Exam Key and Config Key hashes.
+- Do not use SEB user-agent strings as proof of secure mode; validate URL-specific Browser Exam Key and Config Key request hashes.
 - Keep QTI import conservative and review-required when mappings are uncertain.

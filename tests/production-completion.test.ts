@@ -16,7 +16,15 @@ import {
 } from "@/lib/mineru-hosted";
 import { getPasskeyApiStatus } from "@/lib/passkeys";
 import { normalizedPackageToQtiManifest, qtiManifestToNormalizedPackage } from "@/lib/qti";
-import { extractSebKeysFromRecord, validateSebKeys } from "@/lib/seb";
+import {
+  buildSebBrowserExamRequestHash,
+  buildSebConfigKeyRequestHash,
+  canonicalizeSebUrl,
+  extractSebRequestHashesFromRecord,
+  isValidSebBaseKey,
+  validateSebPageUrl,
+  verifySebRequestHashes,
+} from "@/lib/seb";
 import { edgeFunctionErrorMessage, invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
 
 describe("DeepSeek AI parse helpers", () => {
@@ -51,40 +59,84 @@ describe("DeepSeek AI parse helpers", () => {
 });
 
 describe("SEB validation helpers", () => {
-  it("accepts matching Browser Exam Key and Config Key hashes", () => {
-    expect(
-      validateSebKeys({
-        expectedBrowserExamKeyHashes: ["bek-1"],
-        expectedConfigKeyHashes: ["ck-1"],
-        receivedBrowserExamKeyHash: "bek-1",
-        receivedConfigKeyHash: "ck-1",
+  it("normalizes SEB request URLs by removing fragments", () => {
+    expect(canonicalizeSebUrl("https://examvault.tutor-mcp.com/student/attempts/att_1/exam?x=1#section-2")).toBe(
+      "https://examvault.tutor-mcp.com/student/attempts/att_1/exam?x=1",
+    );
+  });
+
+  it("builds deterministic Browser Exam Key request hashes from copied key plus URL", async () => {
+    await expect(
+      buildSebBrowserExamRequestHash(
+        "https://examvault.tutor-mcp.com/student/attempts/att_1/exam?x=1#ignored",
+        "a".repeat(64),
+      ),
+    ).resolves.toBe("4653be7ba4a1d63fed467b8b48df258615cfd0402ae38179d05526bf2ca84b3e");
+  });
+
+  it("builds deterministic Config Key request hashes from URL plus copied key", async () => {
+    await expect(
+      buildSebConfigKeyRequestHash(
+        "https://examvault.tutor-mcp.com/student/attempts/att_1/exam?x=1#ignored",
+        "b".repeat(64),
+      ),
+    ).resolves.toBe("0910f3cf08565b6a7bad74a47c37346c581057825735f623bd48a8cbc87c2fa4");
+  });
+
+  it("accepts request hashes that match configured Browser Exam Key and Config Key values", async () => {
+    const url = "https://examvault.tutor-mcp.com/student/attempts/att_1/exam?x=1";
+    await expect(
+      verifySebRequestHashes({
+        expectedBrowserExamKeys: ["a".repeat(64)],
+        expectedConfigKeys: ["b".repeat(64)],
+        receivedBrowserExamRequestHash: "4653be7ba4a1d63fed467b8b48df258615cfd0402ae38179d05526bf2ca84b3e",
+        receivedConfigKeyRequestHash: "0910f3cf08565b6a7bad74a47c37346c581057825735f623bd48a8cbc87c2fa4",
+        url,
       }),
-    ).toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true });
   });
 
-  it("rejects missing or unexpected SEB hashes", () => {
-    expect(validateSebKeys({ expectedBrowserExamKeyHashes: ["bek"], expectedConfigKeyHashes: ["ck"] }).ok).toBe(false);
-    expect(
-      validateSebKeys({
-        expectedBrowserExamKeyHashes: ["bek"],
-        expectedConfigKeyHashes: ["ck"],
-        receivedBrowserExamKeyHash: "wrong",
-        receivedConfigKeyHash: "ck",
-      }).ok,
-    ).toBe(false);
+  it("rejects missing or malformed SEB copied base keys", async () => {
+    expect(isValidSebBaseKey("a".repeat(64))).toBe(true);
+    expect(isValidSebBaseKey("not-a-key")).toBe(false);
+    await expect(
+      verifySebRequestHashes({
+        expectedBrowserExamKeys: ["not-a-key"],
+        expectedConfigKeys: ["b".repeat(64)],
+        receivedBrowserExamRequestHash: "2b048e42df75f0342b34c06cb751cdc2183c07dc18e7a55c8126d8a54d67191a",
+        receivedConfigKeyRequestHash: "0910f3cf08565b6a7bad74a47c37346c581057825735f623bd48a8cbc87c2fa4",
+        url: "https://examvault.tutor-mcp.com/student/attempts/att_1/exam",
+      }),
+    ).resolves.toMatchObject({ ok: false });
   });
 
-  it("extracts SEB hashes from header-like records and JS API payloads", () => {
+  it("extracts official SEB request hash headers and deprecated aliases", () => {
     expect(
-      extractSebKeysFromRecord({
-        "x-safeexambrowser-browserexamkeyhash": "bek",
+      extractSebRequestHashesFromRecord({
+        "x-safeexambrowser-requesthash": "bek-request",
         "x-safeexambrowser-configkeyhash": "ck",
       }),
-    ).toEqual({ browserExamKeyHash: "bek", configKeyHash: "ck" });
-    expect(extractSebKeysFromRecord({ seb_browser_exam_key_hash: "bek2", seb_config_key_hash: "ck2" })).toEqual({
-      browserExamKeyHash: "bek2",
-      configKeyHash: "ck2",
+    ).toEqual({ browserExamRequestHash: "bek-request", configKeyRequestHash: "ck" });
+    expect(extractSebRequestHashesFromRecord({ "x-safeexambrowser-browserexamkeyhash": "legacy-bek" })).toMatchObject({
+      browserExamRequestHash: "legacy-bek",
     });
+  });
+
+  it("allows JS API page URLs only for configured origins and the attempt exam route", () => {
+    expect(
+      validateSebPageUrl({
+        pageUrl: "https://examvault.tutor-mcp.com/student/attempts/attempt-1/exam#frag",
+        attemptId: "attempt-1",
+        allowedOrigins: ["https://examvault.tutor-mcp.com"],
+      }),
+    ).toEqual({ ok: true, url: "https://examvault.tutor-mcp.com/student/attempts/attempt-1/exam" });
+    expect(
+      validateSebPageUrl({
+        pageUrl: "https://evil.example/student/attempts/attempt-1/exam",
+        attemptId: "attempt-1",
+        allowedOrigins: ["https://examvault.tutor-mcp.com"],
+      }).ok,
+    ).toBe(false);
   });
 });
 
