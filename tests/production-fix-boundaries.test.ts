@@ -118,6 +118,20 @@ describe("AI parse review boundary", () => {
     expect(source).toContain("prompt is short; owner should verify PDF/OCR extraction.");
     expect(source).toContain("warnings.push");
   });
+
+  it("instructs DeepSeek to emit semantic tables and delimited math", () => {
+    const source = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(source).toContain("<table>, <thead>, <tbody>, <tr>, <th>, <td>");
+    expect(source).toContain("Use semantic HTML tables for tabular or grid content");
+    expect(source).toContain("Do not flatten tables into tabs or spaces");
+    expect(source).toContain("wrap all mathematical expressions in $...$ or $$...$$");
+  });
+
+  it("instructs DeepSeek to use numerical response mode for numeric answers", () => {
+    const source = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(source).toContain('Use response_mode \\"numerical\\"');
+    expect(source).toContain("expected answer is a number, value, numerator, count, measurement, coordinate, or decimal");
+  });
 });
 
 describe("client sensitive write cleanup", () => {

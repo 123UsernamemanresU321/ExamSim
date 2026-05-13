@@ -138,7 +138,9 @@ state.
 
 Owner AAL2 only. Calls DeepSeek through its OpenAI-compatible chat completions API using Supabase Edge secrets. Inputs
 can include current normalized JSON, LaTeX source, MinerU artifact text, or owner notes. Stores a review-required
-`ai_parse_suggestions` row and a parse job record. It never publishes AI output directly.
+`ai_parse_suggestions` row and a parse job record. The prompt contract requires delimited LaTeX math, semantic HTML
+tables for tabular/grid content, and `numerical` response mode for numeric answers. It never publishes AI output
+directly.
 
 ## qti-import-assessment
 
