@@ -32,6 +32,7 @@ export const RESPONSE_MODES = [
   "upload_pdf",
   "typed_or_upload",
   "multiple_choice",
+  "numerical",
 ] as const;
 export type ResponseMode = (typeof RESPONSE_MODES)[number];
 

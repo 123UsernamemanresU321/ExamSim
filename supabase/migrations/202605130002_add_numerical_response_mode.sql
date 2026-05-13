@@ -1,3 +1,10 @@
+alter table public.question_nodes
+  drop constraint if exists question_nodes_response_mode_check;
+
+alter table public.question_nodes
+  add constraint question_nodes_response_mode_check
+  check (response_mode in ('none', 'typed_text', 'upload_pdf', 'typed_or_upload', 'multiple_choice', 'numerical'));
+
 create or replace function public.replace_question_tree_for_version(
   p_version_id uuid,
   p_nodes jsonb,
@@ -163,18 +170,18 @@ begin
 
   with inserted as (
     insert into public.question_nodes (
-    assessment_version_id,
-    node_key,
-    ordinal,
-    node_type,
-    title,
-    prompt_html,
-    prompt_latex,
-    marks,
-    response_mode,
-    interaction_json,
-    source_page_start,
-    source_page_end
+      assessment_version_id,
+      node_key,
+      ordinal,
+      node_type,
+      title,
+      prompt_html,
+      prompt_latex,
+      marks,
+      response_mode,
+      interaction_json,
+      source_page_start,
+      source_page_end
     )
     select
       p_version_id,

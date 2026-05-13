@@ -11,15 +11,16 @@ type FlatNode = {
   prompt_html: string | null;
   prompt_latex: string | null;
   marks: number | null;
-  response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice";
+  response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice" | "numerical";
   interaction_json: unknown;
   markscheme_html: string | null;
+  assets: string[];
   source_page_start: number | null;
   source_page_end: number | null;
 };
 
 const NODE_TYPES = new Set(["section", "question", "subquestion", "part"]);
-const RESPONSE_MODES = new Set(["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice"]);
+const RESPONSE_MODES = new Set(["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice", "numerical"]);
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -271,8 +272,9 @@ function nestFlatNodes(nodes: FlatNode[]) {
 function normalizeInteraction(raw: unknown) {
   if (!isRecord(raw)) return undefined;
   const kindStr = String(raw.kind ?? raw.type ?? "").toLowerCase().replaceAll("-", "_");
-  let kind: "choice" | "short_text" | "extended_text" = "extended_text";
+  let kind: "choice" | "short_text" | "extended_text" | "numerical" = "extended_text";
   if (kindStr.includes("choice")) kind = "choice";
+  else if (kindStr.includes("numeric") || kindStr.includes("number") || kindStr.includes("decimal")) kind = "numerical";
   else if (kindStr.includes("short")) kind = "short_text";
 
   const choices = Array.isArray(raw.choices)
@@ -291,6 +293,11 @@ function normalizeInteraction(raw: unknown) {
     max_choices: numberValue(raw.max_choices) !== null ? Math.max(1, numberValue(raw.max_choices)!) : undefined,
     shuffle: booleanValue(raw.shuffle) ?? undefined,
     choices: choices?.length ? choices : undefined,
+    min_value: numberValue(raw.min_value) ?? undefined,
+    max_value: numberValue(raw.max_value) ?? undefined,
+    step: numberValue(raw.step) !== null && numberValue(raw.step)! > 0 ? numberValue(raw.step)! : undefined,
+    tolerance: numberValue(raw.tolerance) !== null ? Math.max(0, numberValue(raw.tolerance)!) : undefined,
+    unit: stringValue(raw.unit) ?? undefined,
   };
 }
 
@@ -310,7 +317,8 @@ function normalizeResponseMode(value: unknown): FlatNode["response_mode"] {
   if (["typed", "text", "written", "essay", "short_answer", "long_answer"].includes(normalized)) return "typed_text";
   if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
   if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
-  if (["choice", "mcq", "multiple_choice_question"].includes(normalized)) return "multiple_choice";
+  if (["choice", "mcq", "multiple_choice_question", "multi_select", "multiple_response"].includes(normalized)) return "multiple_choice";
+  if (["numeric", "number", "numerical", "decimal", "integer", "calculation"].includes(normalized)) return "numerical";
   return "typed_or_upload";
 }
 

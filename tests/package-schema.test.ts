@@ -91,4 +91,67 @@ describe("normalizedPackageSchema", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts numerical and multi-select multiple-choice response modes", () => {
+    const base = {
+      schema_version: "2026-05-13",
+      assessment: {
+        id: "asm_response_modes",
+        title: "Response Mode Check",
+        assessment_kind: "quiz",
+        source_kind: "json",
+        authoring_origin: "imported",
+        display_timezone: "Africa/Johannesburg",
+      },
+      delivery: {
+        delivery_mode: "browser",
+        solutions_requested: false,
+        response_policy: {
+          typed_allowed: true,
+          mixed_mode_allowed: true,
+          per_question_pdf_upload: true,
+          blank_submission_required_for_unattempted: false,
+        },
+      },
+      source: { requires_owner_review: false },
+    };
+
+    const parsed = normalizedPackageSchema.parse({
+      ...base,
+      questions: [
+        {
+          node_id: "num-1",
+          node_key: "1",
+          ordinal: 1,
+          node_type: "question",
+          marks: 2,
+          response_mode: "numerical",
+          prompt: { html: "<p>Enter the value of x.</p>" },
+          interaction: { kind: "numerical", min_value: 0, max_value: 10, step: 0.1, unit: "cm" },
+        },
+        {
+          node_id: "mc-1",
+          node_key: "2",
+          ordinal: 2,
+          node_type: "question",
+          marks: 3,
+          response_mode: "multiple_choice",
+          prompt: { html: "<p>Select all primes.</p>" },
+          interaction: {
+            kind: "choice",
+            max_choices: 3,
+            choices: [
+              { choice_id: "a", content_html: "<p>2</p>" },
+              { choice_id: "b", content_html: "<p>3</p>" },
+              { choice_id: "c", content_html: "<p>4</p>" },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(parsed.questions[0]?.response_mode).toBe("numerical");
+    expect(parsed.questions[0]?.interaction?.kind).toBe("numerical");
+    expect(parsed.questions[1]?.interaction?.max_choices).toBe(3);
+  });
 });

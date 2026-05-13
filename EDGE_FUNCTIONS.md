@@ -88,7 +88,9 @@ Student only for own attempt. Records a standardized blank placeholder for a slo
 
 ## save-text-response
 
-Student only for own attempt. Autosaves typed answers during `ACTIVE` when typed responses are enabled.
+Student only for own attempt. Autosaves typed, multiple-choice, and numerical answers during `ACTIVE` when typed
+responses are enabled. Multiple-choice and numerical submissions are validated against the question node response mode
+and stored as structured JSON in `text_responses.answer_text`; `upload_pdf` and `none` nodes are rejected.
 
 ## set-question-flag
 
@@ -142,7 +144,8 @@ can include current normalized JSON, LaTeX source, MinerU artifact text, or owne
 
 Owner AAL2 only. Accepts a QTI ZIP as base64, reads `imsmanifest.xml`, creates an assessment and review-required draft
 version, stores the original QTI ZIP in private `assessment-sources`, and creates conservative question nodes for owner
-review.
+review. The importer maps QTI choice interactions to `multiple_choice`, numeric response declarations to `numerical`,
+and otherwise falls back to `typed_text`.
 
 ## qti-export-assessment
 

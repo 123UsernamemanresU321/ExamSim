@@ -4,7 +4,7 @@ import { flattenQuestionNodes, type NormalizedAssessmentPackage } from "@/lib/as
 export type QtiManifestItem = {
   identifier: string;
   title: string;
-  responseMode: "typed_text" | "multiple_choice" | "upload_pdf" | "typed_or_upload" | "none";
+  responseMode: "typed_text" | "multiple_choice" | "numerical" | "upload_pdf" | "typed_or_upload" | "none";
   marks?: number;
 };
 

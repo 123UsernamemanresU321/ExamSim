@@ -5,6 +5,7 @@ import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import { MarkingSidebarTree } from "@/components/owner/marking-sidebar-tree";
 import { MarkingCenterPanel } from "@/components/owner/marking-center-panel";
 import { MathRenderer } from "@/components/math-renderer";
+import { formatStoredResponse } from "@/lib/response-values";
 import { FileText, MessageSquare, Award, AlertCircle } from "lucide-react";
 
 export function StudentResultsWorkspace({ workspace }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
@@ -53,7 +54,9 @@ export function StudentResultsWorkspace({ workspace }: { workspace: AttemptRevie
                  </div>
                  {response?.answer_text ? (
                    <div className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6">
-                     <p className="whitespace-pre-wrap text-[16px] leading-relaxed text-[var(--ink)]">{response.answer_text}</p>
+                     <p className="whitespace-pre-wrap text-[16px] leading-relaxed text-[var(--ink)]">
+                       {formatStoredResponse(response.answer_text, selectedNode)}
+                     </p>
                    </div>
                  ) : (
                    <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-[var(--border)] text-[var(--muted)] italic text-sm">

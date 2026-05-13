@@ -16,10 +16,15 @@ const choiceSchema = z.object({
 });
 
 const interactionSchema = z.object({
-  kind: z.enum(["choice", "short_text", "extended_text"]),
+  kind: z.enum(["choice", "short_text", "extended_text", "numerical"]),
   max_choices: z.number().int().positive().optional(),
   shuffle: z.boolean().optional(),
   choices: z.array(choiceSchema).optional(),
+  min_value: z.number().optional(),
+  max_value: z.number().optional(),
+  step: z.number().positive().optional(),
+  tolerance: z.number().nonnegative().optional(),
+  unit: z.string().optional(),
 });
 
 const questionNodeBaseSchema = z.object({
@@ -103,14 +108,14 @@ export function reconstructQuestionTree(rows: QuestionNodeRow[]): QuestionNode[]
       node_type: row.node_type as "section" | "question" | "subquestion" | "part",
       title: row.title || undefined,
       marks: row.marks || undefined,
-      response_mode: row.response_mode as "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice",
+      response_mode: row.response_mode as "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice" | "numerical",
       prompt: (row.prompt_html || row.prompt_latex) ? {
         html: row.prompt_html || undefined,
         latex: row.prompt_latex || undefined,
       } : undefined,
       markscheme_html: (row as { markscheme_html?: string | null }).markscheme_html || undefined,
       markscheme_pdf_path: (row as { markscheme_pdf_path?: string | null }).markscheme_pdf_path || undefined,
-      interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" } | undefined,
+      interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" | "numerical" } | undefined,
       children: [],
     };
     nodeMap.set(row.id, node);

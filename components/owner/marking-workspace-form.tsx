@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { formatStoredResponse } from "@/lib/response-values";
 import type { Mark, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
 
 export function MarkingWorkspaceForm({
@@ -175,7 +176,7 @@ export function MarkingWorkspaceForm({
                   <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase text-[var(--subtle)]">
                     <FileText size={12} /> Typed Response
                   </p>
-                  <p className="whitespace-pre-wrap leading-relaxed">{response.answer_text}</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{formatStoredResponse(response.answer_text, node)}</p>
                 </div>
               ) : null}
 

@@ -110,7 +110,7 @@ export type QuestionNodeRow = {
   prompt_html: string | null;
   prompt_latex: string | null;
   marks: number | null;
-  response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice";
+  response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice" | "numerical";
   interaction_json: Json | null;
   source_page_start: number | null;
   source_page_end: number | null;

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { formatStoredResponse } from "@/lib/response-values";
 import { cn } from "@/lib/utils";
 import type { QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation } from "@/types/database";
 
@@ -146,7 +147,9 @@ export function MarkingResponseWorkspace({
             <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
               <FileText size={12} /> Digital Response
             </div>
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ink)] selection:bg-blue-100">{response.answer_text}</p>
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ink)] selection:bg-blue-100">
+              {formatStoredResponse(response.answer_text, node)}
+            </p>
           </div>
         ) : slot?.object_path ? (
           <div className="rounded-xl border-2 border-dashed border-blue-100 p-8 flex flex-col items-center justify-center bg-blue-50/10 transition-colors hover:bg-blue-50/20 group">

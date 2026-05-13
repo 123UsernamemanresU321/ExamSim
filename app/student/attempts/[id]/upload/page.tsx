@@ -9,7 +9,7 @@ import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function UploadOnlyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { attempt, package: assessmentPackage, assetUrls, stateToken } = await getAttemptScreenData(id, true);
+  const { attempt, package: assessmentPackage, assetUrls, stateToken, responses, annotations } = await getAttemptScreenData(id, true);
 
   if (attempt.state === "WAITING") redirect(`/student/attempts/${id}/waiting`);
   if (attempt.state === "ACTIVE") redirect(`/student/attempts/${id}/exam`);
@@ -33,7 +33,17 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
         />
       </div>
       <div className="grid gap-6 xl:grid-cols-[minmax(620px,840px)_380px] xl:justify-center">
-        {assessmentPackage ? <QuestionPaper questions={assessmentPackage.questions} assetUrls={assetUrls} readonly /> : null}
+        {assessmentPackage ? (
+          <QuestionPaper
+            questions={assessmentPackage.questions}
+            attemptId={id}
+            stateToken={stateToken}
+            assetUrls={assetUrls}
+            responses={responses}
+            annotations={annotations}
+            readonly
+          />
+        ) : null}
         <aside className="grid content-start gap-3 xl:sticky xl:top-24" aria-label="Upload slots">
           <div className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)]">
             One PDF per question or subquestion. Blank placeholders are recorded as moderation-visible submission
