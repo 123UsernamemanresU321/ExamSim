@@ -711,6 +711,10 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
     const latex = stringValue(prompt.latex) ?? stringValue(raw.prompt_latex) ?? undefined;
     const assets = Array.isArray(raw.assets) ? raw.assets.filter(a => typeof a === "string") : [];
     const children = Array.isArray(raw.children) ? normalizeQuestions(raw.children, warnings, `${nodeKey}.`) : [];
+    const promptText = stripMarkup(`${html ?? ""} ${latex ?? ""}`);
+    if (children.length === 0 && promptText.length > 0 && promptText.length < 40) {
+      warnings.push(`${nodeKey} prompt is short; owner should verify PDF/OCR extraction.`);
+    }
 
     // Force response_mode: none for parents to ensure clean UI
     const finalResponseMode = children.length > 0 ? "none" : responseMode;
@@ -795,6 +799,10 @@ function booleanValue(value: unknown) {
   return typeof value === "boolean" ? value : null;
 }
 
+function stripMarkup(value: string) {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function validateNormalizedPackage(result: unknown, expectedQuestionCount?: number) {
   const errors: string[] = [];
 
@@ -859,9 +867,9 @@ function validateNormalizedPackage(result: unknown, expectedQuestionCount?: numb
       errors.push(`${q.node_key} html appears truncated.`);
     }
 
-    if (latex.length < 40) {
-      errors.push(`${q.node_key} latex prompt suspiciously short.`);
-    }
+    // Short prompts are common in PDF/OCR drafts when the surrounding context is in child nodes,
+    // diagrams, or HTML artifacts. They are saved as owner-review warnings during normalization,
+    // not rejected as fatal backend validation errors.
   }
 
   return errors;
