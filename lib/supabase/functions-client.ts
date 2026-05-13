@@ -53,13 +53,11 @@ export async function invokePublicEdgeFunction<T>(
 }
 
 export async function assertOwnerAal2(supabase: SupabaseClient) {
-  await supabase.auth.refreshSession();
   const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (error) throw new Error(error.message);
   if (data.currentLevel !== "aal2") {
     throw new Error("Owner MFA/AAL2 is required. Open Owner > Security and verify MFA for this session, then retry.");
   }
-  await supabase.auth.refreshSession();
 }
 
 export async function edgeFunctionErrorMessage(error: unknown) {

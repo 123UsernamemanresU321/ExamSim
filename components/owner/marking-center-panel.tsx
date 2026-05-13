@@ -65,7 +65,7 @@ export function MarkingCenterPanel({
                 <MathRenderer html={node.prompt_html} className="text-[17px]" />
               ) : node.prompt_latex ? (
                 <div className="mt-6 rounded-xl bg-white p-8 shadow-sm border border-[var(--border)]">
-                  <MathRenderer latex={`$$${node.prompt_latex}$$`} className="text-xl" />
+                  <MathRenderer latex={node.prompt_latex} className="text-xl" />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-[var(--muted)] italic">

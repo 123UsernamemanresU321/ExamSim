@@ -164,3 +164,18 @@ describe("student response type controls", () => {
     expect(read("supabase/migrations/202605130002_add_numerical_response_mode.sql")).toContain("'numerical'");
   });
 });
+
+describe("prompt rendering and AAL2 stability", () => {
+  it("does not wrap whole prose prompts in display math in the marking workspace", () => {
+    const source = read("components/owner/marking-center-panel.tsx");
+    expect(source).not.toContain("$$${node.prompt_latex}$$");
+    expect(source).toContain("latex={node.prompt_latex}");
+  });
+
+  it("does not rotate the Supabase session while only checking current AAL2", () => {
+    const source = read("lib/supabase/functions-client.ts");
+    const helper = source.slice(source.indexOf("export async function assertOwnerAal2"));
+    expect(helper).not.toContain("refreshSession");
+    expect(helper).toContain("getAuthenticatorAssuranceLevel");
+  });
+});

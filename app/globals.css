@@ -103,6 +103,27 @@ select {
   white-space: nowrap;
 }
 
+.ev-prompt-gap {
+  height: 0.75rem;
+}
+
+.ev-latex-spread {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.ev-latex-cell {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .question-prompt strong {
   font-weight: 700;
   color: var(--ink);
