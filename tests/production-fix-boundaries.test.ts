@@ -148,6 +148,29 @@ describe("client sensitive write cleanup", () => {
     expect(read("components/owner/marking-workspace-form.tsx")).toContain('"owner-sign-storage-url"');
   });
 
+  it("hydrates released package nodes with database UUIDs before student writes", () => {
+    const source = read("supabase/functions/get-attempt-package/index.ts");
+    expect(source).toContain("hydratePackageQuestionNodeIds");
+    expect(source).toContain(".from(\"question_nodes\")");
+    expect(source).toContain("node_key");
+    expect(source).toContain("assessmentPackageWithDatabaseIds");
+  });
+
+  it("resolves student write question nodes by uuid or node key without direct table writes", () => {
+    const saveSource = read("supabase/functions/save-text-response/index.ts");
+    expect(saveSource).toContain("question_node_key?: string");
+    expect(saveSource).toContain("resolveQuestionNodeForAttempt");
+    expect(saveSource).toContain("isUuid");
+
+    const flagSource = read("supabase/functions/set-question-flag/index.ts");
+    expect(flagSource).toContain("question_node_key?: string");
+    expect(flagSource).toContain("resolveQuestionNodeForAttempt");
+
+    const questionPaper = read("components/question-paper.tsx");
+    expect(questionPaper).toContain("question_node_key: node.node_key");
+    expect(questionPaper).toContain("questionNodeKey={node.node_key}");
+  });
+
   it("serves student results through the checked Edge Function only", () => {
     expect(read("app/student/attempts/[id]/results/page.tsx")).toContain("getStudentAttemptResultsWorkspace");
     expect(read("app/student/results/client.tsx")).toContain('"list-student-results"');

@@ -12,12 +12,13 @@ serve(async (request) => {
     const profile = await profileForAuthUser(user.id);
     const body = await readJson<{
       attempt_id: string;
-      question_node_id: string;
+      question_node_id?: string;
+      question_node_key?: string;
       flagged: boolean;
       state_token: string;
     }>(request);
-    if (!body.attempt_id || !body.question_node_id || !body.state_token) {
-      return json({ error: "attempt_id, question_node_id, and state_token are required" }, 400);
+    if (!body.attempt_id || (!body.question_node_id && !body.question_node_key) || !body.state_token) {
+      return json({ error: "attempt_id, question_node_id or question_node_key, and state_token are required" }, 400);
     }
 
     const tokenPayload = await verifyStateToken(body.state_token);
@@ -42,27 +43,21 @@ serve(async (request) => {
     });
     if (state !== "ACTIVE") return json({ error: "Question flags can only be changed while writing is active", state }, 403);
 
-    const { data: node, error: nodeError } = await admin
-      .from("question_nodes")
-      .select("id")
-      .eq("id", body.question_node_id)
-      .eq("assessment_version_id", attempt.assessment_version_id)
-      .maybeSingle();
-    if (nodeError) throw nodeError;
+    const node = await resolveQuestionNodeForAttempt(admin, attempt.assessment_version_id, body.question_node_id, body.question_node_key);
     if (!node) return json({ error: "Question node does not belong to this attempt" }, 403);
 
     await admin
       .from("submission_annotations")
       .delete()
       .eq("attempt_id", body.attempt_id)
-      .eq("question_node_id", body.question_node_id)
+      .eq("question_node_id", node.id)
       .eq("annotation_type", "student_flag");
 
     const ownerProfileId = attempt.assessments?.owner_profile_id;
     if (!ownerProfileId) throw new Error("Assessment owner not found");
     const { error: annotationError } = await admin.from("submission_annotations").insert({
       attempt_id: body.attempt_id,
-      question_node_id: body.question_node_id,
+      question_node_id: node.id,
       owner_profile_id: ownerProfileId,
       annotation_type: "student_flag",
       body: body.flagged ? "flagged" : "unflagged",
@@ -73,11 +68,42 @@ serve(async (request) => {
     await admin.from("attempt_events").insert({
       attempt_id: body.attempt_id,
       event_type: body.flagged ? "question.flagged" : "question.unflagged",
-      payload_json: { question_node_id: body.question_node_id },
+      payload_json: { question_node_id: node.id, question_node_key: node.node_key },
     });
 
-    return json({ ok: true, flagged: body.flagged });
+    return json({ ok: true, flagged: body.flagged, question_node_id: node.id, question_node_key: node.node_key });
   } catch (error) {
     return errorResponse(error, "set-question-flag failed");
   }
 });
+
+async function resolveQuestionNodeForAttempt(
+  admin: {
+    from(table: "question_nodes"): {
+      select(columns: string): {
+        eq(column: string, value: string): {
+          eq(column: string, value: string): {
+            maybeSingle(): Promise<{ data: { id: string; node_key: string } | null; error: Error | null }>;
+          };
+        };
+      };
+    };
+  },
+  assessmentVersionId: string,
+  questionNodeId?: string,
+  questionNodeKey?: string,
+) {
+  const keyCandidate = questionNodeKey ?? (questionNodeId && !isUuid(questionNodeId) ? questionNodeId : null);
+  const baseQuery = admin
+    .from("question_nodes")
+    .select("id,node_key")
+    .eq("assessment_version_id", assessmentVersionId);
+  const query = isUuid(questionNodeId ?? "") ? baseQuery.eq("id", questionNodeId!) : baseQuery.eq("node_key", keyCandidate ?? "");
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}

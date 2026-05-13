@@ -59,6 +59,7 @@ export function ChoiceResponseControl({
         body: {
           attempt_id: attemptId,
           question_node_id: questionNode.node_id,
+          question_node_key: questionNode.node_key,
           answer_text: serializeChoiceResponse(nextSelected),
           state_token: stateToken,
         },
@@ -176,6 +177,7 @@ export function NumericalResponseControl({
         body: {
           attempt_id: attemptId,
           question_node_id: questionNode.node_id,
+          question_node_key: questionNode.node_key,
           answer_text: serializeNumericalResponse(currentValue),
           state_token: stateToken,
         },

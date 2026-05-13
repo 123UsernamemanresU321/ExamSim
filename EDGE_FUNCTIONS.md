@@ -64,7 +64,9 @@ Student only for own attempt. Validates ownership, fresh state, token, and deliv
 asset signed URLs are generated server-side from private `assessment-packages` and are never returned before server
 state is `ACTIVE`, `UPLOAD_ONLY`, or `FINISHED_REVIEW`. `seb_required` attempts additionally require a state token bound
 to an attempt session. The function accepts valid current-request SEB headers, or a still-current verified attempt
-session whose stored request hashes still match the attempt configuration and verification URL.
+session whose stored request hashes still match the attempt configuration and verification URL. Before returning the
+package, question nodes are hydrated from `question_nodes` by `node_key` so browser write calls use database UUIDs
+rather than AI/import-local node IDs.
 
 ## upload-seb-config
 
@@ -90,13 +92,16 @@ Student only for own attempt. Records a standardized blank placeholder for a slo
 
 Student only for own attempt. Autosaves typed, multiple-choice, and numerical answers during `ACTIVE` when typed
 responses are enabled. Multiple-choice and numerical submissions are validated against the question node response mode
-and stored as structured JSON in `text_responses.answer_text`; `upload_pdf` and `none` nodes are rejected.
+and stored as structured JSON in `text_responses.answer_text`; `upload_pdf` and `none` nodes are rejected. The function
+accepts either `question_node_id` as a database UUID or `question_node_key` as the stable owner-reviewed key, resolving
+the trusted database ID server-side before writing.
 
 ## set-question-flag
 
-Student only for own attempt. Input: `{ attempt_id, question_node_id, flagged, state_token }`. Validates the state token,
-recomputes attempt state, checks that the question belongs to the released attempt version, and records the flag through
-server-side `submission_annotations` writes plus an audit event. The browser no longer inserts flag rows directly.
+Student only for own attempt. Input: `{ attempt_id, question_node_id?, question_node_key?, flagged, state_token }`.
+Validates the state token, recomputes attempt state, resolves the question by database UUID or stable key, checks that
+the question belongs to the released attempt version, and records the flag through server-side `submission_annotations`
+writes plus an audit event. The browser no longer inserts flag rows directly.
 
 ## finalize-attempt
 

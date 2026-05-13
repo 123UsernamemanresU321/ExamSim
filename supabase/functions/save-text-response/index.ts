@@ -5,12 +5,21 @@ import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts
 import { verifyStateToken } from "../_shared/state-token.ts";
 
 serve(async (request) => {
-  const options = handleOptions(request);
-  if (options) return options;
-  try {
-    const { user, admin } = await requireUser(request);
-    const profile = await profileForAuthUser(user.id);
-    const body = await readJson<{ attempt_id: string; question_node_id: string; answer_text: string; state_token: string }>(request);
+    const options = handleOptions(request);
+    if (options) return options;
+    try {
+      const { user, admin } = await requireUser(request);
+      const profile = await profileForAuthUser(user.id);
+    const body = await readJson<{
+      attempt_id: string;
+      question_node_id?: string;
+      question_node_key?: string;
+      answer_text: string;
+      state_token: string;
+    }>(request);
+    if (!body.attempt_id || (!body.question_node_id && !body.question_node_key) || !body.state_token) {
+      return json({ error: "attempt_id, question_node_id or question_node_key, and state_token are required" }, 400);
+    }
     const tokenPayload = await verifyStateToken(body.state_token);
     if (tokenPayload.attempt_id !== body.attempt_id || tokenPayload.profile_id !== profile.id) {
       return json({ error: "State token does not match this attempt" }, 403);
@@ -26,19 +35,13 @@ serve(async (request) => {
       solutionsRequested: attempt.solutions_requested,
     });
     if (state !== "ACTIVE" || !attempt.typed_enabled) return json({ error: "Text response not allowed", state }, 403);
-    const { data: node, error: nodeError } = await admin
-      .from("question_nodes")
-      .select("id,response_mode,interaction_json")
-      .eq("id", body.question_node_id)
-      .eq("assessment_version_id", attempt.assessment_version_id)
-      .maybeSingle();
-    if (nodeError) throw nodeError;
+    const node = await resolveQuestionNodeForAttempt(admin, attempt.assessment_version_id, body.question_node_id, body.question_node_key);
     if (!node) return json({ error: "Question node does not belong to this attempt" }, 403);
 
     const answerText = validateAnswerText(body.answer_text ?? "", node.response_mode, node.interaction_json);
     const { error: upsertError } = await admin.from("text_responses").upsert({
       attempt_id: body.attempt_id,
-      question_node_id: body.question_node_id,
+      question_node_id: node.id,
       answer_text: answerText,
       saved_at: new Date().toISOString(),
     }, { onConflict: "attempt_id,question_node_id" });
@@ -46,13 +49,48 @@ serve(async (request) => {
     await admin.from("attempt_events").insert({
       attempt_id: body.attempt_id,
       event_type: "text.autosaved",
-      payload_json: { question_node_id: body.question_node_id, response_mode: node.response_mode },
+      payload_json: {
+        question_node_id: node.id,
+        question_node_key: node.node_key,
+        response_mode: node.response_mode,
+      },
     });
-    return json({ ok: true });
+    return json({ ok: true, question_node_id: node.id, question_node_key: node.node_key });
   } catch (error) {
     return errorResponse(error, "save-text-response failed");
   }
 });
+
+async function resolveQuestionNodeForAttempt(
+  admin: {
+    from(table: "question_nodes"): {
+      select(columns: string): {
+        eq(column: string, value: string): {
+          eq(column: string, value: string): {
+            maybeSingle(): Promise<{
+              data: { id: string; node_key: string; response_mode: string; interaction_json: unknown } | null;
+              error: Error | null;
+            }>;
+          };
+        };
+      };
+    };
+  },
+  assessmentVersionId: string,
+  questionNodeId?: string,
+  questionNodeKey?: string,
+) {
+  const keyCandidate = questionNodeKey ?? (questionNodeId && !isUuid(questionNodeId) ? questionNodeId : null);
+  const baseQuery = admin
+    .from("question_nodes")
+    .select("id,node_key,response_mode,interaction_json")
+    .eq("assessment_version_id", assessmentVersionId);
+
+  const query = isUuid(questionNodeId ?? "") ? baseQuery.eq("id", questionNodeId!) : baseQuery.eq("node_key", keyCandidate ?? "");
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data;
+}
 
 function validateAnswerText(answerText: string, responseMode: string, interactionJson: unknown) {
   if (responseMode === "none" || responseMode === "upload_pdf") {
@@ -132,4 +170,8 @@ function numberValue(value: unknown) {
   if (typeof value !== "string") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
