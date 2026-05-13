@@ -7,7 +7,19 @@ import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { formatStoredResponse } from "@/lib/response-values";
+import {
+  binaryMarkDecisionFromAwarded,
+  markForBinaryDecision,
+  responseModeUsesBinaryMarking,
+  type BinaryMarkDecision,
+} from "@/lib/marking-scoring";
 import type { Mark, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
+
+type LocalMarkState = {
+  awarded: string;
+  notes: string;
+  binaryDecision: BinaryMarkDecision;
+};
 
 export function MarkingWorkspaceForm({
   attemptId,
@@ -26,15 +38,16 @@ export function MarkingWorkspaceForm({
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");
-  const [localMarks, setLocalMarks] = useState<Record<string, { awarded: string; notes: string }>>(
+  const [localMarks, setLocalMarks] = useState<Record<string, LocalMarkState>>(
     questionNodes.reduce((acc, node) => {
       const existing = initialMarks.find((m) => m.question_node_id === node.id);
       acc[node.id] = {
         awarded: existing ? String(existing.awarded_marks) : "",
         notes: existing?.notes ?? "",
+        binaryDecision: binaryMarkDecisionFromAwarded(existing?.awarded_marks, node.marks ?? 0),
       };
       return acc;
-    }, {} as Record<string, { awarded: string; notes: string }>),
+    }, {} as Record<string, LocalMarkState>),
   );
 
   const totalAwarded = Object.values(localMarks).reduce((sum, m) => sum + (Number(m.awarded) || 0), 0);
@@ -59,12 +72,23 @@ export function MarkingWorkspaceForm({
     const supabase = createSupabaseBrowserClient();
     try {
       const markPayload = activeNodes
-        .filter((node) => localMarks[node.id].awarded.trim() !== "")
-        .map((node) => ({
-          question_node_id: node.id,
-          awarded_marks: Number(localMarks[node.id].awarded),
-          notes: localMarks[node.id].notes,
-        }));
+        .flatMap((node) => {
+          const local = localMarks[node.id];
+          if (responseModeUsesBinaryMarking(node.response_mode)) {
+            const awarded = markForBinaryDecision(local.binaryDecision, node.marks ?? 0);
+            return awarded === null ? [] : [{
+              question_node_id: node.id,
+              awarded_marks: awarded,
+              notes: local.notes,
+            }];
+          }
+          if (local.awarded.trim() === "") return [];
+          return [{
+            question_node_id: node.id,
+            awarded_marks: Number(local.awarded),
+            notes: local.notes,
+          }];
+        });
 
       await invokeEdgeFunction(supabase, "save-marking", {
         body: {
@@ -138,6 +162,7 @@ export function MarkingWorkspaceForm({
           const response = textResponses.find((r) => r.question_node_id === node.id);
           const slot = uploadSlots.find((s) => s.question_node_id === node.id);
           const state = localMarks[node.id];
+          const usesBinaryMarking = responseModeUsesBinaryMarking(node.response_mode);
 
           return (
             <section key={node.id} className="rounded-lg border border-[var(--border)] bg-white p-4 shadow-sm">
@@ -155,20 +180,51 @@ export function MarkingWorkspaceForm({
                     <p className="text-xs text-[var(--muted)]">Maximum: {node.marks ?? 0} marks</p>
                   </div>
                 </div>
-                <Input
-                  className="w-24 text-right font-bold"
-                  type="number"
-                  min={0}
-                  max={node.marks ?? 100}
-                  step={0.5}
-                  value={state.awarded}
-                  onChange={(e) =>
-                    setLocalMarks((prev) => ({
-                      ...prev,
-                      [node.id]: { ...prev[node.id], awarded: e.target.value },
-                    }))
-                  }
-                />
+                {usesBinaryMarking ? (
+                  <div className="grid min-w-64 grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={state.binaryDecision === "correct" ? "primary" : "secondary"}
+                      className={state.binaryDecision === "correct" ? "text-white" : ""}
+                      onClick={() =>
+                        setLocalMarks((prev) => ({
+                          ...prev,
+                          [node.id]: { ...prev[node.id], binaryDecision: "correct", awarded: String(node.marks ?? 0) },
+                        }))
+                      }
+                    >
+                      Correct
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={state.binaryDecision === "incorrect" ? "primary" : "secondary"}
+                      className={state.binaryDecision === "incorrect" ? "text-white" : ""}
+                      onClick={() =>
+                        setLocalMarks((prev) => ({
+                          ...prev,
+                          [node.id]: { ...prev[node.id], binaryDecision: "incorrect", awarded: "0" },
+                        }))
+                      }
+                    >
+                      Incorrect
+                    </Button>
+                  </div>
+                ) : (
+                  <Input
+                    className="w-24 text-right font-bold"
+                    type="number"
+                    min={0}
+                    max={node.marks ?? 100}
+                    step={0.5}
+                    value={state.awarded}
+                    onChange={(e) =>
+                      setLocalMarks((prev) => ({
+                        ...prev,
+                        [node.id]: { ...prev[node.id], awarded: e.target.value },
+                      }))
+                    }
+                  />
+                )}
               </div>
 
               {response?.answer_text ? (

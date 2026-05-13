@@ -9,6 +9,12 @@ import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { formatStoredResponse } from "@/lib/response-values";
+import {
+  binaryMarkDecisionFromAwarded,
+  markForBinaryDecision,
+  responseModeUsesBinaryMarking,
+  type BinaryMarkDecision,
+} from "@/lib/marking-scoring";
 import { cn } from "@/lib/utils";
 import type { QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation } from "@/types/database";
 
@@ -29,6 +35,9 @@ export function MarkingResponseWorkspace({
 }) {
   const router = useRouter();
   const [awarded, setAwarded] = useState(mark ? String(mark.awarded_marks) : "");
+  const [binaryDecision, setBinaryDecision] = useState<BinaryMarkDecision>(
+    binaryMarkDecisionFromAwarded(mark?.awarded_marks, node?.marks ?? 0),
+  );
   const [notes, setNotes] = useState(mark?.notes ?? "");
   const existingFeedback = annotations.find(a => a.annotation_type === "feedback");
   const [studentFeedback, setStudentFeedback] = useState(existingFeedback?.body ?? "");
@@ -41,18 +50,25 @@ export function MarkingResponseWorkspace({
   useEffect(() => {
     const id = window.setTimeout(() => {
       setAwarded(mark ? String(mark.awarded_marks) : "");
+      setBinaryDecision(binaryMarkDecisionFromAwarded(mark?.awarded_marks, node?.marks ?? 0));
       setNotes(mark?.notes ?? "");
       setStudentFeedback(existingFeedback?.body ?? "");
       setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
       setIsUnreadable(annotations.some(a => a.is_unreadable));
     }, 0);
     return () => window.clearTimeout(id);
-  }, [mark, existingFeedback, annotations]);
+  }, [mark, node, existingFeedback, annotations]);
 
   if (!node) return null;
 
   async function handleSave() {
     if (!node) return;
+    const usesBinaryMarking = responseModeUsesBinaryMarking(node.response_mode);
+    const binaryAwarded = markForBinaryDecision(binaryDecision, node.marks ?? 0);
+    if (usesBinaryMarking && binaryAwarded === null) {
+      alert("Choose Correct or Incorrect before saving this structured response.");
+      return;
+    }
     setIsSaving(true);
     const supabase = createSupabaseBrowserClient();
     try {
@@ -95,7 +111,7 @@ export function MarkingResponseWorkspace({
           attempt_id: attemptId,
           marks: [{
             question_node_id: node.id,
-            awarded_marks: Number(awarded) || 0,
+            awarded_marks: usesBinaryMarking ? binaryAwarded ?? 0 : Number(awarded) || 0,
             notes: notes,
           }],
           annotations: annotationsToSave,
@@ -127,7 +143,10 @@ export function MarkingResponseWorkspace({
   }
 
   const maxMarks = node.marks ?? 0;
-  const isOverLimit = (Number(awarded) || 0) > maxMarks;
+  const usesBinaryMarking = responseModeUsesBinaryMarking(node.response_mode);
+  const binaryAwarded = markForBinaryDecision(binaryDecision, maxMarks);
+  const visibleAwarded = usesBinaryMarking ? binaryAwarded ?? 0 : Number(awarded) || 0;
+  const isOverLimit = !usesBinaryMarking && (Number(awarded) || 0) > maxMarks;
 
   return (
     <div className="flex h-full gap-8 overflow-hidden">
@@ -199,49 +218,93 @@ export function MarkingResponseWorkspace({
               </label>
               <div className="flex items-center gap-2">
                 <Badge tone={isOverLimit ? "danger" : "accent"} className="h-5 px-1.5 font-bold tabular-nums">
-                  {awarded || "0"} / {maxMarks}
+                  {visibleAwarded} / {maxMarks}
                 </Badge>
               </div>
             </div>
             
-            <div className="grid grid-cols-5 gap-3">
-              <div className="col-span-3 relative group">
-                <Input
-                  type="number"
-                  step={0.5}
-                  min={0}
-                  max={maxMarks}
-                  value={awarded}
-                  onChange={(e) => setAwarded(e.target.value)}
-                  className={cn(
-                    "text-3xl font-black h-16 pl-6 transition-all",
-                    isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
-                  )}
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-black text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
-                  PTS
+            {usesBinaryMarking ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold text-[var(--muted)]">
+                  Structured responses are marked as correct or incorrect. Correct awards full marks; incorrect awards 0.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant={binaryDecision === "correct" ? "primary" : "secondary"}
+                    className={cn("h-14 font-black", binaryDecision === "correct" && "text-white")}
+                    onClick={() => setBinaryDecision("correct")}
+                  >
+                    Correct - award full marks
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={binaryDecision === "incorrect" ? "primary" : "secondary"}
+                    className={cn("h-14 font-black", binaryDecision === "incorrect" && "text-white")}
+                    onClick={() => setBinaryDecision("incorrect")}
+                  >
+                    Incorrect - award 0 marks
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "bg-red-600 border-red-600 text-white hover:bg-red-700")}
+                    onClick={() => setIsFlagged(!isFlagged)}
+                  >
+                    <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
+                    {isFlagged ? "Review Required" : "Flag"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "bg-orange-600 border-orange-600 text-white hover:bg-orange-700")}
+                    onClick={() => setIsUnreadable(!isUnreadable)}
+                  >
+                    <Ban size={12} className="mr-1.5" />
+                    {isUnreadable ? "Broken/Corrupt" : "Corrupt"}
+                  </Button>
                 </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-5 gap-3">
+                <div className="col-span-3 relative group">
+                  <Input
+                    type="number"
+                    step={0.5}
+                    min={0}
+                    max={maxMarks}
+                    value={awarded}
+                    onChange={(e) => setAwarded(e.target.value)}
+                    className={cn(
+                      "text-3xl font-black h-16 pl-6 transition-all",
+                      isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
+                    )}
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-black text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
+                    PTS
+                  </div>
+                </div>
 
-              <div className="col-span-2 grid grid-rows-2 gap-2">
-                <Button
-                  variant="secondary"
-                  className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "bg-red-600 border-red-600 text-white hover:bg-red-700")}
-                  onClick={() => setIsFlagged(!isFlagged)}
-                >
-                  <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
-                  {isFlagged ? "Review Required" : "Flag"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "bg-orange-600 border-orange-600 text-white hover:bg-orange-700")}
-                  onClick={() => setIsUnreadable(!isUnreadable)}
-                >
-                  <Ban size={12} className="mr-1.5" />
-                  {isUnreadable ? "Broken/Corrupt" : "Corrupt"}
-                </Button>
+                <div className="col-span-2 grid grid-rows-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "bg-red-600 border-red-600 text-white hover:bg-red-700")}
+                    onClick={() => setIsFlagged(!isFlagged)}
+                  >
+                    <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
+                    {isFlagged ? "Review Required" : "Flag"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "bg-orange-600 border-orange-600 text-white hover:bg-orange-700")}
+                    onClick={() => setIsUnreadable(!isUnreadable)}
+                  >
+                    <Ban size={12} className="mr-1.5" />
+                    {isUnreadable ? "Broken/Corrupt" : "Corrupt"}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
             {isOverLimit && (
               <p className="text-[10px] font-bold text-red-600 flex items-center gap-1.5 px-1">
                 <AlertCircle size={12} /> SCORE CANNOT EXCEED {maxMarks} FOR THIS NODE
@@ -292,7 +355,7 @@ export function MarkingResponseWorkspace({
           </div>
           <Button 
             onClick={handleSave} 
-            disabled={isSaving || isOverLimit} 
+            disabled={isSaving || isOverLimit || (usesBinaryMarking && binaryDecision === "unmarked")}
             className="px-8 font-black uppercase tracking-widest shadow-lg shadow-blue-500/20"
           >
             {isSaving ? (

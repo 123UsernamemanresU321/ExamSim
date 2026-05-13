@@ -29,7 +29,7 @@ serve(async (request) => {
 
     const { data: attempt, error: attemptError } = await admin
       .from("attempts")
-      .select("id")
+      .select("id,assessment_version_id")
       .eq("id", body.attempt_id)
       .single();
     if (attemptError) throw attemptError;
@@ -49,6 +49,7 @@ serve(async (request) => {
     });
     const rubricRows = markRows.filter((row) => row.rubric_criteria_id);
     const genericRows = markRows.filter((row) => !row.rubric_criteria_id);
+    await validateStructuredMarkRows(admin, attempt.assessment_version_id, genericRows);
     
     if (rubricRows.length > 0) {
       const { error: marksError } = await admin.from("marks").upsert(rubricRows, {
@@ -114,3 +115,32 @@ serve(async (request) => {
     return errorResponse(error, "save-marking failed");
   }
 });
+
+async function validateStructuredMarkRows(
+  admin: any,
+  assessmentVersionId: string,
+  markRows: { question_node_id: string | null; awarded_marks: number }[],
+) {
+  const nodeIds = [...new Set(markRows.map((row) => row.question_node_id).filter((id): id is string => Boolean(id)))];
+  if (!nodeIds.length) return;
+
+  const { data, error } = await admin
+    .from("question_nodes")
+    .select("id,response_mode,marks")
+    .eq("assessment_version_id", assessmentVersionId)
+    .in("id", nodeIds);
+  if (error) throw error;
+
+  const nodeById = new Map((data ?? []).map((node: { id: string }) => [node.id, node]));
+  for (const row of markRows) {
+    if (!row.question_node_id) continue;
+    const node = nodeById.get(row.question_node_id) as { response_mode?: string; marks?: number | null } | undefined;
+    if (!node) throw new Error("Question node not found for marking");
+    if (node.response_mode !== "multiple_choice" && node.response_mode !== "numerical") continue;
+
+    const maxMarks = Number(node.marks ?? 0);
+    if (row.awarded_marks !== 0 && row.awarded_marks !== maxMarks) {
+      throw new Error("Numerical and multiple-choice questions must be marked correct or incorrect");
+    }
+  }
+}

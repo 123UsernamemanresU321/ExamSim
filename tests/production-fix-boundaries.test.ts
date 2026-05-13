@@ -202,6 +202,33 @@ describe("student response type controls", () => {
   });
 });
 
+describe("marking workspace structured scoring", () => {
+  it("marks numerical and multiple-choice responses as correct or incorrect", () => {
+    const workspace = read("components/owner/marking-response-workspace.tsx");
+    expect(workspace).toContain("responseModeUsesBinaryMarking");
+    expect(workspace).toContain("Correct - award full marks");
+    expect(workspace).toContain("Incorrect - award 0 marks");
+    expect(workspace).toContain("markForBinaryDecision");
+    expect(workspace).toContain("binaryMarkDecisionFromAwarded");
+  });
+
+  it("keeps the legacy marking form binary for structured response modes", () => {
+    const workspace = read("components/owner/marking-workspace-form.tsx");
+    expect(workspace).toContain("responseModeUsesBinaryMarking");
+    expect(workspace).toContain("Correct");
+    expect(workspace).toContain("Incorrect");
+    expect(workspace).toContain("markForBinaryDecision");
+  });
+
+  it("rejects partial structured marks in the save-marking Edge Function", () => {
+    const source = read("supabase/functions/save-marking/index.ts");
+    expect(source).toContain("validateStructuredMarkRows");
+    expect(source).toContain('"multiple_choice"');
+    expect(source).toContain('"numerical"');
+    expect(source).toContain("must be marked correct or incorrect");
+  });
+});
+
 describe("prompt rendering and AAL2 stability", () => {
   it("does not wrap whole prose prompts in display math in the marking workspace", () => {
     const source = read("components/owner/marking-center-panel.tsx");

@@ -161,7 +161,9 @@ Owner AAL2 only. Converts a normalized package into a conservative QTI ZIP with 
 
 ## save-marking
 
-Owner AAL2 only. Saves marks and submission annotations for an attempt. Does not release student-visible feedback.
+Owner AAL2 only. Saves marks and submission annotations for an attempt. `multiple_choice` and `numerical` question nodes
+are binary scored: awarded marks must be either `0` or that node's full mark value. Partial marks remain available for
+typed and upload-style questions. Does not release student-visible feedback.
 
 ## release-feedback
 
