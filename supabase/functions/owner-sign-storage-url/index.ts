@@ -80,8 +80,25 @@ async function ownerCanAccessObject(
       .eq("normalized_package_path", objectPath)
       .maybeSingle();
     if (versionError) throw versionError;
-    if (!version?.assessment_id) return false;
-    return ownerOwnsAssessment(admin, ownerProfileId, String(version.assessment_id));
+    if (version?.assessment_id) return ownerOwnsAssessment(admin, ownerProfileId, String(version.assessment_id));
+
+    const { data: assetNode, error: assetNodeError } = await admin
+      .from("question_nodes")
+      .select("assessment_version_id")
+      .contains("assets", [objectPath])
+      .limit(1)
+      .maybeSingle();
+    if (assetNodeError) throw assetNodeError;
+    if (!assetNode?.assessment_version_id) return false;
+
+    const { data: assetVersion, error: assetVersionError } = await admin
+      .from("assessment_versions")
+      .select("assessment_id")
+      .eq("id", String(assetNode.assessment_version_id))
+      .maybeSingle();
+    if (assetVersionError) throw assetVersionError;
+    if (!assetVersion?.assessment_id) return false;
+    return ownerOwnsAssessment(admin, ownerProfileId, String(assetVersion.assessment_id));
   }
 
   if (bucket === "marking-packets" && purpose === "marking_packet") {
@@ -125,6 +142,8 @@ function isSafeObjectPath(path: string) {
 type QueryResult = Promise<{ data: Record<string, unknown> | null; error: Error | null }>;
 type FilterBuilder = {
   eq(column: string, value: string): FilterBuilder;
+  contains(column: string, value: string[]): FilterBuilder;
+  limit(count: number): FilterBuilder;
   maybeSingle(): QueryResult;
 };
 type QueryAdmin = {

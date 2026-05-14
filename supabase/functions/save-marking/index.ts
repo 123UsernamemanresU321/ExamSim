@@ -131,11 +131,27 @@ async function validateStructuredMarkRows(
     .in("id", nodeIds);
   if (error) throw error;
 
+  const { data: children, error: childrenError } = await admin
+    .from("question_nodes")
+    .select("parent_node_id")
+    .eq("assessment_version_id", assessmentVersionId)
+    .in("parent_node_id", nodeIds);
+  if (childrenError) throw childrenError;
+
+  const parentIdsWithChildren = new Set(
+    (children ?? [])
+      .map((child: { parent_node_id?: string | null }) => child.parent_node_id)
+      .filter((id: string | null | undefined): id is string => Boolean(id)),
+  );
+
   const nodeById = new Map((data ?? []).map((node: { id: string }) => [node.id, node]));
   for (const row of markRows) {
     if (!row.question_node_id) continue;
     const node = nodeById.get(row.question_node_id) as { response_mode?: string; marks?: number | null } | undefined;
     if (!node) throw new Error("Question node not found for marking");
+    if (parentIdsWithChildren.has(row.question_node_id) || node.response_mode === "none") {
+      throw new Error("Parent question marks are derived from child question marks");
+    }
     if (node.response_mode !== "multiple_choice" && node.response_mode !== "numerical") continue;
 
     const maxMarks = Number(node.marks ?? 0);

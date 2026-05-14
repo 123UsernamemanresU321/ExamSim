@@ -105,6 +105,8 @@ function row(overrides: Partial<QuestionNodeRow>): QuestionNodeRow {
     marks: null,
     response_mode: "typed_or_upload",
     interaction_json: null,
+    markscheme_html: null,
+    assets: [],
     source_page_start: null,
     source_page_end: null,
     created_at: "2026-05-07T00:00:00.000Z",

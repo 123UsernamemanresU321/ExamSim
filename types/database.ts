@@ -112,6 +112,9 @@ export type QuestionNodeRow = {
   marks: number | null;
   response_mode: "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice" | "numerical";
   interaction_json: Json | null;
+  markscheme_html: string | null;
+  markscheme_pdf_path?: string | null;
+  assets: string[] | null;
   source_page_start: number | null;
   source_page_end: number | null;
   created_at: string;

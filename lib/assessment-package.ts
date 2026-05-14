@@ -115,6 +115,7 @@ export function reconstructQuestionTree(rows: QuestionNodeRow[]): QuestionNode[]
       } : undefined,
       markscheme_html: (row as { markscheme_html?: string | null }).markscheme_html || undefined,
       markscheme_pdf_path: (row as { markscheme_pdf_path?: string | null }).markscheme_pdf_path || undefined,
+      assets: row.assets ?? undefined,
       interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" | "numerical" } | undefined,
       children: [],
     };

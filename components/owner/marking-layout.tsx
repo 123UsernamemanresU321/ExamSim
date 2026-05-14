@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
 import type { AttemptReviewWorkspace } from "@/lib/live-data";
+import { buildMarkingTree, findMarkingTreeNode, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { MarkingSidebarTree } from "./marking-sidebar-tree";
 import { MarkingCenterPanel } from "./marking-center-panel";
 import { MarkingResponseWorkspace } from "./marking-response-workspace";
@@ -15,12 +16,15 @@ import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
   const router = useRouter();
+  const questionTree = buildMarkingTree(workspace.questionNodes);
+  const selectableGroups = getSelectableMarkingGroups(questionTree);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    workspace.questionNodes.find((n) => n.node_type !== "section")?.id ?? null
+    selectableGroups[0]?.id ?? null
   );
   const [isReleasing, setIsReleasing] = useState(false);
 
-  const selectedNode = workspace.questionNodes.find((n) => n.id === selectedNodeId);
+  const selectedNode = findMarkingTreeNode(questionTree, selectedNodeId) ?? selectableGroups[0] ?? null;
+  const selectedLeafNodes = selectedNode ? getMarkableLeafNodes(selectedNode) : [];
 
   async function handleRelease() {
     if (workspace.feedbackRelease) {
@@ -92,6 +96,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
               <section className="flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-8">
                 <MarkingCenterPanel
                   node={selectedNode}
+                  marks={workspace.marks}
                   markschemeHtml={workspace.markschemeHtml}
                   markschemePdfPath={workspace.markschemePdfPath}
                 />
@@ -102,12 +107,11 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                 <MarkingResponseWorkspace
                   key={selectedNodeId ?? "none"}
                   attemptId={attemptId}
-                  node={selectedNode}
-                  response={workspace.textResponses.find((r) => r.question_node_id === selectedNodeId)}
-                  slot={workspace.uploadSlots.find((s) => s.question_node_id === selectedNodeId)}
-                  mark={workspace.marks.find((m) => m.question_node_id === selectedNodeId)}
-                  annotations={workspace.annotations.filter((a) => a.question_node_id === selectedNodeId)}
-
+                  nodes={selectedLeafNodes}
+                  responses={workspace.textResponses}
+                  uploadSlots={workspace.uploadSlots}
+                  marks={workspace.marks}
+                  annotations={workspace.annotations}
                 />
               </section>
             </div>

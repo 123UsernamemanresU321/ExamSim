@@ -13,6 +13,7 @@ import {
   responseModeUsesBinaryMarking,
   type BinaryMarkDecision,
 } from "@/lib/marking-scoring";
+import { buildMarkingTree, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import type { Mark, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
 
 type LocalMarkState = {
@@ -38,8 +39,9 @@ export function MarkingWorkspaceForm({
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");
+  const activeNodes = getSelectableMarkingGroups(buildMarkingTree(questionNodes)).flatMap(getMarkableLeafNodes);
   const [localMarks, setLocalMarks] = useState<Record<string, LocalMarkState>>(
-    questionNodes.reduce((acc, node) => {
+    activeNodes.reduce((acc, node) => {
       const existing = initialMarks.find((m) => m.question_node_id === node.id);
       acc[node.id] = {
         awarded: existing ? String(existing.awarded_marks) : "",
@@ -51,7 +53,6 @@ export function MarkingWorkspaceForm({
   );
 
   const totalAwarded = Object.values(localMarks).reduce((sum, m) => sum + (Number(m.awarded) || 0), 0);
-  const activeNodes = questionNodes.filter((node) => node.node_type !== "section");
 
   async function downloadFile(path: string) {
     const supabase = createSupabaseBrowserClient();

@@ -132,6 +132,14 @@ describe("AI parse review boundary", () => {
     expect(source).toContain('Use response_mode \\"numerical\\"');
     expect(source).toContain("expected answer is a number, value, numerator, count, measurement, coordinate, or decimal");
   });
+
+  it("instructs DeepSeek to preserve nested stems and parent-child hierarchy for marking", () => {
+    const source = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(source).toContain("Preserve the shared question stem");
+    expect(source).toContain("Parent marks are display/reference totals only");
+    expect(source).toContain('Q3 (parent) -> (a) (child) -> (i) (grandchild)');
+    expect(source).toContain("nearest common parent node");
+  });
 });
 
 describe("client sensitive write cleanup", () => {
@@ -227,13 +235,43 @@ describe("marking workspace structured scoring", () => {
     expect(source).toContain('"numerical"');
     expect(source).toContain("must be marked correct or incorrect");
   });
+
+  it("uses a recursive marking tree instead of flat question node pages", () => {
+    expect(read("lib/marking-tree.ts")).toContain("buildMarkingTree");
+    expect(read("lib/marking-tree.ts")).toContain("inferParentId");
+    expect(read("lib/marking-tree.ts")).toContain("computeMarkingTotals");
+
+    const layout = read("components/owner/marking-layout.tsx");
+    expect(layout).toContain("getSelectableMarkingGroups");
+    expect(layout).toContain("getMarkableLeafNodes");
+    expect(layout).not.toContain("workspace.questionNodes.find((n) => n.node_type !== \"section\")");
+
+    const sidebar = read("components/owner/marking-sidebar-tree.tsx");
+    expect(sidebar).toContain("SidebarNode");
+    expect(sidebar).toContain("mark-node-");
+    expect(sidebar).toContain("Leaf progress");
+  });
+
+  it("renders question assets and full descendant prompts in the marking workspace", () => {
+    const source = read("components/owner/marking-center-panel.tsx");
+    expect(source).toContain("QuestionPromptNode");
+    expect(source).toContain("QuestionAssets");
+    expect(source).toContain('"owner-sign-storage-url"');
+    expect(source).toContain('bucket: "assessment-packages"');
+  });
+
+  it("rejects direct parent-node marks in the save-marking Edge Function", () => {
+    const source = read("supabase/functions/save-marking/index.ts");
+    expect(source).toContain("parentIdsWithChildren");
+    expect(source).toContain("Parent question marks are derived from child question marks");
+  });
 });
 
 describe("prompt rendering and AAL2 stability", () => {
   it("does not wrap whole prose prompts in display math in the marking workspace", () => {
     const source = read("components/owner/marking-center-panel.tsx");
     expect(source).not.toContain("$$${node.prompt_latex}$$");
-    expect(source).toContain("latex={node.prompt_latex}");
+    expect(source).toContain("latex={node.prompt_html ? undefined : node.prompt_latex ?? undefined}");
   });
 
   it("does not rotate the Supabase session while only checking current AAL2", () => {

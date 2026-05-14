@@ -15,10 +15,73 @@ import {
   responseModeUsesBinaryMarking,
   type BinaryMarkDecision,
 } from "@/lib/marking-scoring";
+import type { MarkingTreeNode } from "@/lib/marking-tree";
 import { cn } from "@/lib/utils";
 import type { QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation } from "@/types/database";
 
 export function MarkingResponseWorkspace({
+  attemptId,
+  nodes,
+  responses,
+  uploadSlots,
+  marks,
+  annotations,
+  node,
+  response,
+  slot,
+  mark,
+}: {
+  attemptId: string;
+  nodes?: MarkingTreeNode[];
+  responses?: TextResponse[];
+  uploadSlots?: UploadSlot[];
+  marks?: Mark[];
+  annotations: SubmissionAnnotation[];
+  node?: QuestionNodeRow;
+  response?: TextResponse;
+  slot?: UploadSlot;
+  mark?: Mark;
+}) {
+  const cards = nodes?.length
+    ? nodes.map((leaf) => ({
+        node: leaf,
+        response: responses?.find((item) => item.question_node_id === leaf.id),
+        slot: uploadSlots?.find((item) => item.question_node_id === leaf.id),
+        mark: marks?.find((item) => item.question_node_id === leaf.id),
+        annotations: annotations.filter((item) => item.question_node_id === leaf.id),
+      }))
+    : node
+      ? [{ node, response, slot, mark, annotations }]
+      : [];
+
+  if (!cards.length) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
+        <Ban size={24} className="mb-3 opacity-50" />
+        <p className="text-sm font-bold uppercase tracking-widest">No markable parts</p>
+        <p className="mt-1 text-xs">This question is currently structural only.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6">
+      {cards.map((card) => (
+        <MarkingResponseCard
+          key={card.node.id}
+          attemptId={attemptId}
+          node={card.node}
+          response={card.response}
+          slot={card.slot}
+          mark={card.mark}
+          annotations={card.annotations}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MarkingResponseCard({
   attemptId,
   node,
   response,
@@ -27,7 +90,7 @@ export function MarkingResponseWorkspace({
   annotations,
 }: {
   attemptId: string;
-  node?: QuestionNodeRow;
+  node: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
   mark?: Mark;
@@ -59,10 +122,7 @@ export function MarkingResponseWorkspace({
     return () => window.clearTimeout(id);
   }, [mark, node, existingFeedback, annotations]);
 
-  if (!node) return null;
-
   async function handleSave() {
-    if (!node) return;
     const usesBinaryMarking = responseModeUsesBinaryMarking(node.response_mode);
     const binaryAwarded = markForBinaryDecision(binaryDecision, node.marks ?? 0);
     if (usesBinaryMarking && binaryAwarded === null) {
@@ -149,7 +209,19 @@ export function MarkingResponseWorkspace({
   const isOverLimit = !usesBinaryMarking && (Number(awarded) || 0) > maxMarks;
 
   return (
-    <div className="flex h-full gap-8 overflow-hidden">
+    <div id={`mark-response-${node.id}`} className="scroll-mt-24 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-slate-50/70 px-5 py-3">
+        <div>
+          <h3 className="text-sm font-black text-[var(--ink)]">{node.node_key}</h3>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--subtle)]">
+            {node.title || node.response_mode.replaceAll("_", " ")}
+          </p>
+        </div>
+        <Badge tone={usesBinaryMarking ? "accent" : "neutral"} className="font-bold">
+          {usesBinaryMarking ? "Correct / Incorrect" : `${maxMarks} marks`}
+        </Badge>
+      </div>
+      <div className="flex min-h-[520px] gap-8 overflow-hidden p-6">
       {/* Left Column: Response Viewer Area */}
       <div className="flex-1 overflow-y-auto space-y-6 pr-4">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
@@ -366,6 +438,7 @@ export function MarkingResponseWorkspace({
             {isSaving ? "Syncing..." : "Finalize Change"}
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );
