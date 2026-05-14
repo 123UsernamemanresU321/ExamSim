@@ -70,6 +70,16 @@ serve(async (request) => {
       p_package_json: packageJson,
     });
     if (replaceError) throw replaceError;
+    const assessmentMarkschemeHtml = normalizedPackage && isRecord(normalizedPackage.assessment)
+      ? stringValue(normalizedPackage.assessment.markscheme_html)
+      : null;
+    if (assessmentMarkschemeHtml) {
+      const { error: markschemeUpdateError } = await admin
+        .from("assessment_versions")
+        .update({ markscheme_html: assessmentMarkschemeHtml })
+        .eq("id", versionId);
+      if (markschemeUpdateError) throw markschemeUpdateError;
+    }
     return json({ ok: true, node_count: Number(nodeCount ?? rows.length) });
   } catch (error) {
     console.error("Update question tree error:", error);

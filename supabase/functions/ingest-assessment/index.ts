@@ -15,6 +15,12 @@ type IngestBody = {
   pdf_source_base64?: string;
   pdf_source_filename?: string;
   pdf_source_content_type?: string;
+  markscheme_source_kind?: "pdf" | "latex" | "json" | "none";
+  markscheme_latex_source?: string;
+  markscheme_json?: Record<string, unknown>;
+  markscheme_pdf_base64?: string;
+  markscheme_pdf_filename?: string;
+  markscheme_pdf_content_type?: string;
 };
 
 type FlatNode = {
@@ -188,12 +194,13 @@ serve(async (request) => {
     const sourceObjectPath = body.source_kind === "pdf"
       ? await resolvePdfSourceObjectPath(admin, profile.id, assessment.id, versionId, body)
       : body.source_kind === "latex" && body.latex_source
-        ? await storeLatexSource(admin, profile.id, assessment.id, versionId, body.latex_source)
+        ? await storeTextSource(admin, profile.id, assessment.id, versionId, "source.tex", body.latex_source, "application/x-tex")
         : body.uploaded_source_path ?? null;
+    const markschemeSource = await resolveMarkschemeSource(admin, profile.id, assessment.id, versionId, body);
 
     const parseConfidence = body.source_kind === "json" ? 1 : body.source_kind === "latex" ? 0.62 : 0.15;
     const requiresReview = parseConfidence < 0.9;
-    const normalizedPackage =
+    const baseNormalizedPackage =
       body.source_kind === "json" && body.json_package
         ? body.json_package
         : {
@@ -207,7 +214,7 @@ serve(async (request) => {
               authoring_origin: body.source_kind === "pdf" ? "owner_uploaded" : "owner_pasted",
               external_schedule_ref: body.external_schedule_ref,
               display_timezone: "Africa/Johannesburg",
-              markscheme_html: null,
+              markscheme_html: markschemeSource.html,
             },
             delivery: {
               delivery_mode: "browser",
@@ -227,6 +234,7 @@ serve(async (request) => {
             },
             questions: [],
           };
+    const normalizedPackage = mergeMarkschemeIntoPackage(baseNormalizedPackage, markschemeSource.json, markschemeSource.html);
 
     const packageStorage = await storeNormalizedPackageObject(admin, profile.id, versionId, normalizedPackage);
     const { data: version, error: versionError } = await admin
@@ -239,7 +247,10 @@ serve(async (request) => {
         source_kind: body.source_kind,
         source_object_path: sourceObjectPath,
         normalized_package_json: packageStorage.encrypted_package_path ? null : normalizedPackage,
-        markscheme_html: (normalizedPackage as any).assessment?.markscheme_html ?? null,
+        markscheme_html: (normalizedPackage as any).assessment?.markscheme_html ?? markschemeSource.html,
+        markscheme_pdf_path: markschemeSource.pdfPath,
+        markscheme_source_kind: markschemeSource.kind,
+        markscheme_source_object_path: markschemeSource.objectPath,
         parse_confidence: parseConfidence,
         requires_owner_review: requiresReview,
         ...packageStorage,
@@ -295,6 +306,7 @@ serve(async (request) => {
           requested_ocr: true,
           external_provider: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : null,
           metadata_json: {
+            parse_purpose: "paper",
             provider_mode: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "hosted" : "self_hosted",
           },
         })
@@ -304,9 +316,34 @@ serve(async (request) => {
       parseJobId = parseJob.id;
     }
 
+    let markschemeParseJobId: string | null = null;
+    if (markschemeSource.kind === "pdf" && markschemeSource.objectPath) {
+      const { data: parseJob, error: parseJobError } = await admin
+        .from("parse_jobs")
+        .insert({
+          assessment_version_id: version.id,
+          owner_profile_id: profile.id,
+          source_object_path: markschemeSource.objectPath,
+          parser: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : "mineru",
+          status: "queued",
+          requested_ocr: true,
+          external_provider: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : null,
+          metadata_json: {
+            parse_purpose: "markscheme",
+            provider_mode: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "hosted" : "self_hosted",
+          },
+        })
+        .select("id")
+        .single();
+      if (parseJobError) throw parseJobError;
+      markschemeParseJobId = parseJob.id;
+    }
+
     await auditOwnerAction(profile.id, user.id, "assessment.ingested", "assessment_versions", version.id, {
       source_kind: body.source_kind,
       parse_job_id: parseJobId,
+      markscheme_source_kind: markschemeSource.kind,
+      markscheme_parse_job_id: markschemeParseJobId,
     });
 
     return json({
@@ -315,6 +352,7 @@ serve(async (request) => {
       parse_confidence: parseConfidence,
       requires_owner_review: requiresReview,
       parse_job_id: parseJobId,
+      markscheme_parse_job_id: markschemeParseJobId,
     });
   } catch (error) {
     console.error("Ingest assessment error:", error);
@@ -347,17 +385,92 @@ async function resolvePdfSourceObjectPath(
   throw new Error("Choose a PDF file to upload");
 }
 
-async function storeLatexSource(
+async function resolveMarkschemeSource(
   admin: AdminClient,
   ownerProfileId: string,
   assessmentId: string,
   versionId: string,
+  body: IngestBody,
+) {
+  const kind = body.markscheme_source_kind === "none" ? undefined : body.markscheme_source_kind;
+  if (!kind) return { kind: null, objectPath: null, html: null, pdfPath: null, json: null };
+
+  if (kind === "pdf") {
+    if (!body.markscheme_pdf_base64) throw new Error("Choose a markscheme PDF file or set markscheme source to none.");
+    const objectPath = await storePdfSourceObject(
+      admin,
+      ownerProfileId,
+      assessmentId,
+      versionId,
+      body.markscheme_pdf_base64,
+      body.markscheme_pdf_filename ?? "markscheme.pdf",
+      "markscheme",
+    );
+    return { kind, objectPath, html: null, pdfPath: objectPath, json: null };
+  }
+
+  if (kind === "latex") {
+    const source = body.markscheme_latex_source?.trim();
+    if (!source) throw new Error("Paste the LaTeX markscheme or set markscheme source to none.");
+    const objectPath = await storeTextSource(admin, ownerProfileId, assessmentId, versionId, "markscheme.tex", source, "application/x-tex");
+    return { kind, objectPath, html: markschemeTextToHtml(source, "LaTeX markscheme source"), pdfPath: null, json: null };
+  }
+
+  const markschemeJson = body.markscheme_json;
+  if (!markschemeJson || typeof markschemeJson !== "object") throw new Error("Paste valid markscheme JSON or set markscheme source to none.");
+  const objectPath = await storeTextSource(
+    admin,
+    ownerProfileId,
+    assessmentId,
+    versionId,
+    "markscheme.json",
+    JSON.stringify(markschemeJson, null, 2),
+    "application/json",
+  );
+  return {
+    kind,
+    objectPath,
+    html: extractGlobalMarkschemeHtml(markschemeJson),
+    pdfPath: null,
+    json: markschemeJson,
+  };
+}
+
+async function storePdfSourceObject(
+  admin: AdminClient,
+  ownerProfileId: string,
+  assessmentId: string,
+  versionId: string,
+  base64Source: string,
+  filename: string,
+  prefix: string,
+) {
+  const bytes = decodeBase64Pdf(base64Source);
+  if (bytes.byteLength === 0) throw new Error("The uploaded PDF is empty");
+  if (bytes.byteLength > MAX_PDF_SOURCE_BYTES) throw new Error("PDF source uploads must be 10MB or smaller");
+  if (!isPdf(bytes)) throw new Error("The uploaded source file is not a valid PDF");
+  const objectPath = `${ownerProfileId}/assessments/${assessmentId}/versions/${versionId}/${prefix}-${safeFilename(filename)}`;
+  const { error } = await admin.storage.from("assessment-sources").upload(objectPath, bytes, {
+    contentType: "application/pdf",
+    upsert: false,
+  });
+  if (error) throw error;
+  return objectPath;
+}
+
+async function storeTextSource(
+  admin: AdminClient,
+  ownerProfileId: string,
+  assessmentId: string,
+  versionId: string,
+  filename: string,
   source: string,
+  contentType: string,
 ) {
   const bytes = new TextEncoder().encode(source);
-  const objectPath = `${ownerProfileId}/assessments/${assessmentId}/versions/${versionId}/source.tex`;
+  const objectPath = `${ownerProfileId}/assessments/${assessmentId}/versions/${versionId}/${filename}`;
   const { error } = await admin.storage.from("assessment-sources").upload(objectPath, bytes, {
-    contentType: "application/x-tex",
+    contentType,
     upsert: false,
   });
   if (error) throw error;
@@ -418,6 +531,96 @@ function normalizeResponseMode(value: unknown) {
   if (["pdf", "upload", "file_upload", "scan_upload"].includes(normalized)) return "upload_pdf";
   if (["mixed", "typed_upload", "typed_or_pdf"].includes(normalized)) return "typed_or_upload";
   return "typed_or_upload";
+}
+
+function mergeMarkschemeIntoPackage(
+  basePackage: Record<string, unknown>,
+  markschemeJson: Record<string, unknown> | null,
+  markschemeHtml: string | null,
+) {
+  if (!markschemeJson && !markschemeHtml) return basePackage;
+  const packageCopy = structuredClone(basePackage) as Record<string, unknown>;
+  const assessment = isRecord(packageCopy.assessment) ? packageCopy.assessment : {};
+  const globalHtml = extractGlobalMarkschemeHtml(markschemeJson) ?? markschemeHtml;
+  packageCopy.assessment = {
+    ...assessment,
+    markscheme_html: globalHtml ?? stringValue(assessment.markscheme_html) ?? undefined,
+  };
+
+  const markschemeByKey = markschemeJson ? flattenMarkschemeNodes(markschemeJson) : new Map<string, Record<string, unknown>>();
+  if (Array.isArray(packageCopy.questions) && markschemeByKey.size > 0) {
+    applyMarkschemeNodes(packageCopy.questions as Record<string, unknown>[], markschemeByKey);
+  }
+  return packageCopy;
+}
+
+function applyMarkschemeNodes(nodes: Record<string, unknown>[], markschemeByKey: Map<string, Record<string, unknown>>) {
+  for (const node of nodes) {
+    const key = stringValue(node.node_key) ?? stringValue(node.node_id);
+    const markschemeNode = key ? markschemeByKey.get(key) : undefined;
+    if (markschemeNode) {
+      const markschemePrompt = isRecord(markschemeNode.prompt) ? markschemeNode.prompt : {};
+      const nodeMarkschemeHtml =
+        stringValue(markschemeNode.markscheme_html) ??
+        stringValue(markschemeNode.marking_guide_html) ??
+        stringValue(markschemePrompt.html) ??
+        stringValue(markschemePrompt.latex);
+      const marks = numberValue(markschemeNode.marks) ?? numberValue(markschemeNode.max_marks);
+      if (nodeMarkschemeHtml) node.markscheme_html = nodeMarkschemeHtml;
+      if (marks !== null) node.marks = marks;
+    }
+    if (Array.isArray(node.children)) applyMarkschemeNodes(node.children as Record<string, unknown>[], markschemeByKey);
+  }
+}
+
+function flattenMarkschemeNodes(source: Record<string, unknown>) {
+  const map = new Map<string, Record<string, unknown>>();
+  const questions = Array.isArray(source.questions)
+    ? source.questions
+    : Array.isArray(source.nodes)
+      ? source.nodes
+      : isRecord(source.normalized_package) && Array.isArray(source.normalized_package.questions)
+        ? source.normalized_package.questions
+        : [];
+
+  function visit(rawNode: unknown) {
+    if (!isRecord(rawNode)) return;
+    const key = stringValue(rawNode.node_key) ?? stringValue(rawNode.node_id);
+    if (key) map.set(key, rawNode);
+    if (Array.isArray(rawNode.children)) rawNode.children.forEach(visit);
+  }
+  questions.forEach(visit);
+  return map;
+}
+
+function extractGlobalMarkschemeHtml(source: Record<string, unknown> | null) {
+  if (!source) return null;
+  const assessment = isRecord(source.assessment) ? source.assessment : {};
+  return (
+    stringValue(source.markscheme_html) ??
+    stringValue(source.marking_guide_html) ??
+    stringValue(assessment.markscheme_html) ??
+    stringValue(assessment.marking_guide_html)
+  );
+}
+
+function markschemeTextToHtml(source: string, label: string) {
+  return `<p><strong>${escapeHtml(label)}</strong></p><pre>${escapeHtml(source)}</pre>`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function numberValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function escapeHtml(value: string) {

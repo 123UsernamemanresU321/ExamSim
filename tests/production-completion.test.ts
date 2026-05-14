@@ -325,9 +325,19 @@ describe("production UI wiring", () => {
     expect(source).not.toContain('name="uploaded_source_path"');
   });
 
+  it("supports optional markscheme upload sources during assessment creation", () => {
+    const source = readFileSync("components/owner/new-assessment-form.tsx", "utf8");
+    expect(source).toContain("markschemeKind");
+    expect(source).toContain('name="markscheme_pdf_source"');
+    expect(source).toContain("markscheme_pdf_base64");
+    expect(source).toContain("markscheme_latex_source");
+    expect(source).toContain("markscheme_json");
+  });
+
   it("lets owners restart stuck hosted MinerU jobs", () => {
     const source = readFileSync("components/owner/mineru-hosted-panel.tsx", "utf8");
     expect(source).toContain("Restart MinerU job");
     expect(source).toContain("force: true");
+    expect(source).toContain("Markscheme OCR");
   });
 });

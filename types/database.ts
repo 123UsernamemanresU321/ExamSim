@@ -95,6 +95,8 @@ export type AssessmentVersion = {
   requires_owner_review: boolean;
   markscheme_html: string | null;
   markscheme_pdf_path: string | null;
+  markscheme_source_kind: "pdf" | "latex" | "json" | null;
+  markscheme_source_object_path: string | null;
   published_at: string | null;
   created_at: string;
 };

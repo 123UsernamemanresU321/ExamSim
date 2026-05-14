@@ -32,11 +32,25 @@ export function AiParseReviewPanel({
             object_path: artifact.object_path,
             preview: artifact.content_preview,
           })),
+          markscheme: {
+            source_kind: version.markscheme_source_kind,
+            source_object_path: version.markscheme_source_object_path,
+            global_html: version.markscheme_html,
+            pdf_path: version.markscheme_pdf_path,
+          },
         },
         null,
         2,
       ),
-    [artifacts, nodes, version.normalized_package_json],
+    [
+      artifacts,
+      nodes,
+      version.markscheme_html,
+      version.markscheme_pdf_path,
+      version.markscheme_source_kind,
+      version.markscheme_source_object_path,
+      version.normalized_package_json,
+    ],
   );
 
   async function requestSuggestion() {

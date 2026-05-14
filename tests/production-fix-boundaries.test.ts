@@ -39,6 +39,13 @@ describe("RLS and storage hardening migration", () => {
     expect(migration).not.toContain("create policy");
     expect(migration).toContain("Student-visible results are now served through Edge Functions");
   });
+
+  it("tracks optional markscheme sources on assessment versions", () => {
+    const migration = read("supabase/migrations/202605140001_markscheme_source_workflow.sql");
+    expect(migration).toContain("markscheme_source_kind");
+    expect(migration).toContain("markscheme_source_object_path");
+    expect(migration).toContain("assessment-sources");
+  });
 });
 
 describe("Edge state and content release boundaries", () => {
@@ -139,6 +146,32 @@ describe("AI parse review boundary", () => {
     expect(source).toContain("Parent marks are display/reference totals only");
     expect(source).toContain('Q3 (parent) -> (a) (child) -> (i) (grandchild)');
     expect(source).toContain("nearest common parent node");
+  });
+
+  it("uses markscheme context to allocate marks and generate marking guidance", () => {
+    const source = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(source).toContain("MARKSCHEME AND MARK ALLOCATION RULES");
+    expect(source).toContain("Markscheme context (solutions, mark allocations, and marking guidance)");
+    expect(source).toContain("assign exact marks to answerable leaf nodes");
+    expect(source).toContain("markscheme_html");
+    expect(source).toContain("loadMarkschemeContext");
+  });
+});
+
+describe("markscheme source ingestion", () => {
+  it("stores markscheme sources privately and queues separate markscheme OCR jobs", () => {
+    const source = read("supabase/functions/ingest-assessment/index.ts");
+    expect(source).toContain("markscheme_source_kind");
+    expect(source).toContain("resolveMarkschemeSource");
+    expect(source).toContain('parse_purpose: "markscheme"');
+    expect(source).toContain("mergeMarkschemeIntoPackage");
+    expect(source).toContain("markscheme_source_object_path");
+  });
+
+  it("persists global markscheme html when a reviewed AI package is saved", () => {
+    const source = read("supabase/functions/update-question-tree/index.ts");
+    expect(source).toContain("assessmentMarkschemeHtml");
+    expect(source).toContain("markscheme_html: assessmentMarkschemeHtml");
   });
 });
 

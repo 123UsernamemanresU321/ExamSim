@@ -52,6 +52,7 @@ serve(async (request) => {
       : "";
 
     const existingPackage = await loadNormalizedPackage(admin, version);
+    const markschemeContext = await loadMarkschemeContext(admin, version, existingPackage);
     if (!sourceText.trim() && !originalSourceText.trim() && version.source_kind !== "pdf") {
       return json({ error: "source_text or readable original source is required for non-PDF sources" }, 400);
     }
@@ -80,11 +81,11 @@ serve(async (request) => {
       // Get all parse job IDs for this version to check for artifacts
       const { data: jobs } = await admin
         .from("parse_jobs")
-        .select("id")
+        .select("id,metadata_json")
         .eq("assessment_version_id", body.assessment_version_id)
         .eq("external_provider", "mineru_hosted");
       
-      const jobIds = (jobs ?? []).map(j => j.id);
+      const jobIds = (jobs ?? []).filter((job: Record<string, unknown>) => parseJobPurpose(job) !== "markscheme").map((job: { id: string }) => job.id);
 
       if (jobIds.length > 0) {
         const { data: imageArtifacts } = await admin
@@ -186,7 +187,8 @@ serve(async (request) => {
               "      \"title\": string | null,",
               "      \"paper_code\": string | null,",
               "      \"assessment_kind\": \"exam\" | \"test\" | \"quiz\" | \"worksheet\" | \"assignment\" | \"practice\" | \"unknown\",",
-              "      \"source_kind\": \"latex\" | \"raw_text\" | \"pdf_text\" | \"ocr_text\" | \"mixed\" | \"unknown\"",
+              "      \"source_kind\": \"latex\" | \"raw_text\" | \"pdf_text\" | \"ocr_text\" | \"mixed\" | \"unknown\",",
+              "      \"markscheme_html\": string | null",
               "    },",
               "    \"delivery\": {",
               "      \"solutions_requested\": true,",
@@ -223,8 +225,25 @@ serve(async (request) => {
               "    \"latex\": string",
               "  },",
               "  \"assets\": [string, ...],",
+              "  \"markscheme_html\": string | null,",
               "  \"children\": []",
               "}",
+              "",
+              "==================================================",
+              "MARKSCHEME AND MARK ALLOCATION RULES",
+              "==================================================",
+              "",
+              "You may receive separate MARKSCHEME CONTEXT from LaTeX, JSON, or MinerU/OCR PDF output.",
+              "",
+              "Use markscheme context to:",
+              "- assign exact marks to answerable leaf nodes when the paper only gives a parent total,",
+              "- create concise per-node markscheme_html guidance for the marking workspace,",
+              "- preserve global markscheme notes in assessment.markscheme_html.",
+              "",
+              "Do not use markscheme text to replace or shorten question prompts.",
+              "Do not reveal worked solutions inside prompt.html or prompt.latex.",
+              "If a markscheme says (a)(i) is 2 marks and (a)(ii) is 3 marks while the paper only shows (a) [5], set the leaves to 2 and 3 and leave the parent as the printed total only if explicit.",
+              "Every markscheme_html value must be safe simple HTML and should identify the mark allocation or marking points for that exact node.",
               "",
               "==================================================",
               "SUBQUESTION AND HIERARCHY RULES",
@@ -506,6 +525,7 @@ serve(async (request) => {
               `Owner notes: ${body.owner_notes ?? ""}`,
               `Original source text (full context): ${originalSourceText.slice(0, 80_000)}`,
               `Review context (nodes/artifacts): ${sourceText.slice(0, 80_000)}`,
+              `Markscheme context (solutions, mark allocations, and marking guidance): ${markschemeContext.slice(0, 80_000)}`,
               ...(imagePaths.length > 0 ? [`Available diagram image paths (assign to the matching question's "assets" array): ${JSON.stringify(imagePaths)}`] : []),
             ].join("\n\n"),
           },
@@ -605,7 +625,7 @@ async function loadSourceText(admin: any, body: Body, version: any) {
       .eq("status", "review_required")
       .order("completed_at", { ascending: false });
     
-    const latestJob = parseJobs?.[0];
+    const latestJob = (parseJobs ?? []).find((job: Record<string, unknown>) => parseJobPurpose(job) !== "markscheme");
     if (latestJob?.result_object_path) {
       console.log(`[AI Parse] Automatically using MinerU artifact: ${latestJob.result_object_path}`);
       return await fetchSourceFromStorage(admin, latestJob.result_object_path, "assessment-packages");
@@ -613,6 +633,52 @@ async function loadSourceText(admin: any, body: Body, version: any) {
   }
 
   return "";
+}
+
+async function loadMarkschemeContext(admin: any, version: any, existingPackage: unknown) {
+  const parts: string[] = [];
+  const existing = isRecord(existingPackage) ? existingPackage : {};
+  const existingAssessment = isRecord(existing.assessment) ? existing.assessment : {};
+  const existingMarkschemeHtml = stringValue(existingAssessment.markscheme_html);
+  if (existingMarkschemeHtml) parts.push(`Existing package global markscheme:\n${existingMarkschemeHtml}`);
+  if (typeof version.markscheme_html === "string" && version.markscheme_html.trim()) {
+    parts.push(`Assessment version markscheme:\n${version.markscheme_html}`);
+  }
+
+  if (version.markscheme_source_object_path && version.markscheme_source_kind !== "pdf") {
+    try {
+      const text = await fetchSourceFromStorage(admin, version.markscheme_source_object_path, "assessment-sources");
+      if (text.trim()) parts.push(`Uploaded ${version.markscheme_source_kind} markscheme source:\n${text}`);
+    } catch (error) {
+      parts.push(`Uploaded markscheme source could not be read: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
+
+  const { data: parseJobs } = await admin
+    .from("parse_jobs")
+    .select("*")
+    .eq("assessment_version_id", version.id)
+    .in("parser", ["mineru", "mineru_hosted"])
+    .in("status", ["review_required", "succeeded"])
+    .order("completed_at", { ascending: false });
+
+  const markschemeJobs = (parseJobs ?? []).filter((job: Record<string, unknown>) => parseJobPurpose(job) === "markscheme");
+  for (const job of markschemeJobs.slice(0, 3)) {
+    if (!job.result_object_path || typeof job.result_object_path !== "string") continue;
+    try {
+      const text = await fetchSourceFromStorage(admin, job.result_object_path, "assessment-packages");
+      if (text.trim()) parts.push(`MinerU/OCR markscheme artifact (${job.result_object_path}):\n${text}`);
+    } catch (error) {
+      parts.push(`MinerU/OCR markscheme artifact could not be read: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
+
+  return parts.join("\n\n---\n\n");
+}
+
+function parseJobPurpose(job: Record<string, unknown>) {
+  const metadata = isRecord(job.metadata_json) ? job.metadata_json : {};
+  return metadata.parse_purpose === "markscheme" ? "markscheme" : "paper";
 }
 
 async function fetchSourceFromStorage(admin: StorageAdmin, path: string, bucket: string) {
@@ -670,6 +736,8 @@ function normalizePackageCandidate(pkg: Record<string, unknown>, context: {
   existingPackage: unknown;
 }, warnings: string[]) {
   const existing = isRecord(context.existingPackage) ? context.existingPackage : {};
+  const existingAssessment = isRecord(existing.assessment) ? existing.assessment : {};
+  const pkgAssessment = isRecord(pkg.assessment) ? pkg.assessment : {};
   const existingDelivery = isRecord(existing.delivery) ? existing.delivery : {};
   const existingResponsePolicy = isRecord(existingDelivery.response_policy) ? existingDelivery.response_policy : {};
   const existingSource = isRecord(existing.source) ? existing.source : {};
@@ -686,6 +754,7 @@ function normalizePackageCandidate(pkg: Record<string, unknown>, context: {
       source_kind: normalizeSourceKind(context.sourceKind),
       authoring_origin: "owner_uploaded",
       display_timezone: "Africa/Johannesburg",
+      markscheme_html: stringValue(pkgAssessment.markscheme_html) ?? stringValue(existingAssessment.markscheme_html) ?? undefined,
     },
     delivery: {
       delivery_mode: normalizeDeliveryMode(existingDelivery.delivery_mode),
@@ -741,6 +810,7 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
       marks: numberValue(raw.marks) !== null ? Math.max(0, numberValue(raw.marks)!) : undefined,
       response_mode: finalResponseMode,
       prompt: (html || latex) ? { html, latex } : undefined,
+      markscheme_html: stringValue(raw.markscheme_html) ?? stringValue(raw.marking_guide_html) ?? undefined,
       assets: assets.length ? assets : undefined,
       interaction: normalizeInteraction(raw.interaction),
       children: children.length ? children : undefined,

@@ -14,6 +14,8 @@ type IngestResult = {
   draft_version_id: string;
   parse_confidence: number;
   requires_owner_review: boolean;
+  parse_job_id?: string | null;
+  markscheme_parse_job_id?: string | null;
 };
 
 function parseJsonPackage(raw: string) {
@@ -24,6 +26,7 @@ function parseJsonPackage(raw: string) {
 export function NewAssessmentForm() {
   const router = useRouter();
   const [sourceKind, setSourceKind] = useState("json");
+  const [markschemeKind, setMarkschemeKind] = useState("none");
   const [message, setMessage] = useState<string | null>(null);
   const [created, setCreated] = useState<IngestResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,8 +44,16 @@ export function NewAssessmentForm() {
       const pdfPayload = sourceKind === "pdf" && pdfFile instanceof File && pdfFile.size > 0
         ? await readPdfUpload(pdfFile)
         : null;
+      const markschemeText = String(form.get("markscheme_text") ?? "");
+      const markschemePdfFile = form.get("markscheme_pdf_source");
+      const markschemePdfPayload = markschemeKind === "pdf" && markschemePdfFile instanceof File && markschemePdfFile.size > 0
+        ? await readPdfUpload(markschemePdfFile)
+        : null;
       if (sourceKind === "pdf" && !pdfPayload) {
         throw new Error("Choose a PDF file to upload.");
+      }
+      if (markschemeKind === "pdf" && !markschemePdfPayload) {
+        throw new Error("Choose a markscheme PDF file to upload.");
       }
       const body = {
         title: String(form.get("title") ?? ""),
@@ -55,6 +66,12 @@ export function NewAssessmentForm() {
         pdf_source_base64: pdfPayload?.base64,
         pdf_source_filename: pdfPayload?.filename,
         pdf_source_content_type: pdfPayload?.contentType,
+        markscheme_source_kind: markschemeKind === "none" ? undefined : markschemeKind,
+        markscheme_latex_source: markschemeKind === "latex" ? markschemeText : undefined,
+        markscheme_json: markschemeKind === "json" ? parseJsonPackage(markschemeText) : undefined,
+        markscheme_pdf_base64: markschemePdfPayload?.base64,
+        markscheme_pdf_filename: markschemePdfPayload?.filename,
+        markscheme_pdf_content_type: markschemePdfPayload?.contentType,
       };
 
       const supabase = createSupabaseBrowserClient();
@@ -144,6 +161,55 @@ export function NewAssessmentForm() {
           review screen. Parsed output remains review-required before publish.
         </div>
       ) : null}
+      <section className="grid gap-4 rounded-lg border border-[var(--border)] bg-white p-4">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--ink)]">Optional markscheme source</h2>
+          <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+            Add a markscheme now if you have it. PDF markschemes queue a separate hosted MinerU job; JSON and LaTeX are
+            stored privately and passed to DeepSeek as marking evidence. AI suggestions remain review-required.
+          </p>
+        </div>
+        <Field
+          label="Markscheme source kind"
+          description="Choose none if you only have the question paper. Choose PDF, LaTeX, or JSON when you want DeepSeek to infer per-part marks and marking guidance from the markscheme."
+        >
+          <select
+            name="markscheme_source_kind"
+            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
+            value={markschemeKind}
+            onChange={(event) => setMarkschemeKind(event.target.value)}
+          >
+            <option value="none">none</option>
+            <option value="json">json</option>
+            <option value="latex">latex</option>
+            <option value="pdf">pdf</option>
+          </select>
+        </Field>
+        {markschemeKind === "pdf" ? (
+          <Field
+            label="Markscheme PDF file"
+            description={`Choose the official markscheme PDF. It is stored privately and parsed separately from the question paper. Maximum ${uploadSizeLabel()}.`}
+          >
+            <Input name="markscheme_pdf_source" type="file" accept="application/pdf,.pdf" required />
+          </Field>
+        ) : null}
+        {markschemeKind === "latex" || markschemeKind === "json" ? (
+          <Field
+            label={markschemeKind === "json" ? "Markscheme JSON" : "Markscheme LaTeX"}
+            description={
+              markschemeKind === "json"
+                ? "Paste a JSON markscheme with matching node_key values where possible. Marks and markscheme_html will be merged into the review draft."
+                : "Paste the LaTeX markscheme or memo. DeepSeek will use it to suggest exact part marks and per-question marking guidance."
+            }
+          >
+            <Textarea
+              name="markscheme_text"
+              placeholder={markschemeKind === "json" ? "Paste markscheme JSON here." : "Paste markscheme LaTeX here."}
+              required
+            />
+          </Field>
+        ) : null}
+      </section>
       <Button className="justify-self-start" type="submit" disabled={isSubmitting}>
         Create draft version
       </Button>
@@ -151,6 +217,9 @@ export function NewAssessmentForm() {
       {created ? (
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm">
           <p className="font-semibold">Draft version created with parse confidence {Math.round(created.parse_confidence * 100)}%.</p>
+          {"markscheme_parse_job_id" in created && created.markscheme_parse_job_id ? (
+            <p className="mt-1 text-[var(--muted)]">A separate markscheme MinerU job was queued for review.</p>
+          ) : null}
           <Link className="mt-2 inline-block font-semibold text-[var(--primary)]" href={`/owner/assessments/${created.assessment_id}/review`}>
             Review question tree
           </Link>

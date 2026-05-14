@@ -99,10 +99,15 @@ export function MineruHostedPanel({
         return (
           <div key={job.id} className="rounded-md border border-[var(--border)] bg-white p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">
-                <span className={isDone ? "text-green-600" : canPoll ? "text-amber-600" : ""}>{job.status}</span>
-                {job.external_state ? ` · ${job.external_state}` : ""}
-              </p>
+              <div>
+                <p className="text-sm font-semibold">
+                  <span className={isDone ? "text-green-600" : canPoll ? "text-amber-600" : ""}>{job.status}</span>
+                  {job.external_state ? ` · ${job.external_state}` : ""}
+                </p>
+                <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+                  {parseJobPurpose(job) === "markscheme" ? "Markscheme OCR" : "Question paper OCR"}
+                </p>
+              </div>
               {isBusy && <Loader2 size={14} className="animate-spin text-[var(--muted)]" />}
               {isDone && !isBusy && <CheckCircle2 size={14} className="text-green-600" />}
             </div>
@@ -150,4 +155,12 @@ export function MineruHostedPanel({
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
     </div>
   );
+}
+
+function parseJobPurpose(job: ParseJob) {
+  const metadata = job.metadata_json;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata) && "parse_purpose" in metadata) {
+    return metadata.parse_purpose === "markscheme" ? "markscheme" : "paper";
+  }
+  return "paper";
 }
