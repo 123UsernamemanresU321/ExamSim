@@ -346,6 +346,18 @@ describe("work annotations and mark discussion tickets", () => {
     expect(workspace).toContain('"save-work-annotation"');
   });
 
+  it("separates marking, moderation, and dispute workspaces in the owner UI", () => {
+    const layout = read("components/owner/marking-layout.tsx");
+    expect(layout).toContain("Marking & Annotations");
+    expect(layout).toContain("Moderation & Timeline");
+    expect(layout).toContain("Discussion / Appeals");
+    expect(layout).toContain("showDiscussion={false}");
+
+    const workspace = read("components/owner/marking-response-workspace.tsx");
+    expect(workspace).toContain("MarkingDiscussionWorkspace");
+    expect(workspace).toContain("showDiscussion?: boolean");
+  });
+
   it("serves released annotations and uploaded work previews through the results Edge Function", () => {
     const edge = read("supabase/functions/get-student-results/index.ts");
     expect(edge).toContain("work_annotations");

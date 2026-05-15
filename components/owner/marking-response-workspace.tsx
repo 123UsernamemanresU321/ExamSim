@@ -29,6 +29,7 @@ export function MarkingResponseWorkspace({
   workAnnotations = [],
   markingTickets = [],
   markingTicketMessages = [],
+  showDiscussion = true,
   node,
   response,
   slot,
@@ -43,6 +44,7 @@ export function MarkingResponseWorkspace({
   workAnnotations?: WorkAnnotation[];
   markingTickets?: MarkingTicket[];
   markingTicketMessages?: MarkingTicketMessage[];
+  showDiscussion?: boolean;
   node?: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
@@ -86,7 +88,56 @@ export function MarkingResponseWorkspace({
           workAnnotations={card.workAnnotations}
           markingTickets={card.markingTickets}
           markingTicketMessages={markingTicketMessages}
+          showDiscussion={showDiscussion}
         />
+      ))}
+    </div>
+  );
+}
+
+export function MarkingDiscussionWorkspace({
+  attemptId,
+  nodes,
+  markingTickets = [],
+  markingTicketMessages = [],
+}: {
+  attemptId: string;
+  nodes: MarkingTreeNode[];
+  markingTickets?: MarkingTicket[];
+  markingTicketMessages?: MarkingTicketMessage[];
+}) {
+  if (!nodes.length) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
+        <MessageSquare size={24} className="mb-3 opacity-50" />
+        <p className="text-sm font-bold uppercase tracking-widest">No discussion target</p>
+        <p className="mt-1 text-xs">Select a question with markable parts to open or review discussion tickets.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6">
+      {nodes.map((node) => (
+        <div key={node.id} className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black text-[var(--ink)]">{node.node_key}</h3>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--subtle)]">
+                {node.title || node.response_mode.replaceAll("_", " ")}
+              </p>
+            </div>
+            <Badge tone="accent">
+              {markingTickets.filter((ticket) => ticket.question_node_id === node.id).length} tickets
+            </Badge>
+          </div>
+          <OwnerTicketPanel
+            attemptId={attemptId}
+            node={node}
+            tickets={markingTickets.filter((ticket) => ticket.question_node_id === node.id)}
+            messages={markingTicketMessages}
+          />
+        </div>
       ))}
     </div>
   );
@@ -102,6 +153,7 @@ function MarkingResponseCard({
   workAnnotations,
   markingTickets,
   markingTicketMessages,
+  showDiscussion,
 }: {
   attemptId: string;
   node: QuestionNodeRow;
@@ -112,6 +164,7 @@ function MarkingResponseCard({
   workAnnotations: WorkAnnotation[];
   markingTickets: MarkingTicket[];
   markingTicketMessages: MarkingTicketMessage[];
+  showDiscussion: boolean;
 }) {
   const router = useRouter();
   const [awarded, setAwarded] = useState(mark ? String(mark.awarded_marks) : "");
@@ -449,12 +502,14 @@ function MarkingResponseCard({
           </Button>
         </div>
 
-        <OwnerTicketPanel
-          attemptId={attemptId}
-          node={node}
-          tickets={markingTickets}
-          messages={markingTicketMessages}
-        />
+        {showDiscussion ? (
+          <OwnerTicketPanel
+            attemptId={attemptId}
+            node={node}
+            tickets={markingTickets}
+            messages={markingTicketMessages}
+          />
+        ) : null}
       </div>
       </div>
     </div>

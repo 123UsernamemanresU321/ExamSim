@@ -7,7 +7,7 @@ import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import { buildMarkingTree, findMarkingTreeNode, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { MarkingSidebarTree } from "./marking-sidebar-tree";
 import { MarkingCenterPanel } from "./marking-center-panel";
-import { MarkingResponseWorkspace } from "./marking-response-workspace";
+import { MarkingDiscussionWorkspace, MarkingResponseWorkspace } from "./marking-response-workspace";
 import { MarkingModerationPanel } from "./marking-moderation-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -69,8 +69,9 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
         <Tabs defaultValue="marking" className="flex flex-1 flex-col gap-4 overflow-hidden">
           <div className="flex items-center justify-between px-1">
             <TabsList>
-              <TabsTrigger value="marking">Marking</TabsTrigger>
+              <TabsTrigger value="marking">Marking & Annotations</TabsTrigger>
               <TabsTrigger value="moderation">Moderation & Timeline</TabsTrigger>
+              <TabsTrigger value="discussion">Discussion / Appeals</TabsTrigger>
             </TabsList>
 
             <Button
@@ -115,6 +116,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   workAnnotations={workspace.workAnnotations}
                   markingTickets={workspace.markingTickets}
                   markingTicketMessages={workspace.markingTicketMessages}
+                  showDiscussion={false}
                 />
               </section>
             </div>
@@ -124,6 +126,26 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
             <MarkingModerationPanel
               report={workspace.moderationReport}
               events={workspace.attemptEvents}
+            />
+          </TabsContent>
+
+          <TabsContent value="discussion" className="flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-6 mt-0">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] pb-4">
+              <div>
+                <h2 className="text-lg font-black text-[var(--ink)]">Discussion / Appeals</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                  Use this separate workspace for student questions, marking disputes, and clarification threads. Marking and annotation controls stay in the Marking tab.
+                </p>
+              </div>
+              <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                {workspace.markingTickets.length} open or archived tickets
+              </span>
+            </div>
+            <MarkingDiscussionWorkspace
+              attemptId={attemptId}
+              nodes={selectedLeafNodes}
+              markingTickets={workspace.markingTickets}
+              markingTicketMessages={workspace.markingTicketMessages}
             />
           </TabsContent>
         </Tabs>
