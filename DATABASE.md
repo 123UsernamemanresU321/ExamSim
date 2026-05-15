@@ -10,6 +10,8 @@ Production content-release boundary hardening lives in
 `supabase/migrations/202605120001_harden_content_release_boundaries.sql`.
 Numerical response-mode support is added for hosted databases in
 `supabase/migrations/202605130002_add_numerical_response_mode.sql`.
+Anchored work annotations and marking discussion tickets are added in
+`supabase/migrations/202605140002_work_annotations_and_marking_tickets.sql`.
 
 ## Tables
 
@@ -34,6 +36,9 @@ Numerical response-mode support is added for hosted databases in
 - `rubric_criteria`
 - `marks`
 - `submission_annotations`
+- `work_annotations`
+- `marking_tickets`
+- `marking_ticket_messages`
 - `feedback_releases`
 - `parse_jobs`
 - `parse_job_artifacts`
@@ -68,16 +73,16 @@ The TypeScript equivalent of the state machine lives in `lib/attempt-state.ts` a
 - Student response writes are constrained to their own attempts and valid active timing windows.
 - Moderation reports are owner-only by default.
 - Owner-created groups and group memberships are owner-managed; students can only see group links involving themselves.
-- Marking, rubrics, annotations, feedback releases, parse jobs, retention requests, and audit logs are owner-managed.
+- Marking, rubrics, annotations, work annotations, feedback releases, parse jobs, retention requests, and audit logs are owner-managed.
 - Students read released feedback/marks through the checked `get-student-results` Edge Function after an explicit visible
-  feedback release; direct student result policies are not used for question metadata, version rows, marks, or feedback
-  annotations.
+  feedback release; direct student result policies are not used for question metadata, version rows, marks, feedback
+  annotations, work annotations, or marking tickets.
 
 ## Indexes
 
 Indexes cover profile role lookup, owner assessment lookup, version status, question node ordering, assignee attempts,
 sessions, events, responses, upload slots, moderation reports, schedule references, student groups, assignments, marking,
-feedback releases, parser jobs, and owner audit logs.
+feedback releases, work annotations, marking tickets, parser jobs, and owner audit logs.
 
 ## Production Constraints
 
@@ -86,6 +91,10 @@ feedback releases, parser jobs, and owner audit logs.
   and `numerical`. Multi-select choices use `interaction_json.max_choices`; numerical answers use
   `interaction_json.kind = "numerical"` with optional numeric bounds/unit metadata.
 - `marks` and `feedback_releases` store owner-controlled marking totals; feedback is invisible to students until released.
+- `work_annotations` stores a non-destructive marker annotation layer over typed work and uploaded PDFs. Anchors can point
+  to selected typed text, PDF pages, or owner-entered locations; the original student submission is not modified.
+- `marking_tickets` and `marking_ticket_messages` store feedback discussions. Student access is Edge-mediated and only
+  available after feedback release for the student's own attempt.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.

@@ -32,6 +32,17 @@ not grant database access. Real data and sensitive actions always require Supaba
 Production requires Vercel SSR. Static export hosting is not supported because it cannot refresh Supabase sessions or
 run server-side route guards at request time.
 
+## Marking Annotations And Discussions
+
+Marker annotations are stored as a separate review layer, not by mutating the student's original typed answer or uploaded
+PDF. Owner-created work annotations require AAL2 and are audited. Students see only annotations marked
+`student_visible`, only after the owner explicitly releases feedback, and only through the checked `get-student-results`
+Edge Function.
+
+Marking discussion tickets are also Edge-mediated. Students can open or reply only for their own released results.
+Owner replies, owner-created tickets, and owner status changes require AAL2. Direct student RLS access is not granted for
+work annotations or ticket tables.
+
 ## Owner MFA
 
 Production Browser Mode requires owner AAL2/TOTP before sensitive owner actions: creating students, creating groups,

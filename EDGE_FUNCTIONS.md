@@ -165,6 +165,18 @@ Owner AAL2 only. Saves marks and submission annotations for an attempt. `multipl
 are binary scored: awarded marks must be either `0` or that node's full mark value. Partial marks remain available for
 typed and upload-style questions. Does not release student-visible feedback.
 
+## save-work-annotation
+
+Owner AAL2 only. Saves or deletes marker annotations anchored to a student's typed response, uploaded PDF, or general
+question part. The annotation layer is stored separately from the student's original work. Student-visible annotations
+are returned only through `get-student-results` after feedback release; private annotations remain owner-only.
+
+## marking-ticket
+
+Student or owner. Creates and replies to feedback discussion tickets for a released attempt. Students can open or reply
+only on their own attempts after feedback is visible. Owner replies, owner-created tickets, and owner status changes
+require AAL2 and are audited. The function stores threaded messages and keeps ticket access off direct student RLS.
+
 ## release-feedback
 
 Owner AAL2 only. Computes totals, upserts `feedback_releases`, and makes feedback visible only when explicitly requested.
@@ -198,8 +210,9 @@ Storage signing in parse review and marking views.
 ## get-student-results
 
 Student or owner. Returns released student feedback only through a checked Edge boundary. Students receive sanitized
-question metadata, marks, feedback annotations, and their own response summaries only after `feedback_releases` is
-visible. Moderation reports, attempt events, private package objects, and unreleased feedback remain owner-only.
+question metadata, marks, feedback annotations, student-visible work annotations, discussion tickets, short-lived upload
+preview URLs, and their own response summaries only after `feedback_releases` is visible. Moderation reports, attempt
+events, private package objects, private annotations, and unreleased feedback remain owner-only.
 
 ## list-student-results
 
