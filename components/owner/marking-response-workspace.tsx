@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Save, FileText, Paperclip, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink } from "lucide-react";
+import { Save, FileText, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/form";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/marking-scoring";
 import type { MarkingTreeNode } from "@/lib/marking-tree";
 import { cn } from "@/lib/utils";
-import type { QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation } from "@/types/database";
+import type { MarkingTicket, MarkingTicketMessage, QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation, WorkAnnotation } from "@/types/database";
 
 export function MarkingResponseWorkspace({
   attemptId,
@@ -26,6 +26,9 @@ export function MarkingResponseWorkspace({
   uploadSlots,
   marks,
   annotations,
+  workAnnotations = [],
+  markingTickets = [],
+  markingTicketMessages = [],
   node,
   response,
   slot,
@@ -37,6 +40,9 @@ export function MarkingResponseWorkspace({
   uploadSlots?: UploadSlot[];
   marks?: Mark[];
   annotations: SubmissionAnnotation[];
+  workAnnotations?: WorkAnnotation[];
+  markingTickets?: MarkingTicket[];
+  markingTicketMessages?: MarkingTicketMessage[];
   node?: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
@@ -49,9 +55,11 @@ export function MarkingResponseWorkspace({
         slot: uploadSlots?.find((item) => item.question_node_id === leaf.id),
         mark: marks?.find((item) => item.question_node_id === leaf.id),
         annotations: annotations.filter((item) => item.question_node_id === leaf.id),
+        workAnnotations: workAnnotations.filter((item) => item.question_node_id === leaf.id),
+        markingTickets: markingTickets.filter((item) => item.question_node_id === leaf.id),
       }))
     : node
-      ? [{ node, response, slot, mark, annotations }]
+      ? [{ node, response, slot, mark, annotations, workAnnotations, markingTickets }]
       : [];
 
   if (!cards.length) {
@@ -75,6 +83,9 @@ export function MarkingResponseWorkspace({
           slot={card.slot}
           mark={card.mark}
           annotations={card.annotations}
+          workAnnotations={card.workAnnotations}
+          markingTickets={card.markingTickets}
+          markingTicketMessages={markingTicketMessages}
         />
       ))}
     </div>
@@ -88,6 +99,9 @@ function MarkingResponseCard({
   slot,
   mark,
   annotations,
+  workAnnotations,
+  markingTickets,
+  markingTicketMessages,
 }: {
   attemptId: string;
   node: QuestionNodeRow;
@@ -95,6 +109,9 @@ function MarkingResponseCard({
   slot?: UploadSlot;
   mark?: Mark;
   annotations: SubmissionAnnotation[];
+  workAnnotations: WorkAnnotation[];
+  markingTickets: MarkingTicket[];
+  markingTicketMessages: MarkingTicketMessage[];
 }) {
   const router = useRouter();
   const [awarded, setAwarded] = useState(mark ? String(mark.awarded_marks) : "");
@@ -236,29 +253,14 @@ function MarkingResponseCard({
         {response?.answer_text ? (
           <div className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6 shadow-sm">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
-              <FileText size={12} /> Digital Response
+              <FileText size={12} /> Student work - typed response
             </div>
             <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ink)] selection:bg-blue-100">
               {formatStoredResponse(response.answer_text, node)}
             </p>
           </div>
         ) : slot?.object_path ? (
-          <div className="rounded-xl border-2 border-dashed border-blue-100 p-8 flex flex-col items-center justify-center bg-blue-50/10 transition-colors hover:bg-blue-50/20 group">
-            <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
-              <Paperclip size={24} className="text-blue-500" />
-            </div>
-            <div className="text-center mb-6">
-              <p className="text-sm font-bold text-blue-900">Attachment Uploaded</p>
-              <p className="text-xs text-blue-600/70">Scanned PDF or mobile capture</p>
-            </div>
-            <Button 
-              variant="secondary" 
-              onClick={() => downloadFile(slot.object_path!)}
-              className="bg-white border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm"
-            >
-              <ExternalLink size={14} className="mr-2" /> View Submission PDF
-            </Button>
-          </div>
+          <SubmissionPdfPreview objectPath={slot.object_path} onDownload={() => downloadFile(slot.object_path!)} />
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border)] p-12 flex flex-col items-center justify-center text-center">
             <div className="h-12 w-12 rounded-full bg-[var(--surface-muted)] flex items-center justify-center mb-4 opacity-50">
@@ -278,6 +280,14 @@ function MarkingResponseCard({
             </div>
           </div>
         )}
+
+        <WorkAnnotationPanel
+          attemptId={attemptId}
+          node={node}
+          response={response}
+          slot={slot}
+          annotations={workAnnotations}
+        />
       </div>
 
       {/* Right Column: Marking Controls */}
@@ -438,8 +448,325 @@ function MarkingResponseCard({
             {isSaving ? "Syncing..." : "Finalize Change"}
           </Button>
         </div>
+
+        <OwnerTicketPanel
+          attemptId={attemptId}
+          node={node}
+          tickets={markingTickets}
+          messages={markingTicketMessages}
+        />
       </div>
       </div>
     </div>
   );
+}
+
+function SubmissionPdfPreview({ objectPath, onDownload }: { objectPath: string; onDownload: () => void }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function signPdf() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+          body: { bucket: "answer-uploads", object_path: objectPath, purpose: "answer_upload", expires_in_seconds: 300 },
+          requiresAal2: true,
+        });
+        if (!data?.signed_url) throw new Error("Could not generate PDF preview link");
+        if (!cancelled) setSignedUrl(data.signed_url);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not preview PDF");
+      }
+    }
+    signPdf();
+    return () => {
+      cancelled = true;
+    };
+  }, [objectPath]);
+
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50/10 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Student work - uploaded PDF</p>
+          <p className="text-xs text-blue-700/70">Original submission stays unchanged. Marker annotations are stored as a separate review layer.</p>
+        </div>
+        <Button variant="secondary" onClick={onDownload} className="bg-white text-blue-700 hover:bg-blue-600 hover:text-white">
+          <ExternalLink size={14} className="mr-2" /> Open
+        </Button>
+      </div>
+      {error ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{error}</div>
+      ) : signedUrl ? (
+        <iframe title="Student uploaded PDF" src={signedUrl} className="h-[560px] w-full rounded-lg border border-slate-200 bg-white" />
+      ) : (
+        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-blue-100 text-sm text-blue-500">
+          Loading PDF preview...
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkAnnotationPanel({
+  attemptId,
+  node,
+  response,
+  slot,
+  annotations,
+}: {
+  attemptId: string;
+  node: QuestionNodeRow;
+  response?: TextResponse;
+  slot?: UploadSlot;
+  annotations: WorkAnnotation[];
+}) {
+  const router = useRouter();
+  const [body, setBody] = useState("");
+  const [visibility, setVisibility] = useState<"student_visible" | "private">("student_visible");
+  const [severity, setSeverity] = useState<"note" | "minor" | "major" | "critical">("note");
+  const [selectedText, setSelectedText] = useState("");
+  const [page, setPage] = useState("1");
+  const [location, setLocation] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const annotationKind = slot?.object_path ? "uploaded_pdf" : response?.answer_text ? "typed_text" : "general";
+
+  function captureSelectedText() {
+    const selection = window.getSelection()?.toString().trim();
+    if (selection) setSelectedText(selection.slice(0, 500));
+  }
+
+  async function saveAnnotation() {
+    if (!body.trim()) return;
+    setIsSaving(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await invokeEdgeFunction(supabase, "save-work-annotation", {
+        body: {
+          attempt_id: attemptId,
+          question_node_id: node.id,
+          upload_slot_id: slot?.id ?? null,
+          text_response_id: response?.id ?? null,
+          annotation_kind: annotationKind,
+          visibility,
+          severity,
+          body,
+          anchor_json: annotationKind === "uploaded_pdf"
+            ? { page: Number(page) || 1, location_label: location || null }
+            : { selected_text: selectedText || null },
+        },
+        requiresAal2: true,
+      });
+      setBody("");
+      setSelectedText("");
+      setLocation("");
+      router.refresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not save annotation.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteAnnotation(annotationId: string) {
+    if (!confirm("Delete this marker annotation?")) return;
+    const supabase = createSupabaseBrowserClient();
+    await invokeEdgeFunction(supabase, "save-work-annotation", {
+      body: { attempt_id: attemptId, question_node_id: node.id, annotation_id: annotationId, annotation_kind: annotationKind, delete: true },
+      requiresAal2: true,
+    });
+    router.refresh();
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4">
+        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Marker annotations</h4>
+        <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+          These are your comments on the student&apos;s work. Student-visible notes appear after results are released; private notes stay internal.
+        </p>
+      </div>
+      {annotations.length ? (
+        <div className="mb-4 grid gap-2">
+          {annotations.map((annotation) => (
+            <div key={annotation.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  {annotation.visibility === "student_visible" ? "Student visible" : "Private"} · {annotation.severity}
+                </span>
+                <Button variant="ghost" className="h-7 px-2 text-red-600" onClick={() => void deleteAnnotation(annotation.id)}>
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+              {renderAnchor(annotation.anchor_json)}
+              <p className="text-sm leading-6 text-[var(--ink)]">{annotation.body}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="grid gap-3">
+        {annotationKind === "typed_text" ? (
+          <div className="grid gap-2">
+            <Button type="button" variant="secondary" className="justify-self-start text-xs" onClick={captureSelectedText}>
+              Use selected student text as anchor
+            </Button>
+            <Input value={selectedText} onChange={(event) => setSelectedText(event.target.value)} placeholder="Quoted student text or line reference" />
+          </div>
+        ) : annotationKind === "uploaded_pdf" ? (
+          <div className="grid gap-2 md:grid-cols-[120px_1fr]">
+            <Input type="number" min={1} value={page} onChange={(event) => setPage(event.target.value)} aria-label="PDF page number" />
+            <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Location on page, e.g. top-left, line 4, diagram label" />
+          </div>
+        ) : null}
+        <Textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Explain the exact marking issue or correction." />
+        <div className="grid gap-2 md:grid-cols-3">
+          <select className="min-h-10 rounded-md border border-[var(--border)] bg-white px-3 text-sm" value={visibility} onChange={(event) => setVisibility(event.target.value as "student_visible" | "private")}>
+            <option value="student_visible">Student visible</option>
+            <option value="private">Private</option>
+          </select>
+          <select className="min-h-10 rounded-md border border-[var(--border)] bg-white px-3 text-sm" value={severity} onChange={(event) => setSeverity(event.target.value as "note" | "minor" | "major" | "critical")}>
+            <option value="note">Note</option>
+            <option value="minor">Minor issue</option>
+            <option value="major">Major issue</option>
+            <option value="critical">Critical issue</option>
+          </select>
+          <Button type="button" onClick={() => void saveAnnotation()} disabled={isSaving || !body.trim()} className="text-white">
+            Save annotation
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OwnerTicketPanel({
+  attemptId,
+  node,
+  tickets,
+  messages,
+}: {
+  attemptId: string;
+  node: QuestionNodeRow;
+  tickets: MarkingTicket[];
+  messages: MarkingTicketMessage[];
+}) {
+  const router = useRouter();
+  const [replyByTicket, setReplyByTicket] = useState<Record<string, string>>({});
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function createTicket() {
+    if (!subject.trim() || !message.trim()) return;
+    const supabase = createSupabaseBrowserClient();
+    await invokeEdgeFunction(supabase, "marking-ticket", {
+      body: {
+        action: "create",
+        attempt_id: attemptId,
+        question_node_id: node.id,
+        subject: subject.trim(),
+        message: message.trim(),
+      },
+      requiresAal2: true,
+    });
+    setSubject("");
+    setMessage("");
+    router.refresh();
+  }
+
+  async function reply(ticketId: string) {
+    const message = replyByTicket[ticketId]?.trim();
+    if (!message) return;
+    const supabase = createSupabaseBrowserClient();
+    await invokeEdgeFunction(supabase, "marking-ticket", {
+      body: { action: "reply", ticket_id: ticketId, message },
+      requiresAal2: true,
+    });
+    setReplyByTicket((prev) => ({ ...prev, [ticketId]: "" }));
+    router.refresh();
+  }
+
+  async function updateStatus(ticketId: string, status: MarkingTicket["status"]) {
+    const supabase = createSupabaseBrowserClient();
+    await invokeEdgeFunction(supabase, "marking-ticket", {
+      body: { action: "update_status", ticket_id: ticketId, status },
+      requiresAal2: true,
+    });
+    router.refresh();
+  }
+
+  return (
+    <section className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
+      <h4 className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+        <MessageSquare size={13} /> Mark discussion tickets
+      </h4>
+      <div className="mb-4 grid gap-2 rounded-lg border border-blue-100 bg-white p-3">
+        <Input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder={`Open a discussion about ${node.node_key}`} />
+        <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Visible to the student after feedback release. Use this for clarifications or disputed marking points." />
+        <Button type="button" className="justify-self-start text-white" disabled={!subject.trim() || !message.trim()} onClick={() => void createTicket()}>
+          Open discussion
+        </Button>
+      </div>
+      {tickets.length ? (
+      <div className="grid gap-3">
+        {tickets.map((ticket) => {
+          const ticketMessages = messages.filter((message) => message.ticket_id === ticket.id);
+          return (
+            <div key={ticket.id} className="rounded-lg border border-blue-100 bg-white p-3">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-bold text-[var(--ink)]">{ticket.subject}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">{ticket.status.replaceAll("_", " ")}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="secondary" className="h-7 px-2 text-[10px]" onClick={() => void updateStatus(ticket.id, "resolved")}>Resolve</Button>
+                  <Button variant="secondary" className="h-7 px-2 text-[10px]" onClick={() => void updateStatus(ticket.id, "closed")}>Close</Button>
+                </div>
+              </div>
+              <div className="mb-3 grid gap-2">
+                {ticketMessages.map((message) => (
+                  <div key={message.id} className={cn("rounded-md p-2 text-xs leading-5", message.author_role === "owner" ? "bg-blue-50 text-blue-950" : "bg-slate-100 text-slate-800")}>
+                    <span className="font-black uppercase tracking-widest">{message.author_role === "owner" ? "Marker" : "Student"}: </span>
+                    {message.body}
+                  </div>
+                ))}
+              </div>
+              <Textarea
+                value={replyByTicket[ticket.id] ?? ""}
+                onChange={(event) => setReplyByTicket((prev) => ({ ...prev, [ticket.id]: event.target.value }))}
+                placeholder="Reply to the student..."
+              />
+              <Button className="mt-2 text-white" type="button" onClick={() => void reply(ticket.id)} disabled={!replyByTicket[ticket.id]?.trim()}>
+                Reply
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-blue-100 bg-white/60 p-4 text-xs italic text-blue-500">
+          No discussion tickets for this part yet.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function renderAnchor(anchor: unknown) {
+  if (!anchor || typeof anchor !== "object" || Array.isArray(anchor)) return null;
+  const value = anchor as { selected_text?: unknown; page?: unknown; location_label?: unknown };
+  if (typeof value.selected_text === "string" && value.selected_text.trim()) {
+    return <blockquote className="mb-2 border-l-2 border-blue-300 pl-3 text-xs italic text-slate-600">{value.selected_text}</blockquote>;
+  }
+  if (value.page || value.location_label) {
+    return (
+      <p className="mb-2 text-xs font-semibold text-slate-500">
+        Page {String(value.page ?? "?")}{value.location_label ? ` · ${String(value.location_label)}` : ""}
+      </p>
+    );
+  }
+  return null;
 }

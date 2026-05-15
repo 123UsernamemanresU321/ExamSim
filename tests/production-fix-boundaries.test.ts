@@ -320,3 +320,54 @@ describe("prompt rendering and AAL2 stability", () => {
     expect(source).not.toContain("renderMathInElement");
   });
 });
+
+describe("work annotations and mark discussion tickets", () => {
+  it("adds annotation and ticket tables without direct student RLS access", () => {
+    const migration = read("supabase/migrations/202605140002_work_annotations_and_marking_tickets.sql");
+    expect(migration).toContain("create table if not exists public.work_annotations");
+    expect(migration).toContain("create table if not exists public.marking_tickets");
+    expect(migration).toContain("create table if not exists public.marking_ticket_messages");
+    expect(migration).toContain("alter table public.work_annotations enable row level security");
+    expect(migration).toContain('create policy "owner manages work annotations"');
+    expect(migration).not.toContain("student reads work annotations");
+    expect(migration).not.toContain("student reads marking tickets");
+  });
+
+  it("keeps marker annotations owner-AAL2 gated and separate from submitted work", () => {
+    const edge = read("supabase/functions/save-work-annotation/index.ts");
+    expect(edge).toContain("requireOwnerAal2");
+    expect(edge).toContain("work_annotations");
+    expect(edge).toContain("anchor_json");
+    expect(edge).toContain("work_annotation.saved");
+
+    const workspace = read("components/owner/marking-response-workspace.tsx");
+    expect(workspace).toContain("Student work - uploaded PDF");
+    expect(workspace).toContain("Original submission stays unchanged");
+    expect(workspace).toContain('"save-work-annotation"');
+  });
+
+  it("serves released annotations and uploaded work previews through the results Edge Function", () => {
+    const edge = read("supabase/functions/get-student-results/index.ts");
+    expect(edge).toContain("work_annotations");
+    expect(edge).toContain("marking_tickets");
+    expect(edge).toContain("marking_ticket_messages");
+    expect(edge).toContain("createSignedUrl(slot.object_path, 300)");
+    expect(edge).toContain("uploadUrls");
+
+    const student = read("components/student/student-results-workspace.tsx");
+    expect(student).toContain("Marker annotations on your work");
+    expect(student).toContain("Your uploaded PDF");
+    expect(student).toContain('"marking-ticket"');
+    expect(student).toContain("Open discussion");
+  });
+
+  it("implements a feedback-gated owner/student ticket workflow", () => {
+    const source = read("supabase/functions/marking-ticket/index.ts");
+    expect(source).toContain('action: "create" | "reply" | "update_status"');
+    expect(source).toContain("assertFeedbackReleased");
+    expect(source).toContain("owner_review");
+    expect(source).toContain("student_reply");
+    expect(source).toContain("requireAal2");
+    expect(source).toContain("marking_ticket_messages");
+  });
+});

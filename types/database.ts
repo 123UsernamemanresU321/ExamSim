@@ -260,6 +260,45 @@ export type SubmissionAnnotation = {
   updated_at: string;
 };
 
+export type WorkAnnotation = {
+  id: string;
+  attempt_id: string;
+  question_node_id: string;
+  upload_slot_id: string | null;
+  text_response_id: string | null;
+  owner_profile_id: string;
+  annotation_kind: "typed_text" | "uploaded_pdf" | "general";
+  visibility: "private" | "student_visible";
+  severity: "note" | "minor" | "major" | "critical";
+  body: string;
+  anchor_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarkingTicket = {
+  id: string;
+  attempt_id: string;
+  question_node_id: string | null;
+  work_annotation_id: string | null;
+  owner_profile_id: string;
+  student_profile_id: string;
+  opened_by_profile_id: string;
+  subject: string;
+  status: "open" | "owner_review" | "student_reply" | "resolved" | "closed";
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarkingTicketMessage = {
+  id: string;
+  ticket_id: string;
+  author_profile_id: string;
+  author_role: "owner" | "student";
+  body: string;
+  created_at: string;
+};
+
 export type FeedbackRelease = {
   id: string;
   attempt_id: string;
@@ -514,6 +553,24 @@ export type Database = {
         Row: SubmissionAnnotation;
         Insert: Partial<SubmissionAnnotation> & Pick<SubmissionAnnotation, "attempt_id" | "owner_profile_id" | "annotation_type" | "body">;
         Update: Partial<SubmissionAnnotation>;
+        Relationships: [];
+      };
+      work_annotations: {
+        Row: WorkAnnotation;
+        Insert: Partial<WorkAnnotation> & Pick<WorkAnnotation, "attempt_id" | "question_node_id" | "owner_profile_id" | "annotation_kind" | "body">;
+        Update: Partial<WorkAnnotation>;
+        Relationships: [];
+      };
+      marking_tickets: {
+        Row: MarkingTicket;
+        Insert: Partial<MarkingTicket> & Pick<MarkingTicket, "attempt_id" | "owner_profile_id" | "student_profile_id" | "opened_by_profile_id" | "subject">;
+        Update: Partial<MarkingTicket>;
+        Relationships: [];
+      };
+      marking_ticket_messages: {
+        Row: MarkingTicketMessage;
+        Insert: Partial<MarkingTicketMessage> & Pick<MarkingTicketMessage, "ticket_id" | "author_profile_id" | "author_role" | "body">;
+        Update: Partial<MarkingTicketMessage>;
         Relationships: [];
       };
       feedback_releases: {

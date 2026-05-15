@@ -13,6 +13,8 @@ import type {
   AttemptEvent,
   FeedbackRelease,
   Mark,
+  MarkingTicket,
+  MarkingTicketMessage,
   ModerationReport,
   ParseJob,
   ParseJobArtifact,
@@ -24,6 +26,7 @@ import type {
   StudentGroupMember,
   TextResponse,
   UploadSlot,
+  WorkAnnotation,
 } from "@/types/database";
 
 export type StudentSummary = {
@@ -93,6 +96,10 @@ export type AttemptReviewWorkspace = {
   packageError: string | null;
   marks: Mark[];
   annotations: SubmissionAnnotation[];
+  workAnnotations: WorkAnnotation[];
+  markingTickets: MarkingTicket[];
+  markingTicketMessages: MarkingTicketMessage[];
+  uploadUrls: Record<string, string>;
   feedbackRelease: FeedbackRelease | null;
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
@@ -535,6 +542,10 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       packageError: null,
       marks: [],
       annotations: [],
+      workAnnotations: [],
+      markingTickets: [],
+      markingTicketMessages: [],
+      uploadUrls: {},
       feedbackRelease: null,
       markschemeHtml: "<p>Sample Markscheme for demo purposes.</p>",
       markschemePdfPath: null,
@@ -557,6 +568,10 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       packageError: "Attempt not found.",
       marks: [],
       annotations: [],
+      workAnnotations: [],
+      markingTickets: [],
+      markingTicketMessages: [],
+      uploadUrls: {},
       feedbackRelease: null,
       markschemeHtml: null,
       markschemePdfPath: null,
@@ -574,6 +589,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     { data: version, error: versionError },
     { data: marks, error: marksError },
     { data: annotations, error: annotationsError },
+    { data: workAnnotations, error: workAnnotationError },
+    { data: markingTickets, error: ticketError },
     { data: feedbackRelease, error: feedbackError },
     { data: ownerSettings, error: settingsError },
   ] = await Promise.all([
@@ -589,6 +606,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     supabase.from("assessment_versions").select("*").eq("id", attemptRow.assessment_version_id).maybeSingle(),
     supabase.from("marks").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
     supabase.from("submission_annotations").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
+    supabase.from("work_annotations").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
+    supabase.from("marking_tickets").select("*").eq("attempt_id", attemptId).order("updated_at", { ascending: false }),
     supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).maybeSingle(),
     supabase.from("owner_settings").select("*").eq("owner_profile_id", attempt.owner_profile_id).maybeSingle(),
   ]);
@@ -601,8 +620,16 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   if (versionError) throw versionError;
   if (marksError) throw marksError;
   if (annotationsError) throw annotationsError;
+  if (workAnnotationError) throw workAnnotationError;
+  if (ticketError) throw ticketError;
   if (feedbackError) throw feedbackError;
   if (settingsError) throw settingsError;
+
+  const ticketIds = (markingTickets ?? []).map((ticket) => ticket.id);
+  const { data: markingTicketMessages, error: ticketMessageError } = ticketIds.length
+    ? await supabase.from("marking_ticket_messages").select("*").in("ticket_id", ticketIds).order("created_at", { ascending: true })
+    : { data: [], error: null };
+  if (ticketMessageError) throw ticketMessageError;
 
   const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
   const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
@@ -641,6 +668,10 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     packageError: packageResult.error,
     marks: marks ?? [],
     annotations: annotations ?? [],
+    workAnnotations: workAnnotations ?? [],
+    markingTickets: markingTickets ?? [],
+    markingTicketMessages: markingTicketMessages ?? [],
+    uploadUrls: {},
     feedbackRelease: feedbackRelease ?? null,
     markschemeHtml: version?.markscheme_html ?? null,
     markschemePdfPath: version?.markscheme_pdf_path ?? null,

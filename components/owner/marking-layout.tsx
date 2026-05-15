@@ -112,6 +112,9 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   uploadSlots={workspace.uploadSlots}
                   marks={workspace.marks}
                   annotations={workspace.annotations}
+                  workAnnotations={workspace.workAnnotations}
+                  markingTickets={workspace.markingTickets}
+                  markingTicketMessages={workspace.markingTicketMessages}
                 />
               </section>
             </div>

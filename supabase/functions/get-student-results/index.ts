@@ -67,6 +67,10 @@ serve(async (request) => {
         packageError: "Feedback for this attempt has not been released yet.",
         marks: [],
         annotations: [],
+        workAnnotations: [],
+        markingTickets: [],
+        markingTicketMessages: [],
+        uploadUrls: {},
         feedbackRelease: null,
         markschemeHtml: null,
         markschemePdfPath: null,
@@ -80,11 +84,13 @@ serve(async (request) => {
       { data: textResponses, error: responseError },
       { data: marks, error: marksError },
       { data: annotations, error: annotationsError },
+      { data: workAnnotations, error: workAnnotationError },
+      { data: markingTickets, error: ticketError },
       { data: version, error: versionError },
     ] = await Promise.all([
       admin
         .from("question_nodes")
-        .select("id, assessment_version_id, parent_node_id, node_key, ordinal, node_type, title, prompt_html, prompt_latex, marks, response_mode, interaction_json, source_page_start, source_page_end, created_at")
+        .select("id, assessment_version_id, parent_node_id, node_key, ordinal, node_type, title, prompt_html, prompt_latex, marks, response_mode, interaction_json, markscheme_html, assets, source_page_start, source_page_end, created_at")
         .eq("assessment_version_id", attempt.assessment_version_id)
         .order("ordinal", { ascending: true }),
       admin.from("upload_slots").select("*").eq("attempt_id", attempt.id).order("created_at", { ascending: true }),
@@ -97,6 +103,17 @@ serve(async (request) => {
         .eq("annotation_type", "feedback")
         .order("created_at", { ascending: true }),
       admin
+        .from("work_annotations")
+        .select("*")
+        .eq("attempt_id", attempt.id)
+        .eq(profile.app_role === "owner" ? "attempt_id" : "visibility", profile.app_role === "owner" ? attempt.id : "student_visible")
+        .order("created_at", { ascending: true }),
+      admin
+        .from("marking_tickets")
+        .select("*")
+        .eq("attempt_id", attempt.id)
+        .order("updated_at", { ascending: false }),
+      admin
         .from("assessment_versions")
         .select("markscheme_html, markscheme_pdf_path")
         .eq("id", attempt.assessment_version_id)
@@ -107,7 +124,26 @@ serve(async (request) => {
     if (responseError) throw responseError;
     if (marksError) throw marksError;
     if (annotationsError) throw annotationsError;
+    if (workAnnotationError) throw workAnnotationError;
+    if (ticketError) throw ticketError;
     if (versionError) throw versionError;
+
+    const ticketIds = (markingTickets ?? []).map((ticket) => ticket.id);
+    const { data: markingTicketMessages, error: ticketMessageError } = ticketIds.length
+      ? await admin
+          .from("marking_ticket_messages")
+          .select("*")
+          .in("ticket_id", ticketIds)
+          .order("created_at", { ascending: true })
+      : { data: [], error: null };
+    if (ticketMessageError) throw ticketMessageError;
+
+    const uploadUrls: Record<string, string> = {};
+    for (const slot of uploadSlots ?? []) {
+      if (!slot.object_path) continue;
+      const { data: signed, error: signedError } = await admin.storage.from("answer-uploads").createSignedUrl(slot.object_path, 300);
+      if (!signedError && signed?.signedUrl) uploadUrls[slot.id] = signed.signedUrl;
+    }
 
     return json({
       attempt: attemptSummary,
@@ -120,6 +156,10 @@ serve(async (request) => {
       packageError: null,
       marks: marks ?? [],
       annotations: annotations ?? [],
+      workAnnotations: workAnnotations ?? [],
+      markingTickets: markingTickets ?? [],
+      markingTicketMessages: markingTicketMessages ?? [],
+      uploadUrls,
       feedbackRelease: feedbackRelease ?? null,
       markschemeHtml: version?.markscheme_html ?? null,
       markschemePdfPath: version?.markscheme_pdf_path ?? null,
