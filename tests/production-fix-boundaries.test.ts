@@ -46,6 +46,14 @@ describe("RLS and storage hardening migration", () => {
     expect(migration).toContain("markscheme_source_object_path");
     expect(migration).toContain("assessment-sources");
   });
+
+  it("persists original student upload filenames on upload slots", () => {
+    expect(read("supabase/migrations/202605160001_upload_slot_original_file_name.sql")).toContain("original_file_name");
+    const confirmUpload = read("supabase/functions/confirm-upload-slot/index.ts");
+    expect(confirmUpload).toContain("file_name?: string");
+    expect(confirmUpload).toContain("original_file_name: originalFileName");
+    expect(confirmUpload).toContain("sanitizeOriginalFileName");
+  });
 });
 
 describe("Edge state and content release boundaries", () => {
@@ -210,6 +218,27 @@ describe("client sensitive write cleanup", () => {
     const questionPaper = read("components/question-paper.tsx");
     expect(questionPaper).toContain("question_node_key: node.node_key");
     expect(questionPaper).toContain("questionNodeKey={node.node_key}");
+  });
+
+  it("links student question uploads with sidebar upload slot state", () => {
+    const screenData = read("lib/attempt-screen-data.ts");
+    expect(screenData).toContain("uploadSlots: UploadSlot[]");
+    expect(screenData).toContain('.from("upload_slots")');
+
+    const examWorkspace = read("components/exam/exam-workspace.tsx");
+    expect(examWorkspace).toContain("handleUploadComplete");
+    expect(examWorkspace).toContain("onUploadComplete={handleUploadComplete}");
+    expect(examWorkspace).toContain("original_file_name: completion.fileName");
+
+    const questionPaper = read("components/question-paper.tsx");
+    expect(questionPaper).toContain("uploadStudentPdfForQuestion");
+    expect(questionPaper).toContain("Uploaded - locked");
+    expect(questionPaper).toContain("Uploaded:");
+
+    const uploadCard = read("components/upload-slot-card.tsx");
+    expect(uploadCard).toContain("Uploaded file:");
+    expect(uploadCard).toContain("PDF uploaded and locked for this slot.");
+    expect(uploadCard).toContain("onUploadComplete?.(completion)");
   });
 
   it("serves student results through the checked Edge Function only", () => {

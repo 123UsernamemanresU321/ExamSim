@@ -165,6 +165,7 @@ export type UploadSlot = {
   question_node_id: string;
   required: boolean;
   object_path: string | null;
+  original_file_name: string | null;
   uploaded_at: string | null;
   file_size_bytes: number | null;
   content_type: string | null;

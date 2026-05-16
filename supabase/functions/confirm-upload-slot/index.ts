@@ -17,6 +17,7 @@ serve(async (request) => {
       state_token: string;
       file_size_bytes?: number;
       content_type?: string;
+      file_name?: string;
     }>(request);
     const tokenPayload = await verifyStateToken(body.state_token);
     if (tokenPayload.attempt_id !== body.attempt_id || tokenPayload.profile_id !== profile.id) {
@@ -39,6 +40,7 @@ serve(async (request) => {
     if (typeof body.file_size_bytes !== "number" || body.file_size_bytes <= 0 || body.file_size_bytes > 10485760) {
       return json({ error: "PDF uploads must be 10MB or smaller" }, 400);
     }
+    const originalFileName = sanitizeOriginalFileName(body.file_name);
 
     const { data: slot, error: slotError } = await admin
       .from("upload_slots")
@@ -55,6 +57,7 @@ serve(async (request) => {
         object_path: body.object_path,
         uploaded_at: new Date().toISOString(),
         status: "uploaded",
+        original_file_name: originalFileName,
         file_size_bytes: body.file_size_bytes,
         content_type: body.content_type ?? "application/pdf",
         confirmed_by_profile_id: profile.id,
@@ -66,10 +69,17 @@ serve(async (request) => {
     await admin.from("attempt_events").insert({
       attempt_id: body.attempt_id,
       event_type: "upload.completed",
-      payload_json: { question_node_id: body.question_node_id, object_path: body.object_path },
+      payload_json: { question_node_id: body.question_node_id, object_path: body.object_path, file_name: originalFileName },
     });
     return json({ ok: true });
   } catch (error) {
     return errorResponse(error, "confirm-upload-slot failed");
   }
 });
+
+function sanitizeOriginalFileName(value: unknown) {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/[\\/\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, 255);
+}

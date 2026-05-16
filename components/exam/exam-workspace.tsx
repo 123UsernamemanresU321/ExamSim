@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { flattenQuestionNodes, normalizedPackageSchema } from "@/lib/assessment-package";
 import type { AttemptScreenData } from "@/lib/attempt-screen-data";
+import type { StudentUploadCompletion } from "@/lib/student-upload-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
@@ -136,7 +137,7 @@ export function ExamWorkspace({
     void startSessionAndLoadPackage();
   }, [attemptId, initialScreenData.stateToken, screenData.package, initialScreenData.attempt.delivery_mode]);
 
-  const { attempt, package: assessmentPackage, packageError, stateToken, assetUrls, responses, sebConfigUrl, annotations } = screenData;
+  const { attempt, package: assessmentPackage, packageError, stateToken, assetUrls, responses, sebConfigUrl, annotations, uploadSlots } = screenData;
 
   // Show "Verifying..." if we are fetching the package on the client
   if (isLoadingPackage) {
@@ -209,6 +210,37 @@ export function ExamWorkspace({
     node.response_mode.includes("upload"),
   );
 
+  function handleUploadComplete(completion: StudentUploadCompletion) {
+    setScreenData((prev) => {
+      const existingIndex = prev.uploadSlots.findIndex((slot) => slot.question_node_id === completion.questionNodeId);
+      const nextSlot = {
+        ...(existingIndex >= 0
+          ? prev.uploadSlots[existingIndex]
+          : {
+              id: completion.questionNodeId,
+              attempt_id: attemptId,
+              question_node_id: completion.questionNodeId,
+              required: false,
+              is_blank_placeholder: false,
+              created_at: completion.uploadedAt,
+              updated_at: completion.uploadedAt,
+            }),
+        object_path: completion.objectPath,
+        original_file_name: completion.fileName,
+        uploaded_at: completion.uploadedAt,
+        file_size_bytes: completion.fileSizeBytes,
+        content_type: completion.contentType,
+        confirmed_by_profile_id: null,
+        locked_at: completion.uploadedAt,
+        status: "uploaded" as const,
+      };
+      const nextSlots = existingIndex >= 0
+        ? prev.uploadSlots.map((slot, index) => (index === existingIndex ? nextSlot : slot))
+        : [...prev.uploadSlots, nextSlot];
+      return { ...prev, uploadSlots: nextSlots };
+    });
+  }
+
   return (
     <div className="exam-mode">
       <TelemetryListener attemptId={attemptId} attemptSessionId={attemptSessionId} stateToken={stateToken} />
@@ -245,6 +277,8 @@ export function ExamWorkspace({
           assetUrls={assetUrls}
           responses={responses}
           annotations={annotations}
+          uploadSlots={uploadSlots}
+          onUploadComplete={handleUploadComplete}
         />
         <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm">
@@ -265,6 +299,8 @@ export function ExamWorkspace({
               questionKey={node.node_key}
               stateToken={stateToken}
               status="pending"
+              slot={uploadSlots.find((slot) => slot.question_node_id === node.node_id)}
+              onUploadComplete={handleUploadComplete}
             />
           ))}
           <section className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)] shadow-sm">

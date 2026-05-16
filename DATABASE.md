@@ -12,6 +12,8 @@ Numerical response-mode support is added for hosted databases in
 `supabase/migrations/202605130002_add_numerical_response_mode.sql`.
 Anchored work annotations and marking discussion tickets are added in
 `supabase/migrations/202605140002_work_annotations_and_marking_tickets.sql`.
+Student upload slot original filename persistence is added in
+`supabase/migrations/202605160001_upload_slot_original_file_name.sql`.
 
 ## Tables
 
@@ -87,6 +89,7 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
 ## Production Constraints
 
 - `upload_slots` includes file metadata and enforces PDF content type plus a 10MB maximum when file size is known.
+  It also stores `original_file_name` so the student can verify which PDF was confirmed for that question slot.
 - `question_nodes.response_mode` supports `none`, `typed_text`, `upload_pdf`, `typed_or_upload`, `multiple_choice`,
   and `numerical`. Multi-select choices use `interaction_json.max_choices`; numerical answers use
   `interaction_json.kind = "numerical"` with optional numeric bounds/unit metadata.

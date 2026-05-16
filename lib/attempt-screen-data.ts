@@ -5,7 +5,7 @@ import { invokeEdgeFunctionServer } from "@/lib/edge/server";
 import type { AttemptSummary } from "@/lib/live-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Assessment, Attempt } from "@/types/database";
+import type { Assessment, Attempt, UploadSlot } from "@/types/database";
 
 type AttemptStateResponse = {
   attempt_id: string;
@@ -33,6 +33,7 @@ export type AttemptScreenData = {
   packageError: string | null;
   responses: { question_node_id: string; answer_text: string; saved_at: string }[];
   annotations: { question_node_id: string | null; annotation_type: string; body: string }[];
+  uploadSlots: UploadSlot[];
   sebConfigUrl: string | null;
 };
 
@@ -64,6 +65,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     packageError: null,
     responses: [],
     annotations: [],
+    uploadSlots: [],
     sebConfigUrl: null,
   };
 }
@@ -102,6 +104,12 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     .eq("annotation_type", "student_flag");
   if (annotationsError) throw annotationsError;
 
+  const { data: uploadSlots, error: uploadSlotsError } = await supabase
+    .from("upload_slots")
+    .select("*")
+    .eq("attempt_id", attemptId);
+  if (uploadSlotsError) throw uploadSlotsError;
+
   let sebConfigUrl: string | null = null;
   if (attempt.seb_config_path) {
     const { data } = await supabase.storage.from("assessment-sources").createSignedUrl(attempt.seb_config_path, 3600);
@@ -116,6 +124,7 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     packageError: packageResult.packageError,
     responses: responses ?? [],
     annotations: annotations ?? [],
+    uploadSlots: uploadSlots ?? [],
     sebConfigUrl,
   };
 }

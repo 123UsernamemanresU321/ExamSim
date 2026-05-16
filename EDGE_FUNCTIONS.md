@@ -82,7 +82,8 @@ signed upload token for one PDF path only.
 ## confirm-upload-slot
 
 Student only for own attempt. Confirms the uploaded object path and updates the trusted slot row after state and slot
-validation. Enforces PDF content type, max 10MB file size, and no replacement after successful confirmation.
+validation. Enforces PDF content type, max 10MB file size, stores the sanitized original filename for student
+verification, and allows no replacement after successful confirmation.
 
 ## submit-blank-slot
 

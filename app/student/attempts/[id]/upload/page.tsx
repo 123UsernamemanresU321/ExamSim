@@ -9,7 +9,7 @@ import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function UploadOnlyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { attempt, package: assessmentPackage, assetUrls, stateToken, responses, annotations } = await getAttemptScreenData(id, true);
+  const { attempt, package: assessmentPackage, assetUrls, stateToken, responses, annotations, uploadSlots } = await getAttemptScreenData(id, true);
 
   if (attempt.state === "WAITING") redirect(`/student/attempts/${id}/waiting`);
   if (attempt.state === "ACTIVE") redirect(`/student/attempts/${id}/exam`);
@@ -41,6 +41,7 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
             assetUrls={assetUrls}
             responses={responses}
             annotations={annotations}
+            uploadSlots={uploadSlots}
             readonly
           />
         ) : null}
@@ -62,6 +63,7 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
                 questionKey={node.node_key}
                 stateToken={stateToken}
                 status="pending"
+                slot={uploadSlots.find((slot) => slot.question_node_id === node.node_id)}
               />
             ))
           )}

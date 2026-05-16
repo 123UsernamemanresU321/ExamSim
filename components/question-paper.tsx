@@ -9,9 +9,10 @@ import { ResponseTextArea } from "@/components/response-text-area";
 import { ChoiceResponseControl, NumericalResponseControl } from "@/components/structured-response-control";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
-import { validatePdfUpload } from "@/lib/upload-policy";
+import { uploadStudentPdfForQuestion, type StudentUploadCompletion } from "@/lib/student-upload-client";
 import type { QuestionNode } from "@/lib/assessment-package";
 import { cn } from "@/lib/utils";
+import type { UploadSlot } from "@/types/database";
 
 function AssetImage({ path, signedUrl }: { path: string; signedUrl?: string }) {
   const url = signedUrl ?? null;
@@ -39,6 +40,8 @@ function QuestionBlock({
   assetUrls = {},
   responses = [],
   annotations = [],
+  uploadSlots = [],
+  onUploadComplete,
   depth = 0
 }: { 
   node: QuestionNode; 
@@ -49,6 +52,8 @@ function QuestionBlock({
   assetUrls?: Record<string, string>;
   responses?: { question_node_id: string; answer_text: string }[];
   annotations?: { question_node_id: string | null; annotation_type: string; body: string }[];
+  uploadSlots?: UploadSlot[];
+  onUploadComplete?: (completion: StudentUploadCompletion) => void;
   depth?: number;
 }) {
   const initialValue = responses.find(r => r.question_node_id === node.node_id)?.answer_text ?? "";
@@ -77,38 +82,18 @@ function QuestionBlock({
 
   async function handleUpload(file: File) {
     if (!attemptId || !stateToken || readonly) return;
-    const validation = validatePdfUpload(file);
-    if (!validation.ok) {
-      alert(validation.error);
-      return;
-    }
 
     setIsUploading(true);
     try {
-      const slot = await invokeEdgeFunction<{ bucket: string; path: string; upload_token: string; question_node_id: string }>(supabase, "issue-upload-slot-url", {
-        body: { attempt_id: attemptId, question_node_id: node.node_id, question_node_key: node.node_key, state_token: stateToken },
+      const completion = await uploadStudentPdfForQuestion({
+        supabase,
+        attemptId,
+        questionNodeId: node.node_id,
+        questionKey: node.node_key,
+        stateToken,
+        file,
       });
-      
-      if (!slot) throw new Error("Could not issue upload URL");
-
-      const { error: uploadError } = await supabase.storage
-        .from(slot.bucket)
-        .uploadToSignedUrl(slot.path, slot.upload_token, file, {
-          contentType: file.type || "application/pdf",
-        });
-      if (uploadError) throw uploadError;
-
-      await invokeEdgeFunction(supabase, "confirm-upload-slot", {
-        body: {
-          attempt_id: attemptId,
-          question_node_id: slot.question_node_id,
-          object_path: slot.path,
-          state_token: stateToken,
-          file_size_bytes: file.size,
-          content_type: file.type || "application/pdf",
-        },
-      });
-      alert("PDF uploaded successfully!");
+      onUploadComplete?.(completion);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -117,6 +102,8 @@ function QuestionBlock({
   }
 
   const hasInputs = node.response_mode !== "none";
+  const uploadSlot = uploadSlots.find((slot) => slot.question_node_id === node.node_id);
+  const uploadIsLocked = uploadSlot?.status === "uploaded" || uploadSlot?.status === "blank_placeholder" || Boolean(uploadSlot?.locked_at);
 
   return (
     <article 
@@ -202,10 +189,15 @@ function QuestionBlock({
                   if (file) handleUpload(file);
                 }}
               />
-              <Button type="button" variant="secondary" disabled={readonly || isUploading} onClick={() => fileInputRef.current?.click()}>
+              <Button type="button" variant="secondary" disabled={readonly || isUploading || uploadIsLocked} onClick={() => fileInputRef.current?.click()}>
                 <UploadCloud size={16} aria-hidden="true" />
-                {isUploading ? "Uploading..." : "Request upload slot"}
+                {isUploading ? "Uploading..." : uploadSlot?.status === "blank_placeholder" ? "Blank submitted" : uploadIsLocked ? "Uploaded - locked" : "Request upload slot"}
               </Button>
+              {uploadSlot?.status === "uploaded" ? (
+                <p className="basis-full rounded-md border border-[#78a86d] bg-[var(--success-bg)] px-3 py-2 text-xs font-semibold text-[#123d18]" role="status">
+                  Uploaded: {uploadSlot.original_file_name ?? uploadSlot.object_path?.split("/").pop() ?? "PDF confirmed"}
+                </p>
+              ) : null}
             </div>
           ) : null}
           <div className="mt-4">
@@ -228,6 +220,8 @@ function QuestionBlock({
           assetUrls={assetUrls}
           responses={responses}
           annotations={annotations}
+          uploadSlots={uploadSlots}
+          onUploadComplete={onUploadComplete}
           depth={depth + 1}
         />
       ))}
@@ -242,7 +236,9 @@ export function QuestionPaper({
   stateToken,
   assetUrls = {},
   responses = [],
-  annotations = []
+  annotations = [],
+  uploadSlots = [],
+  onUploadComplete,
 }: { 
   questions: QuestionNode[]; 
   readonly?: boolean;
@@ -252,6 +248,8 @@ export function QuestionPaper({
   assetUrls?: Record<string, string>;
   responses?: { question_node_id: string; answer_text: string }[];
   annotations?: { question_node_id: string | null; annotation_type: string; body: string }[];
+  uploadSlots?: UploadSlot[];
+  onUploadComplete?: (completion: StudentUploadCompletion) => void;
 }) {
   return (
     <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-12 md:py-12">
@@ -267,6 +265,8 @@ export function QuestionPaper({
             assetUrls={assetUrls}
             responses={responses}
             annotations={annotations}
+            uploadSlots={uploadSlots}
+            onUploadComplete={onUploadComplete}
           />
         ))}
       </div>
