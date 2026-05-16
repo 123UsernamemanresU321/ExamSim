@@ -171,6 +171,8 @@ export type UploadSlot = {
   content_type: string | null;
   confirmed_by_profile_id: string | null;
   locked_at: string | null;
+  annotated_object_path: string | null;
+  annotated_generated_at: string | null;
   is_blank_placeholder: boolean;
   status: "pending" | "uploaded" | "blank_placeholder" | "missing" | "rejected";
   created_at: string;

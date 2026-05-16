@@ -169,10 +169,17 @@ typed and upload-style questions. Does not release student-visible feedback.
 ## save-work-annotation
 
 Owner AAL2 only. Saves or deletes marker annotations anchored to a student's typed response, uploaded PDF, or general
-question part. The annotation layer is stored separately from the student's original work and supports full-screen studio
-overlays such as text boxes, rectangles, circles, and sketch paths through structured `anchor_json`. Student-visible
-annotations are returned only through `get-student-results` after feedback release; private annotations remain
-owner-only.
+question part. The annotation layer is stored separately from the student's original work and supports direct-on-PDF
+studio overlays such as ink, highlighter, text, stamps, rectangles, circles, arrows, and comments through normalized
+`annotation-v2` `anchor_json`. Student-visible annotations are returned only through `get-student-results` after
+feedback release; private annotations remain owner-only.
+
+## generate-annotated-pdf
+
+Owner AAL2 only. Downloads the immutable original answer PDF from private `answer-uploads`, flattens supplied
+normalized `annotation-v2` overlay data with PDF coordinate conversion, uploads a new annotated PDF copy to private
+`marking-packets`, stores that path on `upload_slots.annotated_object_path`, and returns a short-lived owner URL.
+The original student upload is never overwritten.
 
 ## marking-ticket
 
@@ -214,8 +221,9 @@ Storage signing in parse review and marking views.
 
 Student or owner. Returns released student feedback only through a checked Edge boundary. Students receive sanitized
 question metadata, marks, feedback annotations, student-visible work annotations, discussion tickets, short-lived upload
-preview URLs, and their own response summaries only after `feedback_releases` is visible. Moderation reports, attempt
-events, private package objects, private annotations, and unreleased feedback remain owner-only.
+preview URLs, released annotated PDF URLs, and their own response summaries only after `feedback_releases` is visible.
+Moderation reports, attempt events, private package objects, private annotations, and unreleased feedback remain
+owner-only.
 
 ## list-student-results
 

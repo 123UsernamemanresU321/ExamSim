@@ -100,6 +100,7 @@ export type AttemptReviewWorkspace = {
   markingTickets: MarkingTicket[];
   markingTicketMessages: MarkingTicketMessage[];
   uploadUrls: Record<string, string>;
+  annotatedUploadUrls: Record<string, string>;
   feedbackRelease: FeedbackRelease | null;
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
@@ -546,6 +547,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       markingTickets: [],
       markingTicketMessages: [],
       uploadUrls: {},
+      annotatedUploadUrls: {},
       feedbackRelease: null,
       markschemeHtml: "<p>Sample Markscheme for demo purposes.</p>",
       markschemePdfPath: null,
@@ -572,6 +574,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       markingTickets: [],
       markingTicketMessages: [],
       uploadUrls: {},
+      annotatedUploadUrls: {},
       feedbackRelease: null,
       markschemeHtml: null,
       markschemePdfPath: null,
@@ -672,6 +675,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     markingTickets: markingTickets ?? [],
     markingTicketMessages: markingTicketMessages ?? [],
     uploadUrls: {},
+    annotatedUploadUrls: {},
     feedbackRelease: feedbackRelease ?? null,
     markschemeHtml: version?.markscheme_html ?? null,
     markschemePdfPath: version?.markscheme_pdf_path ?? null,

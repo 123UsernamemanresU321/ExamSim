@@ -222,6 +222,8 @@ export function ExamWorkspace({
               question_node_id: completion.questionNodeId,
               required: false,
               is_blank_placeholder: false,
+              annotated_object_path: null,
+              annotated_generated_at: null,
               created_at: completion.uploadedAt,
               updated_at: completion.uploadedAt,
             }),

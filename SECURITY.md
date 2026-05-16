@@ -39,8 +39,13 @@ PDF. Owner-created work annotations require AAL2 and are audited. Students see o
 `student_visible`, only after the owner explicitly releases feedback, and only through the checked `get-student-results`
 Edge Function.
 
-The owner annotation studio stores overlay geometry and sketch paths as structured `anchor_json`. These overlays are
-review metadata; the original submitted file remains unchanged and is still the evidence source.
+The owner annotation studio renders the actual uploaded PDF page with a same-sized annotation layer above it. The PDF
+canvas/text layer is noninteractive while annotating, so pointer events go to the annotation layer instead of selecting
+the page. Annotation geometry is stored as normalized `annotation-v2` coordinates, which keeps marks aligned across
+zoom changes and lets the server flatten annotations into a new private PDF copy.
+
+Generated annotated PDFs are written to private `marking-packets` objects and linked from `upload_slots`; the original
+submitted file remains unchanged and is still the evidence source.
 
 Marking discussion tickets are also Edge-mediated. Students can open or reply only for their own released results.
 Owner replies, owner-created tickets, and owner status changes require AAL2. Direct student RLS access is not granted for

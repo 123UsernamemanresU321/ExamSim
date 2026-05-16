@@ -378,17 +378,46 @@ describe("work annotations and mark discussion tickets", () => {
   it("provides a full-screen annotation studio for advanced document markup", () => {
     const studio = read("components/owner/work-annotation-studio.tsx");
     expect(studio).toContain("Annotation Studio");
-    expect(studio).toContain("text_box");
-    expect(studio).toContain("rectangle");
-    expect(studio).toContain("circle");
-    expect(studio).toContain("sketch");
-    expect(studio).toContain("viewBox=\"0 0 100 100\"");
-    expect(studio).toContain("studio_version: 1");
+    expect(studio).toContain("PdfAnnotationPage");
+    expect(studio).toContain("annotation-v2");
+    const toolbar = read("components/owner/annotation-toolbar.tsx");
+    expect(toolbar).toContain('"text"');
+    expect(toolbar).toContain('"rectangle"');
+    expect(toolbar).toContain('"circle"');
+    expect(toolbar).toContain('"pen"');
+    expect(studio).not.toContain("viewBox=\"0 0 100 100\"");
     expect(studio).toContain('"save-work-annotation"');
     expect(studio).toContain("Open annotation studio");
 
     const workspace = read("components/owner/marking-response-workspace.tsx");
     expect(workspace).toContain("WorkAnnotationStudio");
+  });
+
+  it("uses a direct-on-PDF annotation layer instead of a detached blank placement page", () => {
+    const studio = read("components/owner/work-annotation-studio.tsx");
+    const page = read("components/owner/pdf-annotation-page.tsx");
+    expect(studio).not.toContain("Page/view {pageNumber} annotation layer");
+    expect(page).toContain("pdf-canvas");
+    expect(page).toContain("annotation-overlay");
+    expect(page).toContain("pointerEvents: \"none\"");
+    expect(page).toContain("touchAction: \"none\"");
+    expect(page).toContain("WebkitUserSelect");
+    expect(page).toContain("setPointerCapture");
+    expect(page).toContain("screenToNormalized");
+  });
+
+  it("generates annotated PDFs as private copies without mutating the original upload", () => {
+    expect(read("supabase/migrations/202605170001_upload_slot_annotated_pdf.sql")).toContain("annotated_object_path");
+    const edge = read("supabase/functions/generate-annotated-pdf/index.ts");
+    expect(edge).toContain("requireOwnerAal2");
+    expect(edge).toContain('storage.from("answer-uploads").download');
+    expect(edge).toContain('storage.from("marking-packets").upload');
+    expect(edge).toContain("annotated_object_path");
+    expect(edge).toContain("pageHeight - clamp(point.y");
+
+    const student = read("components/student/student-results-workspace.tsx");
+    expect(student).toContain("Released annotated PDF");
+    expect(read("supabase/functions/get-student-results/index.ts")).toContain("annotatedUploadUrls");
   });
 
   it("separates marking, moderation, and dispute workspaces in the owner UI", () => {

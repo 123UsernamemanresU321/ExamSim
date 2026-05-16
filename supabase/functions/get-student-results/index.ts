@@ -71,6 +71,7 @@ serve(async (request) => {
         markingTickets: [],
         markingTicketMessages: [],
         uploadUrls: {},
+        annotatedUploadUrls: {},
         feedbackRelease: null,
         markschemeHtml: null,
         markschemePdfPath: null,
@@ -139,10 +140,15 @@ serve(async (request) => {
     if (ticketMessageError) throw ticketMessageError;
 
     const uploadUrls: Record<string, string> = {};
+    const annotatedUploadUrls: Record<string, string> = {};
     for (const slot of uploadSlots ?? []) {
       if (!slot.object_path) continue;
       const { data: signed, error: signedError } = await admin.storage.from("answer-uploads").createSignedUrl(slot.object_path, 300);
       if (!signedError && signed?.signedUrl) uploadUrls[slot.id] = signed.signedUrl;
+      if (slot.annotated_object_path) {
+        const { data: annotatedSigned, error: annotatedError } = await admin.storage.from("marking-packets").createSignedUrl(slot.annotated_object_path, 300);
+        if (!annotatedError && annotatedSigned?.signedUrl) annotatedUploadUrls[slot.id] = annotatedSigned.signedUrl;
+      }
     }
 
     return json({
@@ -160,6 +166,7 @@ serve(async (request) => {
       markingTickets: markingTickets ?? [],
       markingTicketMessages: markingTicketMessages ?? [],
       uploadUrls,
+      annotatedUploadUrls,
       feedbackRelease: feedbackRelease ?? null,
       markschemeHtml: version?.markscheme_html ?? null,
       markschemePdfPath: version?.markscheme_pdf_path ?? null,

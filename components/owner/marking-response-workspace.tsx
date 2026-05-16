@@ -31,6 +31,10 @@ export function MarkingResponseWorkspace({
   markingTickets = [],
   markingTicketMessages = [],
   showDiscussion = true,
+  studentName = "Student",
+  assessmentTitle = "Assessment",
+  paperCode = null,
+  releaseStatus = "Draft",
   node,
   response,
   slot,
@@ -46,6 +50,10 @@ export function MarkingResponseWorkspace({
   markingTickets?: MarkingTicket[];
   markingTicketMessages?: MarkingTicketMessage[];
   showDiscussion?: boolean;
+  studentName?: string;
+  assessmentTitle?: string;
+  paperCode?: string | null;
+  releaseStatus?: string;
   node?: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
@@ -90,6 +98,10 @@ export function MarkingResponseWorkspace({
           markingTickets={card.markingTickets}
           markingTicketMessages={markingTicketMessages}
           showDiscussion={showDiscussion}
+          studentName={studentName}
+          assessmentTitle={assessmentTitle}
+          paperCode={paperCode}
+          releaseStatus={releaseStatus}
         />
       ))}
     </div>
@@ -155,6 +167,10 @@ function MarkingResponseCard({
   markingTickets,
   markingTicketMessages,
   showDiscussion,
+  studentName,
+  assessmentTitle,
+  paperCode,
+  releaseStatus,
 }: {
   attemptId: string;
   node: QuestionNodeRow;
@@ -166,6 +182,10 @@ function MarkingResponseCard({
   markingTickets: MarkingTicket[];
   markingTicketMessages: MarkingTicketMessage[];
   showDiscussion: boolean;
+  studentName: string;
+  assessmentTitle: string;
+  paperCode: string | null;
+  releaseStatus: string;
 }) {
   const router = useRouter();
   const [awarded, setAwarded] = useState(mark ? String(mark.awarded_marks) : "");
@@ -341,6 +361,10 @@ function MarkingResponseCard({
           response={response}
           slot={slot}
           annotations={workAnnotations}
+          studentName={studentName}
+          assessmentTitle={assessmentTitle}
+          paperCode={paperCode}
+          releaseStatus={releaseStatus}
         />
       </div>
 
@@ -572,12 +596,20 @@ function WorkAnnotationPanel({
   response,
   slot,
   annotations,
+  studentName,
+  assessmentTitle,
+  paperCode,
+  releaseStatus,
 }: {
   attemptId: string;
   node: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
   annotations: WorkAnnotation[];
+  studentName: string;
+  assessmentTitle: string;
+  paperCode: string | null;
+  releaseStatus: string;
 }) {
   const router = useRouter();
   const [body, setBody] = useState("");
@@ -653,6 +685,10 @@ function WorkAnnotationPanel({
             response={response}
             slot={slot}
             annotations={annotations}
+            studentName={studentName}
+            assessmentTitle={assessmentTitle}
+            paperCode={paperCode}
+            releaseStatus={releaseStatus}
           />
         </div>
       </div>

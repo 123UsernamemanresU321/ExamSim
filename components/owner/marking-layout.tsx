@@ -117,6 +117,10 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   markingTickets={workspace.markingTickets}
                   markingTicketMessages={workspace.markingTicketMessages}
                   showDiscussion={false}
+                  studentName={workspace.attempt?.student ?? "Student"}
+                  assessmentTitle={workspace.attempt?.title ?? "Assessment"}
+                  paperCode={workspace.attempt?.paper_code ?? null}
+                  releaseStatus={workspace.feedbackRelease ? "Released" : "Draft"}
                 />
               </section>
             </div>

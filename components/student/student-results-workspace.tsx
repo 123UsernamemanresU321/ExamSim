@@ -79,6 +79,7 @@ export function StudentResultsWorkspace({ workspace }: { workspace: AttemptRevie
                              response={response}
                              slot={slot}
                              signedUrl={slot?.id ? workspace.uploadUrls[slot.id] : undefined}
+                             annotatedSignedUrl={slot?.id ? workspace.annotatedUploadUrls[slot.id] : undefined}
                            />
                            <StudentWorkAnnotations annotations={annotations} />
                            <StudentTicketPanel
@@ -168,11 +169,13 @@ function StudentSubmissionBlock({
   response,
   slot,
   signedUrl,
+  annotatedSignedUrl,
 }: {
   node: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
   signedUrl?: string;
+  annotatedSignedUrl?: string;
 }) {
   const formatted = response?.answer_text ? formatStoredResponse(response.answer_text, node) : null;
 
@@ -209,6 +212,22 @@ function StudentSubmissionBlock({
               Upload recorded. The preview link has expired or is not available; refresh the results page to request a new short-lived link.
             </div>
           )}
+          {annotatedSignedUrl ? (
+            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50/60 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Released annotated PDF</p>
+                  <p className="text-xs leading-5 text-emerald-900/70">
+                    This is a generated copy with marker annotations. Your original upload above is unchanged.
+                  </p>
+                </div>
+                <Button variant="secondary" className="bg-white text-emerald-700 hover:bg-emerald-700 hover:text-white" onClick={() => window.open(annotatedSignedUrl, "_blank", "noopener,noreferrer")}>
+                  <ExternalLink size={14} /> Open annotated
+                </Button>
+              </div>
+              <iframe title={`Annotated answer for ${node.node_key}`} src={annotatedSignedUrl} className="h-[460px] w-full rounded-lg border border-emerald-100 bg-white" />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
