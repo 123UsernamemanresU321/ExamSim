@@ -380,14 +380,17 @@ function StudentTicketPanel({
 
 function renderStudentAnchor(anchor: unknown) {
   if (!anchor || typeof anchor !== "object" || Array.isArray(anchor)) return null;
-  const value = anchor as { selected_text?: unknown; page?: unknown; location_label?: unknown };
+  const value = anchor as { selected_text?: unknown; page?: unknown; location_label?: unknown; annotation_tool?: unknown; x?: unknown; y?: unknown };
   if (typeof value.selected_text === "string" && value.selected_text.trim()) {
     return <blockquote className="mb-2 border-l-2 border-amber-300 pl-3 text-xs italic text-slate-600">{value.selected_text}</blockquote>;
   }
-  if (value.page || value.location_label) {
+  if (value.page || value.location_label || value.annotation_tool) {
     return (
       <p className="mb-2 text-xs font-semibold text-slate-500">
-        Page {String(value.page ?? "?")}{value.location_label ? ` · ${String(value.location_label)}` : ""}
+        {value.annotation_tool ? `${String(value.annotation_tool).replaceAll("_", " ")} · ` : ""}
+        Page/view {String(value.page ?? "?")}
+        {value.location_label ? ` · ${String(value.location_label)}` : ""}
+        {typeof value.x === "number" && typeof value.y === "number" ? ` · ${Math.round(value.x)}%, ${Math.round(value.y)}%` : ""}
       </p>
     );
   }

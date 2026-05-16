@@ -375,6 +375,22 @@ describe("work annotations and mark discussion tickets", () => {
     expect(workspace).toContain('"save-work-annotation"');
   });
 
+  it("provides a full-screen annotation studio for advanced document markup", () => {
+    const studio = read("components/owner/work-annotation-studio.tsx");
+    expect(studio).toContain("Annotation Studio");
+    expect(studio).toContain("text_box");
+    expect(studio).toContain("rectangle");
+    expect(studio).toContain("circle");
+    expect(studio).toContain("sketch");
+    expect(studio).toContain("viewBox=\"0 0 100 100\"");
+    expect(studio).toContain("studio_version: 1");
+    expect(studio).toContain('"save-work-annotation"');
+    expect(studio).toContain("Open annotation studio");
+
+    const workspace = read("components/owner/marking-response-workspace.tsx");
+    expect(workspace).toContain("WorkAnnotationStudio");
+  });
+
   it("separates marking, moderation, and dispute workspaces in the owner UI", () => {
     const layout = read("components/owner/marking-layout.tsx");
     expect(layout).toContain("Marking & Annotations");

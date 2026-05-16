@@ -95,7 +95,8 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   `interaction_json.kind = "numerical"` with optional numeric bounds/unit metadata.
 - `marks` and `feedback_releases` store owner-controlled marking totals; feedback is invisible to students until released.
 - `work_annotations` stores a non-destructive marker annotation layer over typed work and uploaded PDFs. Anchors can point
-  to selected typed text, PDF pages, or owner-entered locations; the original student submission is not modified.
+  to selected typed text, PDF pages, owner-entered locations, and full-screen studio overlays such as text boxes,
+  rectangles, circles, and sketch paths; the original student submission is not modified.
 - `marking_tickets` and `marking_ticket_messages` store feedback discussions. Student access is Edge-mediated and only
   available after feedback release for the student's own attempt.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.

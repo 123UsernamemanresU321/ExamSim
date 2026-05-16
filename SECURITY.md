@@ -39,6 +39,9 @@ PDF. Owner-created work annotations require AAL2 and are audited. Students see o
 `student_visible`, only after the owner explicitly releases feedback, and only through the checked `get-student-results`
 Edge Function.
 
+The owner annotation studio stores overlay geometry and sketch paths as structured `anchor_json`. These overlays are
+review metadata; the original submitted file remains unchanged and is still the evidence source.
+
 Marking discussion tickets are also Edge-mediated. Students can open or reply only for their own released results.
 Owner replies, owner-created tickets, and owner status changes require AAL2. Direct student RLS access is not granted for
 work annotations or ticket tables.

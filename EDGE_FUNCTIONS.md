@@ -169,8 +169,10 @@ typed and upload-style questions. Does not release student-visible feedback.
 ## save-work-annotation
 
 Owner AAL2 only. Saves or deletes marker annotations anchored to a student's typed response, uploaded PDF, or general
-question part. The annotation layer is stored separately from the student's original work. Student-visible annotations
-are returned only through `get-student-results` after feedback release; private annotations remain owner-only.
+question part. The annotation layer is stored separately from the student's original work and supports full-screen studio
+overlays such as text boxes, rectangles, circles, and sketch paths through structured `anchor_json`. Student-visible
+annotations are returned only through `get-student-results` after feedback release; private annotations remain
+owner-only.
 
 ## marking-ticket
 
