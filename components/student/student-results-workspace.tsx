@@ -26,6 +26,9 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
 
   const selectedNode = findMarkingTreeNode(questionTree, selectedNodeId) ?? selectableGroups[0] ?? null;
   const selectedLeaves = selectedNode ? getMarkableLeafNodes(selectedNode) : [];
+  const selectedRootSlot = selectedNode
+    ? workspace.uploadSlots.find((item) => item.question_node_id === selectedNode.id)
+    : undefined;
   const totals = selectedNode ? computeMarkingTotals(selectedNode, workspace.marks) : null;
 
   return (
@@ -66,9 +69,23 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                  </div>
                  {selectedLeaves.length > 0 ? (
                    <div className="space-y-4">
+                     {selectedNode && selectedRootSlot ? (
+                       <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-6">
+                         <div className="mb-3 text-xs font-black uppercase tracking-widest text-emerald-700">
+                           Full upload for {selectedNode.node_key}
+                         </div>
+                         <StudentSubmissionBlock
+                           attemptId={attemptId}
+                           node={selectedNode}
+                           slot={selectedRootSlot}
+                           annotatedSignedUrl={workspace.annotatedUploadUrls[selectedRootSlot.id]}
+                         />
+                       </div>
+                     ) : null}
                      {selectedLeaves.map((leaf) => {
                        const response = workspace.textResponses.find((item) => item.question_node_id === leaf.id);
-                       const slot = workspace.uploadSlots.find((item) => item.question_node_id === leaf.id);
+                       const shouldShowLeafCard = Boolean(response?.answer_text) || (leaf.id === selectedNode?.id && !selectedRootSlot);
+                       if (!shouldShowLeafCard) return null;
                         return (
                           <div key={leaf.id} className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6">
                             <div className="mb-3 text-xs font-black uppercase tracking-widest text-[var(--subtle)]">{leaf.node_key}</div>
@@ -76,8 +93,8 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                               attemptId={attemptId}
                               node={leaf}
                               response={response}
-                              slot={slot}
-                              annotatedSignedUrl={slot?.id ? workspace.annotatedUploadUrls[slot.id] : undefined}
+                              slot={leaf.id === selectedRootSlot?.question_node_id ? selectedRootSlot : undefined}
+                              annotatedSignedUrl={leaf.id === selectedRootSlot?.question_node_id ? workspace.annotatedUploadUrls[selectedRootSlot.id] : undefined}
                             />
                           </div>
                         );

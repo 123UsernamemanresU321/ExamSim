@@ -31,7 +31,7 @@ serve(async (request) => {
     const versionId = stringValue(body.version_id) ?? stringValue(body.assessment_version_id);
     if (!versionId) return json({ error: "version_id is required" }, 400);
     const normalizedPackage = extractNormalizedPackage(body);
-    const nodes = extractNodes(body, normalizedPackage);
+    const nodes = repairFlatNodeHierarchy(extractNodes(body, normalizedPackage));
     if (!nodes.length) {
       return json({ error: "nodes are required. Paste a node array, a normalized package with questions, or an object with nodes/questions." }, 400);
     }
@@ -70,6 +70,39 @@ serve(async (request) => {
       p_package_json: packageJson,
     });
     if (replaceError) throw replaceError;
+
+    const { data: savedNodes, error: savedNodeError } = await admin
+      .from("question_nodes")
+      .select("id,node_key")
+      .eq("assessment_version_id", versionId);
+    if (savedNodeError) throw savedNodeError;
+    const idByKey = new Map((savedNodes ?? []).map((savedNode: { id: string; node_key: string }) => [canonicalQuestionKey(savedNode.node_key), savedNode.id]));
+    const nodesWithChildren = new Set(nodes.filter((node) => nodes.some((child) => child.parent_node_key === node.node_key)).map((node) => node.node_key));
+    for (const node of nodes) {
+      const path = ordinalPathForQuestionKey(node.node_key, node.ordinal);
+      const rootKey = path.length ? `Q${path[0]}` : node.node_key;
+      const rootId = idByKey.get(canonicalQuestionKey(rootKey)) ?? idByKey.get(canonicalQuestionKey(node.node_key)) ?? null;
+      const { error: metadataError } = await admin
+        .from("question_nodes")
+        .update({
+          markscheme_html: node.markscheme_html,
+          assets: node.assets || [],
+          source_page_start: node.source_page_start,
+          source_page_end: node.source_page_end,
+          root_question_id: rootId,
+          display_label: path.length === 1 ? `Q${path[0]}` : node.node_key,
+          depth: Math.max(0, path.length - 1),
+          ordinal_path: path,
+          sort_key: path.join("."),
+          mark_mode: nodesWithChildren.has(node.node_key) ? "computed" : "manual",
+          has_visual_assets: Boolean(node.assets?.length),
+          visual_asset_refs: node.assets || [],
+        })
+        .eq("assessment_version_id", versionId)
+        .eq("node_key", node.node_key);
+      if (metadataError) throw metadataError;
+    }
+
     const assessmentMarkschemeHtml = normalizedPackage && isRecord(normalizedPackage.assessment)
       ? stringValue(normalizedPackage.assessment.markscheme_html)
       : null;
@@ -138,6 +171,81 @@ function normalizePackageQuestions(questions: unknown[]) {
   }
   questions.forEach((question, index) => visit(question, index, null));
   return nodes;
+}
+
+function repairFlatNodeHierarchy(inputNodes: FlatNode[]): FlatNode[] {
+  const nodes = inputNodes.map((node) => ({ ...node }));
+  const byCanonicalKey = new Map<string, FlatNode>();
+  for (const node of nodes) {
+    const canonical = canonicalQuestionKey(node.node_key);
+    if (canonical && !byCanonicalKey.has(canonical)) byCanonicalKey.set(canonical, node);
+  }
+
+  for (const node of [...nodes]) {
+    const path = ordinalPathForQuestionKey(node.node_key, node.ordinal);
+    if (path.length <= 1) continue;
+
+    for (let depth = 1; depth < path.length; depth += 1) {
+      const ancestorPath = path.slice(0, depth);
+      const ancestorKey = depth === 1 ? `Q${ancestorPath[0]}` : formatQuestionKeyFromOrdinalPath(ancestorPath);
+      const canonical = canonicalQuestionKey(ancestorKey);
+      if (canonical && !byCanonicalKey.has(canonical)) {
+        const parentPath = ancestorPath.slice(0, -1);
+        const parentKey = parentPath.length
+          ? parentPath.length === 1
+            ? `Q${parentPath[0]}`
+            : formatQuestionKeyFromOrdinalPath(parentPath)
+          : null;
+        const synthetic: FlatNode = {
+          node_key: ancestorKey,
+          parent_node_key: parentKey,
+          ordinal: ancestorPath[ancestorPath.length - 1] ?? 1,
+          node_type: ancestorPath.length === 1 ? "question" : ancestorPath.length === 2 ? "subquestion" : "part",
+          title: ancestorPath.length === 1 ? `Question ${ancestorPath[0]}` : null,
+          prompt_html: null,
+          prompt_latex: null,
+          marks: null,
+          response_mode: "none",
+          interaction_json: null,
+          markscheme_html: null,
+          assets: [],
+          source_page_start: null,
+          source_page_end: null,
+        };
+        nodes.push(synthetic);
+        byCanonicalKey.set(canonical, synthetic);
+      }
+    }
+
+    if (!node.parent_node_key) {
+      const parentPath = path.slice(0, -1);
+      const parentKey = parentPath.length === 1 ? `Q${parentPath[0]}` : formatQuestionKeyFromOrdinalPath(parentPath);
+      const parent = byCanonicalKey.get(canonicalQuestionKey(parentKey));
+      if (parent && canonicalQuestionKey(parent.node_key) !== canonicalQuestionKey(node.node_key)) {
+        node.parent_node_key = parent.node_key;
+      }
+    }
+  }
+
+  const childrenByParent = new Map<string, FlatNode[]>();
+  for (const node of nodes) {
+    if (!node.parent_node_key) continue;
+    const parentCanonical = canonicalQuestionKey(node.parent_node_key);
+    const children = childrenByParent.get(parentCanonical) ?? [];
+    children.push(node);
+    childrenByParent.set(parentCanonical, children);
+  }
+
+  for (const [parentKey, children] of childrenByParent) {
+    const parent = byCanonicalKey.get(parentKey);
+    if (parent) parent.response_mode = "none";
+    children.sort(compareFlatNodesByOrdinalPath);
+    children.forEach((child, index) => {
+      child.ordinal = index + 1;
+    });
+  }
+
+  return nodes.sort(compareFlatNodesByOrdinalPath);
 }
 
 function normalizeFlatNodes(rawNodes: unknown[]) {
@@ -242,9 +350,13 @@ function nestFlatNodes(nodes: FlatNode[]) {
   for (const node of nodes) {
     const html = node.prompt_html ?? undefined;
     const latex = node.prompt_latex ?? undefined;
+    const ordinalPath = ordinalPathForQuestionKey(node.node_key, node.ordinal);
     const normalized = {
       node_id: node.node_key,
       node_key: node.node_key,
+      display_label: ordinalPath.length === 1 ? `Q${ordinalPath[0]}` : node.node_key,
+      depth: Math.max(0, ordinalPath.length - 1),
+      ordinal_path: ordinalPath,
       ordinal: Math.max(0, node.ordinal),
       node_type: node.node_type,
       title: node.title ?? undefined,
@@ -330,6 +442,93 @@ function normalizeResponseMode(value: unknown): FlatNode["response_mode"] {
   if (["choice", "mcq", "multiple_choice_question", "multi_select", "multiple_response"].includes(normalized)) return "multiple_choice";
   if (["numeric", "number", "numerical", "decimal", "integer", "calculation"].includes(normalized)) return "numerical";
   return "typed_or_upload";
+}
+
+function compareFlatNodesByOrdinalPath(a: FlatNode, b: FlatNode) {
+  const left = ordinalPathForQuestionKey(a.node_key, a.ordinal);
+  const right = ordinalPathForQuestionKey(b.node_key, b.ordinal);
+  const maxLength = Math.max(left.length, right.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    if (left[index] === undefined) return -1;
+    if (right[index] === undefined) return 1;
+    if (left[index] !== right[index]) return left[index]! - right[index]!;
+  }
+  return a.node_key.localeCompare(b.node_key, "en", { numeric: true, sensitivity: "base" });
+}
+
+function canonicalQuestionKey(rawKey: string | null | undefined): string {
+  if (!rawKey) return "";
+  return rawKey
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[.:]+$/g, "")
+    .replace(/^(question|problem|q)(\d+)/i, "$2")
+    .replace(/^question/i, "")
+    .replace(/^problem/i, "")
+    .replace(/^q(?=\d)/i, "")
+    .replace(/^(\d+)([a-z])$/i, "$1($2)")
+    .toLowerCase();
+}
+
+function ordinalPathForQuestionKey(rawKey: string | null | undefined, fallbackOrdinal?: number | null): number[] {
+  const key = canonicalQuestionKey(rawKey);
+  const rootMatch = key.match(/^(\d+)/);
+  const path: number[] = [];
+  if (rootMatch) {
+    path.push(Number(rootMatch[1]));
+    [...key.matchAll(/\(([^()]+)\)/g)].forEach((match, index) => {
+      path.push(partTokenToOrdinal(match[1] ?? "", index + 1));
+    });
+  }
+  if (!path.length && typeof fallbackOrdinal === "number" && Number.isFinite(fallbackOrdinal)) path.push(Math.max(0, fallbackOrdinal));
+  return path;
+}
+
+function formatQuestionKeyFromOrdinalPath(path: number[]) {
+  if (!path.length) return "";
+  const [root, ...parts] = path;
+  return `${root}${parts.map((part, index) => `(${formatPartOrdinal(part, index + 1)})`).join("")}`;
+}
+
+function partTokenToOrdinal(rawToken: string, depth: number): number {
+  const token = rawToken.trim().toLowerCase();
+  if (/^\d+$/.test(token)) return Number(token);
+  if (/^[ivxlcdm]+$/.test(token) && depth >= 2) return romanToNumber(token);
+  if (/^[a-z]$/.test(token)) return token.charCodeAt(0) - 96;
+  if (/^[ivxlcdm]+$/.test(token)) return romanToNumber(token);
+  return 9999;
+}
+
+function formatPartOrdinal(value: number, depth: number): string {
+  if (depth === 1) return String.fromCharCode(96 + Math.max(1, Math.min(26, value)));
+  if (depth === 2) return numberToRoman(value);
+  if (depth === 3) return String.fromCharCode(64 + Math.max(1, Math.min(26, value)));
+  return String(value);
+}
+
+function romanToNumber(raw: string) {
+  const values: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+  const chars = raw.toLowerCase().split("");
+  let total = 0;
+  for (let index = 0; index < chars.length; index += 1) {
+    const current = values[chars[index]!] ?? 0;
+    const next = values[chars[index + 1]!] ?? 0;
+    total += current < next ? -current : current;
+  }
+  return total;
+}
+
+function numberToRoman(value: number) {
+  const pairs: Array<[number, string]> = [[10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]];
+  let remaining = Math.max(1, Math.trunc(value));
+  let out = "";
+  for (const [amount, symbol] of pairs) {
+    while (remaining >= amount) {
+      out += symbol;
+      remaining -= amount;
+    }
+  }
+  return out;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

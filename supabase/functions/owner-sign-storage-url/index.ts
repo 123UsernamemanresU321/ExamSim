@@ -9,9 +9,9 @@ serve(async (request) => {
     const { user, admin } = await requireOwnerAal2(request);
     const ownerProfile = await profileForAuthUser(user.id);
     const body = await readJson<{
-      bucket: "assessment-packages" | "answer-uploads" | "marking-packets";
+      bucket: "assessment-sources" | "assessment-packages" | "answer-uploads" | "marking-packets";
       object_path: string;
-      purpose: "parse_artifact" | "answer_upload" | "marking_packet";
+      purpose: "assessment_source" | "parse_artifact" | "answer_upload" | "marking_packet";
       expires_in_seconds?: number;
     }>(request);
     if (!body.bucket || !body.object_path || !body.purpose) {
@@ -55,6 +55,17 @@ async function ownerCanAccessObject(
     if (slotError) throw slotError;
     if (!slot?.attempt_id) return false;
     return ownerOwnsAttempt(admin, ownerProfileId, String(slot.attempt_id));
+  }
+
+  if (bucket === "assessment-sources" && purpose === "assessment_source") {
+    const { data: version, error: versionError } = await admin
+      .from("assessment_versions")
+      .select("assessment_id")
+      .or(`source_object_path.eq.${objectPath},markscheme_source_object_path.eq.${objectPath}`)
+      .maybeSingle();
+    if (versionError) throw versionError;
+    if (!version?.assessment_id) return false;
+    return ownerOwnsAssessment(admin, ownerProfileId, String(version.assessment_id));
   }
 
   if (bucket === "assessment-packages" && purpose === "parse_artifact") {
@@ -142,6 +153,7 @@ function isSafeObjectPath(path: string) {
 type QueryResult = Promise<{ data: Record<string, unknown> | null; error: Error | null }>;
 type FilterBuilder = {
   eq(column: string, value: string): FilterBuilder;
+  or(filters: string): FilterBuilder;
   contains(column: string, value: string[]): FilterBuilder;
   limit(count: number): FilterBuilder;
   maybeSingle(): QueryResult;

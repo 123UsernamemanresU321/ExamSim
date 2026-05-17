@@ -54,6 +54,13 @@ describe("RLS and storage hardening migration", () => {
     expect(confirmUpload).toContain("original_file_name: originalFileName");
     expect(confirmUpload).toContain("sanitizeOriginalFileName");
   });
+
+  it("creates upload slots only for root/main question nodes", () => {
+    const migration = read("supabase/migrations/202605170002_question_hierarchy_root_upload_slots.sql");
+    expect(migration).toContain("root.node_type = 'question'");
+    expect(migration).toContain("root.parent_node_id is null");
+    expect(migration).toContain("subquestions and deeper parts never receive separate student upload slots");
+  });
 });
 
 describe("Edge state and content release boundaries", () => {
@@ -154,6 +161,9 @@ describe("AI parse review boundary", () => {
     expect(source).toContain("Parent marks are display/reference totals only");
     expect(source).toContain('Q3 (parent) -> (a) (child) -> (i) (grandchild)');
     expect(source).toContain("nearest common parent node");
+    expect(source).toContain("Never classify a cover page, instruction page, formula sheet");
+    expect(source).toContain("Do not map markscheme front-page instructions to Q1");
+    expect(source).toContain("ordinal_path");
   });
 
   it("uses markscheme context to allocate marks and generate marking guidance", () => {

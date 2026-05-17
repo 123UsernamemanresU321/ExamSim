@@ -196,6 +196,10 @@ function getNodeStatus(
   annotations: SubmissionAnnotation[],
 ): NodeStatus | null {
   if (!isMarkableMarkingNode(node)) {
+    const ownSlotStatus = getSlotStatus(node.id, uploadSlots);
+    if (annotations.some((item) => item.question_node_id === node.id && item.annotation_type === "marker_flag")) return "flagged";
+    if (ownSlotStatus === "uploaded" || ownSlotStatus === "blank" || ownSlotStatus === "missing") return ownSlotStatus;
+
     const childStatuses = getMarkableLeafNodes(node)
       .map((leaf) => getLeafStatus(leaf.id, marks, uploadSlots, textResponses, annotations))
       .filter(Boolean) as NodeStatus[];
@@ -212,6 +216,15 @@ function getNodeStatus(
   return getLeafStatus(node.id, marks, uploadSlots, textResponses, annotations);
 }
 
+function getSlotStatus(nodeId: string, uploadSlots: UploadSlot[]): NodeStatus | null {
+  const slot = uploadSlots.find((item) => item.question_node_id === nodeId);
+  if (!slot) return null;
+  if (slot.status === "uploaded") return "uploaded";
+  if (slot.status === "blank_placeholder") return "blank";
+  if (slot.status === "missing") return "missing";
+  return null;
+}
+
 function getLeafStatus(
   nodeId: string,
   marks: Mark[],
@@ -226,12 +239,8 @@ function getLeafStatus(
   if (annotations.some((item) => item.question_node_id === nodeId && item.annotation_type === "student_flag" && item.body === "flagged")) return "flagged";
   if (annotations.some((item) => item.question_node_id === nodeId && item.is_unreadable)) return "unreadable";
 
-  const slot = uploadSlots.find((item) => item.question_node_id === nodeId);
-  if (slot) {
-    if (slot.status === "uploaded") return "uploaded";
-    if (slot.status === "blank_placeholder") return "blank";
-    if (slot.status === "missing") return "missing";
-  }
+  const slotStatus = getSlotStatus(nodeId, uploadSlots);
+  if (slotStatus) return slotStatus;
 
   const response = textResponses.find((item) => item.question_node_id === nodeId);
   if (response?.answer_text) return "typed";

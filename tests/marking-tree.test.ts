@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildMarkingTree,
+  calculateAttemptTotal,
   computeMarkingTotals,
+  flattenMarkingTree,
   getMarkableLeafNodes,
   getSelectableMarkingGroups,
   isMarkableMarkingNode,
 } from "@/lib/marking-tree";
+import { classifyDocumentSection, ordinalPathForQuestionKey } from "@/lib/question-hierarchy";
 import type { Mark, QuestionNodeRow } from "@/types/database";
 
 describe("marking tree helpers", () => {
@@ -43,6 +46,59 @@ describe("marking tree helpers", () => {
     expect(tree[0]?.children[0]?.inferred_parent_id).toBe("q3");
   });
 
+  it("creates missing display parents and sorts by numeric ordinal path", () => {
+    const tree = buildMarkingTree([
+      row({ id: "q1", node_key: "Q1", ordinal: 1, response_mode: "none" }),
+      row({ id: "q1a", node_key: "Q1(a)", ordinal: 1, node_type: "subquestion" }),
+      row({ id: "q2a", node_key: "Q2(a)", ordinal: 1, node_type: "subquestion" }),
+      row({ id: "q3a", node_key: "Q3(a)", ordinal: 1, node_type: "subquestion" }),
+      row({ id: "q1b", node_key: "Q1(b)", ordinal: 2, node_type: "subquestion" }),
+      row({ id: "q2", node_key: "Q2", ordinal: 2, response_mode: "none" }),
+      row({ id: "q3", node_key: "Q3", ordinal: 3, response_mode: "none" }),
+      row({ id: "q7aii", node_key: "Q7(a)(ii)", ordinal: 2, node_type: "part" }),
+      row({ id: "q7ai", node_key: "Q7(a)(i)", ordinal: 1, node_type: "part" }),
+      row({ id: "q10", node_key: "Q10", ordinal: 10 }),
+      row({ id: "q9", node_key: "Q9", ordinal: 9 }),
+    ]);
+
+    expect(flattenMarkingTree(tree).map((node) => node.node_key)).toEqual([
+      "Q1",
+      "Q1(a)",
+      "Q1(b)",
+      "Q2",
+      "Q2(a)",
+      "Q3",
+      "Q3(a)",
+      "Q7",
+      "7(a)",
+      "Q7(a)(i)",
+      "Q7(a)(ii)",
+      "Q9",
+      "Q10",
+    ]);
+    expect(getSelectableMarkingGroups(tree).map((node) => node.node_key)).toEqual(["Q1", "Q2", "Q3", "Q7", "Q9", "Q10"]);
+  });
+
+  it("orders nested grandchildren before moving to the next sibling", () => {
+    const tree = buildMarkingTree([
+      row({ id: "q3ai", node_key: "Q3(a)(i)", ordinal: 1, node_type: "part" }),
+      row({ id: "q3", node_key: "Q3", ordinal: 3, response_mode: "none" }),
+      row({ id: "q3bi", node_key: "Q3(b)(i)", ordinal: 1, node_type: "part" }),
+      row({ id: "q3a", node_key: "Q3(a)", ordinal: 1, node_type: "subquestion", response_mode: "none" }),
+      row({ id: "q3aii", node_key: "Q3(a)(ii)", ordinal: 2, node_type: "part" }),
+      row({ id: "q3b", node_key: "Q3(b)", ordinal: 2, node_type: "subquestion", response_mode: "none" }),
+    ]);
+
+    expect(flattenMarkingTree(tree).map((node) => node.node_key)).toEqual([
+      "Q3",
+      "Q3(a)",
+      "Q3(a)(i)",
+      "Q3(a)(ii)",
+      "Q3(b)",
+      "Q3(b)(i)",
+    ]);
+  });
+
   it("marks only leaf response nodes and rolls totals up recursively", () => {
     const [question] = buildMarkingTree([
       row({ id: "q4", node_key: "Q4", ordinal: 4, response_mode: "none", marks: 10 }),
@@ -68,6 +124,32 @@ describe("marking tree helpers", () => {
     expect(totals.markedLeafCount).toBe(3);
     expect(totals.markableLeafCount).toBe(3);
     expect(totals.hasExplicitTotalMismatch).toBe(false);
+  });
+
+  it("sums attempt totals from root questions only without double-counting parents", () => {
+    const tree = buildMarkingTree([
+      row({ id: "q1", node_key: "Q1", ordinal: 1, response_mode: "none", marks: 5 }),
+      row({ id: "q1a", node_key: "1(a)", parent_node_id: "q1", ordinal: 1, node_type: "subquestion", marks: 2 }),
+      row({ id: "q1b", node_key: "1(b)", parent_node_id: "q1", ordinal: 2, node_type: "subquestion", marks: 3 }),
+      row({ id: "q2", node_key: "Q2", ordinal: 2, marks: 4 }),
+    ]);
+
+    const totals = calculateAttemptTotal(tree, [mark("q1", 5), mark("q1a", 2), mark("q1b", 1), mark("q2", 4)]);
+    expect(totals.awarded).toBe(7);
+    expect(totals.max).toBe(9);
+  });
+
+  it("derives ordinal paths from nested keys", () => {
+    expect(ordinalPathForQuestionKey("Q3(a)(ii)")).toEqual([3, 1, 2]);
+    expect(ordinalPathForQuestionKey("10(b)(iv)")).toEqual([10, 2, 4]);
+  });
+
+  it("classifies covers and markscheme instructions before question extraction", () => {
+    expect(classifyDocumentSection("Instructions to candidates\nDo not open this paper until instructed.")).toBe("instructions");
+    expect(classifyDocumentSection("Formula sheet\nArea of a circle = pi r^2")).toBe("formula_sheet");
+    expect(classifyDocumentSection("1. Solve the equation x^2 = 4.")).toBe("question_page");
+    expect(classifyDocumentSection("Markscheme\nGeneral marking instructions: award marks according to...", "markscheme")).toBe("markscheme_instructions");
+    expect(classifyDocumentSection("Question 3\n(a) M1 for method, A1 for answer", "markscheme")).toBe("markscheme_question_page");
   });
 });
 

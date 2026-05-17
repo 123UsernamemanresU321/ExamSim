@@ -25,13 +25,15 @@ envelope-encrypted.
 
 Owner only. Replaces the draft question tree before publish. Accepts either an editable flat node array or a normalized
 package/suggestion wrapper with `questions`. The function validates duplicate node keys, missing parents, parent cycles,
-and published-version immutability, then calls `replace_question_tree_for_version` so the old tree is not deleted unless
-the replacement and package update both succeed.
+and published-version immutability. It repairs flat AI/parser output such as `Q3(a)(i)` into a nested `Q3 -> Q3(a) ->
+Q3(a)(i)` hierarchy, stores ordinal-path metadata, and calls `replace_question_tree_for_version` so the old tree is not
+deleted unless the replacement and package update both succeed.
 
 ## publish-assessment
 
 Owner AAL2 only. Validates the reviewed draft, publishes an immutable version, computes UTC timing, creates assigned
-attempts for individual students and selected groups/classes, and creates upload slots when enabled.
+attempts for individual students and selected groups/classes, and creates one upload slot per root/main question when
+uploads are enabled.
 
 ## delete-assessment
 
@@ -145,8 +147,8 @@ state.
 Owner AAL2 only. Calls DeepSeek through its OpenAI-compatible chat completions API using Supabase Edge secrets. Inputs
 can include current normalized JSON, LaTeX source, MinerU artifact text, or owner notes. Stores a review-required
 `ai_parse_suggestions` row and a parse job record. The prompt contract requires delimited LaTeX math, semantic HTML
-tables for tabular/grid content, and `numerical` response mode for numeric answers. It never publishes AI output
-directly.
+tables for tabular/grid content, `numerical` response mode for numeric answers, document-section classification before
+question extraction, and markscheme cover/instruction exclusion before mapping. It never publishes AI output directly.
 
 ## qti-import-assessment
 

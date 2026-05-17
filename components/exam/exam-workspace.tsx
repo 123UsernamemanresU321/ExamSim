@@ -15,6 +15,7 @@ import type { AttemptScreenData } from "@/lib/attempt-screen-data";
 import type { StudentUploadCompletion } from "@/lib/student-upload-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
 
 function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
   if (responses.length === 0) return <Badge tone="neutral">Not saved yet</Badge>;
@@ -206,8 +207,9 @@ export function ExamWorkspace({
     );
   }
 
+  const rootUploadNodeIds = new Set(collectUploadSlotNodeIds(assessmentPackage.questions));
   const uploadNodes = flattenQuestionNodes(assessmentPackage.questions).filter((node) =>
-    node.response_mode.includes("upload"),
+    rootUploadNodeIds.has(node.node_id),
   );
 
   function handleUploadComplete(completion: StudentUploadCompletion) {

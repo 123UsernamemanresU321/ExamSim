@@ -25,6 +25,9 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
 
   const selectedNode = findMarkingTreeNode(questionTree, selectedNodeId) ?? selectableGroups[0] ?? null;
   const selectedLeafNodes = selectedNode ? getMarkableLeafNodes(selectedNode) : [];
+  const selectedRootUploadSlot = selectedNode
+    ? workspace.uploadSlots.find((slot) => slot.question_node_id === selectedNode.id)
+    : undefined;
 
   async function handleRelease() {
     if (workspace.feedbackRelease) {
@@ -100,6 +103,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   marks={workspace.marks}
                   markschemeHtml={workspace.markschemeHtml}
                   markschemePdfPath={workspace.markschemePdfPath}
+                  sourceObjectPath={workspace.sourceObjectPath}
                 />
               </section>
 
@@ -108,9 +112,10 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                 <MarkingResponseWorkspace
                   key={selectedNodeId ?? "none"}
                   attemptId={attemptId}
+                  rootNode={selectedNode ?? undefined}
+                  rootSlot={selectedRootUploadSlot}
                   nodes={selectedLeafNodes}
                   responses={workspace.textResponses}
-                  uploadSlots={workspace.uploadSlots}
                   marks={workspace.marks}
                   annotations={workspace.annotations}
                   workAnnotations={workspace.workAnnotations}

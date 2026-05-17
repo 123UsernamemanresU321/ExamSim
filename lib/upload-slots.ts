@@ -8,18 +8,20 @@ export function collectUploadSlotNodeIds(nodes: QuestionNode[]): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
 
-  function visit(node: QuestionNode) {
-    if (nodeNeedsUpload(node) && !seen.has(node.node_id)) {
+  function visitRoot(node: QuestionNode) {
+    if (node.node_type === "section") {
+      for (const child of node.children ?? []) visitRoot(child);
+      return;
+    }
+
+    if (node.node_type === "question" && !seen.has(node.node_id)) {
       ids.push(node.node_id);
       seen.add(node.node_id);
-    }
-    for (const child of node.children ?? []) {
-      visit(child);
     }
   }
 
   for (const node of nodes) {
-    visit(node);
+    visitRoot(node);
   }
   return ids;
 }

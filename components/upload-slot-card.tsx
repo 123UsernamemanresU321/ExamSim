@@ -106,7 +106,7 @@ export function UploadSlotCard({
           ) : null}
         </div>
         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-          One PDF only, max {uploadSizeLabel()}. If this covers subquestions, label each subquestion clearly inside the PDF.
+          One PDF for all parts of Question {questionKey}, max {uploadSizeLabel()}. Label every subquestion clearly inside the PDF.
         </p>
         {uploadedFileName ? (
           <div className="mt-3 rounded-md border border-[#78a86d] bg-[var(--success-bg)] p-3 text-xs leading-5 text-[#123d18]">

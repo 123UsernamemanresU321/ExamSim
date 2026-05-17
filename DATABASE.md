@@ -16,6 +16,8 @@ Student upload slot original filename persistence is added in
 `supabase/migrations/202605160001_upload_slot_original_file_name.sql`.
 Private generated annotated PDF metadata is added in
 `supabase/migrations/202605170001_upload_slot_annotated_pdf.sql`.
+Question hierarchy metadata and root-question-only upload slot generation are added in
+`supabase/migrations/202605170002_question_hierarchy_root_upload_slots.sql`.
 
 ## Tables
 
@@ -95,6 +97,11 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
 - `question_nodes.response_mode` supports `none`, `typed_text`, `upload_pdf`, `typed_or_upload`, `multiple_choice`,
   and `numerical`. Multi-select choices use `interaction_json.max_choices`; numerical answers use
   `interaction_json.kind = "numerical"` with optional numeric bounds/unit metadata.
+- `question_nodes` also stores hierarchy metadata (`root_question_id`, `display_label`, `depth`, `ordinal_path`,
+  `sort_key`, and `mark_mode`) so root questions, subquestions, and deeper parts can be ordered and marked recursively
+  without relying on lexicographic labels.
+- `create_upload_slots_for_attempt` creates upload slots only for root/main question nodes. Subquestions and deeper
+  parts never receive separate student upload slots; one uploaded PDF covers all parts of the selected main question.
 - `marks` and `feedback_releases` store owner-controlled marking totals; feedback is invisible to students until released.
 - `work_annotations` stores a non-destructive marker annotation layer over typed work and uploaded PDFs. Anchors can point
   to selected typed text, PDF pages, owner-entered locations, and direct-on-document annotation overlays using

@@ -105,7 +105,12 @@ export type QuestionNodeRow = {
   id: string;
   assessment_version_id: string;
   parent_node_id: string | null;
+  root_question_id?: string | null;
   node_key: string;
+  display_label?: string | null;
+  depth?: number | null;
+  ordinal_path?: number[] | null;
+  sort_key?: string | null;
   ordinal: number;
   node_type: "section" | "question" | "subquestion" | "part";
   title: string | null;
@@ -116,9 +121,13 @@ export type QuestionNodeRow = {
   interaction_json: Json | null;
   markscheme_html: string | null;
   markscheme_pdf_path?: string | null;
+  mark_mode?: "manual" | "computed" | null;
   assets: string[] | null;
   source_page_start: number | null;
   source_page_end: number | null;
+  source_region_json?: Json | null;
+  has_visual_assets?: boolean | null;
+  visual_asset_refs?: string[] | null;
   created_at: string;
 };
 

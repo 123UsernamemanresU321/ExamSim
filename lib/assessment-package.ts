@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { QuestionNodeRow } from "@/types/database";
+import type { Json, QuestionNodeRow } from "@/types/database";
+import { buildMarkingTree, type MarkingTreeNode } from "@/lib/marking-tree";
 import {
   ASSESSMENT_KINDS,
   AUTHORING_ORIGINS,
@@ -27,9 +28,23 @@ const interactionSchema = z.object({
   unit: z.string().optional(),
 });
 
+const jsonSchema: z.ZodType<Json> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonSchema),
+    z.record(z.string(), jsonSchema),
+  ]),
+);
+
 const questionNodeBaseSchema = z.object({
   node_id: z.string().min(1),
   node_key: z.string().min(1),
+  display_label: z.string().optional(),
+  depth: z.number().int().min(0).optional(),
+  ordinal_path: z.array(z.number().int().min(0)).optional(),
   ordinal: z.number().int().min(0),
   node_type: z.enum(QUESTION_NODE_TYPES),
   title: z.string().optional(),
@@ -44,6 +59,11 @@ const questionNodeBaseSchema = z.object({
   markscheme_html: z.string().optional(),
   markscheme_pdf_path: z.string().optional(),
   assets: z.array(z.string()).optional(),
+  source_page_start: z.number().int().positive().optional(),
+  source_page_end: z.number().int().positive().optional(),
+  source_region_json: jsonSchema.optional(),
+  has_visual_assets: z.boolean().optional(),
+  visual_asset_refs: z.array(z.string()).optional(),
   interaction: interactionSchema.optional(),
 });
 
@@ -94,46 +114,36 @@ export const normalizedPackageSchema = z.object({
 export type NormalizedAssessmentPackage = z.infer<typeof normalizedPackageSchema>;
 
 export function reconstructQuestionTree(rows: QuestionNodeRow[]): QuestionNode[] {
-  const nodeMap = new Map<string, QuestionNode>();
-  const roots: QuestionNode[] = [];
+  return buildMarkingTree(rows).map(markingNodeToPackageNode);
+}
 
-  // Sort by ordinal first to ensure children are in order
-  const sortedRows = [...rows].sort((a, b) => a.ordinal - b.ordinal);
-
-  for (const row of sortedRows) {
-    const node: QuestionNode = {
-      node_id: row.id,
-      node_key: row.node_key,
-      ordinal: row.ordinal,
-      node_type: row.node_type as "section" | "question" | "subquestion" | "part",
-      title: row.title || undefined,
-      marks: row.marks || undefined,
-      response_mode: row.response_mode as "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice" | "numerical",
-      prompt: (row.prompt_html || row.prompt_latex) ? {
-        html: row.prompt_html || undefined,
-        latex: row.prompt_latex || undefined,
-      } : undefined,
-      markscheme_html: (row as { markscheme_html?: string | null }).markscheme_html || undefined,
-      markscheme_pdf_path: (row as { markscheme_pdf_path?: string | null }).markscheme_pdf_path || undefined,
-      assets: row.assets ?? undefined,
-      interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" | "numerical" } | undefined,
-      children: [],
-    };
-    nodeMap.set(row.id, node);
-  }
-
-  for (const row of sortedRows) {
-    const node = nodeMap.get(row.id)!;
-    if (row.parent_node_id && nodeMap.has(row.parent_node_id)) {
-      const parent = nodeMap.get(row.parent_node_id)!;
-      parent.children = parent.children || [];
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-
-  return roots;
+function markingNodeToPackageNode(row: MarkingTreeNode): QuestionNode {
+  return {
+    node_id: row.id,
+    node_key: row.node_key,
+    display_label: row.display_label ?? undefined,
+    depth: row.depth ?? undefined,
+    ordinal_path: row.ordinal_path ?? undefined,
+    ordinal: row.ordinal,
+    node_type: row.node_type as "section" | "question" | "subquestion" | "part",
+    title: row.title || undefined,
+    marks: row.marks || undefined,
+    response_mode: row.response_mode as "none" | "typed_text" | "upload_pdf" | "typed_or_upload" | "multiple_choice" | "numerical",
+    prompt: (row.prompt_html || row.prompt_latex) ? {
+      html: row.prompt_html || undefined,
+      latex: row.prompt_latex || undefined,
+    } : undefined,
+    markscheme_html: row.markscheme_html || undefined,
+    markscheme_pdf_path: row.markscheme_pdf_path || undefined,
+    assets: row.assets ?? undefined,
+    source_page_start: row.source_page_start ?? undefined,
+    source_page_end: row.source_page_end ?? undefined,
+    source_region_json: row.source_region_json ?? undefined,
+    has_visual_assets: row.has_visual_assets ?? undefined,
+    visual_asset_refs: row.visual_asset_refs ?? undefined,
+    interaction: row.interaction_json as { kind: "choice" | "short_text" | "extended_text" | "numerical" } | undefined,
+    children: row.children.map(markingNodeToPackageNode),
+  };
 }
 
 export function flattenQuestionNodes(nodes: QuestionNode[]): QuestionNode[] {
@@ -141,5 +151,7 @@ export function flattenQuestionNodes(nodes: QuestionNode[]): QuestionNode[] {
 }
 
 export function estimatePackageMarks(nodes: QuestionNode[]): number {
-  return flattenQuestionNodes(nodes).reduce((sum, node) => sum + (node.marks ?? 0), 0);
+  return flattenQuestionNodes(nodes)
+    .filter((node) => !node.children?.length)
+    .reduce((sum, node) => sum + (node.marks ?? 0), 0);
 }

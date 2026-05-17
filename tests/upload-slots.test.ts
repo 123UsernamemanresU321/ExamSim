@@ -3,7 +3,7 @@ import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
 import type { QuestionNode } from "@/lib/assessment-package";
 
 describe("collectUploadSlotNodeIds", () => {
-  it("returns unique upload-capable question node ids in tree order", () => {
+  it("returns only root question upload slot ids in tree order", () => {
     const nodes: QuestionNode[] = [
       {
         node_id: "q1",
@@ -37,6 +37,38 @@ describe("collectUploadSlotNodeIds", () => {
       },
     ];
 
-    expect(collectUploadSlotNodeIds(nodes)).toEqual(["q1", "q1a"]);
+    expect(collectUploadSlotNodeIds(nodes)).toEqual(["q1", "q2"]);
+  });
+
+  it("creates a main-question slot when only a nested subpart needs upload", () => {
+    const nodes: QuestionNode[] = [
+      {
+        node_id: "q3",
+        node_key: "Q3",
+        ordinal: 3,
+        node_type: "question",
+        response_mode: "none",
+        children: [
+          {
+            node_id: "q3a",
+            node_key: "3(a)",
+            ordinal: 1,
+            node_type: "subquestion",
+            response_mode: "none",
+            children: [
+              {
+                node_id: "q3ai",
+                node_key: "3(a)(i)",
+                ordinal: 1,
+                node_type: "part",
+                response_mode: "typed_or_upload",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    expect(collectUploadSlotNodeIds(nodes)).toEqual(["q3"]);
   });
 });

@@ -104,6 +104,7 @@ export type AttemptReviewWorkspace = {
   feedbackRelease: FeedbackRelease | null;
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
+  sourceObjectPath: string | null;
   commentBank: unknown[];
 };
 
@@ -551,6 +552,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       feedbackRelease: null,
       markschemeHtml: "<p>Sample Markscheme for demo purposes.</p>",
       markschemePdfPath: null,
+      sourceObjectPath: null,
       commentBank: [],
     };
   }
@@ -578,6 +580,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       feedbackRelease: null,
       markschemeHtml: null,
       markschemePdfPath: null,
+      sourceObjectPath: null,
       commentBank: [],
     };
   }
@@ -679,6 +682,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     feedbackRelease: feedbackRelease ?? null,
     markschemeHtml: version?.markscheme_html ?? null,
     markschemePdfPath: version?.markscheme_pdf_path ?? null,
+    sourceObjectPath: version?.source_object_path ?? packageResult.package?.source.original_object_path ?? null,
     commentBank: (ownerSettings?.comment_bank as unknown[]) ?? [],
   };
 }

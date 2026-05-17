@@ -103,6 +103,7 @@ function QuestionBlock({
 
   const hasInputs = node.response_mode !== "none";
   const uploadSlot = uploadSlots.find((slot) => slot.question_node_id === node.node_id);
+  const showRootUploadControl = depth === 0 && Boolean(uploadSlot) && !readonly;
   const uploadIsLocked = uploadSlot?.status === "uploaded" || uploadSlot?.status === "blank_placeholder" || Boolean(uploadSlot?.locked_at);
 
   return (
@@ -144,7 +145,7 @@ function QuestionBlock({
         </div>
       )}
 
-      {hasInputs && (
+      {(hasInputs || showRootUploadControl) && (
         <>
           {(node.response_mode === "typed_text" || node.response_mode === "typed_or_upload") && attemptId && stateToken ? (
             <div className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
@@ -177,7 +178,7 @@ function QuestionBlock({
               readonly={readonly}
             />
           ) : null}
-          {node.response_mode === "upload_pdf" || node.response_mode === "typed_or_upload" ? (
+          {showRootUploadControl ? (
             <div className="mt-4 flex flex-wrap gap-2">
               <input 
                 type="file" 
@@ -191,8 +192,11 @@ function QuestionBlock({
               />
               <Button type="button" variant="secondary" disabled={readonly || isUploading || uploadIsLocked} onClick={() => fileInputRef.current?.click()}>
                 <UploadCloud size={16} aria-hidden="true" />
-                {isUploading ? "Uploading..." : uploadSlot?.status === "blank_placeholder" ? "Blank submitted" : uploadIsLocked ? "Uploaded - locked" : "Request upload slot"}
+                {isUploading ? "Uploading..." : uploadSlot?.status === "blank_placeholder" ? "Blank submitted" : uploadIsLocked ? "Uploaded - locked" : `Upload PDF for ${node.node_key}`}
               </Button>
+              <p className="basis-full text-xs font-semibold leading-5 text-[var(--muted)]">
+                One PDF for all parts of {node.node_key}. Include every subpart in this single file and label subquestions clearly.
+              </p>
               {uploadSlot?.status === "uploaded" ? (
                 <p className="basis-full rounded-md border border-[#78a86d] bg-[var(--success-bg)] px-3 py-2 text-xs font-semibold text-[#123d18]" role="status">
                   Uploaded: {uploadSlot.original_file_name ?? uploadSlot.object_path?.split("/").pop() ?? "PDF confirmed"}

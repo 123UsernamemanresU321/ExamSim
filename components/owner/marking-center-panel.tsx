@@ -17,12 +17,14 @@ export function MarkingCenterPanel({
   marks,
   markschemeHtml,
   markschemePdfPath,
+  sourceObjectPath,
   assetSigningMode = "owner",
 }: {
   node?: MarkingTreeNode | null;
   marks: Mark[];
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
+  sourceObjectPath?: string | null;
   assetSigningMode?: "owner" | "none";
 }) {
   const [showMarkscheme, setShowMarkscheme] = useState(true);
@@ -76,6 +78,9 @@ export function MarkingCenterPanel({
           <div className="p-6 md:p-8">
             <div className="space-y-6">
               <QuestionPromptNode node={node} marks={marks} depth={0} assetSigningMode={assetSigningMode} />
+              {sourceObjectPath && assetSigningMode === "owner" ? (
+                <SourcePdfFallback node={node} sourceObjectPath={sourceObjectPath} />
+              ) : null}
             </div>
           </div>
         </Card>
@@ -129,6 +134,79 @@ export function MarkingCenterPanel({
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function SourcePdfFallback({ node, sourceObjectPath }: { node: MarkingTreeNode; sourceObjectPath: string }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pageLabel = node.source_page_start
+    ? node.source_page_end && node.source_page_end !== node.source_page_start
+      ? `pages ${node.source_page_start}-${node.source_page_end}`
+      : `page ${node.source_page_start}`
+    : "source PDF";
+
+  useEffect(() => {
+    let cancelled = false;
+    async function signSource() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+          body: {
+            bucket: "assessment-sources",
+            object_path: sourceObjectPath,
+            purpose: "assessment_source",
+            expires_in_seconds: 300,
+          },
+          requiresAal2: true,
+        });
+        if (!data?.signed_url) throw new Error("Could not create signed source URL");
+        if (!cancelled) setSignedUrl(data.signed_url);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not open source PDF");
+      }
+    }
+    signSource();
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceObjectPath]);
+
+  return (
+    <div className="mt-6 rounded-xl border border-amber-100 bg-amber-50/40 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Original PDF context</p>
+          <p className="text-xs leading-5 text-amber-900/80">
+            Use this fallback when OCR loses a diagram, graph, table, or image for {node.node_key} ({pageLabel}).
+          </p>
+        </div>
+        {signedUrl ? (
+          <a
+            href={signedUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+          >
+            <ExternalLink size={14} />
+            Open source PDF
+          </a>
+        ) : null}
+      </div>
+      {error ? (
+        <div className="rounded-lg border border-amber-200 bg-white p-3 text-xs text-amber-900">{error}</div>
+      ) : signedUrl ? (
+        <iframe
+          title={`Original source PDF for ${node.node_key}`}
+          src={signedUrl}
+          className="h-[620px] w-full rounded-lg border border-amber-100 bg-white"
+        />
+      ) : (
+        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-amber-200 bg-white/60 text-sm italic text-amber-700">
+          Loading original PDF context...
+        </div>
+      )}
     </div>
   );
 }

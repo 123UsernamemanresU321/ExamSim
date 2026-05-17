@@ -22,9 +22,10 @@ import type { MarkingTicket, MarkingTicketMessage, QuestionNodeRow, TextResponse
 
 export function MarkingResponseWorkspace({
   attemptId,
+  rootNode,
+  rootSlot,
   nodes,
   responses,
-  uploadSlots,
   marks,
   annotations,
   workAnnotations = [],
@@ -41,9 +42,10 @@ export function MarkingResponseWorkspace({
   mark,
 }: {
   attemptId: string;
+  rootNode?: MarkingTreeNode;
+  rootSlot?: UploadSlot;
   nodes?: MarkingTreeNode[];
   responses?: TextResponse[];
-  uploadSlots?: UploadSlot[];
   marks?: Mark[];
   annotations: SubmissionAnnotation[];
   workAnnotations?: WorkAnnotation[];
@@ -59,11 +61,12 @@ export function MarkingResponseWorkspace({
   slot?: UploadSlot;
   mark?: Mark;
 }) {
+  const showRootUploadCard = Boolean(rootNode && rootSlot && !nodes?.some((leaf) => leaf.id === rootNode.id));
   const cards = nodes?.length
     ? nodes.map((leaf) => ({
         node: leaf,
         response: responses?.find((item) => item.question_node_id === leaf.id),
-        slot: uploadSlots?.find((item) => item.question_node_id === leaf.id),
+        slot: leaf.id === rootSlot?.question_node_id ? rootSlot : undefined,
         mark: marks?.find((item) => item.question_node_id === leaf.id),
         annotations: annotations.filter((item) => item.question_node_id === leaf.id),
         workAnnotations: workAnnotations.filter((item) => item.question_node_id === leaf.id),
@@ -73,7 +76,7 @@ export function MarkingResponseWorkspace({
       ? [{ node, response, slot, mark, annotations, workAnnotations, markingTickets }]
       : [];
 
-  if (!cards.length) {
+  if (!cards.length && !showRootUploadCard) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
         <Ban size={24} className="mb-3 opacity-50" />
@@ -85,6 +88,18 @@ export function MarkingResponseWorkspace({
 
   return (
     <div className="grid gap-6">
+      {showRootUploadCard && rootNode && rootSlot ? (
+        <RootQuestionUploadCard
+          attemptId={attemptId}
+          node={rootNode}
+          slot={rootSlot}
+          annotations={workAnnotations.filter((item) => item.question_node_id === rootNode.id)}
+          studentName={studentName}
+          assessmentTitle={assessmentTitle}
+          paperCode={paperCode}
+          releaseStatus={releaseStatus}
+        />
+      ) : null}
       {cards.map((card) => (
         <MarkingResponseCard
           key={card.node.id}
@@ -105,6 +120,75 @@ export function MarkingResponseWorkspace({
         />
       ))}
     </div>
+  );
+}
+
+function RootQuestionUploadCard({
+  attemptId,
+  node,
+  slot,
+  annotations,
+  studentName,
+  assessmentTitle,
+  paperCode,
+  releaseStatus,
+}: {
+  attemptId: string;
+  node: QuestionNodeRow;
+  slot: UploadSlot;
+  annotations: WorkAnnotation[];
+  studentName: string;
+  assessmentTitle: string;
+  paperCode: string | null;
+  releaseStatus: string;
+}) {
+  async function downloadFile(path: string) {
+    const supabase = createSupabaseBrowserClient();
+    try {
+      const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+        body: { bucket: "answer-uploads", object_path: path, purpose: "answer_upload", expires_in_seconds: 300 },
+        requiresAal2: true,
+      });
+      if (!data?.signed_url) throw new Error("Could not generate download link");
+      window.open(data.signed_url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      alert("Could not generate download link: " + (error instanceof Error ? error.message : "Unknown error") + "\nPath: " + path);
+    }
+  }
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-blue-100 bg-blue-50/20 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-white px-5 py-3">
+        <div>
+          <h3 className="text-sm font-black text-[var(--ink)]">Student upload for {node.node_key}</h3>
+          <p className="text-xs leading-5 text-[var(--muted)]">
+            One PDF covers the full main question and all nested subparts.
+          </p>
+        </div>
+        <Badge tone={slot.status === "uploaded" ? "success" : "neutral"}>
+          {slot.status.replaceAll("_", " ")}
+        </Badge>
+      </div>
+      <div className="grid gap-6 p-6">
+        {slot.object_path ? (
+          <SubmissionPdfPreview objectPath={slot.object_path} onDownload={() => downloadFile(slot.object_path!)} />
+        ) : (
+          <div className="rounded-xl border border-dashed border-blue-100 bg-white p-8 text-center text-sm italic text-blue-500">
+            No root-question PDF has been uploaded for {node.node_key}.
+          </div>
+        )}
+        <WorkAnnotationPanel
+          attemptId={attemptId}
+          node={node}
+          slot={slot}
+          annotations={annotations}
+          studentName={studentName}
+          assessmentTitle={assessmentTitle}
+          paperCode={paperCode}
+          releaseStatus={releaseStatus}
+        />
+      </div>
+    </section>
   );
 }
 

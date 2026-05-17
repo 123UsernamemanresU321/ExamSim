@@ -1,9 +1,35 @@
 import type { Mark, QuestionNodeRow } from "@/types/database";
+import {
+  canonicalQuestionKey,
+  compareOrdinalPaths,
+  compareQuestionLike,
+  formatQuestionDisplayLabel,
+  formatQuestionKeyFromOrdinalPath,
+  parentPathForOrdinalPath,
+  resolvedOrdinalPath,
+} from "@/lib/question-hierarchy";
 
-export type MarkingTreeNode = QuestionNodeRow & {
-  children: MarkingTreeNode[];
-  inferred_parent_id: string | null;
+export type QuestionHierarchyFields = {
+  root_question_id?: string | null;
+  display_label?: string | null;
+  depth?: number | null;
+  ordinal_path?: number[] | null;
+  sort_key?: string | null;
+  mark_mode?: "manual" | "computed" | null;
+  source_region_json?: unknown;
+  has_visual_assets?: boolean | null;
+  visual_asset_refs?: string[] | null;
 };
+
+export type MarkingTreeNode = QuestionNodeRow &
+  QuestionHierarchyFields & {
+    children: MarkingTreeNode[];
+    inferred_parent_id: string | null;
+    synthetic?: boolean;
+    ordinal_path_resolved: number[];
+    depth_resolved: number;
+    root_question_id_resolved: string;
+  };
 
 export type MarkingTreeTotals = {
   awarded: number;
@@ -14,43 +40,43 @@ export type MarkingTreeTotals = {
   hasExplicitTotalMismatch: boolean;
 };
 
-const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
-
 export function buildMarkingTree(rows: QuestionNodeRow[]): MarkingTreeNode[] {
   const nodeById = new Map<string, MarkingTreeNode>();
-  const parentById = new Map<string, string | null>();
   const keyToId = new Map<string, string>();
 
-  for (const row of rows) {
-    const node: MarkingTreeNode = {
-      ...row,
-      children: [],
-      inferred_parent_id: null,
-    };
-    nodeById.set(row.id, node);
-    const canonical = canonicalQuestionKey(row.node_key);
-    if (canonical && !keyToId.has(canonical)) keyToId.set(canonical, row.id);
+  rows.forEach((row, index) => {
+    const node = createTreeNode(row, index);
+    nodeById.set(node.id, node);
+    const canonical = canonicalQuestionKey(node.node_key);
+    if (canonical && !keyToId.has(canonical)) keyToId.set(canonical, node.id);
+  });
+
+  for (const node of [...nodeById.values()]) {
+    ensureSyntheticAncestors(node, nodeById, keyToId);
   }
 
-  for (const row of rows) {
-    let parentId = row.parent_node_id && nodeById.has(row.parent_node_id) ? row.parent_node_id : null;
-    if (!parentId) {
-      parentId = inferParentId(row, keyToId, nodeById);
-      if (parentId) nodeById.get(row.id)!.inferred_parent_id = parentId;
-    }
-    parentById.set(row.id, parentId && parentId !== row.id ? parentId : null);
+  const parentById = new Map<string, string | null>();
+  for (const node of nodeById.values()) {
+    const explicitParentId = node.parent_node_id && nodeById.has(node.parent_node_id) ? node.parent_node_id : null;
+    const inferredParentId = explicitParentId ?? inferParentId(node, keyToId);
+    if (!explicitParentId && inferredParentId) node.inferred_parent_id = inferredParentId;
+    parentById.set(node.id, inferredParentId && inferredParentId !== node.id ? inferredParentId : null);
   }
 
   const roots: MarkingTreeNode[] = [];
-  for (const row of rows) {
-    const node = nodeById.get(row.id)!;
-    const parentId = parentById.get(row.id);
+  for (const node of nodeById.values()) {
+    const parentId = parentById.get(node.id);
     const parent = parentId ? nodeById.get(parentId) : null;
     if (parent && !wouldCreateCycle(node.id, parent.id, parentById)) {
       parent.children.push(node);
     } else {
       roots.push(node);
     }
+  }
+
+  for (const node of nodeById.values()) {
+    node.root_question_id_resolved = resolveRootQuestionId(node, parentById, nodeById);
+    node.depth_resolved = computeDepth(node.id, parentById);
   }
 
   sortTree(roots);
@@ -63,15 +89,13 @@ export function flattenMarkingTree(nodes: MarkingTreeNode[]): MarkingTreeNode[] 
 
 export function getSelectableMarkingGroups(nodes: MarkingTreeNode[]): MarkingTreeNode[] {
   const groups: MarkingTreeNode[] = [];
-
   for (const node of nodes) {
     if (node.node_type === "section") {
       groups.push(...getSelectableMarkingGroups(node.children));
-    } else {
+    } else if (isRootQuestion(node) || node.depth_resolved === 0) {
       groups.push(node);
     }
   }
-
   return groups;
 }
 
@@ -93,7 +117,16 @@ export function findSelectableGroupForNode(nodes: MarkingTreeNode[], nodeId: str
   return null;
 }
 
-export function isMarkableMarkingNode(node: MarkingTreeNode | QuestionNodeRow & { children?: unknown[] }): boolean {
+export function isRootQuestion(node: MarkingTreeNode | (QuestionNodeRow & QuestionHierarchyFields)): boolean {
+  const path = Array.isArray(node.ordinal_path) ? node.ordinal_path : resolvedOrdinalPath(node);
+  return node.node_type === "question" && path.length <= 1;
+}
+
+export function isLeafQuestion(node: MarkingTreeNode | (QuestionNodeRow & { children?: unknown[] })): boolean {
+  return !Array.isArray(node.children) || node.children.length === 0;
+}
+
+export function isMarkableMarkingNode(node: MarkingTreeNode | (QuestionNodeRow & { children?: unknown[] })): boolean {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
   return !hasChildren && node.node_type !== "section" && node.response_mode !== "none";
 }
@@ -121,8 +154,10 @@ export function computeMarkingTotals(node: MarkingTreeNode, marks: Pick<Mark, "q
 
     const childTotals = current.children.map(walk);
     const awarded = childTotals.reduce((sum, total) => sum + total.awarded, 0);
-    const max = childTotals.reduce((sum, total) => sum + total.max, 0);
+    const childMax = childTotals.reduce((sum, total) => sum + total.max, 0);
     const explicitMax = current.marks;
+    const max = childMax > 0 ? childMax : Number(explicitMax ?? 0);
+
     return {
       awarded,
       max,
@@ -131,47 +166,124 @@ export function computeMarkingTotals(node: MarkingTreeNode, marks: Pick<Mark, "q
       explicitMax,
       hasExplicitTotalMismatch:
         childTotals.some((total) => total.hasExplicitTotalMismatch) ||
-        (typeof explicitMax === "number" && max > 0 && Number(explicitMax) !== max),
+        (typeof explicitMax === "number" && childMax > 0 && Number(explicitMax) !== childMax),
     };
   }
 
   return walk(node);
 }
 
-export function canonicalQuestionKey(rawKey: string | null | undefined): string {
-  if (!rawKey) return "";
-  return rawKey
-    .trim()
-    .replace(/\s+/g, "")
-    .replace(/[.:]+$/g, "")
-    .replace(/^(question|problem|q)(\d+)/i, "$2")
-    .toLowerCase();
+export function calculateNodeMarks(node: MarkingTreeNode, marks: Pick<Mark, "question_node_id" | "awarded_marks">[]): MarkingTreeTotals {
+  return computeMarkingTotals(node, marks);
 }
 
-function inferParentId(
-  row: QuestionNodeRow,
-  keyToId: Map<string, string>,
+export function calculateAttemptTotal(rootNodes: MarkingTreeNode[], marks: Pick<Mark, "question_node_id" | "awarded_marks">[]): MarkingTreeTotals {
+  const rootTotals = getSelectableMarkingGroups(rootNodes).map((node) => computeMarkingTotals(node, marks));
+  return {
+    awarded: rootTotals.reduce((sum, total) => sum + total.awarded, 0),
+    max: rootTotals.reduce((sum, total) => sum + total.max, 0),
+    markedLeafCount: rootTotals.reduce((sum, total) => sum + total.markedLeafCount, 0),
+    markableLeafCount: rootTotals.reduce((sum, total) => sum + total.markableLeafCount, 0),
+    explicitMax: null,
+    hasExplicitTotalMismatch: rootTotals.some((total) => total.hasExplicitTotalMismatch),
+  };
+}
+
+export { canonicalQuestionKey };
+
+function createTreeNode(row: QuestionNodeRow, index: number): MarkingTreeNode {
+  const extra = row as QuestionNodeRow & QuestionHierarchyFields;
+  const path = resolvedOrdinalPath(extra, index);
+  return {
+    ...row,
+    display_label: extra.display_label ?? formatQuestionDisplayLabel(path),
+    root_question_id: extra.root_question_id ?? null,
+    depth: extra.depth ?? path.length - 1,
+    ordinal_path: extra.ordinal_path ?? path,
+    sort_key: extra.sort_key ?? path.join("."),
+    mark_mode: extra.mark_mode ?? null,
+    source_region_json: extra.source_region_json,
+    has_visual_assets: extra.has_visual_assets ?? Boolean((row.assets ?? []).length),
+    visual_asset_refs: extra.visual_asset_refs ?? row.assets ?? [],
+    children: [],
+    inferred_parent_id: null,
+    ordinal_path_resolved: path,
+    depth_resolved: Math.max(0, path.length - 1),
+    root_question_id_resolved: row.id,
+  };
+}
+
+function createSyntheticNode(path: number[], assessmentVersionId: string): MarkingTreeNode {
+  const nodeKey = formatQuestionDisplayLabel(path);
+  return {
+    id: `synthetic:${assessmentVersionId}:${path.join(".")}`,
+    assessment_version_id: assessmentVersionId,
+    parent_node_id: null,
+    node_key: nodeKey,
+    ordinal: path[path.length - 1] ?? 0,
+    node_type: path.length === 1 ? "question" : path.length === 2 ? "subquestion" : "part",
+    title: path.length === 1 ? `Question ${path[0]}` : null,
+    prompt_html: null,
+    prompt_latex: null,
+    marks: null,
+    response_mode: "none",
+    interaction_json: null,
+    markscheme_html: null,
+    assets: [],
+    source_page_start: null,
+    source_page_end: null,
+    created_at: "",
+    display_label: nodeKey,
+    root_question_id: null,
+    depth: path.length - 1,
+    ordinal_path: path,
+    sort_key: path.join("."),
+    mark_mode: "computed",
+    has_visual_assets: false,
+    visual_asset_refs: [],
+    children: [],
+    inferred_parent_id: null,
+    synthetic: true,
+    ordinal_path_resolved: path,
+    depth_resolved: path.length - 1,
+    root_question_id_resolved: "",
+  };
+}
+
+function ensureSyntheticAncestors(
+  node: MarkingTreeNode,
   nodeById: Map<string, MarkingTreeNode>,
-): string | null {
-  const candidates = parentKeyCandidates(row.node_key);
-  for (const candidate of candidates) {
-    const parentId = keyToId.get(candidate);
-    if (parentId && parentId !== row.id && nodeById.has(parentId)) return parentId;
+  keyToId: Map<string, string>,
+) {
+  const path = node.ordinal_path_resolved;
+  if (path.length <= 1) return;
+
+  for (let depth = 1; depth < path.length; depth += 1) {
+    const ancestorPath = path.slice(0, depth);
+    const canonical = canonicalQuestionKey(formatQuestionKeyFromOrdinalPath(ancestorPath));
+    if (!canonical || keyToId.has(canonical)) continue;
+
+    const synthetic = createSyntheticNode(ancestorPath, node.assessment_version_id);
+    nodeById.set(synthetic.id, synthetic);
+    keyToId.set(canonical, synthetic.id);
   }
-  return null;
 }
 
-function parentKeyCandidates(nodeKey: string): string[] {
-  const key = canonicalQuestionKey(nodeKey);
-  if (!key) return [];
+function inferParentId(node: MarkingTreeNode, keyToId: Map<string, string>): string | null {
+  const parentPath = parentPathForOrdinalPath(node.ordinal_path_resolved);
+  if (parentPath) {
+    const parentId = keyToId.get(canonicalQuestionKey(formatQuestionKeyFromOrdinalPath(parentPath)));
+    if (parentId && parentId !== node.id) return parentId;
+  }
 
-  const candidates: string[] = [];
-  let current = key;
+  let current = canonicalQuestionKey(node.node_key);
   while (/\([^()]+\)$/.test(current)) {
     current = current.replace(/\([^()]+\)$/, "");
-    if (current) candidates.push(current);
+    const parentId = keyToId.get(current);
+    if (parentId && parentId !== node.id) return parentId;
   }
-  return candidates;
+
+  return null;
 }
 
 function sortTree(nodes: MarkingTreeNode[]) {
@@ -180,29 +292,40 @@ function sortTree(nodes: MarkingTreeNode[]) {
 }
 
 function compareNodes(a: MarkingTreeNode, b: MarkingTreeNode) {
-  if (a.ordinal !== b.ordinal) return a.ordinal - b.ordinal;
-  const keyCompare = collator.compare(sortableQuestionKey(a.node_key), sortableQuestionKey(b.node_key));
-  if (keyCompare !== 0) return keyCompare;
-  return collator.compare(a.created_at, b.created_at);
+  const pathCompare = compareOrdinalPaths(a.ordinal_path_resolved, b.ordinal_path_resolved);
+  if (pathCompare !== 0) return pathCompare;
+  const questionCompare = compareQuestionLike(a, b);
+  if (questionCompare !== 0) return questionCompare;
+  return a.created_at.localeCompare(b.created_at);
 }
 
-function sortableQuestionKey(nodeKey: string) {
-  return canonicalQuestionKey(nodeKey)
-    .replace(/\(([ivxlcdm]+)\)/gi, (_, roman: string) => `.${romanToNumber(roman).toString().padStart(4, "0")}`)
-    .replace(/\(([a-z])\)/gi, (_, letter: string) => `.${letter.toLowerCase().charCodeAt(0) - 96}`)
-    .replace(/[()]/g, ".");
-}
-
-function romanToNumber(raw: string) {
-  const values: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
-  const chars = raw.toLowerCase().split("");
-  let total = 0;
-  for (let index = 0; index < chars.length; index += 1) {
-    const current = values[chars[index]!] ?? 0;
-    const next = values[chars[index + 1]!] ?? 0;
-    total += current < next ? -current : current;
+function resolveRootQuestionId(
+  node: MarkingTreeNode,
+  parentById: Map<string, string | null>,
+  nodeById: Map<string, MarkingTreeNode>,
+): string {
+  let current: MarkingTreeNode | undefined = node;
+  const seen = new Set<string>();
+  while (current) {
+    if (seen.has(current.id)) return node.id;
+    seen.add(current.id);
+    const parentId = parentById.get(current.id);
+    if (!parentId) return current.id;
+    current = nodeById.get(parentId);
   }
-  return total;
+  return node.id;
+}
+
+function computeDepth(nodeId: string, parentById: Map<string, string | null>) {
+  let depth = 0;
+  let current = parentById.get(nodeId);
+  const seen = new Set<string>([nodeId]);
+  while (current && !seen.has(current)) {
+    depth += 1;
+    seen.add(current);
+    current = parentById.get(current);
+  }
+  return depth;
 }
 
 function wouldCreateCycle(nodeId: string, parentId: string, parentById: Map<string, string | null>) {

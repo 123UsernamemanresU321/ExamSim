@@ -75,6 +75,7 @@ serve(async (request) => {
         feedbackRelease: null,
         markschemeHtml: null,
         markschemePdfPath: null,
+        sourceObjectPath: null,
         commentBank: [],
       });
     }
@@ -167,6 +168,7 @@ serve(async (request) => {
       feedbackRelease: feedbackRelease ?? null,
       markschemeHtml: version?.markscheme_html ?? null,
       markschemePdfPath: version?.markscheme_pdf_path ?? null,
+      sourceObjectPath: null,
       commentBank: [],
     });
   } catch (error) {

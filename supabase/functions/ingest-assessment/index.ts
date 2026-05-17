@@ -264,7 +264,14 @@ serve(async (request) => {
         ? flattenPackageNodes(body.json_package.questions as Record<string, unknown>[])
         : body.source_kind === "latex"
           ? latexToNodes(body.latex_source ?? "")
-          : [{ node_key: "1", ordinal: 1, node_type: "question", title: "PDF manual question tree", response_mode: "typed_or_upload" } as FlatNode];
+          : [{
+              node_key: "document-review",
+              ordinal: 1,
+              node_type: "section",
+              title: "PDF review required",
+              prompt_html: "The uploaded PDF has not been converted into question nodes yet. Run MinerU/AI parse or create the question tree manually; do not publish this placeholder.",
+              response_mode: "none",
+            } as FlatNode];
 
     const rows = nodes.map((node: Record<string, unknown>, index: number) => ({
       assessment_version_id: version.id,
@@ -279,6 +286,8 @@ serve(async (request) => {
       interaction_json: typeof node.interaction_json === "object" ? node.interaction_json : typeof node.interaction === "object" ? node.interaction : null,
       markscheme_html: typeof node.markscheme_html === "string" ? node.markscheme_html : null,
       assets: Array.isArray(node.assets) ? node.assets : [],
+      source_page_start: typeof node.source_page_start === "number" ? node.source_page_start : null,
+      source_page_end: typeof node.source_page_end === "number" ? node.source_page_end : null,
     }));
     const { data: insertedNodes, error: nodeError } = await admin.from("question_nodes").insert(rows).select("id,node_key");
     if (nodeError) throw nodeError;
