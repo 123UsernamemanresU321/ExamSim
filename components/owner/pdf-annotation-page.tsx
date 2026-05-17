@@ -32,6 +32,7 @@ export function PdfAnnotationPage({
   onDeleteAnnotation,
   onSelectAnnotation,
   onPageInfo,
+  onInteractionChange,
   className,
 }: {
   pdfUrl: string;
@@ -45,19 +46,28 @@ export function PdfAnnotationPage({
   onDeleteAnnotation: (annotationId: string) => void;
   onSelectAnnotation: (annotationId: string | null) => void;
   onPageInfo: (info: PdfAnnotationPageInfo & { totalPages: number }) => void;
+  onInteractionChange?: (active: boolean) => void;
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<SVGSVGElement>(null);
   const interactionRef = useRef<Interaction | null>(null);
+  const onPageInfoRef = useRef(onPageInfo);
+  const onInteractionChangeRef = useRef(onInteractionChange);
   const [pageInfo, setPageInfo] = useState<PdfAnnotationPageInfo | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [draft, setDraft] = useState<PdfAnnotation | null>(null);
+  const [dragPreview, setDragPreview] = useState<PdfAnnotation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const viewport: Size | null = pageInfo
     ? { width: pageInfo.renderedPageWidth, height: pageInfo.renderedPageHeight }
     : null;
+
+  useEffect(() => {
+    onPageInfoRef.current = onPageInfo;
+    onInteractionChangeRef.current = onInteractionChange;
+  }, [onPageInfo, onInteractionChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +111,7 @@ export function PdfAnnotationPage({
         };
         setPageInfo(nextInfo);
         setTotalPages(doc.numPages);
-        onPageInfo({ ...nextInfo, totalPages: doc.numPages });
+        onPageInfoRef.current({ ...nextInfo, totalPages: doc.numPages });
       } catch (renderError) {
         if (!cancelled) setError(renderError instanceof Error ? renderError.message : "Could not render PDF page.");
       }
@@ -112,12 +122,21 @@ export function PdfAnnotationPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [pdfUrl, pageIndex, zoom, onPageInfo]);
+  }, [pdfUrl, pageIndex, zoom]);
 
-  const renderedAnnotations = useMemo(
-    () => [...annotations.filter((annotation) => annotation.page_index === pageIndex), ...(draft ? [draft] : [])],
-    [annotations, draft, pageIndex],
-  );
+  const renderedAnnotations = useMemo(() => {
+    let pageAnnotations = annotations.filter((annotation) => annotation.page_index === pageIndex);
+    if (dragPreview) {
+      let replaced = false;
+      pageAnnotations = pageAnnotations.map((annotation) => {
+        if (annotation.id !== dragPreview.id) return annotation;
+        replaced = true;
+        return dragPreview;
+      });
+      if (!replaced && dragPreview.page_index === pageIndex) pageAnnotations = [...pageAnnotations, dragPreview];
+    }
+    return [...pageAnnotations, ...(draft ? [draft] : [])];
+  }, [annotations, dragPreview, draft, pageIndex]);
 
   const pointForEvent = useCallback((event: PointerEvent<SVGSVGElement>): Point | null => {
     const rect = overlayRef.current?.getBoundingClientRect();
@@ -132,7 +151,6 @@ export function PdfAnnotationPage({
     overlayRef.current?.focus();
     const point = pointForEvent(event);
     if (!point) return;
-    overlayRef.current?.setPointerCapture(event.pointerId);
 
     if (selectedTool === "select") {
       onSelectAnnotation(null);
@@ -150,6 +168,8 @@ export function PdfAnnotationPage({
 
     const annotation = createDrawAnnotation(selectedTool, pageIndex, point);
     interactionRef.current = { kind: "draw", pointerId: event.pointerId, start: point, annotation };
+    overlayRef.current?.setPointerCapture(event.pointerId);
+    onInteractionChangeRef.current?.(true);
     setDraft(annotation);
   }
 
@@ -171,13 +191,13 @@ export function PdfAnnotationPage({
     if (interaction.kind === "move") {
       const updated = moveAnnotation(interaction.annotation, interaction.start, point);
       interactionRef.current = { ...interaction, annotation: updated, start: point };
-      onUpdateAnnotation(updated);
+      setDragPreview(updated);
       return;
     }
 
     const updated = resizeAnnotation(interaction.annotation, point);
     interactionRef.current = { ...interaction, annotation: updated };
-    onUpdateAnnotation(updated);
+    setDragPreview(updated);
   }
 
   function endOverlayPointer(event: PointerEvent<SVGSVGElement>) {
@@ -187,12 +207,18 @@ export function PdfAnnotationPage({
     event.stopPropagation();
     overlayRef.current?.releasePointerCapture(event.pointerId);
     interactionRef.current = null;
+    setDragPreview(null);
 
     if (interaction.kind === "draw") {
       setDraft(null);
       onCreateAnnotation(interaction.annotation);
       onSelectAnnotation(interaction.annotation.id);
+      onInteractionChangeRef.current?.(false);
+      return;
     }
+
+    onUpdateAnnotation(interaction.annotation);
+    onInteractionChangeRef.current?.(false);
   }
 
   function beginAnnotationPointer(event: PointerEvent<SVGGElement>, annotation: PdfAnnotation, kind: "move" | "resize") {
@@ -207,6 +233,8 @@ export function PdfAnnotationPage({
     if (!point) return;
     overlayRef.current?.setPointerCapture(event.pointerId);
     interactionRef.current = { kind, pointerId: event.pointerId, start: point, annotation };
+    setDragPreview(annotation);
+    onInteractionChangeRef.current?.(true);
   }
 
   function handleKeyDown(event: React.KeyboardEvent<SVGSVGElement>) {

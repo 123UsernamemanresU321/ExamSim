@@ -580,7 +580,12 @@ function SubmissionPdfPreview({ objectPath, onDownload }: { objectPath: string; 
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{error}</div>
       ) : signedUrl ? (
-        <iframe title="Student uploaded PDF" src={signedUrl} className="h-[560px] w-full rounded-lg border border-slate-200 bg-white" />
+        <iframe
+          title="Student uploaded PDF"
+          src={signedUrl}
+          data-hide-during-annotation-studio="true"
+          className="h-[560px] w-full rounded-lg border border-slate-200 bg-white"
+        />
       ) : (
         <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-blue-100 text-sm text-blue-500">
           Loading PDF preview...

@@ -62,19 +62,22 @@ export function WorkAnnotationStudio({
   const [studentFeedback, setStudentFeedback] = useState("");
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
   const [history, setHistory] = useState<PdfAnnotation[][]>([]);
   const [future, setFuture] = useState<PdfAnnotation[][]>([]);
   const pageInfoByIndex = useRef<Record<number, PdfAnnotationPageInfo>>({});
   const autosaveTimer = useRef<number | null>(null);
 
   const annotationKind = slot?.object_path ? "uploaded_pdf" : response?.answer_text ? "typed_text" : "general";
+  const dirtyCount = dirtyIds.size;
+  const deletedCount = deletedIds.size;
   const selectedAnnotation = studioAnnotations.find((annotation) => annotation.id === selectedAnnotationId) ?? null;
   const currentPageAnnotations = studioAnnotations.filter((annotation) => annotation.page_index === selectedPageIndex);
   const saveBadge = saveStatus === "failed" ? "Save failed" : saveStatus === "saving" ? "Saving..." : saveStatus === "unsaved" ? "Unsaved" : "Saved";
   const markSummary = node.marks ? `${node.marks} available marks for ${node.node_key}` : `${node.node_key} has no configured marks`;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isInteracting || dirtyCount || deletedCount) return;
     const id = window.setTimeout(() => {
       setStudioAnnotations(annotations.map(annotationFromWorkAnnotation));
       setDirtyIds(new Set());
@@ -82,7 +85,15 @@ export function WorkAnnotationStudio({
       setSaveStatus("saved");
     }, 0);
     return () => window.clearTimeout(id);
-  }, [annotations, open]);
+  }, [annotations, deletedCount, dirtyCount, isInteracting, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    document.documentElement.dataset.annotationStudioOpen = "true";
+    return () => {
+      delete document.documentElement.dataset.annotationStudioOpen;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !slot?.object_path) return;
@@ -158,15 +169,14 @@ export function WorkAnnotationStudio({
       setDirtyIds(new Set());
       setDeletedIds(new Set());
       setSaveStatus("saved");
-      router.refresh();
     } catch (error) {
       console.error("Annotation autosave failed", error);
       setSaveStatus("failed");
     }
-  }, [annotationKind, attemptId, dirtyIds, deletedIds, node.id, response, router, slot, studioAnnotations]);
+  }, [annotationKind, attemptId, dirtyIds, deletedIds, node.id, response, slot, studioAnnotations]);
 
   useEffect(() => {
-    if (!open || (!dirtyIds.size && !deletedIds.size)) return;
+    if (!open || isInteracting || (!dirtyIds.size && !deletedIds.size)) return;
     if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     autosaveTimer.current = window.setTimeout(() => {
       void saveDraft();
@@ -174,7 +184,7 @@ export function WorkAnnotationStudio({
     return () => {
       if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     };
-  }, [deletedIds, dirtyIds, open, saveDraft]);
+  }, [deletedIds, dirtyIds, isInteracting, open, saveDraft]);
 
   useEffect(() => {
     if (!open) return;
@@ -248,6 +258,11 @@ export function WorkAnnotationStudio({
   function handlePageInfo(info: PdfAnnotationPageInfo & { totalPages: number }) {
     pageInfoByIndex.current[info.pageIndex] = info;
     setTotalPages(info.totalPages);
+  }
+
+  function closeStudio() {
+    setOpen(false);
+    router.refresh();
   }
 
   async function generateAnnotatedPdf() {
@@ -337,7 +352,7 @@ export function WorkAnnotationStudio({
                     <Download size={14} /> Original
                   </Button>
                 ) : null}
-                <Button type="button" variant="ghost" className="h-9 px-2" onClick={() => setOpen(false)} aria-label="Close annotation studio">
+                <Button type="button" variant="ghost" className="h-9 px-2" onClick={closeStudio} aria-label="Close annotation studio">
                   <X size={18} />
                 </Button>
               </div>
@@ -387,6 +402,7 @@ export function WorkAnnotationStudio({
                         onDeleteAnnotation={handleDeleteAnnotation}
                         onSelectAnnotation={setSelectedAnnotationId}
                         onPageInfo={handlePageInfo}
+                        onInteractionChange={setIsInteracting}
                       />
                     ) : (
                       <div className="flex h-[700px] w-[520px] items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500">

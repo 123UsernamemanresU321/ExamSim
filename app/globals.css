@@ -45,6 +45,22 @@ body {
     "Public Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+html[data-annotation-studio-open="true"] iframe[data-hide-during-annotation-studio="true"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.annotation-studio,
+.annotation-page-shell,
+.annotation-overlay {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.annotation-overlay {
+  touch-action: none;
+}
+
 a {
   color: inherit;
   text-decoration: none;

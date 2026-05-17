@@ -406,6 +406,27 @@ describe("work annotations and mark discussion tickets", () => {
     expect(page).toContain("screenToNormalized");
   });
 
+  it("keeps annotation dragging local until pointer-up to prevent PDF repaint flashing", () => {
+    const page = read("components/owner/pdf-annotation-page.tsx");
+    const studio = read("components/owner/work-annotation-studio.tsx");
+    expect(page).toContain("dragPreview");
+    expect(page).toContain("setDragPreview(updated)");
+    expect(page).not.toContain("onUpdateAnnotation(updated);");
+    expect(page).toContain("onUpdateAnnotation(interaction.annotation)");
+    expect(studio).toContain("isInteracting");
+    expect(studio).toContain("onInteractionChange");
+    expect(studio).not.toContain("router.refresh();\n      } catch (error) {\n      console.error(\"Annotation autosave failed\"");
+  });
+
+  it("hides embedded PDF preview iframes behind the full-screen annotation studio", () => {
+    expect(read("components/owner/marking-response-workspace.tsx")).toContain("data-hide-during-annotation-studio");
+    expect(read("components/owner/work-annotation-studio.tsx")).toContain("annotationStudioOpen");
+    const css = read("app/globals.css");
+    expect(css).toContain("[data-annotation-studio-open=\"true\"] iframe[data-hide-during-annotation-studio=\"true\"]");
+    expect(css).toContain("visibility: hidden");
+    expect(css).toContain("pointer-events: none");
+  });
+
   it("generates annotated PDFs as private copies without mutating the original upload", () => {
     expect(read("supabase/migrations/202605170001_upload_slot_annotated_pdf.sql")).toContain("annotated_object_path");
     const edge = read("supabase/functions/generate-annotated-pdf/index.ts");
