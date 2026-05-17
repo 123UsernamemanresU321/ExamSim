@@ -179,7 +179,8 @@ feedback release; private annotations remain owner-only.
 Owner AAL2 only. Downloads the immutable original answer PDF from private `answer-uploads`, flattens supplied
 normalized `annotation-v2` overlay data with PDF coordinate conversion, uploads a new annotated PDF copy to private
 `marking-packets`, stores that path on `upload_slots.annotated_object_path`, and returns a short-lived owner URL.
-The original student upload is never overwritten.
+The original student upload is never overwritten. Text, comment, and stamp annotations preserve marker-selected font
+size when flattened.
 
 ## marking-ticket
 
@@ -220,10 +221,17 @@ Storage signing in parse review and marking views.
 ## get-student-results
 
 Student or owner. Returns released student feedback only through a checked Edge boundary. Students receive sanitized
-question metadata, marks, feedback annotations, student-visible work annotations, discussion tickets, short-lived upload
-preview URLs, released annotated PDF URLs, and their own response summaries only after `feedback_releases` is visible.
+question metadata, marks, feedback annotations, discussion tickets, released annotated PDF URLs, and their own response
+summaries only after `feedback_releases` is visible. It does not pre-issue signed URLs for original student upload PDFs
+or raw work-annotation JSON to student clients; originals are available only through the explicit request function below.
 Moderation reports, attempt events, private package objects, private annotations, and unreleased feedback remain
 owner-only.
+
+## get-student-original-upload-url
+
+Student only for own attempt. Issues a short-lived signed URL for the student's original uploaded answer PDF only after
+feedback has been released and only for the requested upload slot. The request is logged as an attempt event. The student
+results page embeds the annotated copy when available and opens the original only after this explicit request.
 
 ## list-student-results
 

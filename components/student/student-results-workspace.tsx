@@ -14,10 +14,10 @@ import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { formatStoredResponse } from "@/lib/response-values";
 import { buildMarkingTree, computeMarkingTotals, findMarkingTreeNode, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { cn } from "@/lib/utils";
-import type { MarkingTicket, MarkingTicketMessage, QuestionNodeRow, TextResponse, UploadSlot, WorkAnnotation } from "@/types/database";
+import type { MarkingTicket, MarkingTicketMessage, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
 import { FileText, MessageSquare, Award, AlertCircle, ExternalLink, Send } from "lucide-react";
 
-export function StudentResultsWorkspace({ workspace }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
+export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
   const questionTree = buildMarkingTree(workspace.questionNodes);
   const selectableGroups = getSelectableMarkingGroups(questionTree);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
@@ -69,28 +69,19 @@ export function StudentResultsWorkspace({ workspace }: { workspace: AttemptRevie
                      {selectedLeaves.map((leaf) => {
                        const response = workspace.textResponses.find((item) => item.question_node_id === leaf.id);
                        const slot = workspace.uploadSlots.find((item) => item.question_node_id === leaf.id);
-                       const annotations = workspace.workAnnotations.filter((item) => item.question_node_id === leaf.id && item.visibility === "student_visible");
-                       const tickets = workspace.markingTickets.filter((item) => item.question_node_id === leaf.id);
-                       return (
-                         <div key={leaf.id} className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6">
-                           <div className="mb-3 text-xs font-black uppercase tracking-widest text-[var(--subtle)]">{leaf.node_key}</div>
-                           <StudentSubmissionBlock
-                             node={leaf}
-                             response={response}
-                             slot={slot}
-                             signedUrl={slot?.id ? workspace.uploadUrls[slot.id] : undefined}
-                             annotatedSignedUrl={slot?.id ? workspace.annotatedUploadUrls[slot.id] : undefined}
-                           />
-                           <StudentWorkAnnotations annotations={annotations} />
-                           <StudentTicketPanel
-                             attemptId={workspace.attempt?.id ?? ""}
-                             node={leaf}
-                             tickets={tickets}
-                             messages={workspace.markingTicketMessages}
-                           />
-                         </div>
-                       );
-                     })}
+                        return (
+                          <div key={leaf.id} className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6">
+                            <div className="mb-3 text-xs font-black uppercase tracking-widest text-[var(--subtle)]">{leaf.node_key}</div>
+                            <StudentSubmissionBlock
+                              attemptId={attemptId}
+                              node={leaf}
+                              response={response}
+                              slot={slot}
+                              annotatedSignedUrl={slot?.id ? workspace.annotatedUploadUrls[slot.id] : undefined}
+                            />
+                          </div>
+                        );
+                      })}
                    </div>
                  ) : (
                    <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-[var(--border)] text-[var(--muted)] italic text-sm">
@@ -156,6 +147,32 @@ export function StudentResultsWorkspace({ workspace }: { workspace: AttemptRevie
                     )}
                   </div>
                 ) : null}
+
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                    <MessageSquare size={14} /> Discussion / appeals
+                  </div>
+                  <p className="text-xs leading-5 text-[var(--muted)]">
+                    Ask about a mark or visible annotation without scrolling below your submission.
+                  </p>
+                  {selectedLeaves.length ? (
+                    <div className="grid gap-4">
+                      {selectedLeaves.map((leaf) => (
+                        <StudentTicketPanel
+                          key={leaf.id}
+                          attemptId={workspace.attempt?.id ?? attemptId}
+                          node={leaf}
+                          tickets={workspace.markingTickets.filter((item) => item.question_node_id === leaf.id)}
+                          messages={workspace.markingTicketMessages}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-blue-100 p-4 text-sm italic text-blue-400">
+                      Select a marked part to open a discussion.
+                    </p>
+                  )}
+                </section>
               </div>
            </div>
         </section>
@@ -165,19 +182,37 @@ export function StudentResultsWorkspace({ workspace }: { workspace: AttemptRevie
 }
 
 function StudentSubmissionBlock({
+  attemptId,
   node,
   response,
   slot,
-  signedUrl,
   annotatedSignedUrl,
 }: {
+  attemptId: string;
   node: QuestionNodeRow;
   response?: TextResponse;
   slot?: UploadSlot;
-  signedUrl?: string;
   annotatedSignedUrl?: string;
 }) {
   const formatted = response?.answer_text ? formatStoredResponse(response.answer_text, node) : null;
+  const [isRequestingOriginal, setIsRequestingOriginal] = useState(false);
+
+  async function requestOriginalCopy() {
+    if (!attemptId || !slot?.id) return;
+    setIsRequestingOriginal(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "get-student-original-upload-url", {
+        body: { attempt_id: attemptId, upload_slot_id: slot.id },
+      });
+      if (!data?.signed_url) throw new Error("Original copy is not available.");
+      window.open(data.signed_url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not open original copy.");
+    } finally {
+      setIsRequestingOriginal(false);
+    }
+  }
 
   return (
     <div className="grid gap-4">
@@ -191,43 +226,39 @@ function StudentSubmissionBlock({
       ) : null}
 
       {slot?.object_path ? (
-        <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-4">
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Your uploaded PDF</p>
-              <p className="text-xs leading-5 text-blue-800/70">
-                This is your original submitted file. Marker annotations below are separate from your work.
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Released annotated PDF</p>
+              <p className="text-xs leading-5 text-emerald-900/70">
+                The visible copy includes released marker annotations. Your original upload is not embedded here.
               </p>
             </div>
-            {signedUrl ? (
-              <Button variant="secondary" className="bg-white text-blue-700 hover:bg-blue-600 hover:text-white" onClick={() => window.open(signedUrl, "_blank", "noopener,noreferrer")}>
-                <ExternalLink size={14} /> Open
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="secondary"
+              className="bg-white text-emerald-700 hover:bg-emerald-700 hover:text-white"
+              onClick={() => (annotatedSignedUrl ? window.open(annotatedSignedUrl, "_blank", "noopener,noreferrer") : undefined)}
+              disabled={!annotatedSignedUrl}
+            >
+              <ExternalLink size={14} /> Open annotated
+            </Button>
           </div>
-          {signedUrl ? (
-            <iframe title={`Uploaded answer for ${node.node_key}`} src={signedUrl} className="h-[460px] w-full rounded-lg border border-blue-100 bg-white" />
+          {annotatedSignedUrl ? (
+            <iframe title={`Annotated answer for ${node.node_key}`} src={annotatedSignedUrl} className="h-[520px] w-full rounded-lg border border-emerald-100 bg-white" />
           ) : (
-            <div className="rounded-lg border border-dashed border-blue-100 bg-white/60 p-5 text-sm italic text-blue-700">
-              Upload recorded. The preview link has expired or is not available; refresh the results page to request a new short-lived link.
+            <div className="rounded-lg border border-dashed border-emerald-100 bg-white/70 p-5 text-sm italic text-emerald-800">
+              A visibly annotated copy has not been released for this upload yet.
             </div>
           )}
-          {annotatedSignedUrl ? (
-            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50/60 p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Released annotated PDF</p>
-                  <p className="text-xs leading-5 text-emerald-900/70">
-                    This is a generated copy with marker annotations. Your original upload above is unchanged.
-                  </p>
-                </div>
-                <Button variant="secondary" className="bg-white text-emerald-700 hover:bg-emerald-700 hover:text-white" onClick={() => window.open(annotatedSignedUrl, "_blank", "noopener,noreferrer")}>
-                  <ExternalLink size={14} /> Open annotated
-                </Button>
-              </div>
-              <iframe title={`Annotated answer for ${node.node_key}`} src={annotatedSignedUrl} className="h-[460px] w-full rounded-lg border border-emerald-100 bg-white" />
-            </div>
-          ) : null}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <p className="text-xs leading-5 text-slate-600">
+              Original copy is available on request for checking your submitted file.
+            </p>
+            <Button type="button" variant="secondary" className="bg-white text-slate-700" onClick={() => void requestOriginalCopy()} disabled={isRequestingOriginal}>
+              <ExternalLink size={14} /> {isRequestingOriginal ? "Requesting..." : "Request original"}
+            </Button>
+          </div>
         </div>
       ) : null}
 
@@ -235,32 +266,6 @@ function StudentSubmissionBlock({
         <p className="text-sm italic text-[var(--muted)]">No digital response recorded for this part.</p>
       ) : null}
     </div>
-  );
-}
-
-function StudentWorkAnnotations({ annotations }: { annotations: WorkAnnotation[] }) {
-  if (!annotations.length) return null;
-
-  return (
-    <section className="mt-4 rounded-lg border border-amber-200 bg-amber-50/70 p-4">
-      <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-amber-700">Marker annotations on your work</h4>
-      <div className="grid gap-3">
-        {annotations.map((annotation) => (
-          <div key={annotation.id} className="rounded-md border border-amber-100 bg-white p-3">
-            <div className="mb-1 flex items-center gap-2">
-              <Badge tone={annotation.severity === "critical" || annotation.severity === "major" ? "warning" : "neutral"} className="text-[10px] uppercase">
-                {annotation.severity}
-              </Badge>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
-                {annotation.annotation_kind.replaceAll("_", " ")}
-              </span>
-            </div>
-            {renderStudentAnchor(annotation.anchor_json)}
-            <p className="text-sm leading-6 text-[var(--ink)]">{annotation.body}</p>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -395,23 +400,4 @@ function StudentTicketPanel({
       </div>
     </section>
   );
-}
-
-function renderStudentAnchor(anchor: unknown) {
-  if (!anchor || typeof anchor !== "object" || Array.isArray(anchor)) return null;
-  const value = anchor as { selected_text?: unknown; page?: unknown; location_label?: unknown; annotation_tool?: unknown; x?: unknown; y?: unknown };
-  if (typeof value.selected_text === "string" && value.selected_text.trim()) {
-    return <blockquote className="mb-2 border-l-2 border-amber-300 pl-3 text-xs italic text-slate-600">{value.selected_text}</blockquote>;
-  }
-  if (value.page || value.location_label || value.annotation_tool) {
-    return (
-      <p className="mb-2 text-xs font-semibold text-slate-500">
-        {value.annotation_tool ? `${String(value.annotation_tool).replaceAll("_", " ")} · ` : ""}
-        Page/view {String(value.page ?? "?")}
-        {value.location_label ? ` · ${String(value.location_label)}` : ""}
-        {typeof value.x === "number" && typeof value.y === "number" ? ` · ${Math.round(value.x)}%, ${Math.round(value.y)}%` : ""}
-      </p>
-    );
-  }
-  return null;
 }

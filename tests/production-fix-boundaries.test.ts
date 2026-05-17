@@ -447,7 +447,18 @@ describe("work annotations and mark discussion tickets", () => {
 
     const student = read("components/student/student-results-workspace.tsx");
     expect(student).toContain("Released annotated PDF");
+    expect(student).toContain("get-student-original-upload-url");
+    expect(student).toContain("Original copy is available on request");
     expect(read("supabase/functions/get-student-results/index.ts")).toContain("annotatedUploadUrls");
+  });
+
+  it("supports annotation font size controls in studio rendering and export", () => {
+    expect(read("components/owner/annotation-properties-panel.tsx")).toContain("Font size");
+    expect(read("components/owner/pdf-annotation-page.tsx")).toContain("annotation.style.font_size");
+    expect(read("components/owner/work-annotation-studio.tsx")).toContain("font_size");
+    const edge = read("supabase/functions/generate-annotated-pdf/index.ts");
+    expect(edge).toContain("const fontSize");
+    expect(edge).toContain("lineHeight: fontSize + 2");
   });
 
   it("separates marking, moderation, and dispute workspaces in the owner UI", () => {
@@ -465,14 +476,19 @@ describe("work annotations and mark discussion tickets", () => {
   it("serves released annotations and uploaded work previews through the results Edge Function", () => {
     const edge = read("supabase/functions/get-student-results/index.ts");
     expect(edge).toContain("work_annotations");
+    expect(edge).toContain('workAnnotations: profile.app_role === "owner" ? workAnnotations ?? [] : []');
     expect(edge).toContain("marking_tickets");
     expect(edge).toContain("marking_ticket_messages");
-    expect(edge).toContain("createSignedUrl(slot.object_path, 300)");
+    expect(edge).not.toContain("createSignedUrl(slot.object_path, 300)");
+    expect(read("supabase/functions/get-student-original-upload-url/index.ts")).toContain("feedback_releases");
+    expect(read("supabase/functions/get-student-original-upload-url/index.ts")).toContain('event_type: "student.original_upload_requested"');
     expect(edge).toContain("uploadUrls");
 
     const student = read("components/student/student-results-workspace.tsx");
-    expect(student).toContain("Marker annotations on your work");
-    expect(student).toContain("Your uploaded PDF");
+    expect(student).not.toContain("Marker annotations on your work");
+    expect(student).not.toContain("Your uploaded PDF");
+    expect(student).toContain("Released annotated PDF");
+    expect(student).toContain("Discussion / appeals");
     expect(student).toContain('"marking-ticket"');
     expect(student).toContain("Open discussion");
   });

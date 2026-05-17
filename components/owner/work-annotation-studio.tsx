@@ -561,7 +561,7 @@ function TextAnnotationOverlay({
       stamp: selectedTool === "cross" ? "cross" : selectedTool === "question" ? "question" : "tick",
       text: selectedTool === "text" ? "Edit this note" : undefined,
       comment: selectedTool === "comment" ? "Add comment" : undefined,
-      style: { stroke: "#cc0000", color: "#cc0000", stroke_width: 2, opacity: 1 },
+      style: { stroke: "#cc0000", color: "#cc0000", stroke_width: 2, opacity: 1, font_size: selectedTool === "tick" || selectedTool === "cross" || selectedTool === "question" ? 32 : 12 },
       visibility: "student_visible",
       severity: "note",
       created_at: now,
@@ -587,13 +587,14 @@ function TextAnnotationOverlay({
         const color = annotation.style.color ?? annotation.style.stroke ?? "#cc0000";
         if (annotation.type === "stamp") {
           const symbol = annotation.stamp === "cross" ? "✕" : annotation.stamp === "question" ? "?" : "✓";
+          const fontSize = annotation.style.font_size ?? 32;
           return (
             <text
               key={annotation.id}
               x={x}
               y={y}
               fill={color}
-              fontSize={32}
+              fontSize={fontSize}
               fontWeight={900}
               onPointerDown={(event) => {
                 event.stopPropagation();
@@ -616,7 +617,7 @@ function TextAnnotationOverlay({
           >
             <rect x={x} y={y} width={(annotation.width ?? 0.2) * 720} height={(annotation.height ?? 0.06) * 840} fill="#fff" stroke={selected ? "#2563eb" : color} strokeWidth={2} />
             <foreignObject x={x + 6} y={y + 6} width={Math.max(40, (annotation.width ?? 0.2) * 720 - 12)} height={Math.max(20, (annotation.height ?? 0.06) * 840 - 12)}>
-              <div className="text-[12px] font-bold leading-tight" style={{ color }}>
+              <div className="font-bold leading-tight" style={{ color, fontSize: annotation.style.font_size ?? 12 }}>
                 {annotation.text || annotation.comment || "Annotation"}
               </div>
             </foreignObject>

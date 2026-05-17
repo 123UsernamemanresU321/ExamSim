@@ -184,22 +184,25 @@ function drawAnnotation(page: any, annotation: PdfAnnotation, font: any) {
 
   if (annotation.type === "stamp") {
     const symbol = annotation.stamp === "cross" ? "X" : annotation.stamp === "question" ? "?" : "✓";
-    const size = Math.max(16, clamp(annotation.size ?? 0.04, 0.01, 0.12) * Math.min(pageWidth, pageHeight));
+    const size = annotation.style?.font_size
+      ? clamp(Number(annotation.style.font_size), 8, 72)
+      : Math.max(16, clamp(annotation.size ?? 0.04, 0.01, 0.12) * Math.min(pageWidth, pageHeight));
     page.drawText(symbol, { x: x - size / 3, y: pageHeight - browserY - size / 2, size, font, color, opacity });
     return;
   }
 
   const text = (annotation.type === "comment" ? annotation.comment : annotation.text) || "";
   if (text.trim()) {
+    const fontSize = clamp(Number(annotation.style?.font_size ?? 10), 7, 48);
     page.drawRectangle({ x, y, width: boxWidth, height: boxHeight, color: rgb(1, 1, 1), opacity: 0.82, borderColor: color, borderWidth: 0.8 });
     page.drawText(text.slice(0, 240), {
       x: x + 4,
-      y: y + boxHeight - 14,
-      size: clamp(Number(annotation.style?.font_size ?? 10), 7, 18),
+      y: y + boxHeight - fontSize - 4,
+      size: fontSize,
       font,
       color,
       maxWidth: Math.max(20, boxWidth - 8),
-      lineHeight: 12,
+      lineHeight: fontSize + 2,
       opacity,
     });
   }

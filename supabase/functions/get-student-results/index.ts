@@ -142,9 +142,6 @@ serve(async (request) => {
     const uploadUrls: Record<string, string> = {};
     const annotatedUploadUrls: Record<string, string> = {};
     for (const slot of uploadSlots ?? []) {
-      if (!slot.object_path) continue;
-      const { data: signed, error: signedError } = await admin.storage.from("answer-uploads").createSignedUrl(slot.object_path, 300);
-      if (!signedError && signed?.signedUrl) uploadUrls[slot.id] = signed.signedUrl;
       if (slot.annotated_object_path) {
         const { data: annotatedSigned, error: annotatedError } = await admin.storage.from("marking-packets").createSignedUrl(slot.annotated_object_path, 300);
         if (!annotatedError && annotatedSigned?.signedUrl) annotatedUploadUrls[slot.id] = annotatedSigned.signedUrl;
@@ -162,7 +159,7 @@ serve(async (request) => {
       packageError: null,
       marks: marks ?? [],
       annotations: annotations ?? [],
-      workAnnotations: workAnnotations ?? [],
+      workAnnotations: profile.app_role === "owner" ? workAnnotations ?? [] : [],
       markingTickets: markingTickets ?? [],
       markingTicketMessages: markingTicketMessages ?? [],
       uploadUrls,

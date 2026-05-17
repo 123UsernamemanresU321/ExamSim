@@ -340,7 +340,7 @@ function AnnotationShape({
   }
 
   if (annotation.type === "stamp") {
-    const size = (annotation.size ?? 0.045) * Math.min(viewport.width, viewport.height);
+    const size = annotation.style.font_size ?? (annotation.size ?? 0.045) * Math.min(viewport.width, viewport.height);
     const symbol = annotation.stamp === "cross" ? "✕" : annotation.stamp === "question" ? "?" : "✓";
     const color = annotation.stamp === "cross" ? "#b91c1c" : annotation.stamp === "question" ? "#92400e" : "#047857";
     return (
@@ -377,11 +377,12 @@ function AnnotationShape({
   }
 
   if (annotation.type === "text" || annotation.type === "comment") {
+    const fontSize = annotation.style.font_size ?? 12;
     return (
       <g onPointerDown={(event) => onPointerDown(event, "move")} className="cursor-move">
         <rect x={x} y={y} width={Math.max(width, 42)} height={Math.max(height, 28)} rx={4} fill={annotation.type === "comment" ? "#fef3c7" : "#ffffff"} stroke={stroke} strokeWidth={1.5} opacity={0.94} />
         <foreignObject x={x + 6} y={y + 5} width={Math.max(width - 12, 30)} height={Math.max(height - 10, 18)}>
-          <div className="break-words text-[12px] font-bold leading-tight" style={{ color: annotation.style.color ?? stroke }}>
+          <div className="break-words font-bold leading-tight" style={{ color: annotation.style.color ?? stroke, fontSize }}>
             {annotation.type === "comment" ? "Comment: " : ""}
             {annotation.text || annotation.comment || "Edit text"}
           </div>
@@ -434,16 +435,17 @@ function SelectionBox({
 function createPlacedAnnotation(tool: AnnotationTool, pageIndex: number, point: Point): PdfAnnotation {
   const now = new Date().toISOString();
   if (tool === "text") {
-    return baseAnnotation("text", pageIndex, now, { x: point.x, y: point.y, width: 0.22, height: 0.055, text: "Edit this note" });
+    return baseAnnotation("text", pageIndex, now, { x: point.x, y: point.y, width: 0.22, height: 0.055, text: "Edit this note", style: { font_size: 12 } });
   }
   if (tool === "comment") {
-    return baseAnnotation("comment", pageIndex, now, { x: point.x, y: point.y, width: 0.24, height: 0.07, comment: "Add comment" });
+    return baseAnnotation("comment", pageIndex, now, { x: point.x, y: point.y, width: 0.24, height: 0.07, comment: "Add comment", style: { font_size: 12 } });
   }
   return baseAnnotation("stamp", pageIndex, now, {
     x: point.x,
     y: point.y,
     size: 0.04,
     stamp: tool === "cross" ? "cross" : tool === "question" ? "question" : "tick",
+    style: { font_size: 28 },
   });
 }
 

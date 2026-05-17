@@ -35,9 +35,9 @@ run server-side route guards at request time.
 ## Marking Annotations And Discussions
 
 Marker annotations are stored as a separate review layer, not by mutating the student's original typed answer or uploaded
-PDF. Owner-created work annotations require AAL2 and are audited. Students see only annotations marked
-`student_visible`, only after the owner explicitly releases feedback, and only through the checked `get-student-results`
-Edge Function.
+PDF. Owner-created work annotations require AAL2 and are audited. Students see only the released annotated PDF copy by
+default after the owner explicitly releases feedback. Original uploaded PDFs are not embedded on the student results
+page; a student must explicitly request a short-lived original-upload URL, and that request is logged.
 
 The owner annotation studio renders the actual uploaded PDF page with a same-sized annotation layer above it. The PDF
 canvas/text layer is noninteractive while annotating, so pointer events go to the annotation layer instead of selecting

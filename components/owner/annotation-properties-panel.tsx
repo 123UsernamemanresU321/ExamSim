@@ -4,6 +4,7 @@ import { Input, Textarea } from "@/components/ui/form";
 import type { PdfAnnotation } from "@/lib/annotation-model";
 
 const colors = ["#cc0000", "#2563eb", "#047857", "#92400e", "#111827", "#facc15"];
+const fontSizedTypes = new Set<PdfAnnotation["type"]>(["text", "comment", "stamp"]);
 
 export function AnnotationPropertiesPanel({
   annotation,
@@ -65,6 +66,27 @@ export function AnnotationPropertiesPanel({
               onChange={(event) => onChange({ ...annotation, style: { ...annotation.style, stroke_width: Number(event.target.value) || 2 } })}
               aria-label="Stroke width"
             />
+            {fontSizedTypes.has(annotation.type) ? (
+              <label className="grid gap-1 text-xs font-bold uppercase tracking-widest text-slate-500">
+                Font size
+                <Input
+                  type="number"
+                  min={8}
+                  max={72}
+                  value={annotation.style.font_size ?? (annotation.type === "stamp" ? 28 : 12)}
+                  onChange={(event) =>
+                    onChange({
+                      ...annotation,
+                      style: {
+                        ...annotation.style,
+                        font_size: Math.max(8, Math.min(72, Number(event.target.value) || (annotation.type === "stamp" ? 28 : 12))),
+                      },
+                    })
+                  }
+                  aria-label="Font size"
+                />
+              </label>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               {colors.map((color) => (
                 <button
