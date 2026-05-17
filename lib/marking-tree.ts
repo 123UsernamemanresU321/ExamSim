@@ -128,7 +128,7 @@ export function isLeafQuestion(node: MarkingTreeNode | (QuestionNodeRow & { chil
 
 export function isMarkableMarkingNode(node: MarkingTreeNode | (QuestionNodeRow & { children?: unknown[] })): boolean {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-  return !hasChildren && node.node_type !== "section" && node.response_mode !== "none";
+  return !hasChildren && node.node_type !== "section" && (node.response_mode !== "none" || typeof node.marks === "number");
 }
 
 export function getMarkableLeafNodes(node: MarkingTreeNode): MarkingTreeNode[] {

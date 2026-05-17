@@ -102,6 +102,9 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   without relying on lexicographic labels.
 - `create_upload_slots_for_attempt` creates upload slots only for root/main question nodes. Subquestions and deeper
   parts never receive separate student upload slots; one uploaded PDF covers all parts of the selected main question.
+- Markable subquestion/part leaves may use `response_mode = 'none'` for written PDF-upload papers. They still carry
+  marks and feedback, while the student submission and direct PDF annotation layer stay attached to the root question
+  upload slot.
 - `marks` and `feedback_releases` store owner-controlled marking totals; feedback is invisible to students until released.
 - `work_annotations` stores a non-destructive marker annotation layer over typed work and uploaded PDFs. Anchors can point
   to selected typed text, PDF pages, owner-entered locations, and direct-on-document annotation overlays using

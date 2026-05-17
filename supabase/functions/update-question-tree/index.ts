@@ -245,6 +245,20 @@ function repairFlatNodeHierarchy(inputNodes: FlatNode[]): FlatNode[] {
     });
   }
 
+  for (const node of nodes) {
+    const hasChildren = childrenByParent.has(canonicalQuestionKey(node.node_key));
+    if (hasChildren) {
+      node.response_mode = "none";
+      continue;
+    }
+    if (
+      (node.node_type === "subquestion" || node.node_type === "part") &&
+      (node.response_mode === "upload_pdf" || node.response_mode === "typed_or_upload" || node.response_mode === "typed_text")
+    ) {
+      node.response_mode = "none";
+    }
+  }
+
   return nodes.sort(compareFlatNodesByOrdinalPath);
 }
 

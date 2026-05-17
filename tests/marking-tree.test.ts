@@ -126,6 +126,21 @@ describe("marking tree helpers", () => {
     expect(totals.hasExplicitTotalMismatch).toBe(false);
   });
 
+  it("allows mark-only subpart leaves with response_mode none", () => {
+    const [question] = buildMarkingTree([
+      row({ id: "q5", node_key: "Q5", ordinal: 5, response_mode: "none", marks: 4 }),
+      row({ id: "q5a", node_key: "5(a)", parent_node_id: "q5", ordinal: 1, node_type: "subquestion", response_mode: "none", marks: 2 }),
+      row({ id: "q5b", node_key: "5(b)", parent_node_id: "q5", ordinal: 2, node_type: "subquestion", response_mode: "none", marks: 2 }),
+    ]);
+
+    expect(getMarkableLeafNodes(question!).map((node) => node.node_key)).toEqual(["5(a)", "5(b)"]);
+    expect(computeMarkingTotals(question!, [mark("q5a", 2), mark("q5b", 1)])).toMatchObject({
+      awarded: 3,
+      max: 4,
+      markableLeafCount: 2,
+    });
+  });
+
   it("sums attempt totals from root questions only without double-counting parents", () => {
     const tree = buildMarkingTree([
       row({ id: "q1", node_key: "Q1", ordinal: 1, response_mode: "none", marks: 5 }),

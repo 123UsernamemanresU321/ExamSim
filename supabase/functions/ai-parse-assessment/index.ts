@@ -263,17 +263,30 @@ serve(async (request) => {
               "Match markscheme nodes by normalized node_key and ordinal_path. For example, markscheme 3(a)(i) maps only to question 3(a)(i), not Q3 or Q1.",
               "",
               "==================================================",
+              "ROOT-QUESTION UPLOAD SLOT RULES",
+              "==================================================",
+              "",
+              "Exam Vault creates exactly one student PDF upload slot per root/main question only.",
+              "Do not model upload slots on subquestions, sub-subquestions, or deeper parts.",
+              "For written PDF/OCR/LaTeX past-paper workflows, subquestion and part nodes are mark-allocation/feedback nodes, not student-submission nodes.",
+              "Therefore, never use response_mode \"upload_pdf\" or \"typed_or_upload\" on subquestion or part nodes.",
+              "Use response_mode \"none\" on subquestion/part leaves when their answer is included in the main-question PDF upload; they can still carry marks, markscheme_html, feedback, and ordinal_path.",
+              "Only use response_mode \"multiple_choice\" or \"numerical\" on a subquestion/part when the source is truly a digital structured question that the student answers directly on the website.",
+              "The main/root question receives the single upload slot server-side even if its response_mode is \"none\" because it has children.",
+              "",
+              "==================================================",
               "SUBQUESTION AND HIERARCHY RULES",
               "==================================================",
               "",
               "1. LEAF NODES (No children):",
-              "   - Must have a valid response_mode (e.g. \"typed_or_upload\", \"multiple_choice\", \"numerical\").",
-              "   - This is where the student provides their answer.",
+              "   - Must carry marks when markable.",
+              "   - For PDF-upload papers, use response_mode \"none\" for subquestion/part leaves so they are markable without creating a separate student submission field.",
+              "   - For true digital structured questions only, use \"multiple_choice\" or \"numerical\".",
               "",
               "2. PARENT NODES (Has children):",
               "   - Must have response_mode: \"none\".",
               "   - This ensures students don't see a \"blank\" answer box for a question that only serves as a container for parts (a), (b), etc.",
-              "   - Example: If Question 3 has parts (a) and (b), Question 3 itself should have response_mode: \"none\", and parts (a) and (b) should have \"typed_or_upload\".",
+              "   - Example: If Question 3 has parts (a) and (b) in a written paper, Question 3 should have response_mode: \"none\", and parts (a) and (b) should also use response_mode: \"none\" with their own marks.",
               "   - Preserve the shared question stem, shared diagram/table references, and common setup on the parent prompt. Child prompts should contain only the child-specific instruction.",
               "   - Parent marks are display/reference totals only. Marking is calculated from markable child leaves, so do not make a parent directly answerable when it has children.",
               "   - Use response_mode \"multiple_choice\" with interaction.kind \"choice\" and max_choices > 1 for multi-select questions.",
@@ -320,8 +333,8 @@ serve(async (request) => {
               "  \"response_mode\": \"none\",",
               "  \"prompt\": { \"latex\": \"Solve the equation $x^2 = 4$.\" },",
               "  \"children\": [",
-              "    { \"node_key\": \"3(a)\", \"node_type\": \"subquestion\", \"response_mode\": \"typed_or_upload\", \"marks\": 1, ... },",
-              "    { \"node_key\": \"3(b)\", \"node_type\": \"subquestion\", \"response_mode\": \"typed_or_upload\", \"marks\": 1, ... }",
+              "    { \"node_key\": \"3(a)\", \"node_type\": \"subquestion\", \"response_mode\": \"none\", \"marks\": 1, ... },",
+              "    { \"node_key\": \"3(b)\", \"node_type\": \"subquestion\", \"response_mode\": \"none\", \"marks\": 1, ... }",
               "  ]",
               "}",
               "",
@@ -817,8 +830,17 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
       warnings.push(`${nodeKey} prompt is short; owner should verify PDF/OCR extraction.`);
     }
 
-    // Force response_mode: none for parents to ensure clean UI
-    const finalResponseMode = children.length > 0 ? "none" : responseMode;
+    // Force response_mode: none for parents and written-paper subparts. Root question upload
+    // slots are created server-side; subparts carry marks/feedback, not separate PDF uploads.
+    let finalResponseMode = children.length > 0 ? "none" : responseMode;
+    if (
+      children.length === 0 &&
+      (nodeType === "subquestion" || nodeType === "part") &&
+      (finalResponseMode === "upload_pdf" || finalResponseMode === "typed_or_upload" || finalResponseMode === "typed_text")
+    ) {
+      finalResponseMode = "none";
+      warnings.push(`${nodeKey} was changed to response_mode none because subquestion uploads/submissions are handled by the root question PDF slot.`);
+    }
 
     return {
       node_id: stringValue(raw.node_id) ?? nodeKey,

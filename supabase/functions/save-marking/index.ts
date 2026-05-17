@@ -149,7 +149,7 @@ async function validateStructuredMarkRows(
     if (!row.question_node_id) continue;
     const node = nodeById.get(row.question_node_id) as { response_mode?: string; marks?: number | null } | undefined;
     if (!node) throw new Error("Question node not found for marking");
-    if (parentIdsWithChildren.has(row.question_node_id) || node.response_mode === "none") {
+    if (parentIdsWithChildren.has(row.question_node_id)) {
       throw new Error("Parent question marks are derived from child question marks");
     }
     if (node.response_mode !== "multiple_choice" && node.response_mode !== "numerical") continue;

@@ -382,6 +382,7 @@ function MarkingResponseCard({
   const binaryAwarded = markForBinaryDecision(binaryDecision, maxMarks);
   const visibleAwarded = usesBinaryMarking ? binaryAwarded ?? 0 : Number(awarded) || 0;
   const isOverLimit = !usesBinaryMarking && (Number(awarded) || 0) > maxMarks;
+  const canShowStudentWork = node.node_type === "question";
 
   return (
     <div id={`mark-response-${node.id}`} className="scroll-mt-24 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
@@ -408,7 +409,7 @@ function MarkingResponseCard({
           )}
         </div>
 
-        {response?.answer_text ? (
+        {canShowStudentWork && response?.answer_text ? (
           <div className="rounded-xl border border-[var(--border)] bg-slate-50/50 p-6 shadow-sm">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
               <FileText size={12} /> Student work - typed response
@@ -417,8 +418,16 @@ function MarkingResponseCard({
               {formatStoredResponse(response.answer_text, node)}
             </p>
           </div>
-        ) : slot?.object_path ? (
+        ) : canShowStudentWork && slot?.object_path ? (
           <SubmissionPdfPreview objectPath={slot.object_path} onDownload={() => downloadFile(slot.object_path!)} />
+        ) : !canShowStudentWork ? (
+          <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-6">
+            <p className="text-sm font-black uppercase tracking-widest text-blue-800">No separate subpart submission</p>
+            <p className="mt-2 text-sm leading-6 text-blue-900/75">
+              Student work and PDF annotations are attached to the main-question upload above. Use this panel only for marks,
+              private notes, and student-facing feedback for {node.node_key}.
+            </p>
+          </div>
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border)] p-12 flex flex-col items-center justify-center text-center">
             <div className="h-12 w-12 rounded-full bg-[var(--surface-muted)] flex items-center justify-center mb-4 opacity-50">
@@ -439,17 +448,19 @@ function MarkingResponseCard({
           </div>
         )}
 
-        <WorkAnnotationPanel
-          attemptId={attemptId}
-          node={node}
-          response={response}
-          slot={slot}
-          annotations={workAnnotations}
-          studentName={studentName}
-          assessmentTitle={assessmentTitle}
-          paperCode={paperCode}
-          releaseStatus={releaseStatus}
-        />
+        {canShowStudentWork ? (
+          <WorkAnnotationPanel
+            attemptId={attemptId}
+            node={node}
+            response={response}
+            slot={slot}
+            annotations={workAnnotations}
+            studentName={studentName}
+            assessmentTitle={assessmentTitle}
+            paperCode={paperCode}
+            releaseStatus={releaseStatus}
+          />
+        ) : null}
       </div>
 
       {/* Right Column: Marking Controls */}

@@ -148,7 +148,9 @@ Owner AAL2 only. Calls DeepSeek through its OpenAI-compatible chat completions A
 can include current normalized JSON, LaTeX source, MinerU artifact text, or owner notes. Stores a review-required
 `ai_parse_suggestions` row and a parse job record. The prompt contract requires delimited LaTeX math, semantic HTML
 tables for tabular/grid content, `numerical` response mode for numeric answers, document-section classification before
-question extraction, and markscheme cover/instruction exclusion before mapping. It never publishes AI output directly.
+question extraction, markscheme cover/instruction exclusion before mapping, and exactly one PDF-upload target per
+root/main question. For written PDF-upload papers, subquestions and parts are mark-allocation/feedback nodes and must
+not be emitted as separate `upload_pdf` or `typed_or_upload` submission targets. It never publishes AI output directly.
 
 ## qti-import-assessment
 

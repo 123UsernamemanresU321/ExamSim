@@ -164,6 +164,9 @@ describe("AI parse review boundary", () => {
     expect(source).toContain("Never classify a cover page, instruction page, formula sheet");
     expect(source).toContain("Do not map markscheme front-page instructions to Q1");
     expect(source).toContain("ordinal_path");
+    expect(source).toContain("ROOT-QUESTION UPLOAD SLOT RULES");
+    expect(source).toContain("exactly one student PDF upload slot per root/main question only");
+    expect(source).toContain("never use response_mode \\\"upload_pdf\\\" or \\\"typed_or_upload\\\" on subquestion or part nodes");
   });
 
   it("uses markscheme context to allocate marks and generate marking guidance", () => {
@@ -336,6 +339,7 @@ describe("marking workspace structured scoring", () => {
     const source = read("supabase/functions/save-marking/index.ts");
     expect(source).toContain("parentIdsWithChildren");
     expect(source).toContain("Parent question marks are derived from child question marks");
+    expect(source).not.toContain('|| node.response_mode === "none"');
   });
 });
 
