@@ -24,6 +24,13 @@ import type { QuestionNodeRow, TextResponse, UploadSlot, WorkAnnotation } from "
 
 type SaveStatus = "saved" | "unsaved" | "saving" | "failed";
 
+function workAnnotationsSourceKey(annotations: WorkAnnotation[]) {
+  return annotations
+    .map((annotation) => `${annotation.id}:${annotation.updated_at}`)
+    .sort()
+    .join("|");
+}
+
 export function WorkAnnotationStudio({
   attemptId,
   node,
@@ -67,8 +74,10 @@ export function WorkAnnotationStudio({
   const [future, setFuture] = useState<PdfAnnotation[][]>([]);
   const pageInfoByIndex = useRef<Record<number, PdfAnnotationPageInfo>>({});
   const autosaveTimer = useRef<number | null>(null);
+  const syncedAnnotationsSourceKeyRef = useRef<string | null>(null);
 
   const annotationKind = slot?.object_path ? "uploaded_pdf" : response?.answer_text ? "typed_text" : "general";
+  const annotationsSourceKey = workAnnotationsSourceKey(annotations);
   const dirtyCount = dirtyIds.size;
   const deletedCount = deletedIds.size;
   const selectedAnnotation = studioAnnotations.find((annotation) => annotation.id === selectedAnnotationId) ?? null;
@@ -77,15 +86,21 @@ export function WorkAnnotationStudio({
   const markSummary = node.marks ? `${node.marks} available marks for ${node.node_key}` : `${node.node_key} has no configured marks`;
 
   useEffect(() => {
-    if (!open || isInteracting || dirtyCount || deletedCount) return;
+    if (!open) {
+      syncedAnnotationsSourceKeyRef.current = null;
+      return;
+    }
+    if (isInteracting || dirtyCount || deletedCount) return;
+    if (syncedAnnotationsSourceKeyRef.current === annotationsSourceKey) return;
     const id = window.setTimeout(() => {
       setStudioAnnotations(annotations.map(annotationFromWorkAnnotation));
       setDirtyIds(new Set());
       setDeletedIds(new Set());
       setSaveStatus("saved");
+      syncedAnnotationsSourceKeyRef.current = annotationsSourceKey;
     }, 0);
     return () => window.clearTimeout(id);
-  }, [annotations, deletedCount, dirtyCount, isInteracting, open]);
+  }, [annotations, annotationsSourceKey, deletedCount, dirtyCount, isInteracting, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -165,6 +180,7 @@ export function WorkAnnotationStudio({
             return persistedId ? { ...annotation, id: persistedId, persistedId } : annotation;
           }),
         );
+        setSelectedAnnotationId((current) => (current ? persistedIdByTempId.get(current) ?? current : current));
       }
       setDirtyIds(new Set());
       setDeletedIds(new Set());

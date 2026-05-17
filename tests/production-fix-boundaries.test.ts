@@ -418,6 +418,15 @@ describe("work annotations and mark discussion tickets", () => {
     expect(studio).not.toContain("router.refresh();\n      } catch (error) {\n      console.error(\"Annotation autosave failed\"");
   });
 
+  it("does not wipe local annotations from stale props after autosave clears dirty state", () => {
+    const studio = read("components/owner/work-annotation-studio.tsx");
+    expect(studio).toContain("syncedAnnotationsSourceKeyRef");
+    expect(studio).toContain("annotationsSourceKey");
+    expect(studio).toContain("syncedAnnotationsSourceKeyRef.current === annotationsSourceKey");
+    expect(studio).toContain("setSelectedAnnotationId((current) =>");
+    expect(studio).not.toContain("if (!open || isInteracting || dirtyCount || deletedCount) return;\n    const id = window.setTimeout");
+  });
+
   it("hides embedded PDF preview iframes behind the full-screen annotation studio", () => {
     expect(read("components/owner/marking-response-workspace.tsx")).toContain("data-hide-during-annotation-studio");
     expect(read("components/owner/work-annotation-studio.tsx")).toContain("annotationStudioOpen");
