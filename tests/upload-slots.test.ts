@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
+import { buildNormalizedQuestionTree } from "@/lib/question-hierarchy";
 import type { QuestionNode } from "@/lib/assessment-package";
 
 describe("collectUploadSlotNodeIds", () => {
@@ -70,5 +71,18 @@ describe("collectUploadSlotNodeIds", () => {
     ];
 
     expect(collectUploadSlotNodeIds(nodes)).toEqual(["q3"]);
+  });
+
+  it("uses repaired root questions for flat AI output instead of subquestion slots", () => {
+    const repaired = buildNormalizedQuestionTree([
+      { node_id: "q1a", node_key: "1(a)", response_mode: "upload_pdf" },
+      { node_id: "q1bi", node_key: "1(b)(i)", response_mode: "upload_pdf" },
+      { node_id: "q1", node_key: "Q1", response_mode: "upload_pdf" },
+      { node_id: "q2a", node_key: "2(a)", response_mode: "upload_pdf" },
+      { node_id: "q2", node_key: "Q2", response_mode: "upload_pdf" },
+    ]);
+
+    expect(collectUploadSlotNodeIds(repaired.tree as unknown as QuestionNode[])).toEqual(["q1", "q2"]);
+    expect(repaired.flat.filter((node) => node.depth > 0).map((node) => node.response_mode)).toEqual(["none", "none", "none", "none"]);
   });
 });

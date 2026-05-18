@@ -183,6 +183,9 @@ serve(async (request) => {
               "{",
               "  \"normalized_package\": {",
               "    \"schema_version\": \"2026-05-07\",",
+              "    \"document_sections\": [",
+              "      { \"type\": \"cover\" | \"instructions\" | \"formula_sheet\" | \"question_page\" | \"markscheme_cover\" | \"markscheme_instructions\" | \"markscheme_question_page\" | \"unknown\", \"page_start\": number | null, \"page_end\": number | null, \"reason\": string }",
+              "    ],",
               "    \"assessment\": {",
               "      \"title\": string | null,",
               "      \"paper_code\": string | null,",
@@ -197,7 +200,9 @@ serve(async (request) => {
               "        \"per_question_pdf_upload\": true",
               "      }",
               "    },",
-              "    \"questions\": []",
+              "    \"questions\": [],",
+              "    \"markscheme_nodes\": [],",
+              "    \"unmatched_markscheme_sections\": []",
               "  },",
               "  \"confidence\": number,",
               "  \"warnings\": [],",
@@ -228,7 +233,10 @@ serve(async (request) => {
               "",
               "{",
               "  \"node_key\": string,",
+              "  \"normalized_key\": string,",
               "  \"display_label\": string | null,",
+              "  \"parent_node_key\": string | null,",
+              "  \"root_question_key\": string,",
               "  \"depth\": number,",
               "  \"ordinal_path\": [number, ...],",
               "  \"node_type\": \"section\" | \"question\" | \"subquestion\" | \"part\",",
@@ -293,6 +301,7 @@ serve(async (request) => {
               "   - Use response_mode \"numerical\" with interaction.kind \"numerical\" when the expected answer is a number, value, numerator, count, measurement, coordinate, or decimal; include unit, min_value, max_value, step, or tolerance only when explicit in the source.",
               "",
               "3. HIERARCHY:",
+              "   - Never return a flat list if hierarchy can be inferred.",
               "   - \"subquestion\" nodes must be inside the \"children\" array of a \"question\" node.",
               "   - \"part\" nodes must be inside the \"children\" array of a \"subquestion\" node.",
               "   - For deeper nesting beyond part, keep nesting inside the child node's children array rather than flattening.",
@@ -300,6 +309,7 @@ serve(async (request) => {
               "     Q3 (parent) -> (a) (child) -> (i) (grandchild).",
               "   - Do not emit sibling top-level nodes like \"3(a)\" and \"3(a)(i)\" when the notation clearly shows a parent-child relationship.",
               "   - Every node should include depth and ordinal_path metadata that matches its position, e.g. Q3 -> depth 0 / [3], 3(a) -> depth 1 / [3,1], 3(a)(ii) -> depth 2 / [3,1,2].",
+              "   - Every node must include parent_node_key and root_question_key. Root questions use parent_node_key null. Descendants use the nearest parent key.",
               "   - If a subquestion is found before its parent text, create the missing parent question with response_mode \"none\" and place the subquestion under it.",
               "",
               "==================================================",
@@ -329,6 +339,11 @@ serve(async (request) => {
               "JSON:",
               "{",
               "  \"node_key\": \"Q3\",",
+              "  \"normalized_key\": \"Q3\",",
+              "  \"parent_node_key\": null,",
+              "  \"root_question_key\": \"Q3\",",
+              "  \"depth\": 0,",
+              "  \"ordinal_path\": [3],",
               "  \"node_type\": \"question\",",
               "  \"response_mode\": \"none\",",
               "  \"prompt\": { \"latex\": \"Solve the equation $x^2 = 4$.\" },",
@@ -735,11 +750,15 @@ function normalizeSuggestion(raw: Record<string, unknown>, context: {
   existingPackage: unknown;
 }, parserWarnings: string[] = []) {
   let normalizedPackage = raw.normalized_package;
-  if (!normalizedPackage) throw new Error("AI response missing normalized_package");
   const warnings = [
     ...parserWarnings,
     ...(Array.isArray(raw.warnings) ? raw.warnings.map(String).filter(Boolean) : []),
   ];
+  if (!normalizedPackage && Array.isArray(raw.questions)) {
+    normalizedPackage = raw;
+    warnings.push("AI response returned the direct package shape; Exam Vault wrapped and repaired it before storage.");
+  }
+  if (!normalizedPackage) throw new Error("AI response missing normalized_package");
   if (typeof normalizedPackage === "string") {
     const parsedPackage = parseAiJsonObject(normalizedPackage);
     normalizedPackage = parsedPackage.value;
@@ -775,9 +794,12 @@ function normalizePackageCandidate(pkg: Record<string, unknown>, context: {
   const existingSource = isRecord(existing.source) ? existing.source : {};
   const questions = Array.isArray(pkg.questions) ? pkg.questions : [];
   if (!Array.isArray(pkg.questions)) warnings.push("AI response did not include a valid questions array; owner must review the generated placeholder.");
+  const normalizedQuestions = normalizeQuestions(questions, warnings);
+  const repairedQuestions = repairNormalizedQuestionHierarchy(normalizedQuestions, warnings);
 
   return {
     schema_version: stringValue(pkg.schema_version) ?? "2026-05-07",
+    document_sections: Array.isArray(pkg.document_sections) ? pkg.document_sections.filter(isRecord) : [],
     assessment: {
       id: context.assessmentId,
       title: context.title,
@@ -807,7 +829,9 @@ function normalizePackageCandidate(pkg: Record<string, unknown>, context: {
       parse_confidence: numberValue(pkg.source && isRecord(pkg.source) ? pkg.source.parse_confidence : undefined) ?? undefined,
       requires_owner_review: true,
     },
-    questions: normalizeQuestions(questions, warnings),
+    questions: repairedQuestions,
+    markscheme_nodes: Array.isArray(pkg.markscheme_nodes) ? pkg.markscheme_nodes.filter(isRecord) : [],
+    unmatched_markscheme_sections: Array.isArray(pkg.unmatched_markscheme_sections) ? pkg.unmatched_markscheme_sections.filter(isRecord) : [],
   };
 }
 
@@ -867,6 +891,304 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
       children: children.length ? children : undefined,
     };
   });
+}
+
+function repairNormalizedQuestionHierarchy(nodes: Record<string, unknown>[], warnings: string[]) {
+  const flat = flattenQuestionCandidates(nodes);
+  const byKey = new Map<string, Record<string, unknown>>();
+  const firstSeen = new Map<string, number>();
+
+  flat.forEach(({ node, index }) => {
+    const parsed = parseHierarchyKey(stringValue(node.node_key) ?? stringValue(node.normalized_key) ?? stringValue(node.node_id) ?? String(index + 1), numberValue(node.ordinal) ?? index + 1);
+    if (!parsed) return;
+    const normalized = {
+      ...node,
+      node_id: stringValue(node.node_id) ?? parsed.normalizedKey,
+      node_key: parsed.normalizedKey,
+      normalized_key: parsed.normalizedKey,
+      display_label: parsed.displayLabel,
+      parent_node_key: parsed.parentKey,
+      root_question_key: parsed.rootKey,
+      depth: parsed.depth,
+      ordinal_path: parsed.path,
+      ordinal: parsed.path[parsed.path.length - 1] ?? index + 1,
+      node_type: parsed.depth === 0 ? "question" : parsed.depth === 1 ? "subquestion" : "part",
+      marks_available: numberValue(node.marks_available) ?? numberValue(node.marks) ?? undefined,
+      children: [],
+    };
+
+    const existing = byKey.get(parsed.normalizedKey);
+    if (existing) {
+      byKey.set(parsed.normalizedKey, mergeAiNodes(existing, normalized));
+      warnings.push(`Duplicate AI node ${parsed.normalizedKey} was merged during hierarchy repair.`);
+    } else {
+      byKey.set(parsed.normalizedKey, normalized);
+      firstSeen.set(parsed.normalizedKey, index);
+    }
+  });
+
+  for (const node of [...byKey.values()]) {
+    const path = Array.isArray(node.ordinal_path) ? node.ordinal_path.filter((value): value is number => typeof value === "number") : [];
+    for (let length = 1; length < path.length; length += 1) {
+      const parentPath = path.slice(0, length);
+      const parentKey = normalizedKeyForPath(parentPath);
+      if (byKey.has(parentKey)) continue;
+      byKey.set(parentKey, {
+        node_id: parentKey,
+        node_key: parentKey,
+        normalized_key: parentKey,
+        display_label: displayLabelForPath(parentPath),
+        parent_node_key: parentPath.length > 1 ? normalizedKeyForPath(parentPath.slice(0, -1)) : null,
+        root_question_key: `Q${parentPath[0]}`,
+        depth: parentPath.length - 1,
+        ordinal_path: parentPath,
+        ordinal: parentPath[parentPath.length - 1] ?? 1,
+        node_type: parentPath.length === 1 ? "question" : parentPath.length === 2 ? "subquestion" : "part",
+        title: parentPath.length === 1 ? `Question ${parentPath[0]}` : undefined,
+        marks: undefined,
+        marks_available: undefined,
+        mark_mode: "computed",
+        response_mode: "none",
+        children: [],
+      });
+      warnings.push(`Created missing AI parent node ${parentKey}.`);
+    }
+  }
+
+  const sorted = [...byKey.values()].sort((a, b) => {
+    const pathCompare = comparePath(recordPath(a), recordPath(b));
+    if (pathCompare !== 0) return pathCompare;
+    return (firstSeen.get(String(a.node_key)) ?? 0) - (firstSeen.get(String(b.node_key)) ?? 0);
+  });
+  const nodeMap = new Map<string, Record<string, unknown>>(
+    sorted.map((node) => [String(node.node_key), { ...node, children: [] as Record<string, unknown>[] } as Record<string, unknown>]),
+  );
+  const roots: Record<string, unknown>[] = [];
+
+  for (const node of nodeMap.values()) {
+    const path = recordPath(node);
+    const parentKey = path.length > 1 ? normalizedKeyForPath(path.slice(0, -1)) : null;
+    node.parent_node_key = parentKey;
+    node.root_question_key = path.length ? `Q${path[0]}` : String(node.node_key);
+    node.depth = Math.max(0, path.length - 1);
+    node.node_type = path.length === 1 ? "question" : path.length === 2 ? "subquestion" : "part";
+    const parent = parentKey ? nodeMap.get(parentKey) : null;
+    if (parent) (parent.children as Record<string, unknown>[]).push(node);
+    else roots.push(node);
+  }
+
+  sortAiTree(roots);
+  roots.forEach(finalizeAiNode);
+  return roots;
+}
+
+function flattenQuestionCandidates(nodes: Record<string, unknown>[]) {
+  const flat: Array<{ node: Record<string, unknown>; index: number }> = [];
+  let index = 0;
+  const visit = (node: Record<string, unknown>) => {
+    flat.push({ node, index });
+    index += 1;
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) {
+        if (isRecord(child)) visit(child);
+      }
+    }
+  };
+  nodes.forEach(visit);
+  return flat;
+}
+
+function finalizeAiNode(node: Record<string, unknown>) {
+  const children = Array.isArray(node.children) ? node.children.filter(isRecord) : [];
+  children.forEach(finalizeAiNode);
+  const depth = numberValue(node.depth) ?? 0;
+  if (children.length) {
+    node.mark_mode = "computed";
+    node.response_mode = depth === 0 ? "upload_pdf" : "none";
+    if (numberValue(node.marks_available) === null) {
+      const childTotal = children.reduce((sum, child) => sum + (numberValue(child.marks_available) ?? numberValue(child.marks) ?? 0), 0);
+      if (childTotal > 0) {
+        node.marks_available = childTotal;
+        if (numberValue(node.marks) === null) node.marks = childTotal;
+      }
+    }
+    return;
+  }
+
+  node.mark_mode = "manual";
+  if (depth > 0) {
+    node.response_mode = "none";
+  } else if (!node.response_mode || node.response_mode === "typed_or_upload") {
+    node.response_mode = "upload_pdf";
+  }
+  node.marks_available = numberValue(node.marks_available) ?? numberValue(node.marks) ?? undefined;
+}
+
+function mergeAiNodes(existing: Record<string, unknown>, incoming: Record<string, unknown>) {
+  const existingPrompt = promptRichness(existing);
+  const incomingPrompt = promptRichness(incoming);
+  const promptSource = incomingPrompt > existingPrompt ? incoming : existing;
+  return {
+    ...existing,
+    title: existing.title ?? incoming.title,
+    prompt: promptSource.prompt ?? existing.prompt ?? incoming.prompt,
+    marks: existing.marks ?? incoming.marks,
+    marks_available: existing.marks_available ?? incoming.marks_available ?? existing.marks ?? incoming.marks,
+    response_mode: existing.response_mode !== "none" ? existing.response_mode : incoming.response_mode,
+    interaction: existing.interaction ?? incoming.interaction,
+    markscheme_html: existing.markscheme_html ?? incoming.markscheme_html,
+    assets: mergeStringArrays(existing.assets, incoming.assets),
+    source_page_start: existing.source_page_start ?? incoming.source_page_start,
+    source_page_end: existing.source_page_end ?? incoming.source_page_end,
+    source_region_json: existing.source_region_json ?? incoming.source_region_json,
+    has_visual_assets: Boolean(existing.has_visual_assets || incoming.has_visual_assets),
+    visual_asset_refs: existing.visual_asset_refs ?? incoming.visual_asset_refs,
+    children: [],
+  };
+}
+
+function promptRichness(node: Record<string, unknown>) {
+  const prompt = isRecord(node.prompt) ? node.prompt : {};
+  return `${stringValue(prompt.html) ?? ""}${stringValue(prompt.latex) ?? ""}${stringValue(node.markscheme_html) ?? ""}`.length;
+}
+
+function mergeStringArrays(a: unknown, b: unknown) {
+  return [...new Set([
+    ...(Array.isArray(a) ? a.filter((value): value is string => typeof value === "string") : []),
+    ...(Array.isArray(b) ? b.filter((value): value is string => typeof value === "string") : []),
+  ])];
+}
+
+function parseHierarchyKey(rawKey: string, fallbackOrdinal?: number) {
+  const path = ordinalPathForKey(rawKey);
+  if (!path.length && fallbackOrdinal) path.push(fallbackOrdinal);
+  if (!path.length) return null;
+  return {
+    normalizedKey: normalizedKeyForPath(path),
+    displayLabel: displayLabelForPath(path),
+    parentKey: path.length > 1 ? normalizedKeyForPath(path.slice(0, -1)) : null,
+    rootKey: `Q${path[0]}`,
+    depth: path.length - 1,
+    path,
+  };
+}
+
+function ordinalPathForKey(rawKey: string) {
+  const key = rawKey
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[.:]+$/g, "")
+    .replace(/^(question|problem|q)(\d+)/i, "$2")
+    .replace(/^question/i, "")
+    .replace(/^problem/i, "")
+    .replace(/^q(?=\d)/i, "")
+    .replace(/^(\d+)[.)]?([a-z])$/i, "$1($2)")
+    .toLowerCase();
+  const root = key.match(/^(\d+)/);
+  if (!root) return [];
+  const path = [Number(root[1])];
+  for (const match of key.matchAll(/\(([^()]+)\)/g)) {
+    path.push(partOrdinal(match[1] ?? "", path.length));
+  }
+  return path;
+}
+
+function normalizedKeyForPath(path: number[]) {
+  if (path.length === 1) return `Q${path[0]}`;
+  return `${path[0]}${path.slice(1).map((part, index) => `(${partLabel(part, index + 1)})`).join("")}`;
+}
+
+function displayLabelForPath(path: number[]) {
+  return normalizedKeyForPath(path);
+}
+
+function recordPath(node: Record<string, unknown>) {
+  return Array.isArray(node.ordinal_path) ? node.ordinal_path.filter((value): value is number => typeof value === "number") : ordinalPathForKey(String(node.node_key ?? ""));
+}
+
+function comparePath(a: number[], b: number[]) {
+  const max = Math.max(a.length, b.length);
+  for (let index = 0; index < max; index += 1) {
+    const left = a[index];
+    const right = b[index];
+    if (left === undefined) return -1;
+    if (right === undefined) return 1;
+    if (left !== right) return left - right;
+  }
+  return 0;
+}
+
+function sortAiTree(nodes: Record<string, unknown>[]) {
+  nodes.sort((a, b) => comparePath(recordPath(a), recordPath(b)));
+  for (const node of nodes) {
+    if (Array.isArray(node.children)) sortAiTree(node.children.filter(isRecord));
+  }
+}
+
+function partOrdinal(raw: string, depth: number) {
+  const token = raw.trim().toLowerCase();
+  if (/^\d+$/.test(token)) return Number(token);
+  if (/^[ivxlcdm]+$/.test(token) && depth >= 2) return romanToNumber(token);
+  if (/^[a-z]+$/.test(token)) return token.split("").reduce((sum, char) => sum * 26 + (char.charCodeAt(0) - 96), 0);
+  if (/^[ivxlcdm]+$/.test(token)) return romanToNumber(token);
+  return 9999;
+}
+
+function partLabel(value: number, depth: number) {
+  if (depth === 1) return numberToLetters(value).toLowerCase();
+  if (depth === 2) return numberToRoman(value).toLowerCase();
+  if (depth === 3) return numberToLetters(value).toUpperCase();
+  return String(value);
+}
+
+function romanToNumber(raw: string) {
+  const values: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+  const chars = raw.toLowerCase().split("");
+  let total = 0;
+  for (let index = 0; index < chars.length; index += 1) {
+    const current = values[chars[index]!] ?? 0;
+    const next = values[chars[index + 1]!] ?? 0;
+    total += current < next ? -current : current;
+  }
+  return total;
+}
+
+function numberToLetters(value: number) {
+  let n = Math.max(1, Math.trunc(value));
+  let label = "";
+  while (n > 0) {
+    n -= 1;
+    label = String.fromCharCode(97 + (n % 26)) + label;
+    n = Math.floor(n / 26);
+  }
+  return label;
+}
+
+function numberToRoman(value: number) {
+  const pairs: Array<[number, string]> = [
+    [1000, "m"],
+    [900, "cm"],
+    [500, "d"],
+    [400, "cd"],
+    [100, "c"],
+    [90, "xc"],
+    [50, "l"],
+    [40, "xl"],
+    [10, "x"],
+    [9, "ix"],
+    [5, "v"],
+    [4, "iv"],
+    [1, "i"],
+  ];
+  let remaining = Math.max(1, Math.trunc(value));
+  let out = "";
+  for (const [amount, symbol] of pairs) {
+    while (remaining >= amount) {
+      out += symbol;
+      remaining -= amount;
+    }
+  }
+  return out;
 }
 
 function normalizeInteraction(raw: unknown) {
@@ -961,23 +1283,26 @@ function validateNormalizedPackage(result: unknown, expectedQuestionCount?: numb
     return errors;
   }
 
-  if (!isRecord(result.normalized_package)) {
-    errors.push("Missing top-level normalized_package.");
+  const pkg = isRecord(result.normalized_package)
+    ? result.normalized_package
+    : Array.isArray(result.questions)
+      ? result
+      : null;
+
+  if (!pkg) errors.push("Missing top-level normalized_package or direct questions array.");
+
+  if ("review_required" in result && result.review_required !== true) {
+    errors.push("review_required must be true when provided.");
   }
 
-  if (result.review_required !== true) {
-    errors.push("review_required must be true.");
-  }
-
-  if (!Array.isArray(result.warnings)) {
+  if ("warnings" in result && !Array.isArray(result.warnings)) {
     errors.push("warnings must be an array.");
   }
 
-  if (typeof result.confidence !== "number") {
+  if ("confidence" in result && typeof result.confidence !== "number") {
     errors.push("confidence must be a number.");
   }
 
-  const pkg = isRecord(result.normalized_package) ? result.normalized_package : null;
   if (!pkg) return errors;
 
   if (!Array.isArray(pkg.questions)) {
@@ -999,10 +1324,7 @@ function validateNormalizedPackage(result: unknown, expectedQuestionCount?: numb
     const q = qNode as Record<string, any>;
     if (!q.node_key) errors.push("Question missing node_key.");
     if (!q.node_type) errors.push(`${q.node_key || "Question"} missing node_type.`);
-    if (q.marks === undefined) errors.push(`${q.node_key} missing marks.`);
     if (!q.response_mode) errors.push(`${q.node_key} missing response_mode.`);
-    if (!q.prompt) errors.push(`${q.node_key} missing prompt.`);
-    if (!Array.isArray(q.children)) errors.push(`${q.node_key} missing children array.`);
 
     const prompt = isRecord(q.prompt) ? q.prompt : {};
     const latex = stringValue(prompt.latex) || "";

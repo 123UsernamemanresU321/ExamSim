@@ -99,7 +99,8 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   `interaction_json.kind = "numerical"` with optional numeric bounds/unit metadata.
 - `question_nodes` also stores hierarchy metadata (`root_question_id`, `display_label`, `depth`, `ordinal_path`,
   `sort_key`, and `mark_mode`) so root questions, subquestions, and deeper parts can be ordered and marked recursively
-  without relying on lexicographic labels.
+  without relying on lexicographic labels. Parser and owner-review paths normalize flat AI output into this metadata
+  deterministically, including missing roots such as `Q3` for extracted children like `3(a)(i)`.
 - `create_upload_slots_for_attempt` creates upload slots only for root/main question nodes. Subquestions and deeper
   parts never receive separate student upload slots; one uploaded PDF covers all parts of the selected main question.
 - Markable subquestion/part leaves may use `response_mode = 'none'` for written PDF-upload papers. They still carry

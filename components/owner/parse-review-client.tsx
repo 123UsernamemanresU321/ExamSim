@@ -7,6 +7,7 @@ import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { ReviewQuestionTreeForm } from "@/components/owner/review-question-tree-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
+import { buildMarkingTree, type MarkingTreeNode } from "@/lib/marking-tree";
 import { getAssessmentWorkspaceClient, type AssessmentWorkspace } from "@/lib/live-data-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
@@ -126,6 +127,8 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
     );
   }
 
+  const detectedTree = buildMarkingTree(workspace.questionNodes);
+
   return (
     <>
       <SectionHeading
@@ -142,25 +145,11 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
         </Card>
         <Card className="grid content-start gap-4 shadow-none">
           <h2 className="text-lg font-semibold">Detected tree</h2>
-          {workspace.questionNodes.map((node) => (
-            <div
-              key={node.id}
-              className={`relative rounded-md border border-[var(--border)] bg-white p-4 ${
-                node.node_type === "subquestion" ? "ml-8" : node.node_type === "part" ? "ml-16" : ""
-              }`}
-            >
-              {(node.node_type === "subquestion" || node.node_type === "part") && (
-                <div
-                  className="absolute bottom-1/2 left-[-1.5rem] top-[-2rem] w-4 rounded-bl-lg border-b-2 border-l-2 border-[var(--border)] opacity-60"
-                  aria-hidden="true"
-                />
-              )}
-              <p className="text-sm font-semibold">
-                {node.node_key} · {node.node_type} · {node.response_mode}
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">{node.title}</p>
-            </div>
-          ))}
+          <div className="grid gap-2">
+            {detectedTree.map((node) => (
+              <DetectedTreeNode key={node.id} node={node} depth={0} />
+            ))}
+          </div>
           <ExtractedDiagrams artifacts={workspace.parseArtifacts} />
           <MineruHostedPanel parseJobs={workspace.parseJobs} artifacts={workspace.parseArtifacts} onRefresh={refreshWorkspace} />
           <AiParseReviewPanel version={workspace.latestVersion} nodes={workspace.questionNodes} artifacts={workspace.parseArtifacts} />
@@ -168,5 +157,33 @@ export function ParseReviewClient({ params }: { params: Promise<{ id: string }> 
         </Card>
       </div>
     </>
+  );
+}
+
+function DetectedTreeNode({ node, depth }: { node: MarkingTreeNode; depth: number }) {
+  return (
+    <div className="grid gap-2">
+      <div
+        className="relative rounded-md border border-[var(--border)] bg-white p-4"
+        style={{ marginLeft: depth > 0 ? depth * 20 : 0 }}
+      >
+        {depth > 0 ? (
+          <div
+            className="absolute bottom-1/2 left-[-1rem] top-[-1rem] w-3 rounded-bl-lg border-b-2 border-l-2 border-[var(--border)] opacity-60"
+            aria-hidden="true"
+          />
+        ) : null}
+        <p className="text-sm font-semibold">
+          {node.node_key} · {node.node_type} · {node.response_mode}
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{node.title}</p>
+        {node.inferred_parent_id ? (
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-amber-700">Parent inferred from node key</p>
+        ) : null}
+      </div>
+      {node.children.map((child) => (
+        <DetectedTreeNode key={child.id} node={child} depth={depth + 1} />
+      ))}
+    </div>
   );
 }

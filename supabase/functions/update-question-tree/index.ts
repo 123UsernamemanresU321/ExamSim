@@ -174,7 +174,29 @@ function normalizePackageQuestions(questions: unknown[]) {
 }
 
 function repairFlatNodeHierarchy(inputNodes: FlatNode[]): FlatNode[] {
-  const nodes = inputNodes.map((node) => ({ ...node }));
+  const mergedByKey = new Map<string, FlatNode>();
+  for (const inputNode of inputNodes) {
+    const path = ordinalPathForQuestionKey(inputNode.node_key, inputNode.ordinal);
+    const nodeKey = path.length === 1 ? `Q${path[0]}` : path.length > 1 ? formatQuestionKeyFromOrdinalPath(path) : inputNode.node_key;
+    const node = {
+      ...inputNode,
+      node_key: nodeKey,
+      ordinal: path[path.length - 1] ?? inputNode.ordinal,
+      node_type: path.length === 1 ? "question" : path.length === 2 ? "subquestion" : path.length > 2 ? "part" : inputNode.node_type,
+    };
+    const canonical = canonicalQuestionKey(nodeKey);
+    const existing = mergedByKey.get(canonical);
+    mergedByKey.set(canonical, existing ? mergeFlatNodes(existing, node) : node);
+  }
+  const nodes = [...mergedByKey.values()];
+  for (const node of nodes) {
+    const path = ordinalPathForQuestionKey(node.node_key, node.ordinal);
+    node.parent_node_key = path.length > 1
+      ? path.length === 2
+        ? `Q${path[0]}`
+        : formatQuestionKeyFromOrdinalPath(path.slice(0, -1))
+      : null;
+  }
   const byCanonicalKey = new Map<string, FlatNode>();
   for (const node of nodes) {
     const canonical = canonicalQuestionKey(node.node_key);
@@ -248,18 +270,41 @@ function repairFlatNodeHierarchy(inputNodes: FlatNode[]): FlatNode[] {
   for (const node of nodes) {
     const hasChildren = childrenByParent.has(canonicalQuestionKey(node.node_key));
     if (hasChildren) {
-      node.response_mode = "none";
+      node.response_mode = ordinalPathForQuestionKey(node.node_key, node.ordinal).length === 1 ? "upload_pdf" : "none";
       continue;
     }
     if (
-      (node.node_type === "subquestion" || node.node_type === "part") &&
-      (node.response_mode === "upload_pdf" || node.response_mode === "typed_or_upload" || node.response_mode === "typed_text")
+      node.node_type !== "question" &&
+      node.response_mode !== "none"
     ) {
       node.response_mode = "none";
     }
   }
 
   return nodes.sort(compareFlatNodesByOrdinalPath);
+}
+
+function mergeFlatNodes(existing: FlatNode, incoming: FlatNode): FlatNode {
+  const existingScore = richnessScore(existing);
+  const incomingScore = richnessScore(incoming);
+  const promptSource = incomingScore > existingScore ? incoming : existing;
+  return {
+    ...existing,
+    title: existing.title ?? incoming.title,
+    prompt_html: promptSource.prompt_html ?? existing.prompt_html ?? incoming.prompt_html,
+    prompt_latex: promptSource.prompt_latex ?? existing.prompt_latex ?? incoming.prompt_latex,
+    marks: existing.marks ?? incoming.marks,
+    response_mode: existing.response_mode !== "none" ? existing.response_mode : incoming.response_mode,
+    interaction_json: existing.interaction_json ?? incoming.interaction_json,
+    markscheme_html: existing.markscheme_html ?? incoming.markscheme_html,
+    assets: [...new Set([...(existing.assets ?? []), ...(incoming.assets ?? [])])],
+    source_page_start: existing.source_page_start ?? incoming.source_page_start,
+    source_page_end: existing.source_page_end ?? incoming.source_page_end,
+  };
+}
+
+function richnessScore(node: FlatNode) {
+  return (node.prompt_html?.length ?? 0) + (node.prompt_latex?.length ?? 0) + (node.markscheme_html?.length ?? 0) + (node.assets?.length ?? 0) * 50;
 }
 
 function normalizeFlatNodes(rawNodes: unknown[]) {
@@ -480,7 +525,7 @@ function canonicalQuestionKey(rawKey: string | null | undefined): string {
     .replace(/^question/i, "")
     .replace(/^problem/i, "")
     .replace(/^q(?=\d)/i, "")
-    .replace(/^(\d+)([a-z])$/i, "$1($2)")
+    .replace(/^(\d+)[.)]?([a-z])$/i, "$1($2)")
     .toLowerCase();
 }
 

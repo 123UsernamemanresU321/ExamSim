@@ -26,8 +26,10 @@ envelope-encrypted.
 Owner only. Replaces the draft question tree before publish. Accepts either an editable flat node array or a normalized
 package/suggestion wrapper with `questions`. The function validates duplicate node keys, missing parents, parent cycles,
 and published-version immutability. It repairs flat AI/parser output such as `Q3(a)(i)` into a nested `Q3 -> Q3(a) ->
-Q3(a)(i)` hierarchy, stores ordinal-path metadata, and calls `replace_question_tree_for_version` so the old tree is not
-deleted unless the replacement and package update both succeed.
+Q3(a)(i)` hierarchy, merges duplicate `Q1`/`1` nodes, creates missing parents, normalizes `parent_node_key`,
+`root_question_key`, `depth`, and `ordinal_path`, stores ordinal-path metadata, and calls
+`replace_question_tree_for_version` so the old tree is not deleted unless the replacement and package update both
+succeed.
 
 ## publish-assessment
 
@@ -150,7 +152,10 @@ can include current normalized JSON, LaTeX source, MinerU artifact text, or owne
 tables for tabular/grid content, `numerical` response mode for numeric answers, document-section classification before
 question extraction, markscheme cover/instruction exclusion before mapping, and exactly one PDF-upload target per
 root/main question. For written PDF-upload papers, subquestions and parts are mark-allocation/feedback nodes and must
-not be emitted as separate `upload_pdf` or `typed_or_upload` submission targets. It never publishes AI output directly.
+not be emitted as separate `upload_pdf` or `typed_or_upload` submission targets. The function deterministically repairs
+flat or partially nested AI output before saving: it creates missing roots/parents, sorts by numeric `ordinal_path`, maps
+marks and markscheme snippets to the normalized node keys, and stores the result as draft evidence only. It never
+publishes AI output directly.
 
 ## qti-import-assessment
 

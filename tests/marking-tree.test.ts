@@ -99,6 +99,81 @@ describe("marking tree helpers", () => {
     ]);
   });
 
+  it("repairs the observed flat AI ordering into root-question groups", () => {
+    const badKeys = [
+      "1(a)",
+      "2(a)",
+      "3(a)",
+      "4(a)",
+      "5(a)",
+      "6(a)",
+      "Q1",
+      "1(b)(i)",
+      "1(b)",
+      "1(b)(ii)",
+      "Q2",
+      "3(b)",
+      "5(b)",
+      "6(b)",
+      "2(b)",
+      "4(b)",
+      "3(c)",
+      "5(c)",
+      "Q3",
+      "6(c)",
+      "2(c)",
+      "4(c)",
+      "1(c)",
+      "2(d)",
+      "Q4",
+      "4(d)",
+      "5(d)",
+      "Q5",
+      "Q6",
+    ];
+
+    const tree = buildMarkingTree(badKeys.map((nodeKey, index) => row({
+      id: `node-${index}`,
+      node_key: nodeKey,
+      ordinal: index + 1,
+      node_type: nodeKey.includes("(") ? "subquestion" : "question",
+      response_mode: "none",
+    })));
+
+    expect(flattenMarkingTree(tree).map((node) => node.node_key)).toEqual([
+      "Q1",
+      "1(a)",
+      "1(b)",
+      "1(b)(i)",
+      "1(b)(ii)",
+      "1(c)",
+      "Q2",
+      "2(a)",
+      "2(b)",
+      "2(c)",
+      "2(d)",
+      "Q3",
+      "3(a)",
+      "3(b)",
+      "3(c)",
+      "Q4",
+      "4(a)",
+      "4(b)",
+      "4(c)",
+      "4(d)",
+      "Q5",
+      "5(a)",
+      "5(b)",
+      "5(c)",
+      "5(d)",
+      "Q6",
+      "6(a)",
+      "6(b)",
+      "6(c)",
+    ]);
+    expect(getSelectableMarkingGroups(tree).map((node) => node.node_key)).toEqual(["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"]);
+  });
+
   it("marks only leaf response nodes and rolls totals up recursively", () => {
     const [question] = buildMarkingTree([
       row({ id: "q4", node_key: "Q4", ordinal: 4, response_mode: "none", marks: 10 }),

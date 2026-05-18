@@ -42,7 +42,10 @@ const jsonSchema: z.ZodType<Json> = z.lazy(() =>
 const questionNodeBaseSchema = z.object({
   node_id: z.string().min(1),
   node_key: z.string().min(1),
+  normalized_key: z.string().optional(),
   display_label: z.string().optional(),
+  parent_node_key: z.string().nullable().optional(),
+  root_question_key: z.string().optional(),
   depth: z.number().int().min(0).optional(),
   ordinal_path: z.array(z.number().int().min(0)).optional(),
   ordinal: z.number().int().min(0),
@@ -63,7 +66,7 @@ const questionNodeBaseSchema = z.object({
   source_page_end: z.number().int().positive().optional(),
   source_region_json: jsonSchema.optional(),
   has_visual_assets: z.boolean().optional(),
-  visual_asset_refs: z.array(z.string()).optional(),
+  visual_asset_refs: z.array(z.union([z.string(), z.record(z.string(), jsonSchema)])).optional(),
   interaction: interactionSchema.optional(),
 });
 
@@ -77,6 +80,16 @@ export const questionNodeSchema: z.ZodType<QuestionNode> = questionNodeBaseSchem
 
 export const normalizedPackageSchema = z.object({
   schema_version: z.string().min(1),
+  document_sections: z
+    .array(
+      z.object({
+        type: z.string(),
+        page_start: z.number().int().positive().nullable().optional(),
+        page_end: z.number().int().positive().nullable().optional(),
+        reason: z.string().optional(),
+      }),
+    )
+    .optional(),
   assessment: z.object({
     id: z.string().min(1),
     title: z.string().min(1),
@@ -109,6 +122,8 @@ export const normalizedPackageSchema = z.object({
     requires_owner_review: z.boolean(),
   }),
   questions: z.array(questionNodeSchema),
+  markscheme_nodes: z.array(jsonSchema).optional(),
+  unmatched_markscheme_sections: z.array(jsonSchema).optional(),
 });
 
 export type NormalizedAssessmentPackage = z.infer<typeof normalizedPackageSchema>;
@@ -121,7 +136,9 @@ function markingNodeToPackageNode(row: MarkingTreeNode): QuestionNode {
   return {
     node_id: row.id,
     node_key: row.node_key,
+    normalized_key: row.display_label ?? row.node_key,
     display_label: row.display_label ?? undefined,
+    root_question_key: Array.isArray(row.ordinal_path) && row.ordinal_path.length ? `Q${row.ordinal_path[0]}` : undefined,
     depth: row.depth ?? undefined,
     ordinal_path: row.ordinal_path ?? undefined,
     ordinal: row.ordinal,
