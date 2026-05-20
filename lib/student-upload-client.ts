@@ -3,6 +3,7 @@ import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
 
 type UploadSlotUrl = {
+  upload_slot_id: string;
   bucket: string;
   path: string;
   upload_token: string;
@@ -16,6 +17,9 @@ export type StudentUploadCompletion = {
   fileSizeBytes: number;
   contentType: string;
   uploadedAt: string;
+  sanityStatus?: string;
+  sanityWarnings?: string[];
+  pageCount?: number | null;
 };
 
 export async function uploadStudentPdfForQuestion({
@@ -58,6 +62,9 @@ export async function uploadStudentPdfForQuestion({
       file_name: file.name,
     },
   });
+  const sanity = await invokeEdgeFunction<{ status: string; page_count: number | null; warnings: { message: string }[] }>(supabase, "analyze-upload", {
+    body: { upload_slot_id: slot.upload_slot_id, object_path: slot.path },
+  }).catch(() => null);
 
   return {
     questionNodeId: slot.question_node_id,
@@ -66,5 +73,8 @@ export async function uploadStudentPdfForQuestion({
     fileSizeBytes: file.size,
     contentType,
     uploadedAt: new Date().toISOString(),
+    sanityStatus: sanity?.status,
+    sanityWarnings: sanity?.warnings.map((warning) => warning.message),
+    pageCount: sanity?.page_count ?? null,
   };
 }

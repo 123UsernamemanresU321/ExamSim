@@ -18,7 +18,18 @@ import {
 } from "@/lib/marking-scoring";
 import type { MarkingTreeNode } from "@/lib/marking-tree";
 import { cn } from "@/lib/utils";
-import type { MarkingTicket, MarkingTicketMessage, QuestionNodeRow, TextResponse, UploadSlot, Mark, SubmissionAnnotation, WorkAnnotation } from "@/types/database";
+import type {
+  CommentBankItem,
+  MarkingTicket,
+  MarkingTicketMessage,
+  QuestionNodeRow,
+  TextResponse,
+  UploadSlot,
+  UploadSanityCheck,
+  Mark,
+  SubmissionAnnotation,
+  WorkAnnotation,
+} from "@/types/database";
 
 export function MarkingResponseWorkspace({
   attemptId,
@@ -29,6 +40,8 @@ export function MarkingResponseWorkspace({
   marks,
   annotations,
   workAnnotations = [],
+  uploadSanityChecks = [],
+  commentBank = [],
   markingTickets = [],
   markingTicketMessages = [],
   showDiscussion = true,
@@ -49,6 +62,8 @@ export function MarkingResponseWorkspace({
   marks?: Mark[];
   annotations: SubmissionAnnotation[];
   workAnnotations?: WorkAnnotation[];
+  uploadSanityChecks?: UploadSanityCheck[];
+  commentBank?: CommentBankItem[];
   markingTickets?: MarkingTicket[];
   markingTicketMessages?: MarkingTicketMessage[];
   showDiscussion?: boolean;
@@ -93,6 +108,7 @@ export function MarkingResponseWorkspace({
           attemptId={attemptId}
           node={rootNode}
           slot={rootSlot}
+          sanityCheck={uploadSanityChecks.find((item) => item.upload_slot_id === rootSlot.id)}
           annotations={workAnnotations.filter((item) => item.question_node_id === rootNode.id)}
           studentName={studentName}
           assessmentTitle={assessmentTitle}
@@ -112,6 +128,7 @@ export function MarkingResponseWorkspace({
           workAnnotations={card.workAnnotations}
           markingTickets={card.markingTickets}
           markingTicketMessages={markingTicketMessages}
+          commentBank={commentBank}
           showDiscussion={showDiscussion}
           studentName={studentName}
           assessmentTitle={assessmentTitle}
@@ -128,6 +145,7 @@ function RootQuestionUploadCard({
   node,
   slot,
   annotations,
+  sanityCheck,
   studentName,
   assessmentTitle,
   paperCode,
@@ -137,6 +155,7 @@ function RootQuestionUploadCard({
   node: QuestionNodeRow;
   slot: UploadSlot;
   annotations: WorkAnnotation[];
+  sanityCheck?: UploadSanityCheck;
   studentName: string;
   assessmentTitle: string;
   paperCode: string | null;
@@ -171,7 +190,7 @@ function RootQuestionUploadCard({
       </div>
       <div className="grid gap-6 p-6">
         {slot.object_path ? (
-          <SubmissionPdfPreview objectPath={slot.object_path} onDownload={() => downloadFile(slot.object_path!)} />
+          <SubmissionPdfPreview objectPath={slot.object_path} sanityCheck={sanityCheck} onDownload={() => downloadFile(slot.object_path!)} />
         ) : (
           <div className="rounded-xl border border-dashed border-blue-100 bg-white p-8 text-center text-sm italic text-blue-500">
             No root-question PDF has been uploaded for {node.node_key}.
@@ -250,6 +269,7 @@ function MarkingResponseCard({
   workAnnotations,
   markingTickets,
   markingTicketMessages,
+  commentBank,
   showDiscussion,
   studentName,
   assessmentTitle,
@@ -265,6 +285,7 @@ function MarkingResponseCard({
   workAnnotations: WorkAnnotation[];
   markingTickets: MarkingTicket[];
   markingTicketMessages: MarkingTicketMessage[];
+  commentBank: CommentBankItem[];
   showDiscussion: boolean;
   studentName: string;
   assessmentTitle: string;
@@ -578,6 +599,10 @@ function MarkingResponseCard({
                 value={studentFeedback}
                 onChange={(e) => setStudentFeedback(e.target.value)}
               />
+              <CommentBankQuickInsert
+                items={commentBank}
+                onInsert={(text) => setStudentFeedback((current) => appendSnippet(current, text))}
+              />
             </div>
 
             <div className="space-y-2">
@@ -589,6 +614,10 @@ function MarkingResponseCard({
                 className="text-sm min-h-[60px] bg-slate-50 border-slate-200 focus:border-slate-400"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+              />
+              <CommentBankQuickInsert
+                items={commentBank}
+                onInsert={(text) => setNotes((current) => appendSnippet(current, text))}
               />
             </div>
           </div>
@@ -636,7 +665,7 @@ function MarkingResponseCard({
   );
 }
 
-function SubmissionPdfPreview({ objectPath, onDownload }: { objectPath: string; onDownload: () => void }) {
+function SubmissionPdfPreview({ objectPath, sanityCheck, onDownload }: { objectPath: string; sanityCheck?: UploadSanityCheck; onDownload: () => void }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -667,6 +696,12 @@ function SubmissionPdfPreview({ objectPath, onDownload }: { objectPath: string; 
         <div>
           <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Student work - uploaded PDF</p>
           <p className="text-xs text-blue-700/70">Original submission stays unchanged. Marker annotations are stored as a separate review layer.</p>
+          {sanityCheck ? (
+            <p className="mt-1 text-xs font-semibold text-blue-900">
+              Sanity check: {sanityCheck.status.replaceAll("_", " ")}
+              {sanityCheck.page_count !== null ? ` · ${sanityCheck.page_count} page${sanityCheck.page_count === 1 ? "" : "s"}` : ""}
+            </p>
+          ) : null}
         </div>
         <Button variant="secondary" onClick={onDownload} className="bg-white text-blue-700 hover:bg-blue-600 hover:text-white">
           <ExternalLink size={14} className="mr-2" /> Open
@@ -686,8 +721,57 @@ function SubmissionPdfPreview({ objectPath, onDownload }: { objectPath: string; 
           Loading PDF preview...
         </div>
       )}
+      {sanityCheck && Array.isArray(sanityCheck.warnings_json) && sanityCheck.warnings_json.length > 0 ? (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <p className="font-bold">Upload warnings</p>
+          <ul className="mt-1 list-disc space-y-1 pl-4">
+            {sanityCheck.warnings_json.map((warning, index) => (
+              <li key={`${String(warning)}-${index}`}>{String(warning)}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[]; onInsert: (text: string) => void }) {
+  if (!items.length) return null;
+  async function insertSnippet(item: CommentBankItem) {
+    onInsert(item.comment_text);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await invokeEdgeFunction(supabase, "comment-bank", {
+        body: { action: "use", id: item.id },
+        requiresAal2: true,
+      });
+    } catch {
+      // Usage tracking is non-critical; keep the inserted feedback in place.
+    }
+  }
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-white p-2">
+      <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-[var(--subtle)]">Comment bank</p>
+      <div className="flex flex-wrap gap-2">
+        {items.slice(0, 6).map((item) => (
+          <Button
+            key={item.id}
+            type="button"
+            variant="secondary"
+            className="h-7 rounded-md px-2 text-[10px] font-bold"
+            onClick={() => insertSnippet(item)}
+            title={item.comment_text}
+          >
+            {item.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function appendSnippet(current: string, snippet: string) {
+  return current.trim() ? `${current.trim()}\n\n${snippet}` : snippet;
 }
 
 function WorkAnnotationPanel({

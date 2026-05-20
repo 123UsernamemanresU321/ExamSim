@@ -39,6 +39,10 @@ PDF. Owner-created work annotations require AAL2 and are audited. Students see o
 default after the owner explicitly releases feedback. Original uploaded PDFs are not embedded on the student results
 page; a student must explicitly request a short-lived original-upload URL, and that request is logged.
 
+Feedback release is granular. Marks, student-facing comments, annotated PDFs, and moderation summaries are hidden until
+the owner explicitly releases the relevant category. Private marker notes, comment bank snippets, unreleased annotation
+JSON, markscheme mapping drafts, and owner recovery records are never returned to student clients.
+
 The owner annotation studio renders the actual uploaded PDF page with a same-sized annotation layer above it. The PDF
 canvas/text layer is noninteractive while annotating, so pointer events go to the annotation layer instead of selecting
 the page. Annotation geometry is stored as normalized `annotation-v2` coordinates, which keeps marks aligned across
@@ -68,8 +72,16 @@ RLS is enabled on all public tables. Owners can manage their own assessment esta
 
 Real assessment material and submissions stay in private buckets. Public URLs are not used. Signed URLs are issued on demand and only after state, ownership, slot, and policy checks.
 
-Upload slots enforce one PDF per question/subquestion, max 10MB. A confirmed upload or blank placeholder locks the slot;
+Upload slots enforce one PDF per root/main question, max 10MB. Subquestions and deeper parts receive marks and feedback,
+but do not receive separate student submission slots. A confirmed upload or blank placeholder locks the slot;
 replacement is not supported in production v1.
+
+Upload sanity checks are advisory moderation/marking evidence, not a replacement for owner review. The Edge fallback
+checks metadata and estimated page counts server-side; deeper OCR, handwriting readability, and blank-page detection
+should be handled by a trusted worker before those warnings are used operationally.
+
+Incidents, accommodations, and recovery actions are additive audit records. They explain or repair an attempt workflow
+without deleting original attempt events, upload attempts, or moderation evidence.
 
 ## Parsing And AI Boundaries
 

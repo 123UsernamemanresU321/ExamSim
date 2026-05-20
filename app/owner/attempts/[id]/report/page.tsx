@@ -1,14 +1,26 @@
+import { ModerationContextTimeline } from "@/components/owner/moderation-context-timeline";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
 import { sampleReport } from "@/lib/demo-data";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
+import { buildModerationTimeline, groupModerationTimeline } from "@/lib/moderation-timeline";
+import { getAttemptRecoveryWorkspace } from "@/lib/usability-data";
 
 export default async function AttemptReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const workspace = await getOwnerAttemptReviewWorkspace(id);
+  const recovery = await getAttemptRecoveryWorkspace(id);
   const storedSummary = workspace.moderationReport?.summary_json;
   const report = workspace.moderationReport ? normalizeStoredReport(storedSummary) : sampleReport;
+  const timelineGroups = recovery.attempt
+    ? groupModerationTimeline(buildModerationTimeline({
+        attempt: recovery.attempt,
+        events: recovery.events,
+        incidents: recovery.incidents,
+        accommodations: recovery.accommodations,
+      }))
+    : [];
   return (
     <div className="mx-auto max-w-[1040px]">
       <SectionHeading
@@ -36,14 +48,18 @@ export default async function AttemptReportPage({ params }: { params: Promise<{ 
       </div>
       <Card className="paper-sheet mt-5">
         <h2 className="mb-4 text-lg font-semibold">Timeline</h2>
-        <ol className="grid gap-3">
-          {report.timeline.map((event) => (
-            <li key={`${event.event_type}-${event.at}`} className="rounded-md border border-[var(--border)] bg-white p-3">
-              <p className="font-mono text-sm">{event.event_type}</p>
-              <p className="text-xs text-[var(--muted)]">{event.at}</p>
-            </li>
-          ))}
-        </ol>
+        {timelineGroups.length ? (
+          <ModerationContextTimeline groups={timelineGroups} />
+        ) : (
+          <ol className="grid gap-3">
+            {report.timeline.map((event) => (
+              <li key={`${event.event_type}-${event.at}`} className="rounded-md border border-[var(--border)] bg-white p-3">
+                <p className="font-mono text-sm">{event.event_type}</p>
+                <p className="text-xs text-[var(--muted)]">{event.at}</p>
+              </li>
+            ))}
+          </ol>
+        )}
       </Card>
     </div>
   );

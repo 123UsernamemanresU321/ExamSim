@@ -115,6 +115,19 @@ export function UploadSlotCard({
               {uploadedFileSize ? `${formatBytes(uploadedFileSize)} · ` : ""}
               {uploadedAt ? `Confirmed ${new Date(uploadedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Confirmed"}
             </p>
+            {localUpload?.sanityStatus ? (
+              <div className="mt-2 rounded border border-white/70 bg-white/60 p-2 text-[#123d18]">
+                <p className="font-bold">Sanity check: {localUpload.sanityStatus.replaceAll("_", " ")}</p>
+                {typeof localUpload.pageCount === "number" ? <p>{localUpload.pageCount} page{localUpload.pageCount === 1 ? "" : "s"} detected.</p> : null}
+                {localUpload.sanityWarnings?.length ? (
+                  <ul className="mt-1 list-disc pl-4">
+                    {localUpload.sanityWarnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

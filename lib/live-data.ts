@@ -11,6 +11,8 @@ import type {
   AssessmentVersion,
   Attempt,
   AttemptEvent,
+  UploadSanityCheck,
+  CommentBankItem,
   FeedbackRelease,
   Mark,
   MarkingTicket,
@@ -105,7 +107,8 @@ export type AttemptReviewWorkspace = {
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
   sourceObjectPath: string | null;
-  commentBank: unknown[];
+  uploadSanityChecks: UploadSanityCheck[];
+  commentBank: CommentBankItem[];
 };
 
 function demoAssessmentSummary(): AssessmentSummary {
@@ -553,6 +556,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       markschemeHtml: "<p>Sample Markscheme for demo purposes.</p>",
       markschemePdfPath: null,
       sourceObjectPath: null,
+      uploadSanityChecks: [],
       commentBank: [],
     };
   }
@@ -581,6 +585,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       markschemeHtml: null,
       markschemePdfPath: null,
       sourceObjectPath: null,
+      uploadSanityChecks: [],
       commentBank: [],
     };
   }
@@ -598,7 +603,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     { data: workAnnotations, error: workAnnotationError },
     { data: markingTickets, error: ticketError },
     { data: feedbackRelease, error: feedbackError },
-    { data: ownerSettings, error: settingsError },
+    { data: commentBank, error: commentBankError },
   ] = await Promise.all([
     supabase
       .from("question_nodes")
@@ -615,7 +620,7 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     supabase.from("work_annotations").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
     supabase.from("marking_tickets").select("*").eq("attempt_id", attemptId).order("updated_at", { ascending: false }),
     supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).maybeSingle(),
-    supabase.from("owner_settings").select("*").eq("owner_profile_id", attempt.owner_profile_id).maybeSingle(),
+    supabase.from("comment_bank_items").select("*").order("usage_count", { ascending: false }).order("updated_at", { ascending: false }),
   ]);
 
   if (nodeError) throw nodeError;
@@ -629,13 +634,19 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   if (workAnnotationError) throw workAnnotationError;
   if (ticketError) throw ticketError;
   if (feedbackError) throw feedbackError;
-  if (settingsError) throw settingsError;
+  if (commentBankError) throw commentBankError;
 
   const ticketIds = (markingTickets ?? []).map((ticket) => ticket.id);
   const { data: markingTicketMessages, error: ticketMessageError } = ticketIds.length
     ? await supabase.from("marking_ticket_messages").select("*").in("ticket_id", ticketIds).order("created_at", { ascending: true })
     : { data: [], error: null };
   if (ticketMessageError) throw ticketMessageError;
+
+  const slotIds = (uploadSlots ?? []).map((slot) => slot.id);
+  const { data: uploadSanityChecks, error: sanityError } = slotIds.length
+    ? await supabase.from("upload_sanity_checks").select("*").in("upload_slot_id", slotIds).order("created_at", { ascending: true })
+    : { data: [], error: null };
+  if (sanityError) throw sanityError;
 
   const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
   const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
@@ -683,7 +694,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     markschemeHtml: version?.markscheme_html ?? null,
     markschemePdfPath: version?.markscheme_pdf_path ?? null,
     sourceObjectPath: version?.source_object_path ?? packageResult.package?.source.original_object_path ?? null,
-    commentBank: (ownerSettings?.comment_bank as unknown[]) ?? [],
+    uploadSanityChecks: uploadSanityChecks ?? [],
+    commentBank: commentBank ?? [],
   };
 }
 export async function getStudentAttemptResultsWorkspace(attemptId: string): Promise<AttemptReviewWorkspace> {

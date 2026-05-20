@@ -8,7 +8,16 @@ serve(async (request) => {
   try {
     const { user, admin } = await requireOwnerAal2(request);
     const ownerProfile = await profileForAuthUser(user.id);
-    const body = await readJson<{ attempt_id: string; summary_text?: string; visible_to_student?: boolean }>(request);
+    const body = await readJson<{
+      attempt_id: string;
+      summary_text?: string;
+      visible_to_student?: boolean;
+      release_marks?: boolean;
+      release_comments?: boolean;
+      release_annotated_pdfs?: boolean;
+      release_moderation_summary?: boolean;
+      release_note?: string;
+    }>(request);
     if (!body.attempt_id) return json({ error: "attempt_id is required" }, 400);
 
     const [{ data: marks, error: marksError }, { data: attempt, error: attemptError }] = await Promise.all([
@@ -21,12 +30,15 @@ serve(async (request) => {
     // Fetch question nodes to get the total available marks
     const { data: nodes, error: nodesError } = await admin
       .from("question_nodes")
-      .select("marks")
+      .select("id, marks, parent_node_id")
       .eq("assessment_version_id", attempt.assessment_version_id);
     if (nodesError) throw nodesError;
 
     const totalAwarded = (marks ?? []).reduce((sum, mark) => sum + Number(mark.awarded_marks || 0), 0);
-    const totalAvailable = (nodes ?? []).reduce((sum, node) => sum + Number(node.marks || 0), 0);
+    const parentIds = new Set((nodes ?? []).map((node: { parent_node_id: string | null }) => node.parent_node_id).filter(Boolean));
+    const totalAvailable = (nodes ?? [])
+      .filter((node: { id: string }) => !parentIds.has(node.id))
+      .reduce((sum, node: { marks: number | null }) => sum + Number(node.marks || 0), 0);
 
     const { data: release, error: releaseError } = await admin
       .from("feedback_releases")
@@ -38,6 +50,12 @@ serve(async (request) => {
           total_awarded_marks: totalAwarded,
           total_available_marks: totalAvailable,
           visible_to_student: body.visible_to_student ?? true,
+          release_marks: body.release_marks ?? true,
+          release_comments: body.release_comments ?? true,
+          release_annotated_pdfs: body.release_annotated_pdfs ?? true,
+          release_moderation_summary: body.release_moderation_summary ?? false,
+          release_note: body.release_note?.trim() || null,
+          revoked_at: null,
           released_at: new Date().toISOString(),
         },
         { onConflict: "attempt_id" },

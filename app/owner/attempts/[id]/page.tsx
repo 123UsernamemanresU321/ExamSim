@@ -32,6 +32,24 @@ export default async function OwnerAttemptDetailPage({ params }: { params: Promi
             Mark
           </ButtonLink>
         </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Attempt recovery</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Inspect failed uploads, heartbeat gaps, incidents, accommodations, and controlled repair actions.
+          </p>
+          <ButtonLink className="mt-4" href={`/owner/attempts/${id}/recovery`} variant="secondary">
+            Open recovery center
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Submission receipt</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            View the student-facing proof page with slot statuses, upload timestamps, warnings, and file metadata.
+          </p>
+          <ButtonLink className="mt-4" href={`/owner/attempts/${id}/receipt`} variant="secondary">
+            View receipt
+          </ButtonLink>
+        </Card>
       </div>
     </>
   );

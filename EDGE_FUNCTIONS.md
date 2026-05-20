@@ -89,6 +89,14 @@ Student only for own attempt. Confirms the uploaded object path and updates the 
 validation. Enforces PDF content type, max 10MB file size, stores the sanitized original filename for student
 verification, and allows no replacement after successful confirmation.
 
+## analyze-upload
+
+Student or owner for an authorized upload slot. Input: `{ upload_slot_id, object_path }`. Downloads the private
+`answer-uploads` object server-side, records basic PDF sanity metadata in `upload_sanity_checks`, and returns status,
+page count, warnings, and optional preview metadata. The Edge fallback checks existence, PDF type, file size, estimated
+page count, deadline timing, and duplicate file hashes. Full blank-page/OCR quality analysis remains an external worker
+TODO.
+
 ## submit-blank-slot
 
 Student only for own attempt. Records a standardized blank placeholder for a slot and locks the slot.
@@ -200,6 +208,53 @@ require AAL2 and are audited. The function stores threaded messages and keeps ti
 ## release-feedback
 
 Owner AAL2 only. Computes totals, upserts `feedback_releases`, and makes feedback visible only when explicitly requested.
+The request can independently release marks, feedback comments, annotated PDFs, and an optional moderation summary.
+
+## markscheme-mapper
+
+Owner AAL2 only. Registers markscheme documents, creates/updates extracted markscheme sections, maps a section to a
+question node, or ignores cover/general instructions. Mapping is keyed by normalized question labels and owner review;
+front matter is never automatically attached to Q1.
+
+## comment-bank
+
+Owner AAL2 only. Creates, updates, deletes, and records usage of reusable feedback snippets. Snippets are owner-private
+until explicitly inserted into released student feedback.
+
+## attempt-intervention
+
+Owner AAL2 only. Logs incidents and applies accommodations such as extra time or upload extensions. Original telemetry
+and upload events remain append-only; intervention rows provide explanatory context.
+
+## topic-tags
+
+Owner AAL2 only. Creates topic tags and links or unlinks tags from question nodes. Topic links feed analytics and
+calendar recommendations.
+
+## calendar-recommendations
+
+Owner AAL2 only. Generates weak-topic recommendations from marks and question-topic links, or updates recommendation
+status to accepted, dismissed, or exported.
+
+## assessment-template
+
+Owner AAL2 only. Creates, updates, or deletes reusable assessment policy presets for timing, upload, delivery, solution,
+and blank-placeholder settings.
+
+## cohort
+
+Owner AAL2 only. Creates, updates, deletes cohorts and replaces cohort membership. Cohorts are owner-managed classes for
+bulk assignment and queue filtering.
+
+## create-submission-receipt
+
+Student or owner for an authorized attempt. Creates or refreshes the readonly submission receipt JSON after finalization,
+including upload slot status, original filename, sanity page counts/warnings, and file hashes when known.
+
+## attempt-recovery
+
+Owner AAL2 only. Records controlled recovery actions such as metadata repair, upload extension, owner replacement
+workflow notes, and resolution. It can extend the upload deadline and automatically creates an incident trail.
 
 ## export-marks-csv
 

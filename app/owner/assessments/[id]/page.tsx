@@ -43,6 +43,24 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
           {workspace.latestVersion ? <div className="mt-4"><QtiExportButton versionId={workspace.latestVersion.id} /></div> : null}
         </Card>
         <Card>
+          <h2 className="text-lg font-semibold">Markscheme mapping</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Map parsed markscheme sections to the real question tree, excluding covers and general instructions.
+          </p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/markscheme`} variant="secondary">
+            Open mapper
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Cross-student marking</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Mark the same question across all assigned students without opening each attempt separately.
+          </p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/cross-mark`} variant="secondary">
+            Cross-mark
+          </ButtonLink>
+        </Card>
+        <Card>
           <h2 className="text-lg font-semibold">Delete</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Permanently removes this assessment, versions, attempts, responses, parse jobs, reports, and known private

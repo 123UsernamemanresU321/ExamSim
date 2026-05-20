@@ -18,6 +18,8 @@ Private generated annotated PDF metadata is added in
 `supabase/migrations/202605170001_upload_slot_annotated_pdf.sql`.
 Question hierarchy metadata and root-question-only upload slot generation are added in
 `supabase/migrations/202605170002_question_hierarchy_root_upload_slots.sql`.
+The usability workflow package is added in
+`supabase/migrations/202605200001_usability_upgrade_package.sql`.
 
 ## Tables
 
@@ -46,6 +48,20 @@ Question hierarchy metadata and root-question-only upload slot generation are ad
 - `marking_tickets`
 - `marking_ticket_messages`
 - `feedback_releases`
+- `upload_sanity_checks`
+- `markscheme_documents`
+- `markscheme_nodes`
+- `comment_bank_items`
+- `attempt_incidents`
+- `attempt_accommodations`
+- `topic_tags`
+- `question_topic_links`
+- `calendar_recommendations`
+- `assessment_templates`
+- `cohorts`
+- `cohort_members`
+- `submission_receipts`
+- `attempt_recovery_actions`
 - `parse_jobs`
 - `parse_job_artifacts`
 - `ai_parse_suggestions`
@@ -83,6 +99,10 @@ The TypeScript equivalent of the state machine lives in `lib/attempt-state.ts` a
 - Students read released feedback/marks through the checked `get-student-results` Edge Function after an explicit visible
   feedback release; direct student result policies are not used for question metadata, version rows, marks, feedback
   annotations, work annotations, or marking tickets.
+- New usability workflow tables are owner-managed by default. Students can read only their own upload sanity summaries
+  and submission receipts; they cannot read comment bank entries, unreleased feedback controls, cohorts, incidents,
+  accommodations, recovery actions, private markscheme mapping rows, or calendar recommendations unless a future
+  release path explicitly exposes sanitized data.
 
 ## Indexes
 
@@ -115,6 +135,21 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   `marking-packets`; students receive a short-lived URL only after feedback release.
 - `marking_tickets` and `marking_ticket_messages` store feedback discussions. Student access is Edge-mediated and only
   available after feedback release for the student's own attempt.
+- `upload_sanity_checks` records server-side upload metadata checks and warnings for root-question PDF uploads. Full OCR
+  and image-quality classification remain worker responsibilities; the Edge fallback records file type, size, page count,
+  renderability signals, duplicate hashes, and timing warnings.
+- `markscheme_documents` and `markscheme_nodes` separate markscheme source documents from question nodes. Cover/general
+  instruction sections are kept in review or ignored state and must not be silently mapped to Q1.
+- `comment_bank_items` stores reusable owner feedback snippets with usage counts for insertion into marker notes or
+  student-facing feedback.
+- `attempt_incidents`, `attempt_accommodations`, and `attempt_recovery_actions` preserve recovery/audit context without
+  deleting original telemetry or upload evidence.
+- `topic_tags`, `question_topic_links`, and `calendar_recommendations` support question-level topic tagging and weak-topic
+  revision recommendations for calendar export.
+- `assessment_templates` stores reusable policy presets for publish settings. `cohorts` and `cohort_members` provide the
+  newer bulk-assignment grouping model while older `student_groups` remain for compatibility.
+- `submission_receipts` stores a readonly proof JSON after finalization, including slot status, filenames, page counts,
+  sanity warnings, and upload hashes when available.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.

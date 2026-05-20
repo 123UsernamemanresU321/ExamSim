@@ -8,6 +8,7 @@ import { Field, Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { uploadSizeLabel, validatePdfUpload } from "@/lib/upload-policy";
+import type { AssessmentTemplate } from "@/types/database";
 
 type IngestResult = {
   assessment_id: string;
@@ -23,10 +24,12 @@ function parseJsonPackage(raw: string) {
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
-export function NewAssessmentForm() {
+export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTemplate[] }) {
   const router = useRouter();
   const [sourceKind, setSourceKind] = useState("json");
   const [markschemeKind, setMarkschemeKind] = useState("none");
+  const [assessmentKind, setAssessmentKind] = useState("exam");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [created, setCreated] = useState<IngestResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +62,7 @@ export function NewAssessmentForm() {
         title: String(form.get("title") ?? ""),
         paper_code: String(form.get("paper_code") ?? "") || undefined,
         external_schedule_ref: String(form.get("external_schedule_ref") ?? "") || undefined,
-        assessment_kind: String(form.get("assessment_kind") ?? "exam"),
+        assessment_kind: assessmentKind,
         source_kind: sourceKind,
         latex_source: sourceKind === "latex" ? sourceText : undefined,
         json_package: sourceKind === "json" ? parseJsonPackage(sourceText) : undefined,
@@ -88,6 +91,29 @@ export function NewAssessmentForm() {
 
   return (
     <form className="grid gap-5" onSubmit={onSubmit}>
+      {templates.length > 0 ? (
+        <Field
+          label="Assessment template"
+          description="Optional. Select a saved policy preset so the assessment kind matches the publish settings you will apply later."
+        >
+          <select
+            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
+            value={selectedTemplateId}
+            onChange={(event) => {
+              setSelectedTemplateId(event.target.value);
+              const template = templates.find((item) => item.id === event.target.value);
+              if (template) setAssessmentKind(template.assessment_kind);
+            }}
+          >
+            <option value="">Start blank</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <Field
           label="Title"
@@ -111,7 +137,12 @@ export function NewAssessmentForm() {
           label="Assessment kind"
           description="Controls how the paper is categorized in dashboards. It does not weaken timing, content release, or upload rules."
         >
-          <select name="assessment_kind" className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3">
+          <select
+            name="assessment_kind"
+            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
+            value={assessmentKind}
+            onChange={(event) => setAssessmentKind(event.target.value)}
+          >
             <option value="practice_paper">practice_paper</option>
             <option value="quiz">quiz</option>
             <option value="test">test</option>

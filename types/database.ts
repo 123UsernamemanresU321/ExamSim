@@ -320,6 +320,172 @@ export type FeedbackRelease = {
   total_awarded_marks: number;
   total_available_marks: number;
   visible_to_student: boolean;
+  release_marks?: boolean;
+  release_comments?: boolean;
+  release_annotated_pdfs?: boolean;
+  release_moderation_summary?: boolean;
+  release_note?: string | null;
+  scheduled_release_at?: string | null;
+  revoked_at?: string | null;
+  superseded_by_release_id?: string | null;
+  created_at: string;
+};
+
+export type UploadSanityCheck = {
+  id: string;
+  upload_slot_id: string;
+  status: "accepted" | "accepted_with_warnings" | "needs_review" | "failed";
+  file_name: string | null;
+  file_size_bytes: number | null;
+  file_hash: string | null;
+  content_type: string | null;
+  page_count: number | null;
+  preview_object_path: string | null;
+  warnings_json: Json;
+  checks_json: Json;
+  created_at: string;
+};
+
+export type MarkschemeDocument = {
+  id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  source_object_path: string;
+  status: "uploaded" | "parsed" | "review_required" | "approved";
+  created_at: string;
+};
+
+export type MarkschemeNode = {
+  id: string;
+  markscheme_document_id: string;
+  node_key: string | null;
+  normalized_key: string | null;
+  ordinal_path: number[] | null;
+  mapped_question_node_id: string | null;
+  markscheme_html: string | null;
+  source_page_start: number | null;
+  source_page_end: number | null;
+  confidence: number | null;
+  status: "mapped" | "unmatched" | "ignored" | "needs_review";
+  created_at: string;
+};
+
+export type CommentBankItem = {
+  id: string;
+  owner_profile_id: string;
+  label: string;
+  comment_text: string;
+  category: string | null;
+  subject: string | null;
+  tags: string[];
+  is_student_facing_default: boolean;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AttemptIncident = {
+  id: string;
+  attempt_id: string;
+  created_by_profile_id: string;
+  incident_type: "internet_issue" | "power_cut" | "wrong_upload" | "medical" | "browser_crash" | "admin_note" | "other";
+  description: string;
+  severity: "low" | "medium" | "high";
+  affects_marking: boolean;
+  student_visible: boolean;
+  created_at: string;
+};
+
+export type AttemptAccommodation = {
+  id: string;
+  attempt_id: string;
+  created_by_profile_id: string;
+  accommodation_type: "extra_time" | "upload_extension" | "manual_reopen_upload" | "ignore_moderation_signal" | "other";
+  extra_seconds: number | null;
+  reason: string;
+  applied_at: string;
+};
+
+export type TopicTag = {
+  id: string;
+  owner_profile_id: string;
+  subject: string;
+  tag: string;
+  parent_tag_id: string | null;
+  created_at: string;
+};
+
+export type QuestionTopicLink = {
+  id: string;
+  question_node_id: string;
+  topic_tag_id: string;
+  weight: number;
+  created_at: string;
+};
+
+export type CalendarRecommendation = {
+  id: string;
+  owner_profile_id: string;
+  student_profile_id: string;
+  assessment_id: string | null;
+  paper_code: string | null;
+  topic_tag_id: string | null;
+  reason: string;
+  priority: "low" | "medium" | "high";
+  suggested_minutes: number;
+  status: "pending" | "accepted" | "dismissed" | "exported";
+  created_at: string;
+};
+
+export type AssessmentTemplate = {
+  id: string;
+  owner_profile_id: string;
+  name: string;
+  description: string | null;
+  assessment_kind: AssessmentKind;
+  default_duration_seconds: number;
+  default_upload_grace_seconds: number | null;
+  delivery_mode: DeliveryMode;
+  solutions_requested: boolean;
+  typed_enabled: boolean;
+  per_question_upload_enabled: boolean;
+  require_blank_for_skipped: boolean;
+  default_timezone: string;
+  policy_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Cohort = {
+  id: string;
+  owner_profile_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CohortMember = {
+  id: string;
+  cohort_id: string;
+  student_profile_id: string;
+  created_at: string;
+};
+
+export type SubmissionReceipt = {
+  id: string;
+  attempt_id: string;
+  receipt_json: Json;
+  created_at: string;
+};
+
+export type AttemptRecoveryAction = {
+  id: string;
+  attempt_id: string;
+  owner_profile_id: string;
+  action_type: "repair_upload_metadata" | "grant_upload_extension" | "owner_replace_upload" | "mark_resolved" | "log_note";
+  upload_slot_id: string | null;
+  details_json: Json;
   created_at: string;
 };
 
@@ -512,6 +678,12 @@ export type Database = {
         Update: Partial<UploadSlot>;
         Relationships: [];
       };
+      upload_sanity_checks: {
+        Row: UploadSanityCheck;
+        Insert: Partial<UploadSanityCheck> & Pick<UploadSanityCheck, "upload_slot_id" | "status">;
+        Update: Partial<UploadSanityCheck>;
+        Relationships: [];
+      };
       moderation_reports: {
         Row: ModerationReport;
         Insert: Partial<ModerationReport> & Pick<ModerationReport, "attempt_id" | "summary_json">;
@@ -589,6 +761,84 @@ export type Database = {
         Row: FeedbackRelease;
         Insert: Partial<FeedbackRelease> & Pick<FeedbackRelease, "attempt_id" | "released_by_profile_id">;
         Update: Partial<FeedbackRelease>;
+        Relationships: [];
+      };
+      markscheme_documents: {
+        Row: MarkschemeDocument;
+        Insert: Partial<MarkschemeDocument> & Pick<MarkschemeDocument, "assessment_id" | "assessment_version_id" | "source_object_path">;
+        Update: Partial<MarkschemeDocument>;
+        Relationships: [];
+      };
+      markscheme_nodes: {
+        Row: MarkschemeNode;
+        Insert: Partial<MarkschemeNode> & Pick<MarkschemeNode, "markscheme_document_id">;
+        Update: Partial<MarkschemeNode>;
+        Relationships: [];
+      };
+      comment_bank_items: {
+        Row: CommentBankItem;
+        Insert: Partial<CommentBankItem> & Pick<CommentBankItem, "owner_profile_id" | "label" | "comment_text">;
+        Update: Partial<CommentBankItem>;
+        Relationships: [];
+      };
+      attempt_incidents: {
+        Row: AttemptIncident;
+        Insert: Partial<AttemptIncident> & Pick<AttemptIncident, "attempt_id" | "created_by_profile_id" | "incident_type" | "description">;
+        Update: Partial<AttemptIncident>;
+        Relationships: [];
+      };
+      attempt_accommodations: {
+        Row: AttemptAccommodation;
+        Insert: Partial<AttemptAccommodation> & Pick<AttemptAccommodation, "attempt_id" | "created_by_profile_id" | "accommodation_type" | "reason">;
+        Update: Partial<AttemptAccommodation>;
+        Relationships: [];
+      };
+      topic_tags: {
+        Row: TopicTag;
+        Insert: Partial<TopicTag> & Pick<TopicTag, "owner_profile_id" | "subject" | "tag">;
+        Update: Partial<TopicTag>;
+        Relationships: [];
+      };
+      question_topic_links: {
+        Row: QuestionTopicLink;
+        Insert: Partial<QuestionTopicLink> & Pick<QuestionTopicLink, "question_node_id" | "topic_tag_id">;
+        Update: Partial<QuestionTopicLink>;
+        Relationships: [];
+      };
+      calendar_recommendations: {
+        Row: CalendarRecommendation;
+        Insert: Partial<CalendarRecommendation> & Pick<CalendarRecommendation, "owner_profile_id" | "student_profile_id" | "reason">;
+        Update: Partial<CalendarRecommendation>;
+        Relationships: [];
+      };
+      assessment_templates: {
+        Row: AssessmentTemplate;
+        Insert: Partial<AssessmentTemplate> & Pick<AssessmentTemplate, "owner_profile_id" | "name" | "assessment_kind" | "default_duration_seconds">;
+        Update: Partial<AssessmentTemplate>;
+        Relationships: [];
+      };
+      cohorts: {
+        Row: Cohort;
+        Insert: Partial<Cohort> & Pick<Cohort, "owner_profile_id" | "name">;
+        Update: Partial<Cohort>;
+        Relationships: [];
+      };
+      cohort_members: {
+        Row: CohortMember;
+        Insert: Partial<CohortMember> & Pick<CohortMember, "cohort_id" | "student_profile_id">;
+        Update: Partial<CohortMember>;
+        Relationships: [];
+      };
+      submission_receipts: {
+        Row: SubmissionReceipt;
+        Insert: Partial<SubmissionReceipt> & Pick<SubmissionReceipt, "attempt_id" | "receipt_json">;
+        Update: Partial<SubmissionReceipt>;
+        Relationships: [];
+      };
+      attempt_recovery_actions: {
+        Row: AttemptRecoveryAction;
+        Insert: Partial<AttemptRecoveryAction> & Pick<AttemptRecoveryAction, "attempt_id" | "owner_profile_id" | "action_type">;
+        Update: Partial<AttemptRecoveryAction>;
         Relationships: [];
       };
       parse_jobs: {

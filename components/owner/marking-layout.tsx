@@ -119,6 +119,8 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   marks={workspace.marks}
                   annotations={workspace.annotations}
                   workAnnotations={workspace.workAnnotations}
+                  uploadSanityChecks={workspace.uploadSanityChecks}
+                  commentBank={workspace.commentBank}
                   markingTickets={workspace.markingTickets}
                   markingTicketMessages={workspace.markingTicketMessages}
                   showDiscussion={false}

@@ -60,6 +60,7 @@ serve(async (request) => {
     });
     return json({
       attempt_id: body.attempt_id,
+      upload_slot_id: slot.id,
       question_node_id: resolvedQuestionNodeId,
       bucket: "answer-uploads",
       path,

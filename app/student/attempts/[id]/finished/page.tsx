@@ -2,6 +2,7 @@ import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
+import { ButtonLink } from "@/components/ui/button";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 import { getStudentAttemptResultsWorkspace } from "@/lib/live-data";
 import type { FeedbackRelease } from "@/types/database";
@@ -24,7 +25,12 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
       />
       <Card className="mb-5 flex flex-wrap items-center justify-between gap-4 border-[#e7a09a] bg-[var(--danger-bg)] shadow-none">
         <AttemptStateBadge state="FINISHED_REVIEW" />
-        <p className="text-sm text-[var(--danger)]">Submission summary: 1 typed response, 1 blank placeholder.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-[var(--danger)]">Uploads and editing are disabled. Keep your submission receipt for proof.</p>
+          <ButtonLink href={`/student/attempts/${id}/receipt`} variant="secondary">
+            Submission receipt
+          </ButtonLink>
+        </div>
       </Card>
       {feedback ? (
         <Card className="mb-5 border-[#78a86d] bg-[var(--success-bg)] shadow-none">

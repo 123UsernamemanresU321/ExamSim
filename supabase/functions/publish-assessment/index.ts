@@ -17,6 +17,7 @@ type Body = {
   per_question_upload_enabled?: boolean;
   require_blank_for_skipped?: boolean;
   assigned_group_ids?: string[];
+  assigned_cohort_ids?: string[];
   seb_browser_exam_key_hashes?: string[];
   seb_config_key_hashes?: string[];
   seb_config_path?: string;
@@ -30,7 +31,8 @@ serve(async (request) => {
     const body = await readJson<Body>(request);
     const assignedProfileIds = [...new Set(body.assigned_profile_ids ?? [])];
     const assignedGroupIds = [...new Set(body.assigned_group_ids ?? [])];
-    if (!body.assessment_id || !body.version_id || !body.start_at_local || (!assignedProfileIds.length && !assignedGroupIds.length)) {
+    const assignedCohortIds = [...new Set(body.assigned_cohort_ids ?? [])];
+    if (!body.assessment_id || !body.version_id || !body.start_at_local || (!assignedProfileIds.length && !assignedGroupIds.length && !assignedCohortIds.length)) {
       return json({ error: "Missing publish fields" }, 400);
     }
     const ownerProfile = await profileForAuthUser(user.id);
@@ -108,10 +110,12 @@ serve(async (request) => {
         ...timing,
       })),
     ];
-    const { data: assignments, error: assignmentError } = await admin
-      .from("assessment_assignments")
-      .insert(assignmentRows)
-      .select("*");
+    const { data: assignments, error: assignmentError } = assignmentRows.length
+      ? await admin
+          .from("assessment_assignments")
+          .insert(assignmentRows)
+          .select("*")
+      : { data: [], error: null };
     if (assignmentError) throw assignmentError;
 
     const studentIds = new Set<string>(assignedProfileIds);
@@ -120,6 +124,21 @@ serve(async (request) => {
         .from("student_group_members")
         .select("student_profile_id")
         .eq("group_id", groupId);
+      if (memberError) throw memberError;
+      for (const member of members ?? []) studentIds.add(member.student_profile_id);
+    }
+    for (const cohortId of assignedCohortIds) {
+      const { data: cohort, error: cohortError } = await admin
+        .from("cohorts")
+        .select("owner_profile_id")
+        .eq("id", cohortId)
+        .single();
+      if (cohortError) throw cohortError;
+      if (cohort.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden cohort assignment" }, 403);
+      const { data: members, error: memberError } = await admin
+        .from("cohort_members")
+        .select("student_profile_id")
+        .eq("cohort_id", cohortId);
       if (memberError) throw memberError;
       for (const member of members ?? []) studentIds.add(member.student_profile_id);
     }
@@ -148,6 +167,7 @@ serve(async (request) => {
       assessment_id: body.assessment_id,
       assigned_profile_count: assignedProfileIds.length,
       assigned_group_count: assignedGroupIds.length,
+      assigned_cohort_count: assignedCohortIds.length,
       created_attempt_count: attempts?.length ?? 0,
     });
     return json({ ok: true, attempt_ids: attempts?.map((attempt) => attempt.id) ?? [] });

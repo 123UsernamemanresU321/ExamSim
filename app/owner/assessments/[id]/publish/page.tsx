@@ -2,13 +2,16 @@ import { PublishAssessmentForm } from "@/components/owner/publish-assessment-for
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { getAssessmentWorkspace, listOwnerStudentGroups, listOwnerStudents } from "@/lib/live-data";
+import { listAssessmentTemplates, listCohortsWithMembers } from "@/lib/usability-data";
 
 export default async function PublishAssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [workspace, students, groups] = await Promise.all([
+  const [workspace, students, groups, templates, cohortWorkspace] = await Promise.all([
     getAssessmentWorkspace(id),
     listOwnerStudents(),
     listOwnerStudentGroups(),
+    listAssessmentTemplates(),
+    listCohortsWithMembers(),
   ]);
   const version = workspace?.latestVersion;
   return (
@@ -19,7 +22,18 @@ export default async function PublishAssessmentPage({ params }: { params: Promis
       />
       <Card>
         {workspace && version ? (
-          <PublishAssessmentForm assessmentId={workspace.assessment.id} versionId={version.id} students={students} groups={groups} />
+          <PublishAssessmentForm
+            assessmentId={workspace.assessment.id}
+            versionId={version.id}
+            students={students}
+            groups={groups}
+            cohorts={cohortWorkspace.cohorts.map(({ cohort, members }) => ({
+              id: cohort.id,
+              name: cohort.name,
+              member_count: members.length,
+            }))}
+            templates={templates}
+          />
         ) : (
           <p className="text-sm text-[var(--muted)]">No draft version is available to publish.</p>
         )}
