@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { screenToNormalized, type Point, type Size } from "@/lib/annotation-coordinates";
 import { createAnnotationId, type AnnotationTool, type PdfAnnotation } from "@/lib/annotation-model";
 import { cn } from "@/lib/utils";
@@ -20,21 +20,7 @@ type Interaction =
   | { kind: "move"; pointerId: number; start: Point; annotation: PdfAnnotation }
   | { kind: "resize"; pointerId: number; start: Point; annotation: PdfAnnotation };
 
-export function PdfAnnotationPage({
-  pdfUrl,
-  pageIndex,
-  zoom,
-  selectedTool,
-  annotations,
-  selectedAnnotationId,
-  onCreateAnnotation,
-  onUpdateAnnotation,
-  onDeleteAnnotation,
-  onSelectAnnotation,
-  onPageInfo,
-  onInteractionChange,
-  className,
-}: {
+type PdfAnnotationPageProps = {
   pdfUrl: string;
   pageIndex: number;
   zoom: number;
@@ -48,10 +34,30 @@ export function PdfAnnotationPage({
   onPageInfo: (info: PdfAnnotationPageInfo & { totalPages: number }) => void;
   onInteractionChange?: (active: boolean) => void;
   className?: string;
-}) {
+};
+
+function PdfAnnotationPageComponent({
+  pdfUrl,
+  pageIndex,
+  zoom,
+  selectedTool,
+  annotations,
+  selectedAnnotationId,
+  onCreateAnnotation,
+  onUpdateAnnotation,
+  onDeleteAnnotation,
+  onSelectAnnotation,
+  onPageInfo,
+  onInteractionChange,
+  className,
+}: PdfAnnotationPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<SVGSVGElement>(null);
   const interactionRef = useRef<Interaction | null>(null);
+  const draftRef = useRef<PdfAnnotation | null>(null);
+  const dragPreviewRef = useRef<PdfAnnotation | null>(null);
+  const previewFrameRef = useRef<number | null>(null);
+  const renderCountRef = useRef(0);
   const onPageInfoRef = useRef(onPageInfo);
   const onInteractionChangeRef = useRef(onInteractionChange);
   const [pageInfo, setPageInfo] = useState<PdfAnnotationPageInfo | null>(null);
@@ -68,6 +74,23 @@ export function PdfAnnotationPage({
     onPageInfoRef.current = onPageInfo;
     onInteractionChangeRef.current = onInteractionChange;
   }, [onPageInfo, onInteractionChange]);
+
+  useEffect(() => {
+    renderCountRef.current += 1;
+    if (process.env.NODE_ENV !== "development") return;
+    if (interactionRef.current) {
+      console.warn("PdfAnnotationPage rendered during an active annotation interaction", {
+        pageIndex,
+        renderCount: renderCountRef.current,
+      });
+    }
+  });
+
+  useEffect(() => {
+    return () => {
+      if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,7 +193,8 @@ export function PdfAnnotationPage({
     interactionRef.current = { kind: "draw", pointerId: event.pointerId, start: point, annotation };
     overlayRef.current?.setPointerCapture(event.pointerId);
     onInteractionChangeRef.current?.(true);
-    setDraft(annotation);
+    draftRef.current = annotation;
+    scheduleLivePreview("draft", annotation);
   }
 
   function moveOverlayPointer(event: PointerEvent<SVGSVGElement>) {
@@ -184,20 +208,23 @@ export function PdfAnnotationPage({
     if (interaction.kind === "draw") {
       const updated = updateDrawAnnotation(interaction.annotation, interaction.start, point);
       interactionRef.current = { ...interaction, annotation: updated };
-      setDraft(updated);
+      draftRef.current = updated;
+      scheduleLivePreview("draft", updated);
       return;
     }
 
     if (interaction.kind === "move") {
       const updated = moveAnnotation(interaction.annotation, interaction.start, point);
       interactionRef.current = { ...interaction, annotation: updated, start: point };
-      setDragPreview(updated);
+      dragPreviewRef.current = updated;
+      scheduleLivePreview("drag", updated);
       return;
     }
 
     const updated = resizeAnnotation(interaction.annotation, point);
     interactionRef.current = { ...interaction, annotation: updated };
-    setDragPreview(updated);
+    dragPreviewRef.current = updated;
+    scheduleLivePreview("drag", updated);
   }
 
   function endOverlayPointer(event: PointerEvent<SVGSVGElement>) {
@@ -207,6 +234,12 @@ export function PdfAnnotationPage({
     event.stopPropagation();
     overlayRef.current?.releasePointerCapture(event.pointerId);
     interactionRef.current = null;
+    if (previewFrameRef.current) {
+      window.cancelAnimationFrame(previewFrameRef.current);
+      previewFrameRef.current = null;
+    }
+    draftRef.current = null;
+    dragPreviewRef.current = null;
     setDragPreview(null);
 
     if (interaction.kind === "draw") {
@@ -233,8 +266,18 @@ export function PdfAnnotationPage({
     if (!point) return;
     overlayRef.current?.setPointerCapture(event.pointerId);
     interactionRef.current = { kind, pointerId: event.pointerId, start: point, annotation };
-    setDragPreview(annotation);
+    dragPreviewRef.current = annotation;
+    scheduleLivePreview("drag", annotation);
     onInteractionChangeRef.current?.(true);
+  }
+
+  function scheduleLivePreview(kind: "draft" | "drag", annotation: PdfAnnotation) {
+    if (previewFrameRef.current) return;
+    previewFrameRef.current = window.requestAnimationFrame(() => {
+      previewFrameRef.current = null;
+      if (kind === "draft") setDraft(draftRef.current ?? annotation);
+      else setDragPreview(dragPreviewRef.current ?? annotation);
+    });
   }
 
   function handleKeyDown(event: React.KeyboardEvent<SVGSVGElement>) {
@@ -298,6 +341,21 @@ export function PdfAnnotationPage({
         </svg>
       ) : null}
     </div>
+  );
+}
+
+export const PdfAnnotationPage = memo(PdfAnnotationPageComponent, arePdfAnnotationPagePropsEqual);
+PdfAnnotationPage.displayName = "PdfAnnotationPage";
+
+function arePdfAnnotationPagePropsEqual(previous: PdfAnnotationPageProps, next: PdfAnnotationPageProps) {
+  return (
+    previous.pdfUrl === next.pdfUrl &&
+    previous.pageIndex === next.pageIndex &&
+    previous.zoom === next.zoom &&
+    previous.selectedTool === next.selectedTool &&
+    previous.annotations === next.annotations &&
+    previous.selectedAnnotationId === next.selectedAnnotationId &&
+    previous.className === next.className
   );
 }
 

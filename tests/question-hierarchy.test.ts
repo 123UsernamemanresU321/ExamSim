@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNormalizedQuestionTree,
+  classifyDocumentSections,
+  classifyMarkschemeSections,
   calculateAttemptTotal,
   calculateNodeMarks,
+  detectVisualDependency,
+  flattenQuestionTreePreorder,
+  generateParserWarnings,
+  repairFlatParserOutput,
+  validateQuestionTree,
   buildParentKey,
   buildRootQuestionKey,
   classifyDocumentSection,
@@ -86,9 +93,9 @@ describe("question hierarchy normalization", () => {
       "Q6",
     ];
 
-    const result = buildNormalizedQuestionTree(badKeys.map((key) => rawNode(key)));
+    const result = repairFlatParserOutput(badKeys.map((key) => rawNode(key)));
 
-    expect(result.flat.map((node) => node.node_key)).toEqual([
+    expect(flattenQuestionTreePreorder(result.tree).map((node) => node.node_key)).toEqual([
       "Q1",
       "1(a)",
       "1(b)",
@@ -201,6 +208,37 @@ describe("question hierarchy normalization", () => {
 
     expect(matches[0]?.questionNode?.node_key).toBe("3(a)");
     expect(matches[1]?.questionNode).toBeNull();
+  });
+
+  it("classifies paper and markscheme sections before extraction", () => {
+    expect(
+      classifyDocumentSections([
+        "International Baccalaureate\nInstructions to candidates\nDo not open this paper.",
+        "Question 1\nA particle moves on a straight line.",
+      ]).map((section) => section.type),
+    ).toEqual(["instructions", "question_page"]);
+
+    expect(
+      classifyMarkschemeSections([
+        "Markscheme\nGeneral marking instructions: award marks according to the following notes.",
+        "Question 2\n(a) Award M1 for method and A1 for answer.",
+      ]).map((section) => section.type),
+    ).toEqual(["markscheme_instructions", "markscheme_question_page"]);
+  });
+
+  it("validates visual dependencies and missing source pages", () => {
+    const result = buildNormalizedQuestionTree([
+      rawNode("Q1", {
+        prompt_html: "Use the graph shown below to estimate the gradient.",
+        has_visual_assets: false,
+        source_page_start: null,
+        source_page_end: null,
+      }),
+    ]);
+
+    expect(detectVisualDependency(result.tree[0]?.prompt_html)).toBe(true);
+    expect(validateQuestionTree(result.tree).map((issue) => issue.code)).toContain("visual_dependency_without_source");
+    expect(generateParserWarnings(result.tree).some((warning) => warning.includes("diagram, graph, table, or figure"))).toBe(true);
   });
 });
 

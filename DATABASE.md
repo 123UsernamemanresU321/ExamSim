@@ -150,6 +150,16 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   newer bulk-assignment grouping model while older `student_groups` remain for compatibility.
 - `submission_receipts` stores a readonly proof JSON after finalization, including slot status, filenames, page counts,
   sanity warnings, and upload hashes when available.
+- `assessment_health_checks` stores optional snapshots of paper health results: blockers, warnings, score, and owner
+  override reason.
+- `mistake_categories` and `mistake_instances` track reusable reasons for lost marks. Students can see only released,
+  student-visible mistake instances for their own attempt.
+- `question_bank_items` and `question_bank_children` store private reusable root questions with their nested child
+  structure, source page fallback metadata, visual asset flags, markscheme references, and topic/search metadata.
+- `generated_papers` and `generated_paper_items` store owner-reviewed custom paper drafts assembled from question bank
+  items. They become normal assessments only after explicit conversion/review.
+- `correction_notebooks` and `correction_entries` store student correction/reflection work after feedback release.
+  Corrections never mutate original marks or private marker notes.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.

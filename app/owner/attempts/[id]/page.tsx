@@ -42,6 +42,15 @@ export default async function OwnerAttemptDetailPage({ params }: { params: Promi
           </ButtonLink>
         </Card>
         <Card>
+          <h2 className="text-lg font-semibold">Correction notebook</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Review the student&apos;s corrected solutions and reflections after feedback is released.
+          </p>
+          <ButtonLink className="mt-4" href={`/owner/attempts/${id}/corrections`} variant="secondary">
+            Review corrections
+          </ButtonLink>
+        </Card>
+        <Card>
           <h2 className="text-lg font-semibold">Submission receipt</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             View the student-facing proof page with slot statuses, upload timestamps, warnings, and file metadata.

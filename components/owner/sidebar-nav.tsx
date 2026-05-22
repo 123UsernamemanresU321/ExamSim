@@ -15,7 +15,10 @@ import {
   Tags,
   BookTemplate,
   Boxes,
-  Send as SendIcon
+  Send as SendIcon,
+  BookOpen,
+  Wand2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +32,9 @@ const ownerNav = [
   { href: "/owner/feedback-releases", label: "Feedback", Icon: SendIcon },
   { href: "/owner/comment-bank", label: "Comments", Icon: MessageSquareText },
   { href: "/owner/topics", label: "Topics", Icon: Tags },
+  { href: "/owner/mistakes", label: "Mistakes", Icon: AlertCircle },
+  { href: "/owner/question-bank", label: "Question Bank", Icon: BookOpen },
+  { href: "/owner/paper-generator", label: "Generator", Icon: Wand2 },
   { href: "/owner/templates", label: "Templates", Icon: BookTemplate },
   { href: "/owner/cohorts", label: "Cohorts", Icon: Boxes },
   { href: "/owner/security", label: "Security", Icon: ShieldCheck },

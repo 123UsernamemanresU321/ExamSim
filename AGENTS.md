@@ -18,3 +18,6 @@ Future coding agents working on Exam Vault must:
 - Do not send PDFs to hosted MinerU from browser code; all hosted MinerU calls must go through Edge Functions.
 - Do not use SEB user-agent strings as proof of secure mode; validate URL-specific Browser Exam Key and Config Key request hashes.
 - Keep QTI import conservative and review-required when mappings are uncertain.
+- Do not trust AI parser output directly; always pass parser output through the deterministic hierarchy repair and validation layer.
+- Do not reintroduce Annotation Studio autosave or parent JSON updates on pointer-move/drag frames; commit annotation changes on drag end.
+- Do not expose private marker notes, unreleased mistake instances, question bank data, generated paper criteria, paper health checks, or unreleased correction feedback to students.

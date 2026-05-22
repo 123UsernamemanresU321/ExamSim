@@ -217,3 +217,7 @@ Cloudflare CNAME and TLS verification steps.
 - QTI import creates review-required drafts; QTI export is conservative and includes the Exam Vault normalized package JSON for lossless metadata recovery.
 - Marking packet export creates a private ZIP. If the Cloudflare KMS wrapper is configured, the ZIP object is envelope-encrypted before upload.
 - Feedback is hidden until the owner explicitly releases it.
+- Paper Health shows parser/source/markscheme/delivery/security blockers before reuse or publish.
+- Mistake Taxonomy, Question Bank, Paper Generator, and Correction Notebooks are owner/student learning workflow modules
+  built on private Supabase tables with RLS. Question bank and generated papers are owner-only; correction notebooks open
+  to a student only after feedback release.

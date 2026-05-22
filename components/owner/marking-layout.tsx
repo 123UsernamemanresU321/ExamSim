@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
 import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import { buildMarkingTree, findMarkingTreeNode, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
+import { buildRootQuestionMarkingContext } from "@/lib/marking-context-core";
 import { MarkingSidebarTree } from "./marking-sidebar-tree";
 import { MarkingCenterPanel } from "./marking-center-panel";
 import { MarkingDiscussionWorkspace, MarkingResponseWorkspace } from "./marking-response-workspace";
@@ -24,10 +25,9 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
   const [isReleasing, setIsReleasing] = useState(false);
 
   const selectedNode = findMarkingTreeNode(questionTree, selectedNodeId) ?? selectableGroups[0] ?? null;
-  const selectedLeafNodes = selectedNode ? getMarkableLeafNodes(selectedNode) : [];
-  const selectedRootUploadSlot = selectedNode
-    ? workspace.uploadSlots.find((slot) => slot.question_node_id === selectedNode.id)
-    : undefined;
+  const markingContext = buildRootQuestionMarkingContext(workspace, selectedNode?.id ?? null);
+  const selectedLeafNodes = markingContext.markableLeafNodes.length ? markingContext.markableLeafNodes : selectedNode ? getMarkableLeafNodes(selectedNode) : [];
+  const selectedRootUploadSlot = markingContext.uploadSlot ?? undefined;
 
   async function handleRelease() {
     if (workspace.feedbackRelease) {
@@ -101,9 +101,11 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                 <MarkingCenterPanel
                   node={selectedNode}
                   marks={workspace.marks}
-                  markschemeHtml={workspace.markschemeHtml}
+                  markschemeHtml={markingContext.mappedMarkschemeNodes.length ? markingContext.mappedMarkschemeNodes.map((node) => node.html).filter(Boolean).join("<hr />") : workspace.markschemeHtml}
                   markschemePdfPath={workspace.markschemePdfPath}
                   sourceObjectPath={workspace.sourceObjectPath}
+                  sourcePageRanges={markingContext.sourcePageRanges}
+                  visualWarnings={markingContext.visualWarnings}
                 />
               </section>
 

@@ -43,6 +43,15 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
           {workspace.latestVersion ? <div className="mt-4"><QtiExportButton versionId={workspace.latestVersion.id} /></div> : null}
         </Card>
         <Card>
+          <h2 className="text-lg font-semibold">Paper health</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Check structure, source page ranges, markscheme mapping, delivery readiness, and security assumptions.
+          </p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/health`} variant="secondary">
+            Run health check
+          </ButtonLink>
+        </Card>
+        <Card>
           <h2 className="text-lg font-semibold">Markscheme mapping</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Map parsed markscheme sections to the real question tree, excluding covers and general instructions.

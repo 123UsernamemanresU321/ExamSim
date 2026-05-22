@@ -68,6 +68,14 @@ password fallback until the Supabase passkey API is stable enough for the deploy
 
 RLS is enabled on all public tables. Owners can manage their own assessment estate. Students can read their own profile and assigned attempt metadata. Sensitive content and privileged changes go through Edge Functions. Attempt events are append-only for students.
 
+Advanced learning workflow tables follow the same boundary:
+
+- Paper health checks, question bank items, generated papers, and mistake category definitions are owner-only.
+- Mistake instances are student-readable only when explicitly marked student-visible and feedback has been released.
+- Correction notebooks and entries are visible/writeable to the assigned student only after a visible feedback release.
+- Private marker notes, unreleased annotations, question bank metadata, generated paper criteria, and paper health blockers
+  are not student-readable.
+
 ## Private Bucket Model
 
 Real assessment material and submissions stay in private buckets. Public URLs are not used. Signed URLs are issued on demand and only after state, ownership, slot, and policy checks.

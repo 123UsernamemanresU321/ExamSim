@@ -1,9 +1,13 @@
 import { computeAttemptState } from "@/lib/attempt-state";
 import { buildModerationTimeline } from "@/lib/moderation-timeline";
 import { classifyMarkingQueueRow, type MarkingQueueRow } from "@/lib/marking-queue";
+import { computePaperHealth } from "@/lib/paper-health";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
+  Assessment,
+  AssessmentHealthCheck,
   AssessmentTemplate,
+  AssessmentVersion,
   Attempt,
   AttemptAccommodation,
   AttemptEvent,
@@ -13,11 +17,19 @@ import type {
   Cohort,
   CohortMember,
   CommentBankItem,
+  CorrectionEntry,
+  CorrectionNotebook,
   FeedbackRelease,
+  GeneratedPaper,
+  GeneratedPaperItem,
   Mark,
   MarkschemeDocument,
   MarkschemeNode,
+  MistakeCategory,
+  MistakeInstance,
   Profile,
+  QuestionBankChild,
+  QuestionBankItem,
   QuestionNodeRow,
   SubmissionReceipt,
   TopicTag,
@@ -235,5 +247,114 @@ export async function listMarkschemeMappingWorkspace(assessmentVersionId: string
     documents: (documents ?? []) as MarkschemeDocument[],
     markschemeNodes: ((nodes ?? []) as MarkschemeNode[]).filter((node) => documentIds.has(node.markscheme_document_id)),
     questionNodes: (questionNodes ?? []) as QuestionNodeRow[],
+  };
+}
+
+export async function getAssessmentHealthWorkspace(assessmentId: string) {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: assessment, error: assessmentError }, { data: versions, error: versionError }, { data: savedChecks, error: checkError }] = await Promise.all([
+    supabase.from("assessments").select("*").eq("id", assessmentId).maybeSingle(),
+    supabase.from("assessment_versions").select("*").eq("assessment_id", assessmentId).order("version_no", { ascending: false }),
+    supabase.from("assessment_health_checks").select("*").eq("assessment_id", assessmentId).order("last_checked_at", { ascending: false }),
+  ]);
+  if (assessmentError) throw assessmentError;
+  if (versionError) throw versionError;
+  if (checkError) throw checkError;
+  const latestVersion = versions?.[0] ?? null;
+  const [{ data: questionNodes, error: nodeError }, { data: markschemeNodes, error: markschemeError }] = latestVersion
+    ? await Promise.all([
+        supabase.from("question_nodes").select("*").eq("assessment_version_id", latestVersion.id).order("ordinal"),
+        supabase.from("markscheme_nodes").select("*"),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (nodeError) throw nodeError;
+  if (markschemeError) throw markschemeError;
+  const summary = computePaperHealth({
+    assessment: assessment as Assessment | null,
+    version: latestVersion as AssessmentVersion | null,
+    questionNodes: (questionNodes ?? []) as QuestionNodeRow[],
+    markschemeNodes: (markschemeNodes ?? []) as MarkschemeNode[],
+  });
+  return {
+    assessment: assessment as Assessment | null,
+    latestVersion: latestVersion as AssessmentVersion | null,
+    questionNodes: (questionNodes ?? []) as QuestionNodeRow[],
+    savedChecks: (savedChecks ?? []) as AssessmentHealthCheck[],
+    summary,
+  };
+}
+
+export async function listMistakeTaxonomyWorkspace() {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: categories, error: categoryError }, { data: instances, error: instanceError }] = await Promise.all([
+    supabase.from("mistake_categories").select("*").order("name"),
+    supabase.from("mistake_instances").select("*").order("created_at", { ascending: false }).limit(100),
+  ]);
+  if (categoryError) throw categoryError;
+  if (instanceError) throw instanceError;
+  return { categories: (categories ?? []) as MistakeCategory[], instances: (instances ?? []) as MistakeInstance[] };
+}
+
+export async function listQuestionBankWorkspace() {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: items, error: itemError }, { data: children, error: childError }] = await Promise.all([
+    supabase.from("question_bank_items").select("*").order("created_at", { ascending: false }),
+    supabase.from("question_bank_children").select("*").order("created_at", { ascending: true }),
+  ]);
+  if (itemError) throw itemError;
+  if (childError) throw childError;
+  return { items: (items ?? []) as QuestionBankItem[], children: (children ?? []) as QuestionBankChild[] };
+}
+
+export async function getQuestionBankItemWorkspace(questionId: string) {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: item, error: itemError }, { data: children, error: childError }] = await Promise.all([
+    supabase.from("question_bank_items").select("*").eq("id", questionId).maybeSingle(),
+    supabase.from("question_bank_children").select("*").eq("question_bank_item_id", questionId).order("ordinal_path"),
+  ]);
+  if (itemError) throw itemError;
+  if (childError) throw childError;
+  return { item: item as QuestionBankItem | null, children: (children ?? []) as QuestionBankChild[] };
+}
+
+export async function listPaperGeneratorWorkspace() {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: items, error: itemError }, { data: papers, error: paperError }, { data: paperItems, error: paperItemError }] = await Promise.all([
+    supabase.from("question_bank_items").select("*").eq("do_not_reuse", false).order("created_at", { ascending: false }),
+    supabase.from("generated_papers").select("*").order("created_at", { ascending: false }),
+    supabase.from("generated_paper_items").select("*").order("ordinal"),
+  ]);
+  if (itemError) throw itemError;
+  if (paperError) throw paperError;
+  if (paperItemError) throw paperItemError;
+  return {
+    questionBankItems: (items ?? []) as QuestionBankItem[],
+    generatedPapers: (papers ?? []) as GeneratedPaper[],
+    generatedPaperItems: (paperItems ?? []) as GeneratedPaperItem[],
+  };
+}
+
+export async function getCorrectionNotebookWorkspace(attemptId: string) {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: attempt, error: attemptError }, { data: notebook, error: notebookError }] = await Promise.all([
+    supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle(),
+    supabase.from("correction_notebooks").select("*").eq("attempt_id", attemptId).maybeSingle(),
+  ]);
+  if (attemptError) throw attemptError;
+  if (notebookError) throw notebookError;
+  const [{ data: entries, error: entryError }, { data: feedback, error: feedbackError }, { data: nodes, error: nodeError }] = await Promise.all([
+    notebook ? supabase.from("correction_entries").select("*").eq("notebook_id", notebook.id).order("created_at") : Promise.resolve({ data: [], error: null }),
+    supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).is("revoked_at", null).order("released_at", { ascending: false }).limit(1).maybeSingle(),
+    attempt ? supabase.from("question_nodes").select("*").eq("assessment_version_id", attempt.assessment_version_id).order("ordinal") : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (entryError) throw entryError;
+  if (feedbackError) throw feedbackError;
+  if (nodeError) throw nodeError;
+  return {
+    attempt: attempt as Attempt | null,
+    notebook: notebook as CorrectionNotebook | null,
+    entries: (entries ?? []) as CorrectionEntry[],
+    feedback: feedback as FeedbackRelease | null,
+    questionNodes: (nodes ?? []) as QuestionNodeRow[],
   };
 }

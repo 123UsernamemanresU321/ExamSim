@@ -48,3 +48,22 @@
 - Suggested rubric alignment and feedback drafts.
 - Human-in-the-loop only.
 - Never auto-accuse cheating from Browser Mode telemetry.
+
+## Completed Advanced Learning Workflows
+
+- Deterministic parser repair hardening for bad flat AI output.
+- Root-question marking context architecture.
+- Annotation Studio drag/autosave performance hardening.
+- Paper Health Dashboard.
+- Mistake Taxonomy.
+- Question Bank extraction and Custom Paper Generator draft workflow.
+- Student Correction / Resubmission Notebooks.
+
+## Future Learning Improvements
+
+- AI-assisted question bank tagging with owner confirmation.
+- Advanced OCR region extraction for exact diagram crops.
+- Longitudinal student progress history.
+- Grade boundaries and grade descriptors.
+- Examiner report linking.
+- Full redo scheduling from correction notebooks and weak-topic recommendations.

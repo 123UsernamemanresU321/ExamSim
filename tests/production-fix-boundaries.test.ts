@@ -424,7 +424,8 @@ describe("work annotations and mark discussion tickets", () => {
     const page = read("components/owner/pdf-annotation-page.tsx");
     const studio = read("components/owner/work-annotation-studio.tsx");
     expect(page).toContain("dragPreview");
-    expect(page).toContain("setDragPreview(updated)");
+    expect(page).toContain("dragPreviewRef.current = updated");
+    expect(page).toContain("scheduleLivePreview(\"drag\", updated)");
     expect(page).not.toContain("onUpdateAnnotation(updated);");
     expect(page).toContain("onUpdateAnnotation(interaction.annotation)");
     expect(studio).toContain("isInteracting");

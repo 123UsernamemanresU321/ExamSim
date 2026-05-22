@@ -584,6 +584,139 @@ export type MarkingPacketExport = {
   created_at: string;
 };
 
+export type AssessmentHealthCheck = {
+  id: string;
+  assessment_id: string;
+  assessment_version_id: string | null;
+  status: "ready" | "warning" | "blocked" | "not_checked";
+  score: number;
+  blockers_json: Json;
+  warnings_json: Json;
+  checks_json: Json;
+  last_checked_at: string;
+  overridden_by_profile_id: string | null;
+  override_reason: string | null;
+  created_at: string;
+};
+
+export type MistakeCategory = {
+  id: string;
+  owner_profile_id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  parent_category_id: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MistakeInstance = {
+  id: string;
+  attempt_id: string;
+  question_node_id: string;
+  category_id: string;
+  created_by_profile_id: string;
+  severity: "minor" | "moderate" | "major";
+  note: string | null;
+  linked_mark_delta: number | null;
+  student_visible: boolean;
+  created_at: string;
+};
+
+export type QuestionBankItem = {
+  id: string;
+  owner_profile_id: string;
+  source_assessment_id: string | null;
+  source_assessment_version_id: string | null;
+  source_question_node_id: string | null;
+  title: string | null;
+  root_node_key: string;
+  prompt_html: string | null;
+  prompt_latex: string | null;
+  source_pdf_object_path: string | null;
+  source_page_start: number | null;
+  source_page_end: number | null;
+  source_region_json: Json | null;
+  marks_available: number | null;
+  estimated_difficulty: number | null;
+  assessment_kind: AssessmentKind | null;
+  subject: string | null;
+  paper_code: string | null;
+  tags: string[];
+  topic_tag_ids: string[];
+  has_visual_assets: boolean;
+  visual_asset_refs: Json;
+  answer_mode: "none" | "upload_pdf" | "typed_text" | "typed_or_upload" | "multiple_choice" | "numerical";
+  markscheme_html: string | null;
+  markscheme_refs: Json;
+  do_not_reuse: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuestionBankChild = {
+  id: string;
+  question_bank_item_id: string;
+  node_key: string;
+  parent_node_key: string | null;
+  ordinal_path: number[];
+  prompt_html: string | null;
+  marks_available: number | null;
+  markscheme_html: string | null;
+  created_at: string;
+};
+
+export type GeneratedPaper = {
+  id: string;
+  owner_profile_id: string;
+  title: string;
+  subject: string | null;
+  target_marks: number | null;
+  target_duration_seconds: number | null;
+  criteria_json: Json;
+  status: "draft" | "converted_to_assessment" | "discarded";
+  converted_assessment_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GeneratedPaperItem = {
+  id: string;
+  generated_paper_id: string;
+  question_bank_item_id: string;
+  ordinal: number;
+  included_marks: number | null;
+  locked: boolean;
+  created_at: string;
+};
+
+export type CorrectionNotebook = {
+  id: string;
+  attempt_id: string;
+  student_profile_id: string;
+  status: "not_started" | "in_progress" | "submitted" | "reviewed";
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CorrectionEntry = {
+  id: string;
+  notebook_id: string;
+  question_node_id: string;
+  root_question_node_id: string;
+  correction_text: string | null;
+  reflection_text: string | null;
+  corrected_upload_object_path: string | null;
+  confidence_after_correction: number | null;
+  status: "draft" | "submitted" | "reviewed";
+  owner_feedback: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ModerationReport = {
   id: string;
   attempt_id: string;
@@ -839,6 +972,60 @@ export type Database = {
         Row: AttemptRecoveryAction;
         Insert: Partial<AttemptRecoveryAction> & Pick<AttemptRecoveryAction, "attempt_id" | "owner_profile_id" | "action_type">;
         Update: Partial<AttemptRecoveryAction>;
+        Relationships: [];
+      };
+      assessment_health_checks: {
+        Row: AssessmentHealthCheck;
+        Insert: Partial<AssessmentHealthCheck> & Pick<AssessmentHealthCheck, "assessment_id">;
+        Update: Partial<AssessmentHealthCheck>;
+        Relationships: [];
+      };
+      mistake_categories: {
+        Row: MistakeCategory;
+        Insert: Partial<MistakeCategory> & Pick<MistakeCategory, "owner_profile_id" | "name">;
+        Update: Partial<MistakeCategory>;
+        Relationships: [];
+      };
+      mistake_instances: {
+        Row: MistakeInstance;
+        Insert: Partial<MistakeInstance> & Pick<MistakeInstance, "attempt_id" | "question_node_id" | "category_id" | "created_by_profile_id">;
+        Update: Partial<MistakeInstance>;
+        Relationships: [];
+      };
+      question_bank_items: {
+        Row: QuestionBankItem;
+        Insert: Partial<QuestionBankItem> & Pick<QuestionBankItem, "owner_profile_id" | "root_node_key">;
+        Update: Partial<QuestionBankItem>;
+        Relationships: [];
+      };
+      question_bank_children: {
+        Row: QuestionBankChild;
+        Insert: Partial<QuestionBankChild> & Pick<QuestionBankChild, "question_bank_item_id" | "node_key" | "ordinal_path">;
+        Update: Partial<QuestionBankChild>;
+        Relationships: [];
+      };
+      generated_papers: {
+        Row: GeneratedPaper;
+        Insert: Partial<GeneratedPaper> & Pick<GeneratedPaper, "owner_profile_id" | "title">;
+        Update: Partial<GeneratedPaper>;
+        Relationships: [];
+      };
+      generated_paper_items: {
+        Row: GeneratedPaperItem;
+        Insert: Partial<GeneratedPaperItem> & Pick<GeneratedPaperItem, "generated_paper_id" | "question_bank_item_id" | "ordinal">;
+        Update: Partial<GeneratedPaperItem>;
+        Relationships: [];
+      };
+      correction_notebooks: {
+        Row: CorrectionNotebook;
+        Insert: Partial<CorrectionNotebook> & Pick<CorrectionNotebook, "attempt_id" | "student_profile_id">;
+        Update: Partial<CorrectionNotebook>;
+        Relationships: [];
+      };
+      correction_entries: {
+        Row: CorrectionEntry;
+        Insert: Partial<CorrectionEntry> & Pick<CorrectionEntry, "notebook_id" | "question_node_id" | "root_question_node_id">;
+        Update: Partial<CorrectionEntry>;
         Relationships: [];
       };
       parse_jobs: {

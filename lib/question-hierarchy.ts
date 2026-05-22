@@ -95,6 +95,21 @@ export type NormalizedQuestionTreeResult = {
   confidence: number;
 };
 
+export type QuestionTreeValidationIssue = {
+  severity: "blocked" | "warning";
+  code:
+    | "empty_tree"
+    | "orphan_parent"
+    | "duplicate_key"
+    | "missing_page_range"
+    | "visual_dependency_without_source"
+    | "invalid_order"
+    | "front_matter_question"
+    | "marks_missing";
+  message: string;
+  node_key?: string;
+};
+
 export function canonicalQuestionKey(rawKey: string | null | undefined): string {
   if (!rawKey) return "";
   return rawKey
@@ -272,6 +287,33 @@ export function shouldExcludeFromQuestionExtraction(text: string, purpose: "pape
   ]).has(classifyDocumentSection(text, purpose));
 }
 
+export function classifyDocumentSections(
+  rawSections: Array<string | { text?: string | null; content?: string | null; page_text?: string | null }>,
+  purpose: "paper" | "markscheme" = "paper",
+): Array<{ type: DocumentSectionType; index: number; reason: string }> {
+  return rawSections.map((section, index) => {
+    const text = typeof section === "string" ? section : section.text ?? section.content ?? section.page_text ?? "";
+    const type = classifyDocumentSection(text, purpose);
+    return {
+      type,
+      index,
+      reason: sectionClassificationReason(type),
+    };
+  });
+}
+
+export function classifyMarkschemeSections(
+  rawSections: Array<string | { text?: string | null; content?: string | null; page_text?: string | null }>,
+) {
+  return classifyDocumentSections(rawSections, "markscheme");
+}
+
+export function detectVisualDependency(promptHtml?: string | null, promptLatex?: string | null): boolean {
+  return /\b(diagram|figure|graph|table|image|shown below|shown in|chart|data booklet|sketch|grid|axes)\b/i.test(
+    `${promptHtml ?? ""} ${promptLatex ?? ""}`,
+  );
+}
+
 export function matchQuestionKey(a: string | null | undefined, b: string | null | undefined): boolean {
   const left = canonicalQuestionKey(a);
   const right = canonicalQuestionKey(b);
@@ -339,6 +381,104 @@ export function buildNormalizedQuestionTree(rawNodes: RawQuestionHierarchyNode[]
   const flat = roots.flatMap(flattenNormalizedTree);
   const confidence = Math.max(0, Math.min(1, 1 - warnings.length * 0.03));
   return { tree: roots, flat, warnings, confidence };
+}
+
+export function createMissingParents(rawNodes: RawQuestionHierarchyNode[]): NormalizedQuestionHierarchyNode[] {
+  return buildNormalizedQuestionTree(rawNodes).flat.filter((node) => node.synthetic);
+}
+
+export function mergeDuplicateNodes(rawNodes: RawQuestionHierarchyNode[]): NormalizedQuestionHierarchyNode[] {
+  return buildNormalizedQuestionTree(rawNodes).flat;
+}
+
+export function repairFlatParserOutput(rawNodes: RawQuestionHierarchyNode[]): NormalizedQuestionTreeResult {
+  return buildNormalizedQuestionTree(rawNodes);
+}
+
+export function buildQuestionTree(rawNodes: RawQuestionHierarchyNode[] | NormalizedQuestionHierarchyNode[]): NormalizedQuestionHierarchyNode[] {
+  return buildNormalizedQuestionTree(rawNodes).tree;
+}
+
+export function flattenQuestionTreePreorder(tree: NormalizedQuestionHierarchyNode[]): NormalizedQuestionHierarchyNode[] {
+  return tree.flatMap(flattenNormalizedTree);
+}
+
+export function validateQuestionTree(tree: NormalizedQuestionHierarchyNode[]): QuestionTreeValidationIssue[] {
+  const issues: QuestionTreeValidationIssue[] = [];
+  if (!tree.length) {
+    issues.push({ severity: "blocked", code: "empty_tree", message: "No root questions were detected." });
+    return issues;
+  }
+
+  const flat = flattenQuestionTreePreorder(tree);
+  const seen = new Set<string>();
+  let previousPath: number[] | null = null;
+  for (const node of flat) {
+    if (seen.has(node.normalized_key)) {
+      issues.push({
+        severity: "blocked",
+        code: "duplicate_key",
+        node_key: node.node_key,
+        message: `Duplicate question key ${node.node_key} remains after repair.`,
+      });
+    }
+    seen.add(node.normalized_key);
+
+    if (node.parent_node_key && !seen.has(node.parent_node_key)) {
+      const parentExistsAnywhere = flat.some((candidate) => candidate.normalized_key === node.parent_node_key);
+      if (!parentExistsAnywhere) {
+        issues.push({
+          severity: "blocked",
+          code: "orphan_parent",
+          node_key: node.node_key,
+          message: `${node.node_key} references missing parent ${node.parent_node_key}.`,
+        });
+      }
+    }
+
+    if (previousPath && compareOrdinalPaths(previousPath, node.ordinal_path) > 0) {
+      issues.push({
+        severity: "blocked",
+        code: "invalid_order",
+        node_key: node.node_key,
+        message: `${node.node_key} is out of natural question order.`,
+      });
+    }
+    previousPath = node.ordinal_path;
+
+    if (!node.source_page_start || !node.source_page_end) {
+      issues.push({
+        severity: "warning",
+        code: "missing_page_range",
+        node_key: node.node_key,
+        message: `${node.node_key} does not have a source page range; diagrams or layout context may be missing.`,
+      });
+    }
+
+    if (detectVisualDependency(node.prompt_html, node.prompt_latex) && !node.has_visual_assets && !node.source_page_start) {
+      issues.push({
+        severity: "warning",
+        code: "visual_dependency_without_source",
+        node_key: node.node_key,
+        message: `${node.node_key} appears to depend on a diagram, graph, table, or figure but has no visual source reference.`,
+      });
+    }
+
+    if (!node.children.length && node.node_type !== "section" && node.marks_available === null) {
+      issues.push({
+        severity: "warning",
+        code: "marks_missing",
+        node_key: node.node_key,
+        message: `${node.node_key} is markable but has no marks available.`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+export function generateParserWarnings(tree: NormalizedQuestionHierarchyNode[]): string[] {
+  return validateQuestionTree(tree).map((issue) => issue.message);
 }
 
 export function isLeafNode(node: { children?: unknown[] }): boolean {
@@ -413,6 +553,29 @@ function hasActualQuestionMarker(text: string): boolean {
     if (/^\d{1,2}\s+\([a-z]\)\s+/i.test(line)) return true;
     return false;
   });
+}
+
+function sectionClassificationReason(type: DocumentSectionType): string {
+  switch (type) {
+    case "cover":
+      return "Front-matter signals were detected without actual question content.";
+    case "instructions":
+      return "Instruction wording was detected and excluded from question extraction.";
+    case "formula_sheet":
+      return "Formula-sheet wording was detected.";
+    case "contents":
+      return "Contents/table-of-contents wording was detected.";
+    case "question_page":
+      return "Question numbering and question-like content were detected.";
+    case "markscheme_cover":
+      return "Markscheme cover wording was detected and should not map to Q1.";
+    case "markscheme_instructions":
+      return "General marking instructions were detected and should not map to a question.";
+    case "markscheme_question_page":
+      return "Question-specific markscheme content was detected.";
+    default:
+      return "The section could not be classified reliably.";
+  }
 }
 
 function questionPartTokenToOrdinal(rawToken: string, depth: number): number {
@@ -515,8 +678,7 @@ function rawNodeToNormalized(
   const hasVisualAssets = Boolean(
     raw.has_visual_assets ||
       assets.length ||
-      (visualAssetRefs?.length ?? 0) > 0 ||
-      /\b(diagram|figure|graph|table|image|shown below|sketch)\b/i.test(`${promptHtml ?? ""} ${promptLatex ?? ""}`),
+      (visualAssetRefs?.length ?? 0) > 0,
   );
 
   return {

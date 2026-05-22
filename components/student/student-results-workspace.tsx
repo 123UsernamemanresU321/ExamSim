@@ -7,6 +7,7 @@ import { MarkingSidebarTree } from "@/components/owner/marking-sidebar-tree";
 import { MarkingCenterPanel } from "@/components/owner/marking-center-panel";
 import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -32,7 +33,15 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
   const totals = selectedNode ? computeMarkingTotals(selectedNode, workspace.marks) : null;
 
   return (
-    <div className="flex h-full gap-8 overflow-hidden">
+    <div className="flex h-full flex-col gap-4 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Released feedback</p>
+          <p className="text-sm text-[var(--muted)]">Use the correction notebook to respond to feedback after reviewing each main question.</p>
+        </div>
+        <ButtonLink href={`/student/attempts/${attemptId}/corrections`}>Open correction notebook</ButtonLink>
+      </div>
+      <div className="flex min-h-0 flex-1 gap-8 overflow-hidden">
       {/* Navigation Tree */}
       <aside className="w-80 flex-shrink-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-50/30 p-2">
         <MarkingSidebarTree
@@ -194,6 +203,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
            </div>
         </section>
       </main>
+      </div>
     </div>
   );
 }

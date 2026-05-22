@@ -18,6 +18,8 @@ export function MarkingCenterPanel({
   markschemeHtml,
   markschemePdfPath,
   sourceObjectPath,
+  sourcePageRanges = [],
+  visualWarnings = [],
   assetSigningMode = "owner",
 }: {
   node?: MarkingTreeNode | null;
@@ -25,6 +27,8 @@ export function MarkingCenterPanel({
   markschemeHtml: string | null;
   markschemePdfPath: string | null;
   sourceObjectPath?: string | null;
+  sourcePageRanges?: Array<{ node_key: string; start: number | null; end: number | null }>;
+  visualWarnings?: string[];
   assetSigningMode?: "owner" | "none";
 }) {
   const [showMarkscheme, setShowMarkscheme] = useState(true);
@@ -74,12 +78,19 @@ export function MarkingCenterPanel({
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--subtle)]">
           <Info size={12} /> Question Prompt
         </div>
+        {visualWarnings.length ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">
+            {visualWarnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        ) : null}
         <Card className="overflow-hidden border-none bg-[var(--surface-muted)] shadow-none">
           <div className="p-6 md:p-8">
             <div className="space-y-6">
               <QuestionPromptNode node={node} marks={marks} depth={0} assetSigningMode={assetSigningMode} />
               {sourceObjectPath && assetSigningMode === "owner" ? (
-                <SourcePdfFallback node={node} sourceObjectPath={sourceObjectPath} />
+                <SourcePdfFallback node={node} sourceObjectPath={sourceObjectPath} sourcePageRanges={sourcePageRanges} />
               ) : null}
             </div>
           </div>
@@ -138,7 +149,15 @@ export function MarkingCenterPanel({
   );
 }
 
-function SourcePdfFallback({ node, sourceObjectPath }: { node: MarkingTreeNode; sourceObjectPath: string }) {
+function SourcePdfFallback({
+  node,
+  sourceObjectPath,
+  sourcePageRanges,
+}: {
+  node: MarkingTreeNode;
+  sourceObjectPath: string;
+  sourcePageRanges: Array<{ node_key: string; start: number | null; end: number | null }>;
+}) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pageLabel = node.source_page_start
@@ -181,6 +200,13 @@ function SourcePdfFallback({ node, sourceObjectPath }: { node: MarkingTreeNode; 
           <p className="text-xs leading-5 text-amber-900/80">
             Use this fallback when OCR loses a diagram, graph, table, or image for {node.node_key} ({pageLabel}).
           </p>
+          {sourcePageRanges.length ? (
+            <p className="mt-1 text-[11px] text-amber-900/70">
+              Page map:{" "}
+              {sourcePageRanges.slice(0, 6).map((range) => `${range.node_key}:${range.start ?? "?"}-${range.end ?? range.start ?? "?"}`).join(", ")}
+              {sourcePageRanges.length > 6 ? "..." : ""}
+            </p>
+          ) : null}
         </div>
         {signedUrl ? (
           <a

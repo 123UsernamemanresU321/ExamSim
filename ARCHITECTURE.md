@@ -59,6 +59,26 @@ official request headers to Edge Functions. Modern SEB WKWebView clients use the
 accepted only with a session-bound state token and an allowlisted exam page URL. Missing, expired, or mismatched
 verification fails closed.
 
+## Parser Repair And Marking Context
+
+AI parser output is never trusted directly. The deterministic repair layer normalizes question keys, creates missing root
+questions and parents, merges duplicates, sorts by numeric `ordinal_path`, classifies front matter/markscheme covers, and
+emits parser warnings for missing page ranges or visual dependencies. Parse Review and Paper Health consume the repaired
+tree before publish.
+
+Marking views use a root-question context object as the unit of work. It groups the root question, descendants, source
+page fallback, markscheme mapping, upload slot, sanity check, annotations, marks, comment bank, topic tags, mistake
+taxonomy items, moderation timeline, incidents, accommodations, release state, and permissions so panels do not drift.
+
+## Question Bank And Corrections
+
+Approved assessment root questions can be extracted into a private owner-only question bank with child parts, source page
+references, markscheme snippets, topic metadata, and visual-asset flags. The custom paper generator assembles drafts from
+existing question bank items only; it does not generate new questions with AI.
+
+After feedback release, students can open a correction notebook for the attempt. Corrections are learning records:
+students write corrected solutions and reflections, owners review them, and original exam marks remain unchanged.
+
 ## Storage Strategy
 
 - `assessment-sources`: original PDFs, LaTeX, and JSON imports.
