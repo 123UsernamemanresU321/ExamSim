@@ -41,6 +41,7 @@ async function extractToQuestionBank(formData: FormData) {
         subject: workspace.assessment.subject,
         paper_code: workspace.assessment.paper_code,
         has_visual_assets: draft.hasVisualAssets,
+        visual_asset_refs: draft.visualAssetRefs,
         answer_mode: "upload_pdf",
         markscheme_html: draft.markschemeHtml,
       })

@@ -12,6 +12,7 @@ export type QuestionBankDraftItem = {
   sourcePageStart: number | null;
   sourcePageEnd: number | null;
   sourceObjectPath: string | null;
+  visualAssetRefs: string[];
   markschemeHtml: string | null;
 };
 
@@ -54,20 +55,24 @@ export function extractQuestionBankDrafts({
 
   return roots.map((root) => {
     const descendants = flattenMarkingTree(root.children);
+    const fullTree = [root, ...descendants];
     const total = computeMarkingTotals(root, []);
     const markschemeHtml = [markschemeByQuestionId.get(root.id), ...descendants.map((child) => markschemeByQuestionId.get(child.id))]
       .filter(Boolean)
       .join("\n<hr />\n") || root.markscheme_html;
+    const sourcePageRange = sourcePageRangeForNodes(fullTree);
+    const visualAssetRefs = visualAssetRefsForNodes(fullTree);
     return {
       root,
       children: descendants,
       title: root.title ?? `${assessment.title} ${root.node_key}`,
       rootNodeKey: root.node_key,
       marksAvailable: total.max || root.marks,
-      hasVisualAssets: Boolean(root.has_visual_assets || descendants.some((child) => child.has_visual_assets)),
-      sourcePageStart: root.source_page_start,
-      sourcePageEnd: root.source_page_end,
+      hasVisualAssets: Boolean(root.has_visual_assets || descendants.some((child) => child.has_visual_assets) || visualAssetRefs.length),
+      sourcePageStart: sourcePageRange.start,
+      sourcePageEnd: sourcePageRange.end,
       sourceObjectPath: version.source_object_path,
+      visualAssetRefs,
       markschemeHtml: markschemeHtml || null,
     };
   });
@@ -171,4 +176,29 @@ function rankItem(item: QuestionBankItem, criteria: PaperGenerationCriteria) {
   const difficultyScore = item.estimated_difficulty ? 6 - Math.abs(item.estimated_difficulty - 3) : 2;
   const visualPenalty = criteria.includeVisualQuestions === false && item.has_visual_assets ? -50 : 0;
   return topicScore + markScore + difficultyScore + visualPenalty;
+}
+
+function sourcePageRangeForNodes(nodes: MarkingTreeNode[]) {
+  const starts: number[] = [];
+  const ends: number[] = [];
+  for (const node of nodes) {
+    if (typeof node.source_page_start === "number" && node.source_page_start > 0) starts.push(node.source_page_start);
+    if (typeof node.source_page_end === "number" && node.source_page_end > 0) ends.push(node.source_page_end);
+    else if (typeof node.source_page_start === "number" && node.source_page_start > 0) ends.push(node.source_page_start);
+  }
+  return {
+    start: starts.length ? Math.min(...starts) : null,
+    end: ends.length ? Math.max(...ends) : starts.length ? Math.min(...starts) : null,
+  };
+}
+
+function visualAssetRefsForNodes(nodes: MarkingTreeNode[]) {
+  return [
+    ...new Set(
+      nodes.flatMap((node) => [
+        ...(node.visual_asset_refs ?? []),
+        ...(node.assets ?? []),
+      ]).filter((ref): ref is string => Boolean(ref)),
+    ),
+  ];
 }

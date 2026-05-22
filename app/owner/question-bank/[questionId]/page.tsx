@@ -46,6 +46,9 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
   }
   const tree = buildQuestionBankChildTree(children);
   const rootMarks = calculateQuestionBankRootMarks(item, tree);
+  const visualAssetRefs = Array.isArray(item.visual_asset_refs)
+    ? item.visual_asset_refs.filter((ref): ref is string => typeof ref === "string" && ref.trim().length > 0)
+    : [];
 
   return (
     <main className="space-y-6 p-8">
@@ -86,6 +89,21 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
               ))}
             </div>
           ) : null}
+          {item.source_pdf_object_path ? (
+            <div className="mt-8 space-y-3">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-[var(--subtle)]">Original source pages and diagrams</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  This rendered source view is the fallback for diagrams, graphs, tables, and layout that OCR or AI extraction may omit.
+                </p>
+              </div>
+              <QuestionBankSourcePreview objectPath={item.source_pdf_object_path} pageStart={item.source_page_start} pageEnd={item.source_page_end} />
+            </div>
+          ) : item.has_visual_assets ? (
+            <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+              This item is marked as visual, but no original source PDF path is attached. Re-extract it from an assessment version with a private PDF source.
+            </div>
+          ) : null}
         </Card>
 
         <aside className="space-y-4">
@@ -124,9 +142,16 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
                 This item depends on a diagram, graph, table, or figure.
               </div>
             ) : null}
-            <div className="mt-4">
-              <QuestionBankSourcePreview objectPath={item.source_pdf_object_path} pageStart={item.source_page_start} pageEnd={item.source_page_end} />
-            </div>
+            {visualAssetRefs.length ? (
+              <div className="mt-3 rounded-lg border border-[var(--border)] bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Visual references</p>
+                <ul className="mt-2 space-y-1 text-xs text-[var(--muted)]">
+                  {visualAssetRefs.slice(0, 6).map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </Card>
           <Card className="p-5">
             <h2 className="font-black text-[var(--ink)]">Markscheme</h2>

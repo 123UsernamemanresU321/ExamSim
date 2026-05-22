@@ -54,6 +54,33 @@ describe("advanced development package", () => {
     expect(drafts[0]?.sourceObjectPath).toBe("owner/source.pdf");
   });
 
+  it("extracts source page ranges from visual child nodes when the root page range is missing", () => {
+    const assessment = { title: "Geometry Test", paper_code: "MATH-P2", subject: "Maths AA HL", assessment_kind: "test" } as Assessment;
+    const version = { source_object_path: "owner/geometry.pdf" } as AssessmentVersion;
+    const root = questionNode("q2", "Q2", null, 1, [2], 6);
+    root.source_page_start = null;
+    root.source_page_end = null;
+    const diagramPart = questionNode("q2a", "2(a)", "q2", 2, [2, 1], 2);
+    diagramPart.source_page_start = 4;
+    diagramPart.source_page_end = 5;
+    diagramPart.has_visual_assets = true;
+    diagramPart.visual_asset_refs = ["diagram on page 4"];
+    const textPart = questionNode("q2b", "2(b)", "q2", 3, [2, 2], 4);
+    textPart.source_page_start = 6;
+    textPart.source_page_end = 6;
+
+    const drafts = extractQuestionBankDrafts({
+      assessment,
+      version,
+      questionNodes: [root, diagramPart, textPart],
+    });
+
+    expect(drafts[0]?.hasVisualAssets).toBe(true);
+    expect(drafts[0]?.sourcePageStart).toBe(4);
+    expect(drafts[0]?.sourcePageEnd).toBe(6);
+    expect(drafts[0]?.visualAssetRefs).toEqual(["diagram on page 4"]);
+  });
+
   it("selects reusable question bank items against generation criteria", () => {
     const items = [
       bankItem("a", 12, "Physics", ["mechanics"], 3),
