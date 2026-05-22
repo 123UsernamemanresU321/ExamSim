@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { SUBJECT_PRESETS } from "@/lib/subjects";
 import { uploadSizeLabel, validatePdfUpload } from "@/lib/upload-policy";
 import type { AssessmentTemplate } from "@/types/database";
 
@@ -29,6 +30,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
   const [sourceKind, setSourceKind] = useState("json");
   const [markschemeKind, setMarkschemeKind] = useState("none");
   const [assessmentKind, setAssessmentKind] = useState("exam");
+  const [subject, setSubject] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [created, setCreated] = useState<IngestResult | null>(null);
@@ -61,6 +63,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
       const body = {
         title: String(form.get("title") ?? ""),
         paper_code: String(form.get("paper_code") ?? "") || undefined,
+        subject: String(form.get("subject") ?? "") || undefined,
         external_schedule_ref: String(form.get("external_schedule_ref") ?? "") || undefined,
         assessment_kind: assessmentKind,
         source_kind: sourceKind,
@@ -126,6 +129,34 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
           description="Optional stable identifier shared with schedules or exports. Keep it short, for example IB-MAA-HL-P1-2026 or SAMO-R2-MOCK."
         >
           <Input name="paper_code" placeholder="MATH-MOCK-01" />
+        </Field>
+        <Field
+          label="Subject"
+          description="Used for question-bank extraction, topic analysis, and paper generation filters. The extracted questions inherit this subject."
+        >
+          <input type="hidden" name="subject" value={subject} />
+          <div className="flex flex-wrap gap-2">
+            {SUBJECT_PRESETS.map((subjectName) => (
+              <button
+                key={subjectName}
+                type="button"
+                className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                  subject === subjectName
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                    : "border-[var(--border)] bg-white text-[var(--muted)] hover:border-[var(--primary)]"
+                }`}
+                onClick={() => setSubject(subjectName)}
+              >
+                {subjectName}
+              </button>
+            ))}
+          </div>
+          <Input
+            className="mt-2"
+            placeholder="Custom subject, if needed"
+            value={subject && !SUBJECT_PRESETS.includes(subject as (typeof SUBJECT_PRESETS)[number]) ? subject : ""}
+            onChange={(event) => setSubject(event.target.value)}
+          />
         </Field>
         <Field
           label="External schedule ref"

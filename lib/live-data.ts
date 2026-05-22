@@ -333,6 +333,7 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
         owner_profile_id: "demo_owner",
         title: sampleAssessment.title,
         paper_code: sampleAssessment.paper_code ?? null,
+        subject: "Olympiad",
         external_schedule_ref: null,
         assessment_kind: sampleAssessment.assessment_kind,
         description: null,

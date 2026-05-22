@@ -6,6 +6,7 @@ import type { getAdminClient } from "../_shared/supabase.ts";
 type IngestBody = {
   title: string;
   paper_code?: string;
+  subject?: string;
   external_schedule_ref?: string;
   assessment_kind: "practice_paper" | "quiz" | "test" | "exam";
   source_kind: "pdf" | "latex" | "json";
@@ -183,6 +184,7 @@ serve(async (request) => {
         owner_profile_id: profile.id,
         title: body.title,
         paper_code: body.paper_code ?? null,
+        subject: body.subject?.trim() || null,
         external_schedule_ref: body.external_schedule_ref ?? null,
         assessment_kind: body.assessment_kind,
       })
@@ -209,6 +211,7 @@ serve(async (request) => {
               id: assessment.id,
               title: assessment.title,
               paper_code: assessment.paper_code,
+              subject: assessment.subject,
               assessment_kind: assessment.assessment_kind,
               source_kind: body.source_kind,
               authoring_origin: body.source_kind === "pdf" ? "owner_uploaded" : "owner_pasted",

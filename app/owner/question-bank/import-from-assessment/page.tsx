@@ -21,6 +21,7 @@ async function extractToQuestionBank(formData: FormData) {
     questionNodes: workspace.questionNodes,
   });
   for (const draft of drafts) {
+    const nodeKeyById = new Map([[draft.root.id, draft.root.node_key], ...draft.children.map((child) => [child.id, child.node_key] as const)]);
     const { data: item, error: itemError } = await supabase
       .from("question_bank_items")
       .insert({
@@ -37,6 +38,7 @@ async function extractToQuestionBank(formData: FormData) {
         source_page_end: draft.sourcePageEnd,
         marks_available: draft.marksAvailable,
         assessment_kind: workspace.assessment.assessment_kind,
+        subject: workspace.assessment.subject,
         paper_code: workspace.assessment.paper_code,
         has_visual_assets: draft.hasVisualAssets,
         answer_mode: "upload_pdf",
@@ -45,15 +47,19 @@ async function extractToQuestionBank(formData: FormData) {
       .select("*")
       .single();
     if (itemError) throw itemError;
-    const children = draft.children.map((child) => ({
-      question_bank_item_id: item.id,
-      node_key: child.node_key,
-      parent_node_key: child.parent_node_id,
-      ordinal_path: child.ordinal_path_resolved,
-      prompt_html: child.prompt_html,
-      marks_available: child.marks,
-      markscheme_html: child.markscheme_html,
-    }));
+    const children = draft.children.map((child) => {
+      const parentId = child.parent_node_id ?? child.inferred_parent_id;
+      return {
+        question_bank_item_id: item.id,
+        node_key: child.node_key,
+        parent_node_key: parentId ? nodeKeyById.get(parentId) ?? null : null,
+        ordinal_path: child.ordinal_path_resolved,
+        prompt_html: child.prompt_html,
+        prompt_latex: child.prompt_latex,
+        marks_available: child.marks,
+        markscheme_html: child.markscheme_html,
+      };
+    });
     if (children.length) {
       const { error: childError } = await supabase.from("question_bank_children").insert(children);
       if (childError) throw childError;

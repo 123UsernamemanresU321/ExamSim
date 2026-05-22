@@ -70,6 +70,7 @@ export type Assessment = {
   owner_profile_id: string;
   title: string;
   paper_code: string | null;
+  subject: string | null;
   external_schedule_ref: string | null;
   assessment_kind: AssessmentKind;
   description: string | null;
@@ -662,6 +663,7 @@ export type QuestionBankChild = {
   parent_node_key: string | null;
   ordinal_path: number[];
   prompt_html: string | null;
+  prompt_latex: string | null;
   marks_available: number | null;
   markscheme_html: string | null;
   created_at: string;

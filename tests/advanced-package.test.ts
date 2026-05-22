@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildRootQuestionMarkingContext } from "@/lib/marking-context-core";
 import { computePaperHealth } from "@/lib/paper-health";
-import { extractQuestionBankDrafts, selectQuestionBankItems } from "@/lib/question-bank";
+import { buildQuestionBankChildTree, extractQuestionBankDrafts, selectQuestionBankItems } from "@/lib/question-bank";
 import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import type { Assessment, AssessmentVersion, QuestionBankItem, QuestionNodeRow } from "@/types/database";
 
@@ -36,7 +36,7 @@ describe("advanced development package", () => {
   });
 
   it("extracts question bank drafts preserving children and source pages", () => {
-    const assessment = { title: "Mechanics Test", paper_code: "PHY-P2", assessment_kind: "test" } as Assessment;
+    const assessment = { title: "Mechanics Test", paper_code: "PHY-P2", subject: "Physics", assessment_kind: "test" } as Assessment;
     const version = { source_object_path: "owner/source.pdf" } as AssessmentVersion;
     const drafts = extractQuestionBankDrafts({
       assessment,
@@ -63,6 +63,20 @@ describe("advanced development package", () => {
     const selection = selectQuestionBankItems(items, { subject: "Physics", topicTags: ["mechanics"], targetMarks: 12 });
     expect(selection.selectedItems.map((item) => item.id)).toEqual(["a"]);
     expect(selection.totalMarks).toBe(12);
+  });
+
+  it("computes question bank parent marks from nested children and repairs legacy parent UUIDs", () => {
+    const tree = buildQuestionBankChildTree([
+      bankChild("1(b)", null, [1, 2], null),
+      bankChild("1(b)(i)", "legacy-uuid-parent-that-will-not-match", [1, 2, 1], 2),
+      bankChild("1(b)(ii)", "legacy-uuid-parent-that-will-not-match", [1, 2, 2], 2),
+    ]);
+
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.node_key).toBe("1(b)");
+    expect(tree[0]?.computed_marks_available).toBe(4);
+    expect(tree[0]?.mark_source).toBe("computed");
+    expect(tree[0]?.children.map((child) => child.node_key)).toEqual(["1(b)(i)", "1(b)(ii)"]);
   });
 });
 
@@ -179,5 +193,20 @@ function bankItem(id: string, marks: number, subject: string, tags: string[], di
     do_not_reuse: false,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function bankChild(nodeKey: string, parentNodeKey: string | null, ordinalPath: number[], marks: number | null) {
+  return {
+    id: nodeKey,
+    question_bank_item_id: "item",
+    node_key: nodeKey,
+    parent_node_key: parentNodeKey,
+    ordinal_path: ordinalPath,
+    prompt_html: `$${nodeKey}$`,
+    prompt_latex: null,
+    marks_available: marks,
+    markscheme_html: null,
+    created_at: "2026-01-01T00:00:00.000Z",
   };
 }

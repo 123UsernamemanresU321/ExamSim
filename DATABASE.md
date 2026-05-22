@@ -154,8 +154,11 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   override reason.
 - `mistake_categories` and `mistake_instances` track reusable reasons for lost marks. Students can see only released,
   student-visible mistake instances for their own attempt.
+- `assessments.subject` stores owner-selected subject/course labels such as Maths AA HL, Chemistry, Physics, or
+  Olympiad so extracted question-bank items and generated papers can be filtered consistently.
 - `question_bank_items` and `question_bank_children` store private reusable root questions with their nested child
-  structure, source page fallback metadata, visual asset flags, markscheme references, and topic/search metadata.
+  structure, source page fallback metadata, child LaTeX prompts, visual asset flags, markscheme references, and
+  topic/search metadata.
 - `generated_papers` and `generated_paper_items` store owner-reviewed custom paper drafts assembled from question bank
   items. They become normal assessments only after explicit conversion/review.
 - `correction_notebooks` and `correction_entries` store student correction/reflection work after feedback release.

@@ -1,5 +1,6 @@
 import { buildMarkingTree, computeMarkingTotals, flattenMarkingTree, getSelectableMarkingGroups, type MarkingTreeNode } from "@/lib/marking-tree";
-import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionBankItem, QuestionNodeRow } from "@/types/database";
+import { compareOrdinalPaths, formatQuestionKeyFromOrdinalPath } from "@/lib/question-hierarchy";
+import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionBankChild, QuestionBankItem, QuestionNodeRow } from "@/types/database";
 
 export type QuestionBankDraftItem = {
   root: MarkingTreeNode;
@@ -30,13 +31,19 @@ export type GeneratedPaperSelection = {
   warnings: string[];
 };
 
+export type QuestionBankTreeNode = QuestionBankChild & {
+  children: QuestionBankTreeNode[];
+  computed_marks_available: number | null;
+  mark_source: "direct" | "computed" | "missing";
+};
+
 export function extractQuestionBankDrafts({
   assessment,
   version,
   questionNodes,
   markschemeNodes = [],
 }: {
-  assessment: Pick<Assessment, "title" | "paper_code" | "assessment_kind">;
+  assessment: Pick<Assessment, "title" | "paper_code" | "assessment_kind" | "subject">;
   version: Pick<AssessmentVersion, "source_object_path">;
   questionNodes: QuestionNodeRow[];
   markschemeNodes?: Pick<MarkschemeNode, "mapped_question_node_id" | "markscheme_html">[];
@@ -97,6 +104,64 @@ export function selectQuestionBankItems(items: QuestionBankItem[], criteria: Pap
   if (targetMarks > 0 && totalMarks > targetMarks) warnings.push(`Selected ${totalMarks} marks, above the ${targetMarks} mark target.`);
 
   return { selectedItems, totalMarks, warnings };
+}
+
+export function buildQuestionBankChildTree(children: QuestionBankChild[]): QuestionBankTreeNode[] {
+  const byKey = new Map<string, QuestionBankTreeNode>();
+  for (const child of children) {
+    byKey.set(child.node_key, {
+      ...child,
+      children: [],
+      computed_marks_available: child.marks_available,
+      mark_source: child.marks_available == null ? "missing" : "direct",
+    });
+  }
+
+  const roots: QuestionBankTreeNode[] = [];
+  for (const node of byKey.values()) {
+    const inferredParentKey = parentKeyForBankChild(node);
+    const parent = inferredParentKey ? byKey.get(inferredParentKey) : null;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+
+  sortQuestionBankTree(roots);
+  for (const root of roots) calculateQuestionBankTreeMarks(root);
+  return roots;
+}
+
+function parentKeyForBankChild(node: QuestionBankTreeNode) {
+  if (node.parent_node_key && node.parent_node_key.length < 30) return node.parent_node_key;
+  if (node.ordinal_path.length <= 2) return null;
+  return formatQuestionKeyFromOrdinalPath(node.ordinal_path.slice(0, -1));
+}
+
+export function flattenQuestionBankTree(nodes: QuestionBankTreeNode[]): QuestionBankTreeNode[] {
+  return nodes.flatMap((node) => [node, ...flattenQuestionBankTree(node.children)]);
+}
+
+export function calculateQuestionBankRootMarks(item: Pick<QuestionBankItem, "marks_available">, children: QuestionBankTreeNode[]) {
+  const childTotal = children.reduce((sum, child) => sum + Number(child.computed_marks_available ?? 0), 0);
+  if (childTotal > 0) return { value: childTotal, source: "computed" as const };
+  if (item.marks_available != null) return { value: item.marks_available, source: "direct" as const };
+  return { value: null, source: "missing" as const };
+}
+
+function sortQuestionBankTree(nodes: QuestionBankTreeNode[]) {
+  nodes.sort((a, b) => compareOrdinalPaths(a.ordinal_path, b.ordinal_path));
+  for (const node of nodes) sortQuestionBankTree(node.children);
+}
+
+function calculateQuestionBankTreeMarks(node: QuestionBankTreeNode): number | null {
+  if (!node.children.length) {
+    node.computed_marks_available = node.marks_available;
+    node.mark_source = node.marks_available == null ? "missing" : "direct";
+    return node.computed_marks_available;
+  }
+  const childTotal = node.children.reduce((sum, child) => sum + Number(calculateQuestionBankTreeMarks(child) ?? 0), 0);
+  node.computed_marks_available = childTotal > 0 ? childTotal : node.marks_available;
+  node.mark_source = childTotal > 0 ? "computed" : node.marks_available == null ? "missing" : "direct";
+  return node.computed_marks_available;
 }
 
 function rankItem(item: QuestionBankItem, criteria: PaperGenerationCriteria) {

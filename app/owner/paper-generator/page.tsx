@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { FilePlus2, Wand2 } from "lucide-react";
 import { selectQuestionBankItems } from "@/lib/question-bank";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { SUBJECT_PRESETS } from "@/lib/subjects";
 import { listPaperGeneratorWorkspace } from "@/lib/usability-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export default async function PaperGeneratorPage() {
   const { questionBankItems, generatedPapers, generatedPaperItems } = await listPaperGeneratorWorkspace();
   const itemsByPaper = new Map<string, number>();
   for (const item of generatedPaperItems) itemsByPaper.set(item.generated_paper_id, (itemsByPaper.get(item.generated_paper_id) ?? 0) + 1);
+  const subjects = [...new Set([...SUBJECT_PRESETS, ...questionBankItems.map((item) => item.subject).filter((value): value is string => Boolean(value))])];
 
   return (
     <main className="space-y-6 p-8">
@@ -73,7 +75,14 @@ export default async function PaperGeneratorPage() {
             </label>
             <label className="block">
               <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Subject</span>
-              <input name="subject" className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" placeholder="Physics, Mathematics..." />
+              <select name="subject" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2">
+                <option value="">Any subject</option>
+                {subjects.map((subject) => (
+                  <option key={subject} value={subject}>
+                    {subject}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block">
               <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Target marks</span>

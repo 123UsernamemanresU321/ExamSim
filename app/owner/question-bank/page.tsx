@@ -2,13 +2,21 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BookOpen, Filter, PlusCircle } from "lucide-react";
 import { listQuestionBankWorkspace } from "@/lib/usability-data";
+import { SUBJECT_PRESETS } from "@/lib/subjects";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 
-export default async function QuestionBankPage() {
+export default async function QuestionBankPage({ searchParams }: { searchParams: Promise<{ subject?: string; tag?: string }> }) {
+  const { subject = "all", tag = "" } = await searchParams;
   const { items, children } = await listQuestionBankWorkspace();
   const childrenByItem = new Map<string, number>();
   for (const child of children) childrenByItem.set(child.question_bank_item_id, (childrenByItem.get(child.question_bank_item_id) ?? 0) + 1);
+  const subjects = [...new Set([...SUBJECT_PRESETS, ...items.map((item) => item.subject).filter((value): value is string => Boolean(value))])];
+  const filteredItems = items.filter((item) => {
+    const subjectMatch = subject === "all" || item.subject === subject;
+    const tagMatch = !tag || item.tags.some((itemTag) => itemTag.toLowerCase().includes(tag.toLowerCase()));
+    return subjectMatch && tagMatch;
+  });
 
   return (
     <main className="space-y-6 p-8">
@@ -29,15 +37,29 @@ export default async function QuestionBankPage() {
       </div>
 
       <Card className="p-5">
-        <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-          <Filter size={16} />
-          Filters for subject, topic, marks, difficulty, diagrams, and previously attempted questions are ready in the data model. This MVP page lists the current bank and preserves owner-only access through RLS.
+        <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[var(--ink)]">
+          <Filter size={16} /> Subject filters
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/owner/question-bank" variant={subject === "all" ? "primary" : "secondary"} className={subject === "all" ? "text-white" : ""}>
+            All
+          </ButtonLink>
+          {subjects.map((subjectName) => (
+            <ButtonLink
+              key={subjectName}
+              href={`/owner/question-bank?subject=${encodeURIComponent(subjectName)}`}
+              variant={subject === subjectName ? "primary" : "secondary"}
+              className={subject === subjectName ? "text-white" : ""}
+            >
+              {subjectName}
+            </ButtonLink>
+          ))}
         </div>
       </Card>
 
-      {items.length ? (
+      {filteredItems.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <Link key={item.id} href={`/owner/question-bank/${item.id}`} className="block">
               <Card className="h-full p-5 transition hover:border-[var(--primary)]">
                 <div className="flex items-start justify-between gap-3">
@@ -56,6 +78,9 @@ export default async function QuestionBankPage() {
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {item.subject ? <Chip>{item.subject}</Chip> : null}
+                  {item.tags.slice(0, 4).map((itemTag) => (
+                    <Chip key={itemTag}>{itemTag}</Chip>
+                  ))}
                   {item.has_visual_assets ? <Chip>visual source</Chip> : null}
                   <Chip>{childrenByItem.get(item.id) ?? 0} child parts</Chip>
                   {item.do_not_reuse ? <Chip>do not reuse</Chip> : null}
