@@ -58,8 +58,9 @@ work annotations or ticket tables.
 ## Owner MFA
 
 Production Browser Mode requires owner AAL2/TOTP before sensitive owner actions: creating students, creating groups,
-publishing and assigning assessments, saving marking changes, exporting marking packets, exporting mark CSVs, and
-releasing feedback. The browser can show MFA setup and status, but Edge Functions enforce AAL2 from the JWT claim.
+publishing and assigning assessments, saving marking changes, exporting marking packets, exporting mark CSVs, releasing
+feedback, and deleting assessments, attempts, or question-bank items. The browser can show MFA setup and status, but
+Edge Functions enforce AAL2 from the JWT claim.
 
 Students use owner-managed aliases and passwords by default. Passkeys are optional beta after activation and must keep a
 password fallback until the Supabase passkey API is stable enough for the deployment.
@@ -79,6 +80,10 @@ Advanced learning workflow tables follow the same boundary:
 ## Private Bucket Model
 
 Real assessment material and submissions stay in private buckets. Public URLs are not used. Signed URLs are issued on demand and only after state, ownership, slot, and policy checks.
+
+Deletion workflows are owner-only Edge Functions. Individual attempt deletion removes the attempt's known private
+answer-upload and marking-packet objects before deleting the metadata row. Question-bank item deletion removes only the
+reusable bank record and generated-paper references; it does not delete the original private assessment source files.
 
 Upload slots enforce one PDF per root/main question, max 10MB. Subquestions and deeper parts receive marks and feedback,
 but do not receive separate student submission slots. A confirmed upload or blank placeholder locks the slot;

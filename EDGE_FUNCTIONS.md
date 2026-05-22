@@ -42,6 +42,19 @@ uploads are enabled.
 Owner AAL2 only. Deletes an assessment and its cascading versions, attempts, responses, slots, reports, parse jobs, and
 known private Storage objects. Storage removal is best-effort and warnings are written into the owner audit log.
 
+## delete-attempt
+
+Owner AAL2 only. Deletes one student attempt after verifying the parent assessment belongs to the owner. Removes the
+attempt's private answer uploads, generated annotated PDFs, marking packet exports, correction upload artifacts, and
+cascading attempt metadata. The assessment and other student attempts remain intact. Storage removal warnings are
+returned and audit logged.
+
+## delete-question-bank-item
+
+Owner AAL2 only. Deletes one reusable question-bank item owned by the owner. It removes question-bank children and
+generated-paper references first, then deletes the item. It does not delete source assessment PDFs, assessment packages,
+or original assessment nodes because question-bank records only reference those source objects.
+
 ## get-attempt-state
 
 Student or owner. Input: `{ attempt_id, attempt_session_id? }`. Returns server-computed state, server time, countdown

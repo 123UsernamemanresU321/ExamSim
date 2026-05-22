@@ -2,6 +2,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
 import { listOwnerAttempts } from "@/lib/live-data";
+import { DeleteAttemptButton } from "@/components/owner/delete-attempt-button";
 
 export default async function OwnerAttemptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -58,6 +59,15 @@ export default async function OwnerAttemptDetailPage({ params }: { params: Promi
           <ButtonLink className="mt-4" href={`/owner/attempts/${id}/receipt`} variant="secondary">
             View receipt
           </ButtonLink>
+        </Card>
+        <Card className="border-red-200 bg-red-50">
+          <h2 className="text-lg font-semibold text-red-950">Delete this attempt</h2>
+          <p className="mt-2 text-sm text-red-900">
+            Removes this student&apos;s uploads, marks, annotations, reports, feedback release, receipt, and recovery records. The assessment and other student attempts remain untouched.
+          </p>
+          <div className="mt-4">
+            <DeleteAttemptButton attemptId={id} assessmentTitle={attempt.title} studentName={attempt.student} />
+          </div>
         </Card>
       </div>
     </>

@@ -5,6 +5,7 @@ import { buildQuestionBankChildTree, calculateQuestionBankRootMarks, type Questi
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { splitTags } from "@/lib/subjects";
 import { QuestionBankSourcePreview } from "@/components/owner/question-bank-source-preview";
+import { DeleteQuestionBankItemButton } from "@/components/owner/delete-question-bank-item-button";
 import { Card } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { MathRenderer } from "@/components/math-renderer";
@@ -136,6 +137,15 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
             ) : (
               <p className="mt-2 text-sm text-[var(--muted)]">No markscheme is attached to this question bank item.</p>
             )}
+          </Card>
+          <Card className="border-red-200 bg-red-50 p-5">
+            <h2 className="font-black text-red-950">Delete from question bank</h2>
+            <p className="mt-2 text-sm leading-6 text-red-900">
+              Removes this reusable question and its child tree from the question bank. It does not delete the original assessment, source PDF, markscheme, or published paper.
+            </p>
+            <div className="mt-4">
+              <DeleteQuestionBankItemButton questionBankItemId={item.id} label={item.title ?? `Question ${item.root_node_key}`} />
+            </div>
           </Card>
         </aside>
       </div>

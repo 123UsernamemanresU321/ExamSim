@@ -158,7 +158,8 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   Olympiad so extracted question-bank items and generated papers can be filtered consistently.
 - `question_bank_items` and `question_bank_children` store private reusable root questions with their nested child
   structure, source page fallback metadata, child LaTeX prompts, visual asset flags, markscheme references, and
-  topic/search metadata.
+  topic/search metadata. Deleting a question-bank item removes its child rows and generated-paper references, but leaves
+  original assessment source objects untouched.
 - `generated_papers` and `generated_paper_items` store owner-reviewed custom paper drafts assembled from question bank
   items. They become normal assessments only after explicit conversion/review.
 - `correction_notebooks` and `correction_entries` store student correction/reflection work after feedback release.
