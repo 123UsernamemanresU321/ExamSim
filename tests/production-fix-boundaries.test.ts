@@ -177,6 +177,17 @@ describe("AI parse review boundary", () => {
     expect(source).toContain("markscheme_html");
     expect(source).toContain("loadMarkschemeContext");
   });
+
+  it("instructs DeepSeek to preserve source-page visual metadata for question bank reuse", () => {
+    const source = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(source).toContain("QUESTION BANK AND SOURCE-PAGE FALLBACK RULES");
+    expect(source).toContain("Root question source_page_start/source_page_end must span the full page range of every descendant");
+    expect(source).toContain("Question bank extraction uses source_pdf_object_path plus source_page_start/source_page_end");
+    expect(source).toContain("Set has_visual_assets true when the question depends on a diagram, graph, figure, image, chart, table, data booklet extract, or visual layout");
+    expect(source).toContain("visual_asset_refs");
+    expect(source).toContain("Suggested subject/course context");
+    expect(source).toContain("suggested_topic_tags");
+  });
 });
 
 describe("markscheme source ingestion", () => {

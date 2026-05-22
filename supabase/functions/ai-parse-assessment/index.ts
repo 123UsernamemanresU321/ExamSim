@@ -40,7 +40,7 @@ serve(async (request) => {
 
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
-      .select("*, assessments(title, paper_code, assessment_kind, owner_profile_id)")
+      .select("*, assessments(title, paper_code, subject, assessment_kind, owner_profile_id)")
       .eq("id", body.assessment_version_id)
       .single();
     if (versionError) throw versionError;
@@ -249,6 +249,12 @@ serve(async (request) => {
               "    \"latex\": string",
               "  },",
               "  \"assets\": [string, ...],",
+              "  \"source_page_start\": number | null,",
+              "  \"source_page_end\": number | null,",
+              "  \"source_region_json\": object | null,",
+              "  \"has_visual_assets\": boolean,",
+              "  \"visual_asset_refs\": [string | object, ...],",
+              "  \"suggested_topic_tags\": [string, ...],",
               "  \"markscheme_html\": string | null,",
               "  \"children\": []",
               "}",
@@ -326,6 +332,22 @@ serve(async (request) => {
               "",
               "2. PROMPT REFERENCES:",
               "   - Do not remove text like \"[Diagram 1]\" or \"Figure 1\" from the prompts; these help the student understand which asset they are looking at.",
+              "",
+              "==================================================",
+              "QUESTION BANK AND SOURCE-PAGE FALLBACK RULES",
+              "==================================================",
+              "",
+              "Exam Vault can extract approved root questions into a private question bank. Question-bank pages must still show diagrams, graphs, tables, figures, images, and original layout context from the source PDF.",
+              "Question bank extraction uses source_pdf_object_path plus source_page_start/source_page_end to render original PDF source pages. Your job is to provide the page metadata needed for that fallback.",
+              "Root question source_page_start/source_page_end must span the full page range of every descendant. Example: if Q2 has no printed body page but 2(a) is page 4 and 2(b) is page 6, Q2 must have source_page_start 4 and source_page_end 6.",
+              "Every child/subquestion/part should also include its own source_page_start/source_page_end when known.",
+              "Set has_visual_assets true when the question depends on a diagram, graph, figure, image, chart, table, data booklet extract, or visual layout.",
+              "Set visual_asset_refs to concise references such as \"page 4 graph\", \"Figure 2\", \"table on page 5\", or an available image artifact path. If precise image assets are unavailable, still include a descriptive visual_asset_refs entry and the source page range.",
+              "If exact crop coordinates are known from OCR/layout metadata, put them in source_region_json. If not, use null and rely on source_page_start/source_page_end.",
+              "If a visual is shared by several subparts, attach has_visual_assets and visual_asset_refs to the nearest common parent as well as source page ranges on children when known.",
+              "Never drop a diagram/table/graph reference just because no extracted image artifact exists; preserve the prompt reference, set has_visual_assets true, include source pages, and add a warning.",
+              "Use Suggested subject/course context from the user message for suggested_topic_tags. Do not invent a formal syllabus label, but you may suggest low-risk tags like mechanics, vectors, stoichiometry, inequalities, proof, graph-reading, or calculus when the content clearly supports them.",
+              "Suggested topic tags must be optional hints for owner review; they must not replace the question text, marks, source pages, or markscheme mapping.",
               "",
               "==================================================",
               "EXAMPLE STRUCTURE (IB/IGCSE style)",
@@ -567,6 +589,7 @@ serve(async (request) => {
             content: [
               `Title: ${version.assessments?.title ?? "Untitled assessment"}`,
               `Paper code: ${version.assessments?.paper_code ?? ""}`,
+              `Suggested subject/course context: ${version.assessments?.subject ?? ""}`,
               `Source kind: ${body.source_kind}`,
               `Existing package JSON: ${JSON.stringify(existingPackage ?? {})}`,
               `Owner notes: ${body.owner_notes ?? ""}`,
@@ -848,6 +871,12 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
     const html = stringValue(prompt.html) ?? stringValue(raw.prompt_html) ?? undefined;
     const latex = stringValue(prompt.latex) ?? stringValue(raw.prompt_latex) ?? undefined;
     const assets = Array.isArray(raw.assets) ? raw.assets.filter(a => typeof a === "string") : [];
+    const visualAssetRefs = Array.isArray(raw.visual_asset_refs)
+      ? raw.visual_asset_refs.filter((asset) => typeof asset === "string" || isRecord(asset))
+      : [];
+    const suggestedTopicTags = Array.isArray(raw.suggested_topic_tags)
+      ? raw.suggested_topic_tags.map(String).map((tag) => tag.trim()).filter(Boolean)
+      : [];
     const children = Array.isArray(raw.children) ? normalizeQuestions(raw.children, warnings, `${nodeKey}.`) : [];
     const promptText = stripMarkup(`${html ?? ""} ${latex ?? ""}`);
     if (children.length === 0 && promptText.length > 0 && promptText.length < 40) {
@@ -885,8 +914,9 @@ function normalizeQuestions(nodes: unknown[], warnings: string[], parentKey = ""
       source_page_start: numberValue(raw.source_page_start) !== null ? Math.max(1, Math.trunc(numberValue(raw.source_page_start)!)) : undefined,
       source_page_end: numberValue(raw.source_page_end) !== null ? Math.max(1, Math.trunc(numberValue(raw.source_page_end)!)) : undefined,
       source_region_json: isRecord(raw.source_region_json) ? raw.source_region_json : undefined,
-      has_visual_assets: booleanValue(raw.has_visual_assets) ?? (assets.length > 0 ? true : undefined),
-      visual_asset_refs: Array.isArray(raw.visual_asset_refs) ? raw.visual_asset_refs.filter((asset) => typeof asset === "string") : undefined,
+      has_visual_assets: booleanValue(raw.has_visual_assets) ?? (assets.length > 0 || visualAssetRefs.length > 0 ? true : undefined),
+      visual_asset_refs: visualAssetRefs.length ? visualAssetRefs : undefined,
+      suggested_topic_tags: suggestedTopicTags.length ? suggestedTopicTags : undefined,
       interaction: normalizeInteraction(raw.interaction),
       children: children.length ? children : undefined,
     };
@@ -1003,6 +1033,15 @@ function finalizeAiNode(node: Record<string, unknown>) {
   children.forEach(finalizeAiNode);
   const depth = numberValue(node.depth) ?? 0;
   if (children.length) {
+    const childStarts = children.map((child) => numberValue(child.source_page_start)).filter((value): value is number => typeof value === "number" && value > 0);
+    const childEnds = children.map((child) => numberValue(child.source_page_end) ?? numberValue(child.source_page_start)).filter((value): value is number => typeof value === "number" && value > 0);
+    if (numberValue(node.source_page_start) === null && childStarts.length) node.source_page_start = Math.min(...childStarts);
+    if (numberValue(node.source_page_end) === null && childEnds.length) node.source_page_end = Math.max(...childEnds);
+    const childAssets = children.flatMap((child) => Array.isArray(child.assets) ? child.assets.filter((asset): asset is string => typeof asset === "string") : []);
+    const childVisualRefs = children.flatMap((child) => Array.isArray(child.visual_asset_refs) ? child.visual_asset_refs.filter((asset) => typeof asset === "string" || isRecord(asset)) : []);
+    node.assets = mergeStringArrays(node.assets, childAssets);
+    node.visual_asset_refs = mergeVisualRefs(node.visual_asset_refs, childVisualRefs);
+    node.has_visual_assets = Boolean(node.has_visual_assets || childAssets.length || childVisualRefs.length || children.some((child) => child.has_visual_assets));
     node.mark_mode = "computed";
     node.response_mode = depth === 0 ? "upload_pdf" : "none";
     if (numberValue(node.marks_available) === null) {
@@ -1042,7 +1081,8 @@ function mergeAiNodes(existing: Record<string, unknown>, incoming: Record<string
     source_page_end: existing.source_page_end ?? incoming.source_page_end,
     source_region_json: existing.source_region_json ?? incoming.source_region_json,
     has_visual_assets: Boolean(existing.has_visual_assets || incoming.has_visual_assets),
-    visual_asset_refs: existing.visual_asset_refs ?? incoming.visual_asset_refs,
+    visual_asset_refs: mergeVisualRefs(existing.visual_asset_refs, incoming.visual_asset_refs),
+    suggested_topic_tags: mergeStringArrays(existing.suggested_topic_tags, incoming.suggested_topic_tags),
     children: [],
   };
 }
@@ -1057,6 +1097,20 @@ function mergeStringArrays(a: unknown, b: unknown) {
     ...(Array.isArray(a) ? a.filter((value): value is string => typeof value === "string") : []),
     ...(Array.isArray(b) ? b.filter((value): value is string => typeof value === "string") : []),
   ])];
+}
+
+function mergeVisualRefs(a: unknown, b: unknown) {
+  const refs = [
+    ...(Array.isArray(a) ? a.filter((value) => typeof value === "string" || isRecord(value)) : []),
+    ...(Array.isArray(b) ? b.filter((value) => typeof value === "string" || isRecord(value)) : []),
+  ];
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    const key = typeof ref === "string" ? ref : JSON.stringify(ref);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function parseHierarchyKey(rawKey: string, fallbackOrdinal?: number) {

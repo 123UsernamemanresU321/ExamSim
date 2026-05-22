@@ -175,7 +175,8 @@ question extraction, markscheme cover/instruction exclusion before mapping, and 
 root/main question. For written PDF-upload papers, subquestions and parts are mark-allocation/feedback nodes and must
 not be emitted as separate `upload_pdf` or `typed_or_upload` submission targets. The function deterministically repairs
 flat or partially nested AI output before saving: it creates missing roots/parents, sorts by numeric `ordinal_path`, maps
-marks and markscheme snippets to the normalized node keys, and stores the result as draft evidence only. It never
+marks and markscheme snippets to the normalized node keys, rolls descendant source-page ranges and visual references up
+to root questions for question-bank/source-PDF fallback rendering, and stores the result as draft evidence only. It never
 publishes AI output directly.
 
 ## qti-import-assessment
