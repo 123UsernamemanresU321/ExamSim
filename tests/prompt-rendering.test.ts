@@ -166,4 +166,14 @@ describe("prompt rendering", () => {
     expect(rendered).not.toContain("katex-error");
     expect(rendered).not.toContain("merror");
   });
+
+  it("renders bare subscript variables inside prose as clear KaTeX math", () => {
+    const formatted = formatPromptContent({ latex: "Find a_0 and a_1 before comparing them with a0." });
+    const rendered = renderMathMarkup(formatted);
+
+    expect(formatted).toContain("Find $a_0$ and $a_1$ before comparing them with a0.");
+    expect(rendered.match(/class="katex"/g)).toHaveLength(2);
+    expect(rendered).toContain("msub");
+    expect(rendered).not.toContain("$a_0$");
+  });
 });

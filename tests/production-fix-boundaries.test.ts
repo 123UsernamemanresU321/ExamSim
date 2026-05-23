@@ -465,6 +465,13 @@ describe("work annotations and mark discussion tickets", () => {
     expect(css).toContain("pointer-events: none");
   });
 
+  it("keeps KaTeX subscripts visually distinct in rendered prompts", () => {
+    const css = read("app/globals.css");
+    expect(css).toContain(".ev-math-content .katex .msupsub");
+    expect(css).toContain("font-size: 1.08em");
+    expect(css).toContain("margin-left: 0.03em");
+  });
+
   it("generates annotated PDFs as private copies without mutating the original upload", () => {
     expect(read("supabase/migrations/202605170001_upload_slot_annotated_pdf.sql")).toContain("annotated_object_path");
     const edge = read("supabase/functions/generate-annotated-pdf/index.ts");

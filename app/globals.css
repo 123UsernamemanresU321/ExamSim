@@ -109,6 +109,15 @@ select {
   overflow-y: hidden;
 }
 
+.ev-math-content .katex .msupsub {
+  margin-left: 0.03em;
+  font-size: 1.08em;
+}
+
+.ev-math-content .katex .msupsub .sizing {
+  font-weight: 600;
+}
+
 /* Question Prompt Styling */
 .question-prompt p {
   margin: 0 0 1rem 0;

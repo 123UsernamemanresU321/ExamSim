@@ -320,11 +320,39 @@ function formatPromptSegment(segment: string) {
 
 const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|floor|ceil|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|lceil|rceil|omega|Gamma)\b/g;
 const OCR_PRODUCT_PATTERN = /((?:\d\s*){1,4}(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z])(?:\s*(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z]))*[?!.]?)/g;
+const SCRIPT_VARIABLE_PATTERN = /(^|[^\p{L}\p{N}_$\\])([\p{L}])\s*_\s*(\{[^{}]{1,32}\}|[\p{L}\p{N}]{1,12})(?=$|[^\p{L}\p{N}_])/gu;
 
 function wrapBareMathRuns(segment: string) {
   const withProductRuns = wrapOcrProductRuns(segment);
   if (withProductRuns.wrapped) return withProductRuns.html;
+  const withScriptRuns = wrapScriptVariableRuns(segment);
+  if (withScriptRuns.wrapped) return withScriptRuns.html;
   return wrapBareLatexRuns(segment);
+}
+
+function wrapScriptVariableRuns(segment: string) {
+  let output = "";
+  let index = 0;
+  let wrapped = false;
+
+  SCRIPT_VARIABLE_PATTERN.lastIndex = 0;
+  while (true) {
+    const match = SCRIPT_VARIABLE_PATTERN.exec(segment);
+    if (!match) break;
+    const prefix = match[1] ?? "";
+    const variable = match[2] ?? "";
+    const subscript = match[3] ?? "";
+    const sourceStart = match.index + prefix.length;
+    if (sourceStart < index) continue;
+
+    output += escapeHtml(segment.slice(index, match.index));
+    output += escapeHtml(prefix);
+    output += `$${escapeHtml(normalizeBareMathSource(`${variable}_${subscript}`))}$`;
+    index = match.index + match[0].length;
+    wrapped = true;
+  }
+
+  return { html: output + escapeHtml(segment.slice(index)), wrapped };
 }
 
 function wrapOcrProductRuns(segment: string) {
