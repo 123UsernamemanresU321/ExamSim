@@ -468,6 +468,7 @@ serve(async (request) => {
               "- CRITICAL: OCR sometimes inserts spaces inside numbers or LaTeX, such as \"1 9 \\\\times 1 8\" or \"x ^ {3} = 2 8\". Repair these only when clearly mathematical, and wrap all mathematical expressions in $...$ or $$...$$ delimiters.",
               "- CRITICAL: Do not wrap individual variables, numbers, or short expressions in their own <p> tags. Keep whole sentences or paragraphs together in a single <p>.",
               "- CRITICAL: Do not split one mathematical expression across separate paragraphs. Keep expressions such as $\\\\lambda \\ge 1$ or $\\\\floor{\\\\lambda^{n+1}}$ together inside one paragraph or display block.",
+              "- CRITICAL: When OCR loses subscript markers, convert compact indexed variables to explicit subscripts in LaTeX. Examples: a0 -> $a_0$, aN -> $a_N$, ak -> $a_k$, ak+1 -> $a_{k+1}$, and ak-1 -> $a_{k-1}$ when the surrounding text clearly indicates indexed variables.",
               "- Display math should use <div class=\"math\">$$...$$</div>.",
               "- Use semantic HTML tables for tabular or grid content. Use <table><tbody><tr><td>...</td></tr></tbody></table>, preserve blank cells as empty <td></td>, and put math delimiters inside cells when a cell contains variables, formulas, or numbers.",
               "- Do not flatten tables into tabs or spaces. If the source visually has rows and columns, prompt.html must contain a table.",

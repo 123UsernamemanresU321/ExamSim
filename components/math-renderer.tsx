@@ -124,7 +124,7 @@ function findClosingDelimiter(content: string, from: number, close: MathDelimite
 
 function renderKatex(source: string, displayMode: boolean, fallback: string) {
   try {
-    return katex.renderToString(source, {
+    return katex.renderToString(normalizeMathSourceForKatex(source), {
       displayMode,
       throwOnError: false,
       strict: "warn",
@@ -320,34 +320,36 @@ function formatPromptSegment(segment: string) {
 
 const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|floor|ceil|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|lceil|rceil|omega|Gamma)\b/g;
 const OCR_PRODUCT_PATTERN = /((?:\d\s*){1,4}(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z])(?:\s*(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z]))*[?!.]?)/g;
-const SCRIPT_VARIABLE_PATTERN = /(^|[^\p{L}\p{N}_$\\])([\p{L}])\s*_\s*(\{[^{}]{1,32}\}|[\p{L}\p{N}]{1,12})(?=$|[^\p{L}\p{N}_])/gu;
+const INDEXED_VARIABLE_PATTERN = /(^|[^\p{L}\p{N}_$\\])([A-Za-z])\s*(?:_\s*(\{[^{}]{1,32}\}|[\p{L}\p{N}]{1,12})|(\d+|[A-Z]|[ijkmn]\s*[+\-−]\s*\d+|[ijkmn]))(?=$|[^\p{L}\p{N}_])/gu;
+const COMPACT_INDEXED_VARIABLE_PATTERN = /(^|[^\p{L}\p{N}_$\\])([A-Za-z])(\d+|[A-Z]|[ijkmn]\s*[+\-−]\s*\d+|[ijkmn])(?=$|[^\p{L}\p{N}_])/gu;
 
 function wrapBareMathRuns(segment: string) {
   const withProductRuns = wrapOcrProductRuns(segment);
   if (withProductRuns.wrapped) return withProductRuns.html;
-  const withScriptRuns = wrapScriptVariableRuns(segment);
-  if (withScriptRuns.wrapped) return withScriptRuns.html;
+  const withIndexRuns = wrapIndexedVariableRuns(segment);
+  if (withIndexRuns.wrapped) return withIndexRuns.html;
   return wrapBareLatexRuns(segment);
 }
 
-function wrapScriptVariableRuns(segment: string) {
+function wrapIndexedVariableRuns(segment: string) {
   let output = "";
   let index = 0;
   let wrapped = false;
 
-  SCRIPT_VARIABLE_PATTERN.lastIndex = 0;
+  INDEXED_VARIABLE_PATTERN.lastIndex = 0;
   while (true) {
-    const match = SCRIPT_VARIABLE_PATTERN.exec(segment);
+    const match = INDEXED_VARIABLE_PATTERN.exec(segment);
     if (!match) break;
     const prefix = match[1] ?? "";
     const variable = match[2] ?? "";
-    const subscript = match[3] ?? "";
+    const subscript = normalizeSubscriptSource(match[3] ?? match[4] ?? "");
     const sourceStart = match.index + prefix.length;
     if (sourceStart < index) continue;
+    if (match[4] && !shouldTreatCompactIndexAsSubscript(segment, match.index, match[0], prefix, variable, subscript)) continue;
 
     output += escapeHtml(segment.slice(index, match.index));
     output += escapeHtml(prefix);
-    output += `$${escapeHtml(normalizeBareMathSource(`${variable}_${subscript}`))}$`;
+    output += `$${escapeHtml(normalizeBareMathSource(`${variable}_{${subscript}}`))}$`;
     index = match.index + match[0].length;
     wrapped = true;
   }
@@ -566,7 +568,41 @@ function normalizeBareMathSource(value: string) {
     .replace(/\s+([,.;:?!])/g, "$1")
     .replace(/\s{2,}/g, " ");
 
-  return normalizeFloorCeilArguments(normalized);
+  return normalizeMathSourceForKatex(normalized);
+}
+
+function normalizeMathSourceForKatex(value: string) {
+  return normalizeCompactIndexedVariables(normalizeFloorCeilArguments(value));
+}
+
+function normalizeCompactIndexedVariables(value: string) {
+  return value.replace(
+    COMPACT_INDEXED_VARIABLE_PATTERN,
+    (match: string, prefix: string, variable: string, rawSubscript: string, offset: number, source: string) => {
+      const subscript = normalizeSubscriptSource(rawSubscript);
+      if (!shouldTreatCompactIndexAsSubscript(source, offset, match, prefix, variable, subscript)) return match;
+      return `${prefix}${variable}_{${subscript}}`;
+    },
+  );
+}
+
+function normalizeSubscriptSource(value: string) {
+  return value
+    .trim()
+    .replace(/^\{\s*|\s*\}$/g, "")
+    .replace(/−/g, "-")
+    .replace(/\s+/g, "");
+}
+
+function shouldTreatCompactIndexAsSubscript(source: string, matchIndex: number, match: string, prefix: string, variable: string, subscript: string) {
+  if (/^\d+$/.test(subscript)) return true;
+  if (/^[A-Z]$/.test(subscript) && /^[a-z]$/.test(variable)) return true;
+  if (/^[ijkmn][+-]\d+$/i.test(subscript)) return true;
+  if (!/^[ijkmn]$/.test(subscript)) return false;
+
+  const next = source[matchIndex + match.length] ?? "";
+  const previous = prefix[prefix.length - 1] ?? source[matchIndex - 1] ?? "";
+  return /[()=+\-−*/<>≤≥,]/.test(previous) || /[()=+\-−*/<>≤≥,]/.test(next);
 }
 
 function normalizeFloorCeilArguments(value: string) {

@@ -171,9 +171,25 @@ describe("prompt rendering", () => {
     const formatted = formatPromptContent({ latex: "Find a_0 and a_1 before comparing them with a0." });
     const rendered = renderMathMarkup(formatted);
 
-    expect(formatted).toContain("Find $a_0$ and $a_1$ before comparing them with a0.");
-    expect(rendered.match(/class="katex"/g)).toHaveLength(2);
+    expect(formatted).toContain("Find $a_{0}$ and $a_{1}$ before comparing them with $a_{0}$.");
+    expect(rendered.match(/class="katex"/g)).toHaveLength(3);
     expect(rendered).toContain("msub");
     expect(rendered).not.toContain("$a_0$");
+  });
+
+  it("repairs compact indexed variables from OCR into clear subscripts", () => {
+    const formatted = formatPromptContent({
+      latex: "There exist real numbers a0, a1, …, aN such that (ak + ak−1)(ak + ak+1) = ak−1 − ak+1.",
+    });
+    const rendered = renderMathMarkup(formatted);
+
+    expect(formatted).toContain("$a_{0}$");
+    expect(formatted).toContain("$a_{1}$");
+    expect(formatted).toContain("$a_{N}$");
+    expect(formatted).toContain("$a_{k}$");
+    expect(formatted).toContain("$a_{k-1}$");
+    expect(formatted).toContain("$a_{k+1}$");
+    expect(rendered).toContain("msub");
+    expect(rendered).not.toContain("ak+1");
   });
 });
