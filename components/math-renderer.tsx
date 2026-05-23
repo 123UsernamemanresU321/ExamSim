@@ -2,6 +2,11 @@
 
 import katex from "katex";
 
+const KATEX_MACROS = {
+  "\\floor": "\\left\\lfloor #1 \\right\\rfloor",
+  "\\ceil": "\\left\\lceil #1 \\right\\rceil",
+};
+
 export function formatPromptContent({ latex, html }: { latex?: string; html?: string }) {
   if (html) return formatHtmlPromptContent(unescapeMath(html));
   if (!latex) return "";
@@ -124,6 +129,7 @@ function renderKatex(source: string, displayMode: boolean, fallback: string) {
       throwOnError: false,
       strict: "warn",
       trust: false,
+      macros: KATEX_MACROS,
     });
   } catch {
     return fallback;
@@ -146,22 +152,61 @@ function renderDelimiterFreeMathDivs(content: string) {
 }
 
 function formatPromptLines(lines: string[]) {
+  const promptLines = mergeOcrSplitFloorLines(lines);
   let output = "";
   let index = 0;
 
-  while (index < lines.length) {
-    const table = collectTableBlock(lines, index);
+  while (index < promptLines.length) {
+    const table = collectTableBlock(promptLines, index);
     if (table) {
       output += renderPromptTable(table.rows);
       index = table.endIndex;
       continue;
     }
 
-    output += formatPromptLine(lines[index] ?? "");
+    output += formatPromptLine(promptLines[index] ?? "");
     index += 1;
   }
 
   return output;
+}
+
+function mergeOcrSplitFloorLines(lines: string[]) {
+  const merged: string[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    if (!isStandaloneFloorCeilCommand(line)) {
+      merged.push(line);
+      index += 1;
+      continue;
+    }
+
+    const parts = [line.trim()];
+    index += 1;
+    while (index < lines.length) {
+      const next = (lines[index] ?? "").trim();
+      if (!isOcrMathContinuationLine(next)) break;
+      parts.push(next);
+      index += 1;
+      if (/[,.…;:]$/.test(next) || isStandaloneFloorCeilCommand(lines[index] ?? "") || parts.length >= 12) break;
+    }
+    merged.push(parts.join(" "));
+  }
+
+  return merged;
+}
+
+function isStandaloneFloorCeilCommand(line: string) {
+  return /^\\(?:floor|ceil)$/.test(line.trim());
+}
+
+function isOcrMathContinuationLine(line: string) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.length > 24 || isStandaloneFloorCeilCommand(trimmed)) return false;
+  if (/[a-zA-Z]{4,}/.test(trimmed) && !/^(?:alpha|beta|gamma|delta|theta|lambda|omega|Gamma)$/i.test(trimmed)) return false;
+  return /^(?:[a-zA-Z]|[0-9]+|[\u0370-\u03ff]+|[+\-*/=<>≤≥^_(),.;:?!…]+|\\[a-zA-Z]+(?:\{[^}]*\})?)$/.test(trimmed);
 }
 
 type TableBlock = {
@@ -273,7 +318,7 @@ function formatPromptSegment(segment: string) {
   return wrapBareMathRuns(segment);
 }
 
-const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|omega|Gamma)\b/g;
+const BARE_LATEX_COMMAND_PATTERN = /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|floor|ceil|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|lceil|rceil|omega|Gamma)\b/g;
 const OCR_PRODUCT_PATTERN = /((?:\d\s*){1,4}(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z])(?:\s*(?:\\times|\\cdot|×|·|\*)\s*(?:(?:\d\s*){1,4}|\\dots|\\ldots|[a-zA-Z]))*[?!.]?)/g;
 
 function wrapBareMathRuns(segment: string) {
@@ -361,11 +406,17 @@ function consumeMathAtom(value: string, start: number) {
     return consumeScripts(value, index);
   }
 
-  if (/[a-zA-Z]/.test(value[index]) && !/[a-zA-Z]/.test(value[index + 1] ?? "")) {
+  if (isSingleMathLetterAt(value, index)) {
     return consumeScripts(value, index + 1);
   }
 
   return start;
+}
+
+function isSingleMathLetterAt(value: string, index: number) {
+  const current = value[index] ?? "";
+  if (!/[\p{L}]/u.test(current)) return false;
+  return !/[\p{L}]/u.test(value[index + 1] ?? "") && !/[\p{L}]/u.test(value[index - 1] ?? "");
 }
 
 function consumeLatexCommand(value: string, start: number) {
@@ -468,7 +519,7 @@ function looksLikeBareMath(value: string) {
 }
 
 function hasBareLatexCommand(value: string) {
-  return /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|omega|Gamma)/.test(value);
+  return /\\(?:frac|dfrac|tfrac|sqrt|sum|prod|int|lim|sin|cos|tan|log|ln|min|max|floor|ceil|alpha|beta|gamma|delta|theta|lambda|mu|pi|cdot|times|dots|ldots|leq|geq|neq|infty|angle|triangle|mathbb|text|lfloor|rfloor|lceil|rceil|omega|Gamma)/.test(value);
 }
 
 function normalizeBareMathSource(value: string) {
@@ -487,7 +538,41 @@ function normalizeBareMathSource(value: string) {
     .replace(/\s+([,.;:?!])/g, "$1")
     .replace(/\s{2,}/g, " ");
 
-  return normalized;
+  return normalizeFloorCeilArguments(normalized);
+}
+
+function normalizeFloorCeilArguments(value: string) {
+  let output = "";
+  let index = 0;
+
+  while (index < value.length) {
+    if (!value.startsWith("\\floor", index) && !value.startsWith("\\ceil", index)) {
+      output += value[index];
+      index += 1;
+      continue;
+    }
+
+    const command = value.startsWith("\\floor", index) ? "\\floor" : "\\ceil";
+    const afterCommand = index + command.length;
+    const afterSpaces = consumeSpaces(value, afterCommand);
+    if (value[afterSpaces] === "{") {
+      output += value.slice(index, afterSpaces + 1);
+      index = afterSpaces + 1;
+      continue;
+    }
+
+    const argumentEnd = consumeMathAtom(value, afterSpaces);
+    if (argumentEnd === afterSpaces) {
+      output += command === "\\floor" ? "\\lfloor" : "\\lceil";
+      index = afterCommand;
+      continue;
+    }
+
+    output += `${command}{${value.slice(afterSpaces, argumentEnd).trim()}}`;
+    index = argumentEnd;
+  }
+
+  return output;
 }
 
 function looksLikeTableMathCell(value: string) {

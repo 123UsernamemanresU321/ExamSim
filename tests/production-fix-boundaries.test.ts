@@ -147,6 +147,9 @@ describe("AI parse review boundary", () => {
     expect(source).toContain("Use semantic HTML tables for tabular or grid content");
     expect(source).toContain("Do not flatten tables into tabs or spaces");
     expect(source).toContain("wrap all mathematical expressions in $...$ or $$...$$");
+    expect(source).toContain("write floor notation");
+    expect(source).toContain("\\\\\\\\floor{...}");
+    expect(source).toContain("Do not split one mathematical expression across separate paragraphs");
   });
 
   it("instructs DeepSeek to use numerical response mode for numeric answers", () => {

@@ -134,4 +134,36 @@ describe("prompt rendering", () => {
     expect(formatted).toContain(`Evaluate $${expression}$`);
     expect(rendered.match(/class="katex"/g)).toHaveLength(1);
   });
+
+  it("renders custom olympiad floor notation without KaTeX error styling", () => {
+    const rendered = renderMathMarkup(formatPromptContent({ latex: "Prove that \\floor{\\lambda} is a perfect square." }));
+
+    expect(rendered).toContain("katex");
+    expect(rendered).toContain("⌊");
+    expect(rendered).not.toContain("katex-error");
+    expect(rendered).not.toContain("merror");
+  });
+
+  it("repairs OCR-style floor notation without braces before KaTeX rendering", () => {
+    const formatted = formatPromptContent({ latex: "\\floor\\lambda^{n+1}, \\floor\\lambda^{n+2}, \\ldots, \\floor\\lambda^{4n}" });
+    const rendered = renderMathMarkup(formatted);
+
+    expect(formatted).toContain("\\floor{\\lambda^{n+1}}");
+    expect(formatted).toContain("\\floor{\\lambda^{4n}}");
+    expect(rendered).toContain("katex");
+    expect(rendered).not.toContain("katex-error");
+    expect(rendered).not.toContain("merror");
+  });
+
+  it("repairs OCR line breaks between floor commands and their arguments", () => {
+    const formatted = formatPromptContent({
+      latex: ["\\floor", "λ", "n", "+", "1", ",", "\\floor", "λ", "n", "+", "2"].join("\n"),
+    });
+    const rendered = renderMathMarkup(formatted);
+
+    expect(formatted).toContain("\\floor{λ}");
+    expect(rendered).toContain("katex");
+    expect(rendered).not.toContain("katex-error");
+    expect(rendered).not.toContain("merror");
+  });
 });
