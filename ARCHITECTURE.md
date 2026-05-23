@@ -79,6 +79,20 @@ existing question bank items only; it does not generate new questions with AI.
 After feedback release, students can open a correction notebook for the attempt. Corrections are learning records:
 students write corrected solutions and reflections, owners review them, and original exam marks remain unchanged.
 
+## Student Experience Layer
+
+The student shell uses `/student/command-center` as the main landing route. It aggregates assigned attempts, urgent
+actions, feedback inbox state, receipts, device readiness, server-time drift, notifications, and progress summaries from
+RLS-scoped tables. `/student/timeline` produces local `.ics` calendar files from server-authoritative attempt times.
+
+Readiness checks run in the browser but store their result in `student_device_checks` for auditability. Browser checks do
+not become timing authority; countdowns and finalization still depend on server state. Student preferences can adjust
+readability and low-bandwidth rendering, but cannot change attempt policy or release hidden content.
+
+Student recovery and incident views expose only safe status: upload slot state, student-submitted incidents, and visible
+owner accommodations. Owner-only notes, audit internals, private marker notes, draft annotations, and unreleased feedback
+remain hidden.
+
 ## Storage Strategy
 
 - `assessment-sources`: original PDFs, LaTeX, and JSON imports.

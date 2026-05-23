@@ -59,6 +59,15 @@
 - Question Bank extraction and Custom Paper Generator draft workflow.
 - Student Correction / Resubmission Notebooks.
 
+## Completed Student Experience Workflows
+
+- Auth-aware public navigation for owner, student, guest, and incomplete-profile sessions.
+- Student Command Center, Timeline with `.ics` export, readiness checks, server-time verification, device profiles,
+  notifications, accessibility and low-bandwidth settings.
+- Allowed Materials drawer, upload queue state, pre-finalization checklist, student incident reporting, recovery status,
+  account security shortcuts, feedback inbox, archive, mistake pattern summary, comparison view, confidence tracker, and
+  personal progress snapshot.
+
 ## Future Learning Improvements
 
 - AI-assisted question bank tagging with owner confirmation.
@@ -67,3 +76,7 @@
 - Grade boundaries and grade descriptors.
 - Examiner report linking.
 - Full redo scheduling from correction notebooks and weak-topic recommendations.
+- Mobile app wrapper.
+- Native scanner integration.
+- Offline-first typed answers.
+- Passkeys as default student login once provider/browser support is stable.

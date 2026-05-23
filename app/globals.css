@@ -97,6 +97,26 @@ select {
   --sidebar-width: 256px;
 }
 
+.student-font-large {
+  font-size: 1.05rem;
+}
+
+.student-font-xl {
+  font-size: 1.12rem;
+}
+
+.student-high-contrast {
+  --muted: #20242a;
+  --subtle: #333842;
+  --border: #7f8794;
+  --surface-muted: #f7fbff;
+}
+
+.student-low-bandwidth * {
+  animation: none !important;
+  transition: none !important;
+}
+
 @media (min-width: 768px) {
   .app-shell-grid {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);

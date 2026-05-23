@@ -8,7 +8,9 @@ import { uploadSizeLabel } from "@/lib/upload-policy";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { uploadStudentPdfForQuestion, type StudentUploadCompletion } from "@/lib/student-upload-client";
-import type { UploadSlot } from "@/types/database";
+import type { Json, UploadSlot } from "@/types/database";
+
+type QueueState = "not_started" | "queued" | "uploading" | "uploaded" | "failed" | "retrying" | "expired";
 
 export function UploadSlotCard({
   attemptId,
@@ -25,7 +27,7 @@ export function UploadSlotCard({
   questionKey: string;
   stateToken?: string;
   status?: UploadSlot["status"];
-  slot?: Pick<UploadSlot, "status" | "object_path" | "uploaded_at" | "file_size_bytes" | "locked_at" | "original_file_name"> | null;
+  slot?: Pick<UploadSlot, "id" | "status" | "object_path" | "uploaded_at" | "file_size_bytes" | "locked_at" | "original_file_name"> | null;
   disabled?: boolean;
   onUploadComplete?: (completion: StudentUploadCompletion) => void;
 }) {
@@ -34,6 +36,7 @@ export function UploadSlotCard({
   const [localUpload, setLocalUpload] = useState<StudentUploadCompletion | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [queueState, setQueueState] = useState<QueueState>("not_started");
   const currentStatus = localStatus ?? (localUpload ? "uploaded" : slot?.status ?? status);
   const uploadedFileName = localUpload?.fileName ?? slot?.original_file_name ?? "";
   const uploadedFileSize = localUpload?.fileSizeBytes ?? slot?.file_size_bytes ?? null;
@@ -47,9 +50,13 @@ export function UploadSlotCard({
     }
 
     setIsUploading(true);
+    setQueueState(queueState === "failed" ? "retrying" : "queued");
     setMessage("Requesting one-time upload slot...");
     const supabase = createSupabaseBrowserClient();
     try {
+      await logUploadQueueEvent(supabase, slot?.id, queueState === "failed" ? "retrying" : "queued", { file_name: file.name, file_size_bytes: file.size });
+      setQueueState("uploading");
+      await logUploadQueueEvent(supabase, slot?.id, "uploading", { file_name: file.name, file_size_bytes: file.size });
       const completion = await uploadStudentPdfForQuestion({
         supabase,
         attemptId,
@@ -60,10 +67,14 @@ export function UploadSlotCard({
       });
       setLocalStatus("uploaded");
       setLocalUpload(completion);
+      setQueueState("uploaded");
       setMessage("PDF uploaded and locked for this slot.");
+      await logUploadQueueEvent(supabase, slot?.id, "uploaded", { object_path: completion.objectPath, file_name: completion.fileName });
       onUploadComplete?.(completion);
     } catch (error) {
+      setQueueState("failed");
       setMessage(error instanceof Error ? error.message : "Upload failed.");
+      await logUploadQueueEvent(supabase, slot?.id, "failed", { message: error instanceof Error ? error.message : "Upload failed." });
       return;
     } finally {
       setIsUploading(false);
@@ -97,7 +108,7 @@ export function UploadSlotCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-[var(--ink)]">Question {questionKey}</p>
-            <p className="text-sm text-[var(--muted)]">Status: {currentStatus.replace("_", " ")}</p>
+            <p className="text-sm text-[var(--muted)]">Status: {currentStatus.replace("_", " ")} · queue {queueState.replace("_", " ")}</p>
           </div>
           {currentStatus === "uploaded" ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[#78a86d] bg-[var(--success-bg)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#123d18]">
@@ -145,7 +156,7 @@ export function UploadSlotCard({
         />
         <Button type="button" variant="secondary" disabled={isLocked || isUploading} onClick={() => inputRef.current?.click()}>
           <FileUp size={16} aria-hidden="true" />
-          {isUploading ? "Uploading..." : currentStatus === "uploaded" ? "Uploaded - locked" : "Upload PDF"}
+          {isUploading ? "Uploading..." : currentStatus === "uploaded" ? "Uploaded - locked" : queueState === "failed" ? "Retry upload" : "Upload PDF"}
         </Button>
         <Button type="button" variant="ghost" disabled={isLocked || isUploading} onClick={() => void submitBlank()}>
           <Square size={16} aria-hidden="true" />
@@ -155,6 +166,23 @@ export function UploadSlotCard({
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
     </Card>
   );
+}
+
+async function logUploadQueueEvent(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  uploadSlotId: string | undefined,
+  eventType: QueueState,
+  payload: Record<string, unknown>,
+) {
+  if (!uploadSlotId) return;
+  const { data: profile } = await supabase.from("profiles").select("id").maybeSingle();
+  if (!profile?.id) return;
+  await supabase.from("upload_queue_events").insert({
+    upload_slot_id: uploadSlotId,
+    student_profile_id: profile.id,
+    event_type: eventType,
+    payload_json: payload as Json,
+  });
 }
 
 function formatBytes(bytes: number) {

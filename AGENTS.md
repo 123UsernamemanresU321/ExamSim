@@ -21,3 +21,6 @@ Future coding agents working on Exam Vault must:
 - Do not trust AI parser output directly; always pass parser output through the deterministic hierarchy repair and validation layer.
 - Do not reintroduce Annotation Studio autosave or parent JSON updates on pointer-move/drag frames; commit annotation changes on drag end.
 - Do not expose private marker notes, unreleased mistake instances, question bank data, generated paper criteria, paper health checks, or unreleased correction feedback to students.
+- Do not make client clock or readiness checks authoritative; student countdown, finalization, upload, and content release flows must keep using server-computed attempt state.
+- Do not expose student data across accounts in command center, feedback inbox, archive, progress, device, notification, recovery, or confidence routes.
+- Keep student upload queue changes tied to root-question upload slots; subquestions get marks and feedback, not separate upload/annotation ownership.

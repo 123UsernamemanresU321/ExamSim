@@ -8,6 +8,8 @@ import { QuestionPaper } from "@/components/question-paper";
 import { TelemetryListener } from "@/components/telemetry-listener";
 import { UploadSlotCard } from "@/components/upload-slot-card";
 import { SubmitExamButton } from "@/components/submit-exam-button";
+import { ServerTimeVerificationCard } from "@/components/student/server-time-verification-card";
+import { StudentMaterialsDrawer } from "@/components/student/allowed-materials-drawer";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { flattenQuestionNodes, normalizedPackageSchema } from "@/lib/assessment-package";
@@ -16,6 +18,7 @@ import type { StudentUploadCompletion } from "@/lib/student-upload-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
+import type { StudentMaterial } from "@/lib/student-experience";
 
 function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
   if (responses.length === 0) return <Badge tone="neutral">Not saved yet</Badge>;
@@ -26,10 +29,12 @@ function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
 
 export function ExamWorkspace({ 
   attemptId, 
-  initialScreenData 
+  initialScreenData,
+  materials = [],
 }: { 
   attemptId: string; 
   initialScreenData: AttemptScreenData;
+  materials?: StudentMaterial[];
 }) {
   const [screenData, setScreenData] = useState<AttemptScreenData>(initialScreenData);
   const [isLoadingPackage, setIsLoadingPackage] = useState(!initialScreenData.package);
@@ -260,6 +265,7 @@ export function ExamWorkspace({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ServerTimeVerificationCard serverNowUtc={attempt.server_now_utc} timezone={attempt.display_timezone} compact />
             <LastSavedBadge responses={responses} />
             <CountdownTimer
               serverNowUtc={attempt.server_now_utc}
@@ -285,12 +291,17 @@ export function ExamWorkspace({
           onUploadComplete={handleUploadComplete}
         />
         <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
+          <StudentMaterialsDrawer materials={materials} />
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-[var(--ink)]">Response panel</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               Typed answers autosave during ACTIVE. Upload URLs are issued one slot at a time.
             </p>
             <SubmitExamButton attemptId={attemptId} stateToken={stateToken} className="mt-4" />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <ButtonLink href={`/student/attempts/${attemptId}/recovery-status`} variant="secondary">Report issue</ButtonLink>
+              <ButtonLink href={`/student/attempts/${attemptId}/finalize`} variant="secondary">Finalization checklist</ButtonLink>
+            </div>
           </section>
           <div className="lg:hidden">
             <QuestionNavigator questions={assessmentPackage.questions} />

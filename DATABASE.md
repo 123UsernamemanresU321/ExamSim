@@ -62,6 +62,18 @@ The usability workflow package is added in
 - `cohort_members`
 - `submission_receipts`
 - `attempt_recovery_actions`
+- `student_device_checks`
+- `student_devices`
+- `student_notification_preferences`
+- `student_notifications`
+- `assessment_materials`
+- `student_accessibility_preferences`
+- `student_performance_preferences`
+- `upload_queue_events`
+- `student_incident_reports`
+- `student_recovery_codes`
+- `student_feedback_reads`
+- `student_confidence_ratings`
 - `parse_jobs`
 - `parse_job_artifacts`
 - `ai_parse_suggestions`
@@ -103,6 +115,10 @@ The TypeScript equivalent of the state machine lives in `lib/attempt-state.ts` a
   and submission receipts; they cannot read comment bank entries, unreleased feedback controls, cohorts, incidents,
   accommodations, recovery actions, private markscheme mapping rows, or calendar recommendations unless a future
   release path explicitly exposes sanitized data.
+- Student experience tables are scoped by `student_profile_id = current_profile_id()` or by ownership of the related
+  attempt. Feedback reads and confidence ratings require a visible, non-revoked feedback release. Assessment materials
+  are student-readable only for assigned attempts and only when the material is not `owner_only`; the app then applies
+  the material's state-specific visibility policy.
 
 ## Indexes
 
@@ -164,6 +180,20 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
   items. They become normal assessments only after explicit conversion/review.
 - `correction_notebooks` and `correction_entries` store student correction/reflection work after feedback release.
   Corrections never mutate original marks or private marker notes.
+- `student_device_checks` and `student_devices` record readiness outcomes and named browser/device profiles. These are
+  convenience records, not proof of exam integrity.
+- `student_notification_preferences` and `student_notifications` provide in-app reminders plus optional browser
+  notification settings.
+- `assessment_materials` stores allowed formula booklets, annexes, reference sheets, and instructions with
+  `before_exam`, `active_only`, `after_finish`, `always`, or `owner_only` visibility.
+- `student_accessibility_preferences` and `student_performance_preferences` store readability and low-bandwidth
+  preferences that affect student UI only.
+- `upload_queue_events` records queued/uploading/retry/failed/uploaded upload queue state for root-question slots.
+- `student_incident_reports` lets students document upload, browser, network, medical, scanner/camera, or other issues
+  without altering moderation evidence.
+- `student_recovery_codes` stores only hashed student recovery codes; plaintext is shown once by the server action.
+- `student_feedback_reads` powers the feedback inbox read/unread state.
+- `student_confidence_ratings` stores post-feedback confidence ratings per released question node.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.

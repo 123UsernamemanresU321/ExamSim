@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 import { ExamWorkspace } from "@/components/exam/exam-workspace";
+import { getStudentMaterialsForAttempt } from "@/lib/student-experience";
 
 export default async function ActiveExamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,10 +27,13 @@ export default async function ActiveExamPage({ params }: { params: Promise<{ id:
   if (attempt.state === "UPLOAD_ONLY") redirect(`/student/attempts/${id}/upload`);
   if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
 
+  const materials = await getStudentMaterialsForAttempt(id);
+
   return (
     <ExamWorkspace 
       attemptId={id} 
       initialScreenData={screenData} 
+      materials={materials}
     />
   );
 }

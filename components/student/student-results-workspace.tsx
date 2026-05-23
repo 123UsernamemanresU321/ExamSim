@@ -16,7 +16,7 @@ import { formatStoredResponse } from "@/lib/response-values";
 import { buildMarkingTree, computeMarkingTotals, findMarkingTreeNode, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { cn } from "@/lib/utils";
 import type { MarkingTicket, MarkingTicketMessage, QuestionNodeRow, TextResponse, UploadSlot } from "@/types/database";
-import { FileText, MessageSquare, Award, AlertCircle, ExternalLink, Send } from "lucide-react";
+import { FileText, MessageSquare, Award, ExternalLink, Send } from "lucide-react";
 
 export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
   const questionTree = buildMarkingTree(workspace.questionNodes);
@@ -155,24 +155,6 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                     </div>
                   )}
                 </div>
-
-                {/* Internal Marker Notes (Optional - usually hidden but user might want it if mark.notes exists) */}
-                {selectedLeaves.some((leaf) => workspace.marks.some((mark) => mark.question_node_id === leaf.id && mark.notes)) ? (
-                  <div className="space-y-4 pt-4 opacity-75">
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
-                      <AlertCircle size={14} /> Marking Notes
-                    </div>
-                    {selectedLeaves.flatMap((leaf) =>
-                      workspace.marks
-                        .filter((mark) => mark.question_node_id === leaf.id && mark.notes)
-                        .map((mark) => (
-                          <div key={mark.id} className="rounded-xl border border-[var(--border)] bg-white p-4 text-xs italic text-[var(--muted)]">
-                            <strong>{leaf.node_key}: </strong>{mark.notes}
-                          </div>
-                        )),
-                    )}
-                  </div>
-                ) : null}
 
                 <section className="space-y-4">
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">

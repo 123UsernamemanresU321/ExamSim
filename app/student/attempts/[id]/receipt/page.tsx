@@ -1,5 +1,6 @@
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
+import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getSubmissionReceipt } from "@/lib/usability-data";
 
@@ -31,6 +32,9 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
           <p className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold print:hidden">
             Use your browser print command to save this receipt.
           </p>
+          <ButtonLink className="print:hidden" href={`/student/attempts/${id}/recovery-status`} variant="secondary">
+            Recovery status
+          </ButtonLink>
         </div>
         <div className="grid gap-3">
           {(receiptJson.slots ?? []).map((slot) => (

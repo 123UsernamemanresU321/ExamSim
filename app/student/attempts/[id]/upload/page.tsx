@@ -3,9 +3,12 @@ import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionPaper } from "@/components/question-paper";
 import { SectionHeading } from "@/components/section-heading";
+import { StudentMaterialsDrawer } from "@/components/student/allowed-materials-drawer";
 import { UploadSlotCard } from "@/components/upload-slot-card";
 import { flattenQuestionNodes } from "@/lib/assessment-package";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
+import { getStudentMaterialsForAttempt } from "@/lib/student-experience";
+import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
 
 export default async function UploadOnlyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,9 +18,11 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
   if (attempt.state === "ACTIVE") redirect(`/student/attempts/${id}/exam`);
   if (attempt.state === "FINISHED_REVIEW") redirect(`/student/attempts/${id}/finished`);
 
+  const rootUploadNodeIds = assessmentPackage ? new Set(collectUploadSlotNodeIds(assessmentPackage.questions)) : new Set<string>();
   const uploadNodes = assessmentPackage
-    ? flattenQuestionNodes(assessmentPackage.questions).filter((node) => node.response_mode.includes("upload"))
+    ? flattenQuestionNodes(assessmentPackage.questions).filter((node) => rootUploadNodeIds.has(node.node_id))
     : [];
+  const materials = await getStudentMaterialsForAttempt(id);
   return (
     <>
       <SectionHeading
@@ -46,9 +51,10 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
           />
         ) : null}
         <aside className="grid content-start gap-3 xl:sticky xl:top-24" aria-label="Upload slots">
+          <StudentMaterialsDrawer materials={materials} />
           <div className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)]">
-            One PDF per question or subquestion. Blank placeholders are recorded as moderation-visible submission
-            choices, not hidden failures.
+            One PDF per main question. Include every subpart in that single file and label subquestions clearly.
+            Blank placeholders are recorded as moderation-visible submission choices, not hidden failures.
           </div>
           {uploadNodes.length === 0 ? (
             <div className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm text-[var(--muted)]">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getCurrentUserProfile } from "@/lib/auth/server";
 
 const featureCards: { title: string; Icon: LucideIcon; copy: string }[] = [
   {
@@ -23,7 +24,10 @@ const featureCards: { title: string; Icon: LucideIcon; copy: string }[] = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { user, profile } = await getCurrentUserProfile();
+  const landingActions = getLandingActions(user !== null, profile?.app_role ?? null);
+
   return (
     <>
       <AppHeader />
@@ -42,10 +46,11 @@ export default function HomePage() {
               student uploads, telemetry evidence, and marking review without pretending the browser is locked down.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink href="/login">Log in</ButtonLink>
-              <ButtonLink href="/activate" variant="secondary">
-                Activate student account
-              </ButtonLink>
+              {landingActions.map((action) => (
+                <ButtonLink key={action.href} href={action.href} variant={action.variant}>
+                  {action.label}
+                </ButtonLink>
+              ))}
             </div>
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-[var(--shadow)]">
@@ -96,4 +101,16 @@ export default function HomePage() {
       </main>
     </>
   );
+}
+
+function getLandingActions(isSignedIn: boolean, role: "owner" | "student" | null): Array<{ href: string; label: string; variant?: "primary" | "secondary" }> {
+  if (!isSignedIn) {
+    return [
+      { href: "/login", label: "Log in" },
+      { href: "/activate", label: "Activate student account", variant: "secondary" },
+    ];
+  }
+  if (role === "owner") return [{ href: "/owner", label: "Go to Owner Dashboard" }];
+  if (role === "student") return [{ href: "/student/command-center", label: "Go to Student Command Center" }];
+  return [{ href: "/login", label: "Continue setup" }];
 }

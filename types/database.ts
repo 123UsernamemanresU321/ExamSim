@@ -719,6 +719,132 @@ export type CorrectionEntry = {
   updated_at: string;
 };
 
+export type StudentDeviceCheck = {
+  id: string;
+  student_profile_id: string;
+  attempt_id: string | null;
+  device_id_hash: string | null;
+  user_agent_hash: string | null;
+  checks_json: Json;
+  status: "passed" | "warning" | "failed";
+  created_at: string;
+};
+
+export type StudentDevice = {
+  id: string;
+  student_profile_id: string;
+  device_id_hash: string;
+  display_name: string | null;
+  user_agent_hash: string | null;
+  browser_label: string | null;
+  last_check_status: "passed" | "warning" | "failed" | null;
+  last_seen_at: string;
+  created_at: string;
+};
+
+export type StudentNotificationPreferences = {
+  id: string;
+  student_profile_id: string;
+  exam_24h: boolean;
+  exam_1h: boolean;
+  exam_10m: boolean;
+  upload_deadline_10m: boolean;
+  feedback_released: boolean;
+  correction_reviewed: boolean;
+  browser_notifications_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudentNotification = {
+  id: string;
+  student_profile_id: string;
+  type: string;
+  title: string;
+  body: string;
+  link_url: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type AssessmentMaterial = {
+  id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  title: string;
+  material_type: "formula_booklet" | "data_booklet" | "annex" | "instructions" | "reference" | "other";
+  object_path: string | null;
+  content_html: string | null;
+  visibility_policy: "before_exam" | "active_only" | "after_finish" | "always" | "owner_only";
+  created_at: string;
+};
+
+export type StudentAccessibilityPreferences = {
+  id: string;
+  student_profile_id: string;
+  preferences_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudentPerformancePreferences = {
+  id: string;
+  student_profile_id: string;
+  low_bandwidth_mode: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UploadQueueEvent = {
+  id: string;
+  upload_slot_id: string;
+  student_profile_id: string;
+  event_type: string;
+  payload_json: Json;
+  created_at: string;
+};
+
+export type StudentIncidentReport = {
+  id: string;
+  attempt_id: string;
+  student_profile_id: string;
+  incident_type: "internet_issue" | "power_cut" | "browser_crash" | "upload_problem" | "wrong_file_uploaded" | "scanner_camera_issue" | "medical_issue" | "other";
+  description: string;
+  affected_question_node_id: string | null;
+  payload_json: Json;
+  status: "submitted" | "reviewed" | "resolved" | "rejected";
+  created_at: string;
+};
+
+export type StudentRecoveryCode = {
+  id: string;
+  student_profile_id: string;
+  code_hash: string;
+  used_at: string | null;
+  created_at: string;
+};
+
+export type StudentFeedbackRead = {
+  id: string;
+  student_profile_id: string;
+  attempt_id: string;
+  feedback_release_id: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type StudentConfidenceRating = {
+  id: string;
+  student_profile_id: string;
+  attempt_id: string;
+  question_node_id: string;
+  topic_tag_id: string | null;
+  confidence: number;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ModerationReport = {
   id: string;
   attempt_id: string;
@@ -1028,6 +1154,78 @@ export type Database = {
         Row: CorrectionEntry;
         Insert: Partial<CorrectionEntry> & Pick<CorrectionEntry, "notebook_id" | "question_node_id" | "root_question_node_id">;
         Update: Partial<CorrectionEntry>;
+        Relationships: [];
+      };
+      student_device_checks: {
+        Row: StudentDeviceCheck;
+        Insert: Partial<StudentDeviceCheck> & Pick<StudentDeviceCheck, "student_profile_id" | "checks_json" | "status">;
+        Update: Partial<StudentDeviceCheck>;
+        Relationships: [];
+      };
+      student_devices: {
+        Row: StudentDevice;
+        Insert: Partial<StudentDevice> & Pick<StudentDevice, "student_profile_id" | "device_id_hash">;
+        Update: Partial<StudentDevice>;
+        Relationships: [];
+      };
+      student_notification_preferences: {
+        Row: StudentNotificationPreferences;
+        Insert: Partial<StudentNotificationPreferences> & Pick<StudentNotificationPreferences, "student_profile_id">;
+        Update: Partial<StudentNotificationPreferences>;
+        Relationships: [];
+      };
+      student_notifications: {
+        Row: StudentNotification;
+        Insert: Partial<StudentNotification> & Pick<StudentNotification, "student_profile_id" | "type" | "title" | "body">;
+        Update: Partial<StudentNotification>;
+        Relationships: [];
+      };
+      assessment_materials: {
+        Row: AssessmentMaterial;
+        Insert: Partial<AssessmentMaterial> & Pick<AssessmentMaterial, "assessment_id" | "assessment_version_id" | "title" | "material_type" | "visibility_policy">;
+        Update: Partial<AssessmentMaterial>;
+        Relationships: [];
+      };
+      student_accessibility_preferences: {
+        Row: StudentAccessibilityPreferences;
+        Insert: Partial<StudentAccessibilityPreferences> & Pick<StudentAccessibilityPreferences, "student_profile_id">;
+        Update: Partial<StudentAccessibilityPreferences>;
+        Relationships: [];
+      };
+      student_performance_preferences: {
+        Row: StudentPerformancePreferences;
+        Insert: Partial<StudentPerformancePreferences> & Pick<StudentPerformancePreferences, "student_profile_id">;
+        Update: Partial<StudentPerformancePreferences>;
+        Relationships: [];
+      };
+      upload_queue_events: {
+        Row: UploadQueueEvent;
+        Insert: Partial<UploadQueueEvent> & Pick<UploadQueueEvent, "upload_slot_id" | "student_profile_id" | "event_type">;
+        Update: Partial<UploadQueueEvent>;
+        Relationships: [];
+      };
+      student_incident_reports: {
+        Row: StudentIncidentReport;
+        Insert: Partial<StudentIncidentReport> & Pick<StudentIncidentReport, "attempt_id" | "student_profile_id" | "incident_type" | "description">;
+        Update: Partial<StudentIncidentReport>;
+        Relationships: [];
+      };
+      student_recovery_codes: {
+        Row: StudentRecoveryCode;
+        Insert: Partial<StudentRecoveryCode> & Pick<StudentRecoveryCode, "student_profile_id" | "code_hash">;
+        Update: Partial<StudentRecoveryCode>;
+        Relationships: [];
+      };
+      student_feedback_reads: {
+        Row: StudentFeedbackRead;
+        Insert: Partial<StudentFeedbackRead> & Pick<StudentFeedbackRead, "student_profile_id" | "attempt_id">;
+        Update: Partial<StudentFeedbackRead>;
+        Relationships: [];
+      };
+      student_confidence_ratings: {
+        Row: StudentConfidenceRating;
+        Insert: Partial<StudentConfidenceRating> & Pick<StudentConfidenceRating, "student_profile_id" | "attempt_id" | "question_node_id" | "confidence">;
+        Update: Partial<StudentConfidenceRating>;
         Relationships: [];
       };
       parse_jobs: {

@@ -1,8 +1,8 @@
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { AuthNav } from "@/components/auth/auth-nav";
+import { AuthAwareHeaderNav } from "@/components/auth/auth-aware-header-nav";
 
-export function AppHeader() {
+export async function AppHeader() {
   return (
     <header className="h-16 border-b border-[var(--border)] bg-[rgba(246,249,255,0.94)] backdrop-blur">
       <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-4 px-5">
@@ -13,7 +13,7 @@ export function AppHeader() {
           <span className="tracking-[0.16em] text-xs uppercase">Exam Vault</span>
         </Link>
         <nav aria-label="Primary navigation" className="flex items-center gap-2">
-          <AuthNav />
+          <AuthAwareHeaderNav />
         </nav>
       </div>
     </header>

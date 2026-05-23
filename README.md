@@ -221,3 +221,7 @@ Cloudflare CNAME and TLS verification steps.
 - Mistake Taxonomy, Question Bank, Paper Generator, and Correction Notebooks are owner/student learning workflow modules
   built on private Supabase tables with RLS. Question bank and generated papers are owner-only; correction notebooks open
   to a student only after feedback release.
+- Student Command Center is the primary student landing route after login. It brings together active/upcoming attempts,
+  upload recovery, readiness checks, server-time drift, feedback inbox, receipts, devices, notifications, archive,
+  mistake patterns, confidence ratings, and progress snapshots without exposing unreleased feedback.
+- Student calendar export is local `.ics` generation only; no external calendar API is required.
