@@ -4,9 +4,9 @@ import { ButtonLink } from "@/components/ui/button";
 import { buildMarkingTree, flattenMarkingTree, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { getCrossMarkWorkspace } from "@/lib/usability-data";
 
-export default async function CrossMarkPage({ params }: { params: Promise<{ assessmentId: string }> }) {
-  const { assessmentId } = await params;
-  const workspace = await getCrossMarkWorkspace(assessmentId);
+export default async function CrossMarkPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const workspace = await getCrossMarkWorkspace(id);
   const tree = buildMarkingTree(workspace.questionNodes);
   const roots = getSelectableMarkingGroups(tree);
   const firstRoot = roots[0] ?? null;

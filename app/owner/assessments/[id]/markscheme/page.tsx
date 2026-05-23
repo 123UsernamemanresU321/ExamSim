@@ -4,10 +4,10 @@ import { ButtonLink } from "@/components/ui/button";
 import { getAssessmentWorkspace } from "@/lib/live-data";
 import { listMarkschemeMappingWorkspace } from "@/lib/usability-data";
 
-export default async function MarkschemeMapperPage({ params }: { params: Promise<{ assessmentId: string }> }) {
-  const { assessmentId } = await params;
-  const workspace = await getAssessmentWorkspace(assessmentId);
-  if (!workspace) return <SectionHeading title="Assessment not found" description={`No assessment exists for ${assessmentId}.`} />;
+export default async function MarkschemeMapperPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const workspace = await getAssessmentWorkspace(id);
+  if (!workspace) return <SectionHeading title="Assessment not found" description={`No assessment exists for ${id}.`} />;
   if (!workspace.latestVersion) {
     return <SectionHeading title="No version to map" description="Create or import an assessment version before mapping a markscheme." />;
   }
@@ -21,7 +21,7 @@ export default async function MarkschemeMapperPage({ params }: { params: Promise
           title="Markscheme Mapper"
           description="Review extracted markscheme sections, ignore cover/general instructions, and map actual marking guidance to question nodes."
         />
-        <ButtonLink href={`/owner/assessments/${assessmentId}/review`} variant="secondary">
+        <ButtonLink href={`/owner/assessments/${id}/review`} variant="secondary">
           Back to parse review
         </ButtonLink>
       </div>
