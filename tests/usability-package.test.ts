@@ -25,6 +25,30 @@ describe("usability upgrade utilities", () => {
     expect(result.warnings.map((warning) => warning.code)).toContain("very_small_file");
   });
 
+  it("uses the PDF pages tree count when compressed PDFs hide individual page tokens", () => {
+    const bytes = new TextEncoder().encode(`
+      %PDF-1.7
+      1 0 obj
+      << /Type /Catalog /Pages 2 0 R >>
+      endobj
+      2 0 obj
+      << /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>
+      endobj
+      3 0 obj
+      << /Type /Page /Parent 2 0 R >>
+      endobj
+      4 0 obj
+      << /Filter /FlateDecode /Length 12 >>
+      stream
+      compressed
+      endstream
+      endobj
+      %%EOF
+    `);
+
+    expect(estimatePdfPageCountFromBytes(bytes)).toBe(3);
+  });
+
   it("flags missing or invalid uploads without pretending Edge has full OCR analysis", () => {
     const result = analyzePdfUploadMetadata({
       fileName: "answer.txt",

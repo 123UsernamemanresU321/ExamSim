@@ -95,8 +95,22 @@ serve(async (request) => {
 
 function estimatePageCount(bytes: Uint8Array) {
   if (!bytes.length) return null;
-  const sample = new TextDecoder("iso-8859-1").decode(bytes.slice(0, Math.min(bytes.length, 2_000_000)));
-  return sample.match(/\/Type\s*\/Page\b/g)?.length ?? null;
+  const sample = new TextDecoder("iso-8859-1").decode(bytes.slice(0, Math.min(bytes.length, 12_000_000)));
+  const explicitPageCount = sample.match(/\/Type\s*\/Page(?!s)\b/g)?.length ?? 0;
+  const pageTreeCount = extractPageTreeCount(sample);
+  const candidates = [explicitPageCount, pageTreeCount].filter((count): count is number => typeof count === "number" && count > 0);
+  return candidates.length ? Math.max(...candidates) : null;
+}
+
+function extractPageTreeCount(pdfText: string): number | null {
+  const counts: number[] = [];
+  for (const match of pdfText.matchAll(/<<[\s\S]*?>>/g)) {
+    const dictionary = match[0];
+    if (!/\/Type\s*\/Pages\b/.test(dictionary)) continue;
+    const countMatch = dictionary.match(/\/Count\s+(\d+)\b/);
+    if (countMatch?.[1]) counts.push(Number(countMatch[1]));
+  }
+  return counts.length ? Math.max(...counts) : null;
 }
 
 async function sha256Hex(bytes: Uint8Array) {

@@ -29,9 +29,22 @@ export type UploadSanityResult = {
 
 export function estimatePdfPageCountFromBytes(bytes: Uint8Array): number | null {
   if (!bytes.length) return null;
-  const text = new TextDecoder("iso-8859-1").decode(bytes.slice(0, Math.min(bytes.length, 2_000_000)));
-  const matches = text.match(/\/Type\s*\/Page\b/g);
-  return matches?.length ?? null;
+  const text = new TextDecoder("iso-8859-1").decode(bytes.slice(0, Math.min(bytes.length, 12_000_000)));
+  const explicitPageCount = text.match(/\/Type\s*\/Page(?!s)\b/g)?.length ?? 0;
+  const pageTreeCount = extractPageTreeCount(text);
+  const candidates = [explicitPageCount, pageTreeCount].filter((count): count is number => typeof count === "number" && count > 0);
+  return candidates.length ? Math.max(...candidates) : null;
+}
+
+function extractPageTreeCount(pdfText: string): number | null {
+  const counts: number[] = [];
+  for (const match of pdfText.matchAll(/<<[\s\S]*?>>/g)) {
+    const dictionary = match[0];
+    if (!/\/Type\s*\/Pages\b/.test(dictionary)) continue;
+    const countMatch = dictionary.match(/\/Count\s+(\d+)\b/);
+    if (countMatch?.[1]) counts.push(Number(countMatch[1]));
+  }
+  return counts.length ? Math.max(...counts) : null;
 }
 
 export function analyzePdfUploadMetadata(input: UploadSanityInput): UploadSanityResult {
