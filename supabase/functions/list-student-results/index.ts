@@ -21,8 +21,9 @@ serve(async (request) => {
 
     const { data: releases, error: releaseError } = await admin
       .from("feedback_releases")
-      .select("attempt_id, released_at, total_awarded_marks, total_available_marks")
+      .select("id, attempt_id, released_at, total_awarded_marks, total_available_marks, release_marks, release_comments, release_annotated_pdfs")
       .eq("visible_to_student", true)
+      .is("revoked_at", null)
       .in("attempt_id", attemptIds)
       .order("released_at", { ascending: false });
     if (releaseError) throw releaseError;
@@ -41,12 +42,16 @@ serve(async (request) => {
         const attempt = attemptById.get(release.attempt_id);
         const assessment = attempt ? assessmentById.get(attempt.assessment_id) : null;
         return {
+          feedback_release_id: release.id,
           attempt_id: release.attempt_id,
           assessment_title: assessment?.title ?? "Untitled assessment",
           paper_code: assessment?.paper_code ?? null,
           released_at: release.released_at,
           total_awarded_marks: release.total_awarded_marks,
           total_available_marks: release.total_available_marks,
+          release_marks: release.release_marks,
+          release_comments: release.release_comments,
+          release_annotated_pdfs: release.release_annotated_pdfs,
         };
       }),
     });

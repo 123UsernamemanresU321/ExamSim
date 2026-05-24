@@ -6,6 +6,7 @@ import {
   generateIcsEvent,
   getAllowedMaterialsForState,
   rankStudentUrgentActions,
+  releasedScorePercent,
   summarizeStudentProgress,
   type StudentAttemptCard,
   type StudentFeedbackCard,
@@ -105,6 +106,17 @@ describe("student experience utilities", () => {
     expect(progress.confidence_average).toBe(3);
   });
 
+  it("treats legacy visible releases with null release_marks as marks released", () => {
+    expect(releasedScorePercent({ total_awarded_marks: 16, total_available_marks: 20, release_marks: null })).toBe(80);
+    expect(releasedScorePercent({ total_awarded_marks: 16, total_available_marks: 20, release_marks: false })).toBeNull();
+  });
+
+  it("keeps student experience loaders on Edge-mediated released feedback results", () => {
+    const source = readFileSync("lib/student-experience.ts", "utf8");
+    expect(source).toContain('invokeEdgeFunctionServer<StudentResultsListResponse>("list-student-results"');
+    expect(source).not.toContain('from("feedback_releases")');
+  });
+
   it("documents required auth-aware navigation and student-side routes", () => {
     const appHeader = readFileSync("components/app-header.tsx", "utf8");
     const studentLayout = readFileSync("app/student/layout.tsx", "utf8");
@@ -142,6 +154,7 @@ function attempt(id: string, state: StudentAttemptCard["state"], start: string, 
     failed_upload_count: 0,
     needs_finalization: false,
     correction_pending: false,
+    feedback_released: false,
     released_score_percent: null,
     upload_completion_percent: 0,
     ...overrides,

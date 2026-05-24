@@ -1,4 +1,5 @@
 import { computeAttemptState } from "@/lib/attempt-state";
+import { invokeEdgeFunctionServer } from "@/lib/edge/server";
 import { calculateServerTimeDriftStatus, type ServerTimeDriftStatus } from "@/lib/student-experience-core";
 import { listStudentAttempts } from "@/lib/live-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -6,7 +7,6 @@ import type {
   AssessmentMaterial,
   Attempt,
   AttemptAccommodation,
-  FeedbackRelease,
   Json,
   MistakeCategory,
   MistakeInstance,
@@ -39,6 +39,7 @@ export type StudentAttemptCard = {
   failed_upload_count: number;
   needs_finalization: boolean;
   correction_pending: boolean;
+  feedback_released: boolean;
   released_score_percent: number | null;
   upload_completion_percent: number;
 };
@@ -66,6 +67,23 @@ export type StudentFeedbackCard = {
   comments_released: boolean;
   annotated_pdf_available: boolean;
   corrections_required: boolean;
+};
+
+type StudentResultsListResponse = {
+  results: StudentResultRelease[];
+};
+
+type StudentResultRelease = {
+  feedback_release_id?: string | null;
+  attempt_id: string;
+  assessment_title: string;
+  paper_code: string | null;
+  released_at: string;
+  total_awarded_marks: number | null;
+  total_available_marks: number | null;
+  release_marks?: boolean | null;
+  release_comments?: boolean | null;
+  release_annotated_pdfs?: boolean | null;
 };
 
 export type FinalizationUploadItem = {
@@ -256,6 +274,16 @@ export function buildFinalizationChecklist(input: {
   return { items, blockingReasons, warningReasons, canFinalize: blockingReasons.length === 0 };
 }
 
+export function releasedScorePercent(input: {
+  total_awarded_marks: number | null;
+  total_available_marks: number | null;
+  release_marks?: boolean | null;
+}): number | null {
+  if (input.release_marks === false) return null;
+  if (typeof input.total_awarded_marks !== "number" || !input.total_available_marks) return null;
+  return Math.round((input.total_awarded_marks / input.total_available_marks) * 100);
+}
+
 export function summarizeStudentProgress(input: {
   attempts: StudentAttemptCard[];
   feedback: StudentFeedbackCard[];
@@ -326,18 +354,16 @@ export async function listStudentAttemptCards(studentProfileId: string): Promise
   const attemptIds = attempts.map((attempt) => attempt.id);
   if (!attemptIds.length) return [];
 
-  const [slots, feedback, reads, sanityChecks, notebooks] = await Promise.all([
+  const [slots, releasedResults, reads, sanityChecks, notebooks] = await Promise.all([
     safeStudentRows<UploadSlot>("upload_slots", (supabase) => supabase.from("upload_slots").select("*").in("attempt_id", attemptIds)),
-    safeStudentRows<FeedbackRelease>("feedback_releases", (supabase) =>
-      supabase.from("feedback_releases").select("*").in("attempt_id", attemptIds).eq("visible_to_student", true).is("revoked_at", null),
-    ),
+    listReleasedStudentResults(),
     safeStudentRows<StudentFeedbackRead>("student_feedback_reads", (supabase) => supabase.from("student_feedback_reads").select("*").eq("student_profile_id", studentProfileId)),
     safeStudentRows<UploadSanityCheck>("upload_sanity_checks", (supabase) => supabase.from("upload_sanity_checks").select("*")),
     safeStudentRows<{ attempt_id: string; status: string }>("correction_notebooks", (supabase) => supabase.from("correction_notebooks").select("attempt_id,status").eq("student_profile_id", studentProfileId)),
   ]);
 
   const slotsByAttempt = groupBy(slots, (slot) => slot.attempt_id);
-  const feedbackByAttempt = groupBy(feedback, (release) => release.attempt_id);
+  const feedbackByAttempt = groupBy(releasedResults, (release) => release.attempt_id);
   const readsByRelease = new Map(reads.map((read) => [read.feedback_release_id ?? read.attempt_id, read]));
   const sanityBySlot = latestBy(sanityChecks, (check) => check.upload_slot_id, (check) => check.created_at);
   const notebookByAttempt = new Map(notebooks.map((notebook) => [notebook.attempt_id, notebook]));
@@ -345,13 +371,13 @@ export async function listStudentAttemptCards(studentProfileId: string): Promise
   return attempts.map((attempt) => {
     const attemptSlots = slotsByAttempt.get(attempt.id) ?? [];
     const releases = feedbackByAttempt.get(attempt.id) ?? [];
-    const unread = releases.filter((release) => !readsByRelease.get(release.id)?.read_at).length;
+    const unread = releases.filter((release) => !readsByRelease.get(release.feedback_release_id ?? release.attempt_id)?.read_at).length;
     const failedUploadCount = attemptSlots.filter((slot) => {
       const check = sanityBySlot.get(slot.id);
       return slot.status === "rejected" || check?.status === "failed";
     }).length;
     const complete = attemptSlots.filter((slot) => slot.status === "uploaded" || slot.status === "blank_placeholder").length;
-    const score = latestReleaseScore(releases);
+    const score = latestResultScore(releases);
     return {
       id: attempt.id,
       title: attempt.title,
@@ -365,6 +391,7 @@ export async function listStudentAttemptCards(studentProfileId: string): Promise
       failed_upload_count: failedUploadCount,
       needs_finalization: attempt.state === "UPLOAD_ONLY" && attemptSlots.some((slot) => slot.status === "pending" || slot.status === "missing" || slot.status === "rejected"),
       correction_pending: ["not_started", "in_progress", "submitted"].includes(String(notebookByAttempt.get(attempt.id)?.status ?? "")),
+      feedback_released: releases.length > 0,
       released_score_percent: score,
       upload_completion_percent: attemptSlots.length ? Math.round((complete / attemptSlots.length) * 100) : 100,
     };
@@ -376,32 +403,29 @@ export async function listStudentFeedbackCards(studentProfileId: string): Promis
   const attemptIds = attempts.map((attempt) => attempt.id);
   if (!attemptIds.length) return [];
   const [releases, reads, slots, notebooks] = await Promise.all([
-    safeStudentRows<FeedbackRelease>("feedback_releases", (supabase) =>
-      supabase.from("feedback_releases").select("*").in("attempt_id", attemptIds).eq("visible_to_student", true).is("revoked_at", null).order("released_at", { ascending: false }),
-    ),
+    listReleasedStudentResults(),
     safeStudentRows<StudentFeedbackRead>("student_feedback_reads", (supabase) => supabase.from("student_feedback_reads").select("*").eq("student_profile_id", studentProfileId)),
     safeStudentRows<UploadSlot>("upload_slots", (supabase) => supabase.from("upload_slots").select("*").in("attempt_id", attemptIds)),
     safeStudentRows<{ attempt_id: string; status: string }>("correction_notebooks", (supabase) => supabase.from("correction_notebooks").select("attempt_id,status").eq("student_profile_id", studentProfileId)),
   ]);
-  const attemptById = new Map(attempts.map((attempt) => [attempt.id, attempt]));
   const readByRelease = new Map(reads.map((read) => [read.feedback_release_id ?? read.attempt_id, read]));
   const slotsByAttempt = groupBy(slots, (slot) => slot.attempt_id);
   const notebookByAttempt = new Map(notebooks.map((notebook) => [notebook.attempt_id, notebook]));
-  return releases.map((release) => {
-    const attempt = attemptById.get(release.attempt_id);
-    return {
+  return releases
+    .filter((release) => attemptIds.includes(release.attempt_id))
+    .sort((a, b) => b.released_at.localeCompare(a.released_at))
+    .map((release) => ({
       attempt_id: release.attempt_id,
-      feedback_release_id: release.id,
-      title: attempt?.title ?? "Assessment",
-      paper_code: attempt?.paper_code ?? null,
+      feedback_release_id: release.feedback_release_id ?? null,
+      title: release.assessment_title,
+      paper_code: release.paper_code,
       released_at: release.released_at,
-      read_at: readByRelease.get(release.id)?.read_at ?? readByRelease.get(release.attempt_id)?.read_at ?? null,
-      marks_released: release.release_marks ?? true,
-      comments_released: release.release_comments ?? true,
-      annotated_pdf_available: (release.release_annotated_pdfs ?? true) && (slotsByAttempt.get(release.attempt_id) ?? []).some((slot) => Boolean(slot.annotated_object_path)),
+      read_at: readByRelease.get(release.feedback_release_id ?? release.attempt_id)?.read_at ?? readByRelease.get(release.attempt_id)?.read_at ?? null,
+      marks_released: release.release_marks !== false,
+      comments_released: release.release_comments !== false,
+      annotated_pdf_available: release.release_annotated_pdfs !== false && (slotsByAttempt.get(release.attempt_id) ?? []).some((slot) => Boolean(slot.annotated_object_path)),
       corrections_required: ["not_started", "in_progress"].includes(String(notebookByAttempt.get(release.attempt_id)?.status ?? "")),
-    };
-  });
+    }));
 }
 
 export async function getStudentTimelineData(studentProfileId: string) {
@@ -535,11 +559,19 @@ function uploadItemFromSlot(slot: UploadSlot, sanity: UploadSanityCheck | null, 
   };
 }
 
-function latestReleaseScore(releases: FeedbackRelease[]): number | null {
+function latestResultScore(releases: StudentResultRelease[]): number | null {
   const latest = [...releases].sort((a, b) => b.released_at.localeCompare(a.released_at))[0];
-  if (!latest || !latest.release_marks) return null;
-  if (!latest.total_available_marks) return null;
-  return Math.round((latest.total_awarded_marks / latest.total_available_marks) * 100);
+  return latest ? releasedScorePercent(latest) : null;
+}
+
+async function listReleasedStudentResults(): Promise<StudentResultRelease[]> {
+  try {
+    const response = await invokeEdgeFunctionServer<StudentResultsListResponse>("list-student-results", {});
+    return response.results ?? [];
+  } catch (error) {
+    if (isMissingOptionalTableError(error)) return [];
+    throw error;
+  }
 }
 
 async function getLatestStudentDeviceCheck(studentProfileId: string): Promise<StudentDeviceCheck | null> {

@@ -9,12 +9,14 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 interface ResultItem {
+  feedback_release_id?: string | null;
   attempt_id: string;
   assessment_title: string;
   paper_code: string | null;
   released_at: string;
   total_awarded_marks: number;
   total_available_marks: number;
+  release_marks?: boolean | null;
 }
 
 export function StudentResultsListClient() {
@@ -102,8 +104,8 @@ export function StudentResultsListClient() {
                       <Award size={12} /> Score
                     </div>
                     <div className="text-2xl font-black italic tracking-tighter text-[var(--ink)]">
-                      {result.total_awarded_marks}
-                      <span className="text-sm font-bold text-[var(--subtle)] ml-1">/ {result.total_available_marks}</span>
+                      {result.release_marks === false ? "Released" : result.total_awarded_marks}
+                      {result.release_marks === false ? null : <span className="text-sm font-bold text-[var(--subtle)] ml-1">/ {result.total_available_marks}</span>}
                     </div>
                   </div>
                   <ButtonLink 

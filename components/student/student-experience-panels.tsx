@@ -182,10 +182,12 @@ export function StudentArchive({ attempts }: { attempts: StudentAttemptCard[] })
                   <td className="py-3 pr-3 font-semibold">{attempt.title}</td>
                   <td className="py-3 pr-3">{attempt.paper_code ?? "-"}</td>
                   <td className="py-3 pr-3">{formatInTimezone(attempt.end_at_utc, attempt.display_timezone)}</td>
-                  <td className="py-3 pr-3">{attempt.released_score_percent === null ? "Unreleased" : `${attempt.released_score_percent}%`}</td>
+                  <td className="py-3 pr-3">{formatReleasedScore(attempt)}</td>
                   <td className="py-3 pr-3">{attempt.upload_completion_percent}%</td>
                   <td className="py-3 pr-3">
-                    <Link className="font-semibold text-[var(--primary)]" href={`/student/attempts/${attempt.id}/results`}>Open</Link>
+                    <Link className="font-semibold text-[var(--primary)]" href={attempt.feedback_released ? `/student/attempts/${attempt.id}/results` : `/student/attempts/${attempt.id}/receipt`}>
+                      {attempt.feedback_released ? "Review feedback" : "View receipt"}
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -441,4 +443,10 @@ function EmptyState({ title, description }: { title: string; description: string
       <p className="mt-1 text-[var(--muted)]">{description}</p>
     </div>
   );
+}
+
+function formatReleasedScore(attempt: StudentAttemptCard): string {
+  if (!attempt.feedback_released) return "Unreleased";
+  if (attempt.released_score_percent === null) return "Feedback only";
+  return `${attempt.released_score_percent}%`;
 }
