@@ -127,7 +127,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
                 <input name="do_not_reuse" type="checkbox" defaultChecked={item.do_not_reuse} className="mt-1" />
                 Do not reuse in generated papers
               </label>
-              <Button type="submit" className="w-full text-white">Save metadata</Button>
+              <Button type="submit" className="w-full !text-white">Save metadata</Button>
             </form>
           </Card>
           <Card className="p-5">

@@ -186,7 +186,7 @@ export function MarkingWorkspaceForm({
                     <Button
                       type="button"
                       variant={state.binaryDecision === "correct" ? "primary" : "secondary"}
-                      className={state.binaryDecision === "correct" ? "text-white" : ""}
+                      className={state.binaryDecision === "correct" ? "!text-white" : ""}
                       onClick={() =>
                         setLocalMarks((prev) => ({
                           ...prev,
@@ -199,7 +199,7 @@ export function MarkingWorkspaceForm({
                     <Button
                       type="button"
                       variant={state.binaryDecision === "incorrect" ? "primary" : "secondary"}
-                      className={state.binaryDecision === "incorrect" ? "text-white" : ""}
+                      className={state.binaryDecision === "incorrect" ? "!text-white" : ""}
                       onClick={() =>
                         setLocalMarks((prev) => ({
                           ...prev,

@@ -53,7 +53,7 @@ export function AnnotationToolbar({
             key={item.value}
             type="button"
             variant={active ? "primary" : "secondary"}
-            className={cn("h-9 px-3 text-xs", active && "text-white")}
+            className={cn("h-9 px-3 text-xs", active && "!text-white")}
             onClick={() => onToolChange(item.value)}
             title={item.label}
             aria-label={item.label}
@@ -76,7 +76,7 @@ export function AnnotationToolbar({
       <Button type="button" variant="secondary" className="h-9 px-3 text-xs" onClick={onGenerate}>
         <RotateCcw size={15} /> Generate PDF
       </Button>
-      <Button type="button" className="h-9 px-3 text-xs text-white" onClick={onRelease}>
+      <Button type="button" className="h-9 px-3 text-xs !text-white" onClick={onRelease}>
         Release
       </Button>
     </div>

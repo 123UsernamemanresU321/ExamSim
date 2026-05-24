@@ -95,6 +95,8 @@ export async function markStudentFeedbackRead(attemptId: string, feedbackRelease
     { onConflict: "student_profile_id,attempt_id,feedback_release_id" },
   );
   revalidatePath("/student/feedback");
+  revalidatePath("/student/command-center");
+  revalidatePath("/student");
 }
 
 export async function saveNotificationPreferences(formData: FormData) {

@@ -26,7 +26,7 @@ export function ReleaseAnnotatedPdfDialog({
           <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
             Cancel
           </Button>
-          <Button type="button" className="text-white" onClick={onConfirm} disabled={isSaving}>
+          <Button type="button" className="!text-white" onClick={onConfirm} disabled={isSaving}>
             {isSaving ? "Releasing..." : "Release to student"}
           </Button>
         </div>

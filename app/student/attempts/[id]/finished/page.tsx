@@ -44,7 +44,7 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
             </div>
             <a 
               href={`/student/attempts/${id}/results`}
-              className="rounded-lg bg-[#123d18] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1a5522] hover:shadow-lg active:scale-95"
+              className="rounded-lg bg-[#123d18] px-4 py-2 text-sm font-bold !text-white transition-all hover:bg-[#1a5522] hover:shadow-lg active:scale-95"
             >
               View Full Results
             </a>

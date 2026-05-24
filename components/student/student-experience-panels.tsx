@@ -12,23 +12,27 @@ import { generateIcsEvent, type FinalizationChecklist, type StudentAttemptCard, 
 import type { StudentDevice, StudentDeviceCheck, StudentIncidentReport, StudentNotification, StudentNotificationPreferences, StudentPerformancePreferences, UploadQueueEvent, UploadSlot } from "@/types/database";
 
 export function StudentCommandCenter({ data }: { data: StudentCommandCenterData }) {
+  const unreadFeedback = data.feedbackPreview.filter((item) => !item.read_at);
+  const upcomingAttempts = data.timeline.filter((attempt) => attempt.state === "WAITING" || attempt.state === "ACTIVE" || attempt.state === "UPLOAD_ONLY").slice(0, 4);
+  const notificationUnread = data.notifications.filter((item) => !item.read_at).length;
+
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-5">
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard label="Active" value={data.attempts.filter((attempt) => attempt.state === "ACTIVE").length} />
         <SummaryCard label="Upcoming" value={data.attempts.filter((attempt) => attempt.state === "WAITING").length} />
-        <SummaryCard label="Feedback unread" value={data.feedbackPreview.filter((item) => !item.read_at).length} />
-        <SummaryCard label="Upload average" value={`${data.progress.upload_completion_rate}%`} />
+        <SummaryCard label="Unread feedback" value={unreadFeedback.length} />
+        <SummaryCard label="Alerts" value={notificationUnread} />
       </div>
-      <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
         <Card>
           <CardHeader>
             <CardTitle>Urgent actions</CardTitle>
-            <CardDescription>Active exams, upload deadlines, failed uploads, and feedback that needs attention.</CardDescription>
+            <CardDescription>Only the items that need action now.</CardDescription>
           </CardHeader>
           {data.urgentActions.length ? (
-            <div className="grid gap-3">
-              {data.urgentActions.map((action) => (
+            <div className="grid gap-2">
+              {data.urgentActions.slice(0, 5).map((action) => (
                 <Link key={`${action.kind}-${action.attempt.id}`} href={action.href} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] p-3 hover:bg-[var(--surface-muted)]">
                   <div>
                     <p className="font-semibold text-[var(--ink)]">{action.label}</p>
@@ -44,24 +48,33 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
         </Card>
         <div className="grid gap-5">
           <ServerTimeVerificationCard serverNowUtc={data.serverNowUtc} timezone="Africa/Johannesburg" />
-          <DeviceReadinessSummary devices={data.devices} latestCheck={data.latestDeviceCheck} />
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Quick links</CardTitle>
+              <CardDescription>Readiness, feedback, and settings without scanning the full sidebar.</CardDescription>
+            </CardHeader>
+            <div className="grid gap-2">
+              <ButtonLink href="/student/devices" variant="secondary">Device readiness</ButtonLink>
+              <ButtonLink href="/student/feedback" variant="secondary">Feedback inbox</ButtonLink>
+              <ButtonLink href="/student/notification-settings" variant="secondary">Notifications</ButtonLink>
+            </div>
+          </Card>
         </div>
       </div>
-      <div className="grid gap-5 xl:grid-cols-2">
-        <StudentAttemptTimeline attempts={data.timeline.slice(0, 6)} />
-        <StudentFeedbackPreview feedback={data.feedbackPreview} />
+      <div className="grid gap-5 xl:grid-cols-[1fr_0.8fr]">
+        <StudentAttemptTimeline attempts={upcomingAttempts} compact />
+        <StudentFeedbackPreview feedback={unreadFeedback.slice(0, 4)} compact />
       </div>
-      <StudentNotificationList notifications={data.notifications} />
     </div>
   );
 }
 
-export function StudentAttemptTimeline({ attempts }: { attempts: StudentAttemptCard[] }) {
+export function StudentAttemptTimeline({ attempts, compact = false }: { attempts: StudentAttemptCard[]; compact?: boolean }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Timeline</CardTitle>
-        <CardDescription>Server-based start, end, and upload window times.</CardDescription>
+        <CardDescription>{compact ? "Next exams and upload windows." : "Server-based start, end, and upload window times."}</CardDescription>
       </CardHeader>
       {attempts.length ? (
         <div className="grid gap-3">
@@ -76,23 +89,25 @@ export function StudentAttemptTimeline({ attempts }: { attempts: StudentAttemptC
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <ButtonLink href={`/student/attempts/${attempt.id}/readiness`} variant="secondary">Readiness</ButtonLink>
-                <a
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)]"
-                  href={`data:text/calendar;charset=utf-8,${encodeURIComponent(generateIcsEvent({
-                    id: attempt.id,
-                    title: attempt.title,
-                    paper_code: attempt.paper_code,
-                    start_at_utc: attempt.start_at_utc,
-                    end_at_utc: attempt.end_at_utc,
-                    upload_deadline_at_utc: attempt.upload_deadline_at_utc,
-                    display_timezone: attempt.display_timezone,
-                    exam_url: `/student/attempts/${attempt.id}/waiting`,
-                  }))}`}
-                  download={`${attempt.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.ics`}
-                >
-                  <Download size={16} aria-hidden="true" />
-                  ICS
-                </a>
+                {compact ? null : (
+                  <a
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)]"
+                    href={`data:text/calendar;charset=utf-8,${encodeURIComponent(generateIcsEvent({
+                      id: attempt.id,
+                      title: attempt.title,
+                      paper_code: attempt.paper_code,
+                      start_at_utc: attempt.start_at_utc,
+                      end_at_utc: attempt.end_at_utc,
+                      upload_deadline_at_utc: attempt.upload_deadline_at_utc,
+                      display_timezone: attempt.display_timezone,
+                      exam_url: `/student/attempts/${attempt.id}/waiting`,
+                    }))}`}
+                    download={`${attempt.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.ics`}
+                  >
+                    <Download size={16} aria-hidden="true" />
+                    ICS
+                  </a>
+                )}
               </div>
             </div>
           ))}
@@ -104,12 +119,12 @@ export function StudentAttemptTimeline({ attempts }: { attempts: StudentAttemptC
   );
 }
 
-export function StudentFeedbackPreview({ feedback }: { feedback: StudentFeedbackCard[] }) {
+export function StudentFeedbackPreview({ feedback, compact = false }: { feedback: StudentFeedbackCard[]; compact?: boolean }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Feedback inbox</CardTitle>
-        <CardDescription>Released marks, comments, annotated PDFs, and corrections.</CardDescription>
+        <CardDescription>{compact ? "Unread released feedback." : "Released marks, comments, annotated PDFs, and corrections."}</CardDescription>
       </CardHeader>
       {feedback.length ? (
         <div className="grid gap-3">
@@ -124,7 +139,7 @@ export function StudentFeedbackPreview({ feedback }: { feedback: StudentFeedback
           ))}
         </div>
       ) : (
-        <EmptyState title="No released feedback" description="Feedback appears here only after the owner releases it." />
+        <EmptyState title={compact ? "No unread feedback" : "No released feedback"} description={compact ? "Read feedback remains available in the feedback inbox." : "Feedback appears here only after the owner releases it."} />
       )}
     </Card>
   );
@@ -370,7 +385,7 @@ export function NotificationPreferencesPanel({ preferences }: { preferences: Stu
           <span>Browser notifications enabled</span>
           <input name="browser_notifications_enabled" type="checkbox" defaultChecked={preferences?.browser_notifications_enabled ?? false} />
         </label>
-        <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white" type="submit">
+        <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white" type="submit">
           Save notification settings
         </button>
       </form>
@@ -418,7 +433,7 @@ export function AccessibilityPreferencesPanel({ performance }: { performance: St
         <p className="rounded-md bg-[var(--surface-muted)] p-3 text-[var(--muted)]">
           Font size, contrast, line spacing, timer display, reading width, and reduced-motion controls are stored in your accessibility preferences.
         </p>
-        <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white" type="submit">
+        <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white" type="submit">
           Save accessibility settings
         </button>
       </form>

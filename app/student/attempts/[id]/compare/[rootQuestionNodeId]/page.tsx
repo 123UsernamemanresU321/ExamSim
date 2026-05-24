@@ -84,7 +84,7 @@ export default async function WorkedSolutionComparisonPage({ params }: { params:
                 Note
                 <textarea name="note" className="min-h-24 rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
-              <button type="submit" className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white">Save confidence rating</button>
+              <button type="submit" className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white">Save confidence rating</button>
             </form>
           ) : null}
         </Card>

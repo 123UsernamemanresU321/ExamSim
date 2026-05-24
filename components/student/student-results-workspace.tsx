@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { markStudentFeedbackRead } from "@/app/student/student-actions";
 import type { AttemptReviewWorkspace } from "@/lib/live-data";
 import { MarkingSidebarTree } from "@/components/owner/marking-sidebar-tree";
 import { MarkingCenterPanel } from "@/components/owner/marking-center-panel";
@@ -21,6 +22,7 @@ import { FileText, MessageSquare, Award, ExternalLink, Send } from "lucide-react
 export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: AttemptReviewWorkspace; attemptId: string }) {
   const questionTree = buildMarkingTree(workspace.questionNodes);
   const selectableGroups = getSelectableMarkingGroups(questionTree);
+  const readMarkedRef = useRef(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     selectableGroups[0]?.id ?? null
   );
@@ -31,6 +33,12 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
     ? workspace.uploadSlots.find((item) => item.question_node_id === selectedNode.id)
     : undefined;
   const totals = selectedNode ? computeMarkingTotals(selectedNode, workspace.marks) : null;
+
+  useEffect(() => {
+    if (readMarkedRef.current || !workspace.feedbackRelease?.id) return;
+    readMarkedRef.current = true;
+    void markStudentFeedbackRead(attemptId, workspace.feedbackRelease?.id);
+  }, [attemptId, workspace.feedbackRelease?.id]);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
@@ -246,7 +254,7 @@ function StudentSubmissionBlock({
             <Button
               type="button"
               variant="secondary"
-              className="bg-white text-emerald-700 hover:bg-emerald-700 hover:text-white"
+              className="bg-white text-emerald-700 hover:bg-emerald-700 hover:!text-white"
               onClick={() => (annotatedSignedUrl ? window.open(annotatedSignedUrl, "_blank", "noopener,noreferrer") : undefined)}
               disabled={!annotatedSignedUrl}
             >
@@ -384,7 +392,7 @@ function StudentTicketPanel({
                       onChange={(event) => setReplyByTicket((prev) => ({ ...prev, [ticket.id]: event.target.value }))}
                       placeholder="Reply to this discussion..."
                     />
-                    <Button type="button" onClick={() => void reply(ticket.id)} disabled={isSaving || !replyByTicket[ticket.id]?.trim()} className="justify-self-start text-white">
+                    <Button type="button" onClick={() => void reply(ticket.id)} disabled={isSaving || !replyByTicket[ticket.id]?.trim()} className="justify-self-start !text-white">
                       <Send size={14} /> Reply
                     </Button>
                   </div>
@@ -403,7 +411,7 @@ function StudentTicketPanel({
           placeholder={`Question about ${node.node_key}`}
         />
         <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Explain what you want reviewed or clarified." />
-        <Button type="button" onClick={() => void openTicket()} disabled={isSaving || !subject.trim() || !message.trim()} className="justify-self-start text-white">
+        <Button type="button" onClick={() => void openTicket()} disabled={isSaving || !subject.trim() || !message.trim()} className="justify-self-start !text-white">
           <MessageSquare size={14} /> Open discussion
         </Button>
       </div>

@@ -88,7 +88,7 @@ export function AttemptRecoveryControls({ attemptId }: { attemptId: string }) {
             <input name="affects_marking" type="checkbox" />
             Affects marking
           </label>
-          <Button type="submit" className="gap-2 text-white" disabled={busy === "incident"}>
+          <Button type="submit" className="gap-2 !text-white" disabled={busy === "incident"}>
             <Wrench size={14} />
             Save incident
           </Button>
@@ -106,7 +106,7 @@ export function AttemptRecoveryControls({ attemptId }: { attemptId: string }) {
           <Field label="Reason">
             <Textarea name="reason" required placeholder="Reason for controlled extension." />
           </Field>
-          <Button type="submit" className="gap-2 text-white" disabled={busy === "extension"}>
+          <Button type="submit" className="gap-2 !text-white" disabled={busy === "extension"}>
             Grant extension
           </Button>
         </div>

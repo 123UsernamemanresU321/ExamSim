@@ -92,7 +92,7 @@ export default async function PaperGeneratorPage() {
               <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Duration minutes</span>
               <input name="duration_minutes" type="number" min="1" className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" defaultValue={60} />
             </label>
-            <Button type="submit" className="w-full text-white" disabled={!questionBankItems.length}>
+            <Button type="submit" className="w-full !text-white" disabled={!questionBankItems.length}>
               <FilePlus2 size={16} /> Generate paper
             </Button>
           </form>

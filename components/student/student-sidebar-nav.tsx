@@ -104,7 +104,7 @@ export function StudentSidebarNav() {
               aria-controls={`student-nav-section-${section.id}`}
               onClick={() => toggleSection(section.id)}
             >
-              <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] text-white" : "bg-white text-[var(--subtle)]")}>
+              <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] !text-white" : "bg-white text-[var(--subtle)]")}>
                 <SectionIcon size={15} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1 truncate text-xs font-black uppercase tracking-[0.13em]">{section.title}</span>

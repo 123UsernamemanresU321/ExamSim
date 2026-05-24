@@ -26,7 +26,7 @@ export default async function StudentTimelinePage() {
       <SectionHeading title="Exam Timeline" description="Chronological start, end, upload-only, and feedback timing. Times are based on the Exam Vault server." />
       <div className="mb-5 flex flex-wrap gap-3">
         <a
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white hover:bg-[var(--primary-strong)]"
           href={`data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`}
           download="exam-vault-upcoming.ics"
         >

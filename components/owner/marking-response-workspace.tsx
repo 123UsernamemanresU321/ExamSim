@@ -508,7 +508,7 @@ function MarkingResponseCard({
                   <Button
                     type="button"
                     variant={binaryDecision === "correct" ? "primary" : "secondary"}
-                    className={cn("h-14 font-black", binaryDecision === "correct" && "text-white")}
+                    className={cn("h-14 font-black", binaryDecision === "correct" && "!text-white")}
                     onClick={() => setBinaryDecision("correct")}
                   >
                     Correct - award full marks
@@ -516,7 +516,7 @@ function MarkingResponseCard({
                   <Button
                     type="button"
                     variant={binaryDecision === "incorrect" ? "primary" : "secondary"}
-                    className={cn("h-14 font-black", binaryDecision === "incorrect" && "text-white")}
+                    className={cn("h-14 font-black", binaryDecision === "incorrect" && "!text-white")}
                     onClick={() => setBinaryDecision("incorrect")}
                   >
                     Incorrect - award 0 marks
@@ -525,7 +525,7 @@ function MarkingResponseCard({
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="secondary"
-                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "bg-red-600 border-red-600 text-white hover:bg-red-700")}
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
                     onClick={() => setIsFlagged(!isFlagged)}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
@@ -533,7 +533,7 @@ function MarkingResponseCard({
                   </Button>
                   <Button
                     variant="secondary"
-                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "bg-orange-600 border-orange-600 text-white hover:bg-orange-700")}
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
                     onClick={() => setIsUnreadable(!isUnreadable)}
                   >
                     <Ban size={12} className="mr-1.5" />
@@ -564,7 +564,7 @@ function MarkingResponseCard({
                 <div className="col-span-2 grid grid-rows-2 gap-2">
                   <Button
                     variant="secondary"
-                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "bg-red-600 border-red-600 text-white hover:bg-red-700")}
+                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
                     onClick={() => setIsFlagged(!isFlagged)}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
@@ -572,7 +572,7 @@ function MarkingResponseCard({
                   </Button>
                   <Button
                     variant="secondary"
-                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "bg-orange-600 border-orange-600 text-white hover:bg-orange-700")}
+                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
                     onClick={() => setIsUnreadable(!isUnreadable)}
                   >
                     <Ban size={12} className="mr-1.5" />
@@ -703,7 +703,7 @@ function SubmissionPdfPreview({ objectPath, sanityCheck, onDownload }: { objectP
             </p>
           ) : null}
         </div>
-        <Button variant="secondary" onClick={onDownload} className="bg-white text-blue-700 hover:bg-blue-600 hover:text-white">
+        <Button variant="secondary" onClick={onDownload} className="bg-white text-blue-700 hover:bg-blue-600 hover:!text-white">
           <ExternalLink size={14} className="mr-2" /> Open
         </Button>
       </div>
@@ -921,7 +921,7 @@ function WorkAnnotationPanel({
             <option value="major">Major issue</option>
             <option value="critical">Critical issue</option>
           </select>
-          <Button type="button" onClick={() => void saveAnnotation()} disabled={isSaving || !body.trim()} className="text-white">
+          <Button type="button" onClick={() => void saveAnnotation()} disabled={isSaving || !body.trim()} className="!text-white">
             Save annotation
           </Button>
         </div>
@@ -993,7 +993,7 @@ function OwnerTicketPanel({
       <div className="mb-4 grid gap-2 rounded-lg border border-blue-100 bg-white p-3">
         <Input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder={`Open a discussion about ${node.node_key}`} />
         <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Visible to the student after feedback release. Use this for clarifications or disputed marking points." />
-        <Button type="button" className="justify-self-start text-white" disabled={!subject.trim() || !message.trim()} onClick={() => void createTicket()}>
+        <Button type="button" className="justify-self-start !text-white" disabled={!subject.trim() || !message.trim()} onClick={() => void createTicket()}>
           Open discussion
         </Button>
       </div>
@@ -1026,7 +1026,7 @@ function OwnerTicketPanel({
                 onChange={(event) => setReplyByTicket((prev) => ({ ...prev, [ticket.id]: event.target.value }))}
                 placeholder="Reply to the student..."
               />
-              <Button className="mt-2 text-white" type="button" onClick={() => void reply(ticket.id)} disabled={!replyByTicket[ticket.id]?.trim()}>
+              <Button className="mt-2 !text-white" type="button" onClick={() => void reply(ticket.id)} disabled={!replyByTicket[ticket.id]?.trim()}>
                 Reply
               </Button>
             </div>

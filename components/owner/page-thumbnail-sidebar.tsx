@@ -43,7 +43,7 @@ export function PageThumbnailSidebar({
                 key={index}
                 type="button"
                 variant={index === currentPageIndex ? "primary" : "secondary"}
-                className={cn("h-16 justify-between text-left", index === currentPageIndex && "text-white")}
+                className={cn("h-16 justify-between text-left", index === currentPageIndex && "!text-white")}
                 onClick={() => onPageChange(index)}
               >
                 <span>Page {index + 1}</span>

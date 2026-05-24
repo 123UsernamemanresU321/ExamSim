@@ -41,7 +41,7 @@ export default async function StudentFinalizePage({ params }: { params: Promise<
               Description
               <textarea name="description" required className="min-h-28 rounded-md border border-[var(--border)] px-3 py-2" />
             </label>
-            <button type="submit" className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white">Submit incident report</button>
+            <button type="submit" className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white">Submit incident report</button>
           </form>
           <div className="mt-4 flex flex-wrap gap-3">
             <ButtonLink href={`/student/attempts/${id}/recovery-status`} variant="secondary">Recovery status</ButtonLink>

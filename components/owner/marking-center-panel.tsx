@@ -50,7 +50,7 @@ export function MarkingCenterPanel({
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <span className="flex min-h-9 min-w-9 items-center justify-center rounded-full bg-[var(--primary)] px-2 text-xs font-bold text-white">
+            <span className="flex min-h-9 min-w-9 items-center justify-center rounded-full bg-[var(--primary)] px-2 text-xs font-bold !text-white">
               {node.node_key}
             </span>
             <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ink)]">

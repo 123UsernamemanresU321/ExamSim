@@ -67,7 +67,7 @@ export function CohortManager({
               )}
             </div>
           </Field>
-          <Button type="submit" className="gap-2 text-white" disabled={busy || students.length === 0}>
+          <Button type="submit" className="gap-2 !text-white" disabled={busy || students.length === 0}>
             <Users size={15} />
             Create cohort
           </Button>

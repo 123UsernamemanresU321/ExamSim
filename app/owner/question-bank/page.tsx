@@ -41,7 +41,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
           <Filter size={16} /> Subject filters
         </div>
         <div className="flex flex-wrap gap-2">
-          <ButtonLink href="/owner/question-bank" variant={subject === "all" ? "primary" : "secondary"} className={subject === "all" ? "text-white" : ""}>
+          <ButtonLink href="/owner/question-bank" variant={subject === "all" ? "primary" : "secondary"} className={subject === "all" ? "!text-white" : ""}>
             All
           </ButtonLink>
           {subjects.map((subjectName) => (
@@ -49,7 +49,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
               key={subjectName}
               href={`/owner/question-bank?subject=${encodeURIComponent(subjectName)}`}
               variant={subject === subjectName ? "primary" : "secondary"}
-              className={subject === subjectName ? "text-white" : ""}
+              className={subject === subjectName ? "!text-white" : ""}
             >
               {subjectName}
             </ButtonLink>

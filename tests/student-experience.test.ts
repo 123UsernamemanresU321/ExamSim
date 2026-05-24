@@ -134,6 +134,19 @@ describe("student experience utilities", () => {
     expect(source).not.toContain('from("feedback_releases")');
   });
 
+  it("marks released feedback as read when the student opens the result page", () => {
+    const workspace = readFileSync("components/student/student-results-workspace.tsx", "utf8");
+    const page = readFileSync("app/student/attempts/[id]/results/page.tsx", "utf8");
+    const actions = readFileSync("app/student/student-actions.ts", "utf8");
+
+    expect(workspace).toContain("markStudentFeedbackRead");
+    expect(workspace).toContain("feedbackRelease?.id");
+    expect(workspace).toContain("useEffect");
+    expect(page).toContain("getStudentAttemptResultsWorkspace");
+    expect(actions).toContain('revalidatePath("/student/feedback")');
+    expect(actions).toContain('revalidatePath("/student/command-center")');
+  });
+
   it("documents required auth-aware navigation and student-side routes", () => {
     const appHeader = readFileSync("components/app-header.tsx", "utf8");
     const studentLayout = readFileSync("app/student/layout.tsx", "utf8");
@@ -156,6 +169,17 @@ describe("student experience utilities", () => {
     ]) {
       expect(studentSidebar).toContain(path);
     }
+  });
+
+  it("keeps dark action controls on student surfaces readable", () => {
+    const button = readFileSync("components/ui/button.tsx", "utf8");
+    const progressFilter = readFileSync("components/student/student-progress-score-filter.tsx", "utf8");
+    const panels = readFileSync("components/student/student-experience-panels.tsx", "utf8");
+
+    expect(button).toContain("bg-[var(--primary)] !text-white");
+    expect(button).toContain("bg-[var(--danger)] !text-white");
+    expect(progressFilter).toContain("bg-[var(--primary)] !text-white");
+    expect(panels).toContain("bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white");
   });
 });
 

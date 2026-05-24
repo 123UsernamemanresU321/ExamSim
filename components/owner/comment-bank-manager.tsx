@@ -87,7 +87,7 @@ export function CommentBankManager({ items }: { items: CommentBankItem[] }) {
             <input name="student_facing" type="checkbox" defaultChecked />
             Student-facing by default
           </label>
-          <Button type="submit" className="gap-2 text-white" disabled={busyId === "new"}>
+          <Button type="submit" className="gap-2 !text-white" disabled={busyId === "new"}>
             <Plus size={16} />
             Add snippet
           </Button>
@@ -116,7 +116,7 @@ export function CommentBankManager({ items }: { items: CommentBankItem[] }) {
                 <Button
                   type="button"
                   variant="secondary"
-                  className="gap-2 text-red-700 hover:bg-red-600 hover:text-white"
+                  className="gap-2 text-red-700 hover:bg-red-600 hover:!text-white"
                   disabled={busyId === item.id}
                   onClick={() => deleteItem(item.id)}
                 >

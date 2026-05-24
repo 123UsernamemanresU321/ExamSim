@@ -35,7 +35,7 @@ export function StudentProgressScoreFilter({
               type="button"
               className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
                 active === filter.key
-                  ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                  ? "border-[var(--primary)] bg-[var(--primary)] !text-white"
                   : "border-[var(--border)] bg-white text-[var(--muted)] hover:bg-[var(--surface-muted)]"
               }`}
               onClick={() => setActive(filter.key)}

@@ -189,7 +189,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
                   onClick={() => toggleSection(section.id)}
                   title={section.description}
                 >
-                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] text-white" : "bg-white text-[var(--subtle)]")}>
+                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] !text-white" : "bg-white text-[var(--subtle)]")}>
                     <SectionIcon size={16} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
