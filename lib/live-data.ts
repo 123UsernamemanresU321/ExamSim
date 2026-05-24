@@ -62,6 +62,8 @@ export type AttemptSummary = {
   id: string;
   title: string;
   paper_code: string | null;
+  subject: string | null;
+  assessment_kind: string | null;
   student: string;
   start_at_utc: string;
   end_at_utc: string;
@@ -132,6 +134,8 @@ function demoAttemptSummaries(): AttemptSummary[] {
       id: attempt.id,
       title: attempt.title,
       paper_code: attempt.paper_code ?? null,
+      subject: "Olympiad",
+      assessment_kind: sampleAssessment.assessment_kind,
       student: attempt.student,
       start_at_utc: attempt.start_at_utc,
       end_at_utc: attempt.end_at_utc,
@@ -168,6 +172,8 @@ function mapAttemptSummary(
     id: attempt.id,
     title: assessment?.title ?? "Untitled assessment",
     paper_code: assessment?.paper_code ?? null,
+    subject: assessment?.subject ?? null,
+    assessment_kind: assessment?.assessment_kind ?? null,
     student: profileById.get(attempt.assignee_profile_id)?.display_name ?? "Student",
     start_at_utc: attempt.start_at_utc,
     end_at_utc: attempt.end_at_utc,

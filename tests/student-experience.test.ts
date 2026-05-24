@@ -90,8 +90,9 @@ describe("student experience utilities", () => {
   it("summarizes only released progress data", () => {
     const progress = summarizeStudentProgress({
       attempts: [
-        attempt("released", "FINISHED_REVIEW", "2026-05-20T08:00:00.000Z", { released_score_percent: 80, upload_completion_percent: 100 }),
-        attempt("unreleased", "FINISHED_REVIEW", "2026-05-21T08:00:00.000Z", { upload_completion_percent: 50 }),
+        attempt("released", "FINISHED_REVIEW", "2026-05-20T08:00:00.000Z", { subject: "Physics", assessment_kind: "test", paper_code: "PHY-P1", released_score_percent: 80, upload_completion_percent: 100 }),
+        attempt("second", "FINISHED_REVIEW", "2026-05-20T08:00:00.000Z", { subject: "Physics", assessment_kind: "exam", paper_code: "PHY-P2", released_score_percent: 60, upload_completion_percent: 100 }),
+        attempt("unreleased", "FINISHED_REVIEW", "2026-05-21T08:00:00.000Z", { subject: "Chemistry", assessment_kind: "test", upload_completion_percent: 50 }),
       ],
       feedback: [feedback("released", true), feedback("unread", false)],
       correctionsSubmitted: 1,
@@ -99,11 +100,27 @@ describe("student experience utilities", () => {
       confidenceRatings: [4, 2],
     });
 
-    expect(progress.completed_attempts).toBe(2);
-    expect(progress.average_released_score).toBe(80);
+    expect(progress.completed_attempts).toBe(3);
+    expect(progress.average_released_score).toBe(70);
     expect(progress.feedback_read_rate).toBe(50);
     expect(progress.common_mistakes[0]).toEqual({ label: "Missing units", count: 3 });
     expect(progress.confidence_average).toBe(3);
+    expect(progress.score_groups).toEqual(expect.arrayContaining([
+      { kind: "subject", key: "Physics", label: "Physics", average_released_score: 70, attempt_count: 2 },
+      { kind: "assessment_kind", key: "test", label: "test", average_released_score: 80, attempt_count: 1 },
+      { kind: "paper_code", key: "PHY-P1", label: "PHY-P1", average_released_score: 80, attempt_count: 1 },
+    ]));
+  });
+
+  it("keeps readiness checks connected to persistent device profiles", () => {
+    const actionSource = readFileSync("app/student/student-actions.ts", "utf8");
+    const readinessSource = readFileSync("components/student/student-interactive-panels.tsx", "utf8");
+
+    expect(actionSource).toContain('from("student_device_checks").insert');
+    expect(actionSource).toContain('from("student_devices").upsert');
+    expect(actionSource).toContain('onConflict: "student_profile_id,device_id_hash"');
+    expect(readinessSource).toContain("useEffect");
+    expect(readinessSource).toContain("saveReadinessCheck");
   });
 
   it("treats legacy visible releases with null release_marks as marks released", () => {
@@ -120,9 +137,11 @@ describe("student experience utilities", () => {
   it("documents required auth-aware navigation and student-side routes", () => {
     const appHeader = readFileSync("components/app-header.tsx", "utf8");
     const studentLayout = readFileSync("app/student/layout.tsx", "utf8");
+    const studentSidebar = readFileSync("components/student/student-sidebar-nav.tsx", "utf8");
 
     expect(appHeader).toContain("AuthAwareHeaderNav");
     expect(appHeader).not.toContain("AuthNav");
+    expect(studentLayout).toContain("StudentSidebarNav");
     for (const path of [
       "/student/command-center",
       "/student/timeline",
@@ -135,7 +154,7 @@ describe("student experience utilities", () => {
       "/student/security",
       "/student/notification-settings",
     ]) {
-      expect(studentLayout).toContain(path);
+      expect(studentSidebar).toContain(path);
     }
   });
 });
@@ -145,6 +164,8 @@ function attempt(id: string, state: StudentAttemptCard["state"], start: string, 
     id,
     title: id,
     paper_code: null,
+    subject: null,
+    assessment_kind: "exam",
     state,
     start_at_utc: start,
     end_at_utc: "2026-05-23T14:00:00.000Z",

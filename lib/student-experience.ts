@@ -30,6 +30,8 @@ export type StudentAttemptCard = {
   id: string;
   title: string;
   paper_code: string | null;
+  subject: string | null;
+  assessment_kind: string | null;
   state: AttemptState;
   start_at_utc: string;
   end_at_utc: string;
@@ -110,11 +112,20 @@ export type FinalizationChecklist = {
 export type StudentProgressSnapshot = {
   completed_attempts: number;
   average_released_score: number | null;
+  score_groups: StudentProgressScoreGroup[];
   upload_completion_rate: number;
   feedback_read_rate: number;
   corrections_submitted: number;
   common_mistakes: { label: string; count: number }[];
   confidence_average: number | null;
+};
+
+export type StudentProgressScoreGroup = {
+  kind: "subject" | "assessment_kind" | "paper_code";
+  key: string;
+  label: string;
+  average_released_score: number;
+  attempt_count: number;
 };
 
 export type StudentCommandCenterData = {
@@ -304,6 +315,7 @@ export function summarizeStudentProgress(input: {
   return {
     completed_attempts: completed.length,
     average_released_score: releasedScores.length ? Math.round(releasedScores.reduce((sum, score) => sum + score, 0) / releasedScores.length) : null,
+    score_groups: buildProgressScoreGroups(input.attempts),
     upload_completion_rate: uploadRates.length ? Math.round(uploadRates.reduce((sum, rate) => sum + rate, 0) / uploadRates.length) : 0,
     feedback_read_rate: input.feedback.length ? Math.round((readCount / input.feedback.length) * 100) : 0,
     corrections_submitted: input.correctionsSubmitted,
@@ -382,6 +394,8 @@ export async function listStudentAttemptCards(studentProfileId: string): Promise
       id: attempt.id,
       title: attempt.title,
       paper_code: attempt.paper_code,
+      subject: attempt.subject,
+      assessment_kind: attempt.assessment_kind,
       state: attempt.state,
       start_at_utc: attempt.start_at_utc,
       end_at_utc: attempt.end_at_utc,
@@ -396,6 +410,44 @@ export async function listStudentAttemptCards(studentProfileId: string): Promise
       upload_completion_percent: attemptSlots.length ? Math.round((complete / attemptSlots.length) * 100) : 100,
     };
   });
+}
+
+function buildProgressScoreGroups(attempts: StudentAttemptCard[]): StudentProgressScoreGroup[] {
+  const groups = new Map<string, { kind: StudentProgressScoreGroup["kind"]; key: string; label: string; scores: number[] }>();
+  for (const attempt of attempts) {
+    if (typeof attempt.released_score_percent !== "number" || !Number.isFinite(attempt.released_score_percent)) continue;
+    addProgressGroup(groups, "subject", attempt.subject ?? "Uncategorised", attempt.released_score_percent);
+    addProgressGroup(groups, "assessment_kind", attempt.assessment_kind ?? "Assessment", attempt.released_score_percent);
+    if (attempt.paper_code) addProgressGroup(groups, "paper_code", attempt.paper_code, attempt.released_score_percent);
+  }
+  return [...groups.values()]
+    .map((group) => ({
+      kind: group.kind,
+      key: group.key,
+      label: group.label,
+      average_released_score: Math.round(group.scores.reduce((sum, score) => sum + score, 0) / group.scores.length),
+      attempt_count: group.scores.length,
+    }))
+    .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || b.attempt_count - a.attempt_count || a.label.localeCompare(b.label));
+}
+
+function addProgressGroup(
+  groups: Map<string, { kind: StudentProgressScoreGroup["kind"]; key: string; label: string; scores: number[] }>,
+  kind: StudentProgressScoreGroup["kind"],
+  rawLabel: string,
+  score: number,
+) {
+  const label = rawLabel.trim() || "Uncategorised";
+  const mapKey = `${kind}:${label}`;
+  const existing = groups.get(mapKey);
+  if (existing) existing.scores.push(score);
+  else groups.set(mapKey, { kind, key: label, label, scores: [score] });
+}
+
+function kindOrder(kind: StudentProgressScoreGroup["kind"]): number {
+  if (kind === "subject") return 0;
+  if (kind === "assessment_kind") return 1;
+  return 2;
 }
 
 export async function listStudentFeedbackCards(studentProfileId: string): Promise<StudentFeedbackCard[]> {

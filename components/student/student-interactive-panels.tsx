@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { AlertTriangle, Bell, CheckCircle2, ShieldCheck } from "lucide-react";
 import { recordReadinessCheck, generateStudentRecoveryCode } from "@/app/student/student-actions";
 import { Badge } from "@/components/ui/badge";
@@ -17,14 +17,15 @@ type CheckResult = {
 
 export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: string; serverNowUtc: string }) {
   const [checks, setChecks] = useState<CheckResult[]>(() => runBrowserChecks(serverNowUtc));
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [isPending, startTransition] = useTransition();
+  const initialSaveDone = useRef(false);
 
   const overall = checks.some((check) => check.status === "failed") ? "failed" : checks.some((check) => check.status === "warning") ? "warning" : "passed";
 
-  function runAgain() {
-    const next = runBrowserChecks(serverNowUtc);
-    setChecks(next);
+  const saveReadinessCheck = useCallback((next: CheckResult[]) => {
     startTransition(() => {
+      setSaveStatus("saving");
       void recordReadinessCheck(
         attemptId,
         {
@@ -34,8 +35,22 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
           device_id: `${navigator.userAgent}-${screen.width}x${screen.height}`,
         },
         next.some((check) => check.status === "failed") ? "failed" : next.some((check) => check.status === "warning") ? "warning" : "passed",
-      );
+      )
+        .then(() => setSaveStatus("saved"))
+        .catch(() => setSaveStatus("failed"));
     });
+  }, [attemptId]);
+
+  useEffect(() => {
+    if (initialSaveDone.current) return;
+    initialSaveDone.current = true;
+    saveReadinessCheck(checks);
+  }, [checks, saveReadinessCheck]);
+
+  function runAgain() {
+    const next = runBrowserChecks(serverNowUtc);
+    setChecks(next);
+    saveReadinessCheck(next);
   }
 
   return (
@@ -46,7 +61,12 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
       </CardHeader>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Badge tone={overall === "passed" ? "success" : overall === "failed" ? "danger" : "warning"}>{overall}</Badge>
-        <Button type="button" onClick={runAgain} disabled={isPending}>{isPending ? "Saving check..." : "Run check again"}</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-[var(--muted)]">
+            {saveStatus === "saving" ? "Saving device check..." : saveStatus === "saved" ? "Device profile updated" : saveStatus === "failed" ? "Save failed" : "Ready"}
+          </span>
+          <Button type="button" onClick={runAgain} disabled={isPending}>{isPending ? "Saving check..." : "Run check again"}</Button>
+        </div>
       </div>
       <div className="grid gap-3">
         {checks.map((check) => (

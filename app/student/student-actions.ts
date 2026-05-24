@@ -1,8 +1,9 @@
 "use server";
 
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireAppRole } from "@/lib/auth/server";
+import { buildStudentDeviceRecord, hashStable } from "@/lib/student-device";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 
@@ -19,16 +20,26 @@ const STUDENT_INCIDENT_TYPES = new Set([
 
 export async function recordReadinessCheck(attemptId: string, checks: Record<string, unknown>, status: "passed" | "warning" | "failed") {
   const profile = await requireAppRole("student", `/student/attempts/${attemptId}/readiness`);
+  const studentProfileId = profile?.id ?? "";
+  const nowUtc = new Date().toISOString();
+  const device = buildStudentDeviceRecord({ studentProfileId, checks, status, nowUtc });
   const supabase = await createSupabaseServerClient();
-  await supabase.from("student_device_checks").insert({
-    student_profile_id: profile?.id ?? "",
+  const { error: checkError } = await supabase.from("student_device_checks").insert({
+    student_profile_id: studentProfileId,
     attempt_id: attemptId,
-    device_id_hash: hashStable(String(checks.device_id ?? checks.user_agent ?? "device")),
-    user_agent_hash: hashStable(String(checks.user_agent ?? "")),
+    device_id_hash: device.device_id_hash,
+    user_agent_hash: device.user_agent_hash,
     checks_json: checks as Json,
     status,
   });
+  if (checkError) throw checkError;
+  const { error: deviceError } = await supabase.from("student_devices").upsert(
+    device,
+    { onConflict: "student_profile_id,device_id_hash" },
+  );
+  if (deviceError) throw deviceError;
   revalidatePath(`/student/attempts/${attemptId}/readiness`);
+  revalidatePath("/student/devices");
 }
 
 export async function submitStudentIncidentReport(attemptId: string, formData: FormData) {
@@ -139,8 +150,4 @@ export async function generateStudentRecoveryCode(): Promise<{ code: string | nu
   });
   if (error) return { code: null, error: "Could not generate a recovery code." };
   return { code, error: null };
-}
-
-function hashStable(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
 }

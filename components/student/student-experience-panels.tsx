@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { saveAccessibilityPreferences, saveNotificationPreferences } from "@/app/student/student-actions";
 import { ServerTimeVerificationCard } from "@/components/student/server-time-verification-card";
+import { StudentProgressScoreFilter } from "@/components/student/student-progress-score-filter";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -210,6 +211,7 @@ export function StudentProgressPanel({ progress }: { progress: StudentProgressSn
         <SummaryCard label="Feedback read" value={`${progress.feedback_read_rate}%`} />
         <SummaryCard label="Confidence" value={progress.confidence_average === null ? "No data" : `${progress.confidence_average}/5`} />
       </div>
+      <StudentProgressScoreFilter overallScore={progress.average_released_score} groups={progress.score_groups} />
       <Card>
         <CardHeader>
           <CardTitle>Common released mistakes</CardTitle>

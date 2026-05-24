@@ -1,0 +1,142 @@
+"use client";
+
+import {
+  Archive,
+  Bell,
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  Gauge,
+  Home,
+  Inbox,
+  Laptop,
+  LineChart,
+  ShieldCheck,
+  SlidersHorizontal,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+
+type StudentNavItem = {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+};
+
+type StudentNavSection = {
+  id: string;
+  title: string;
+  Icon: LucideIcon;
+  items: StudentNavItem[];
+};
+
+const studentNavSections: StudentNavSection[] = [
+  {
+    id: "exams",
+    title: "Exams",
+    Icon: Gauge,
+    items: [
+      { href: "/student/command-center", label: "Command Center", Icon: Home },
+      { href: "/student/timeline", label: "Timeline", Icon: CalendarDays },
+      { href: "/student/archive", label: "Archive", Icon: Archive },
+    ],
+  },
+  {
+    id: "feedback",
+    title: "Feedback",
+    Icon: Inbox,
+    items: [
+      { href: "/student/feedback", label: "Inbox", Icon: Inbox },
+      { href: "/student/progress", label: "Progress", Icon: LineChart },
+      { href: "/student/mistake-patterns", label: "Mistake Patterns", Icon: Target },
+    ],
+  },
+  {
+    id: "settings",
+    title: "Account",
+    Icon: ShieldCheck,
+    items: [
+      { href: "/student/devices", label: "Devices", Icon: Laptop },
+      { href: "/student/accessibility", label: "Accessibility", Icon: SlidersHorizontal },
+      { href: "/student/security", label: "Security", Icon: ShieldCheck },
+      { href: "/student/notification-settings", label: "Notifications", Icon: Bell },
+    ],
+  },
+];
+
+export function StudentSidebarNav() {
+  const pathname = usePathname();
+  const activeSectionId = useMemo(
+    () => studentNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)))?.id ?? "exams",
+    [pathname],
+  );
+  const [manualExpandedSections, setManualExpandedSections] = useState<Set<string>>(() => new Set());
+  const expandedSections = useMemo(() => new Set(["exams", activeSectionId, ...manualExpandedSections]), [activeSectionId, manualExpandedSections]);
+
+  function toggleSection(sectionId: string) {
+    setManualExpandedSections((current) => {
+      const next = new Set(current);
+      if (next.has(sectionId) && sectionId !== activeSectionId && sectionId !== "exams") next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  }
+
+  return (
+    <nav className="grid gap-2 text-sm font-semibold text-[var(--muted)]" aria-label="Student navigation">
+      {studentNavSections.map((section) => {
+        const isExpanded = expandedSections.has(section.id);
+        const sectionActive = section.id === activeSectionId;
+        const SectionIcon = section.Icon;
+        return (
+          <section key={section.id} className="rounded-lg">
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition hover:bg-white",
+                sectionActive ? "text-[var(--ink)]" : "text-[var(--muted)]",
+              )}
+              aria-expanded={isExpanded}
+              aria-controls={`student-nav-section-${section.id}`}
+              onClick={() => toggleSection(section.id)}
+            >
+              <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] text-white" : "bg-white text-[var(--subtle)]")}>
+                <SectionIcon size={15} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs font-black uppercase tracking-[0.13em]">{section.title}</span>
+              {isExpanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+            </button>
+            {isExpanded ? (
+              <div id={`student-nav-section-${section.id}`} className="mt-1 grid gap-1 pl-8">
+                {section.items.map(({ href, label, Icon }) => {
+                  const isActive = isRouteActive(pathname, href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition",
+                        isActive ? "bg-white text-[var(--primary)] shadow-sm" : "hover:bg-white hover:text-[var(--primary)]",
+                      )}
+                    >
+                      <Icon size={15} aria-hidden="true" />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </section>
+        );
+      })}
+    </nav>
+  );
+}
+
+function isRouteActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + "/");
+}

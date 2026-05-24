@@ -128,15 +128,14 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
     <aside 
       className={cn(
         "hidden border-r border-[var(--border)] bg-[var(--surface-muted)] transition-all duration-300 md:block relative",
-        isCollapsed ? "w-16" : "w-64 px-4 py-6"
+        isCollapsed ? "w-16" : "w-60 px-3 py-5"
       )}
       aria-label="Owner navigation"
     >
       <div className={cn("flex items-center justify-between mb-8", isCollapsed ? "flex-col gap-4 px-2 py-4" : "px-3")}>
         {!isCollapsed && (
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Workspace</p>
-            <p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">Grouped tools</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Owner</p>
           </div>
         )}
         <Button
@@ -149,7 +148,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
         </Button>
       </div>
 
-      <nav className={cn("text-sm font-semibold text-[var(--muted)]", isCollapsed ? "grid gap-2 px-2" : "space-y-3 overflow-y-auto pb-10")}>
+      <nav className={cn("text-sm font-semibold text-[var(--muted)]", isCollapsed ? "grid gap-2 px-2" : "space-y-1.5 overflow-y-auto pb-10")}>
         {isCollapsed ? (
           ownerNavSections.map((section) => (
             <div key={section.id} className="grid gap-1 border-b border-[var(--border)] pb-2 last:border-b-0" aria-label={section.title}>
@@ -178,29 +177,29 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
             const sectionActive = section.id === activeSectionId;
             const SectionIcon = section.Icon;
             return (
-              <section key={section.id} className="rounded-xl border border-[var(--border)] bg-white/55 p-1.5">
+              <section key={section.id} className="rounded-lg">
                 <button
                   type="button"
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white",
+                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition hover:bg-white",
                     sectionActive ? "text-[var(--ink)]" : "text-[var(--muted)]",
                   )}
                   aria-expanded={isExpanded}
                   aria-controls={`owner-nav-section-${section.id}`}
                   onClick={() => toggleSection(section.id)}
+                  title={section.description}
                 >
-                  <span className={cn("flex h-8 w-8 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] text-white" : "bg-[var(--surface-muted)] text-[var(--subtle)]")}>
+                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] text-white" : "bg-white text-[var(--subtle)]")}>
                     <SectionIcon size={16} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black">{section.title}</span>
-                    <span className="block truncate text-[10px] font-semibold text-[var(--subtle)]">{section.description}</span>
+                    <span className="block truncate text-xs font-black uppercase tracking-[0.13em]">{section.title}</span>
                   </span>
                   {isExpanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
                 </button>
 
                 {isExpanded ? (
-                  <div id={`owner-nav-section-${section.id}`} className="mt-1 grid gap-1 pl-10">
+                  <div id={`owner-nav-section-${section.id}`} className="mt-1 grid gap-1 pl-8">
                     {section.items.map(({ href, label, Icon }) => {
                       const isActive = isRouteActive(pathname, href);
                       return (
