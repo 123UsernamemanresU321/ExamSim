@@ -138,13 +138,18 @@ describe("student experience utilities", () => {
     const workspace = readFileSync("components/student/student-results-workspace.tsx", "utf8");
     const page = readFileSync("app/student/attempts/[id]/results/page.tsx", "utf8");
     const actions = readFileSync("app/student/student-actions.ts", "utf8");
+    const edge = readFileSync("supabase/functions/get-student-results/index.ts", "utf8");
 
     expect(workspace).toContain("markStudentFeedbackRead");
-    expect(workspace).toContain("feedbackRelease?.id");
+    expect(workspace).toContain("getFeedbackReleaseId");
+    expect(workspace).toContain("feedback_release_id");
     expect(workspace).toContain("useEffect");
     expect(page).toContain("getStudentAttemptResultsWorkspace");
+    expect(actions).toContain("if (error) throw");
     expect(actions).toContain('revalidatePath("/student/feedback")');
     expect(actions).toContain('revalidatePath("/student/command-center")');
+    expect(edge).toContain("markVisibleFeedbackRead");
+    expect(edge).toContain('from("student_feedback_reads").upsert');
   });
 
   it("documents required auth-aware navigation and student-side routes", () => {

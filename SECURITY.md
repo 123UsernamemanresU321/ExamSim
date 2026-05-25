@@ -79,6 +79,8 @@ Advanced learning workflow tables follow the same boundary:
 - Student Command Center, archive, progress, mistake patterns, comparison, confidence, and feedback inbox views use only
   assigned attempts plus visible feedback releases. Unreleased marks, private notes, draft annotation JSON, question bank
   data, generated paper criteria, and paper health checks remain owner-only.
+- Feedback inbox read receipts are student-owned metadata for assigned attempts. They do not grant direct access to
+  `feedback_releases`; released feedback content still comes from checked Edge Functions.
 - Student incident reports and recovery status panels expose only student-submitted reports, upload slot status, and safe
   accommodation summaries. Owner recovery notes and audit internals are not exposed.
 - Student recovery codes are generated server-side, shown once, and stored only as SHA-256 hashes.

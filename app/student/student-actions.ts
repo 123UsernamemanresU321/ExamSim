@@ -84,8 +84,9 @@ export async function saveStudentConfidenceRating(attemptId: string, questionNod
 
 export async function markStudentFeedbackRead(attemptId: string, feedbackReleaseId: string | null) {
   const profile = await requireAppRole("student", `/student/attempts/${attemptId}/results`);
+  if (!feedbackReleaseId) return;
   const supabase = await createSupabaseServerClient();
-  await supabase.from("student_feedback_reads").upsert(
+  const { error } = await supabase.from("student_feedback_reads").upsert(
     {
       student_profile_id: profile?.id ?? "",
       attempt_id: attemptId,
@@ -94,6 +95,7 @@ export async function markStudentFeedbackRead(attemptId: string, feedbackRelease
     },
     { onConflict: "student_profile_id,attempt_id,feedback_release_id" },
   );
+  if (error) throw new Error(`Could not mark feedback as read: ${error.message}`);
   revalidatePath("/student/feedback");
   revalidatePath("/student/command-center");
   revalidatePath("/student");

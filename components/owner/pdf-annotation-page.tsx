@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { screenToNormalized, type Point, type Size } from "@/lib/annotation-coordinates";
+import { layoutAnnotationTextBox } from "@/lib/annotation-text-layout";
 import { createAnnotationId, type AnnotationTool, type PdfAnnotation } from "@/lib/annotation-model";
 import { cn } from "@/lib/utils";
 
@@ -436,16 +437,26 @@ function AnnotationShape({
 
   if (annotation.type === "text" || annotation.type === "comment") {
     const fontSize = annotation.style.font_size ?? 12;
+    const displayText = annotation.type === "comment"
+      ? `Comment: ${annotation.comment || "Add comment"}`
+      : annotation.text || "Edit text";
+    const boxWidth = Math.max(width, 42);
+    const boxHeight = Math.max(height, 28);
+    const textLayout = layoutAnnotationTextBox({
+      text: displayText,
+      boxWidth,
+      boxHeight,
+      fontSize,
+    });
     return (
       <g onPointerDown={(event) => onPointerDown(event, "move")} className="cursor-move">
-        <rect x={x} y={y} width={Math.max(width, 42)} height={Math.max(height, 28)} rx={4} fill={annotation.type === "comment" ? "#fef3c7" : "#ffffff"} stroke={stroke} strokeWidth={1.5} opacity={0.94} />
-        <foreignObject x={x + 6} y={y + 5} width={Math.max(width - 12, 30)} height={Math.max(height - 10, 18)}>
-          <div className="break-words font-bold leading-tight" style={{ color: annotation.style.color ?? stroke, fontSize }}>
-            {annotation.type === "comment" ? "Comment: " : ""}
-            {annotation.text || annotation.comment || "Edit text"}
+        <rect x={x} y={y} width={boxWidth} height={textLayout.height} rx={4} fill={annotation.type === "comment" ? "#fef3c7" : "#ffffff"} stroke={stroke} strokeWidth={1.5} opacity={0.94} />
+        <foreignObject x={x + textLayout.paddingX} y={y + textLayout.paddingY} width={Math.max(boxWidth - textLayout.paddingX * 2, 30)} height={Math.max(textLayout.height - textLayout.paddingY * 2, 18)}>
+          <div className="break-words font-bold" style={{ color: annotation.style.color ?? stroke, fontSize, lineHeight: `${textLayout.lineHeight}px`, whiteSpace: "pre-wrap" }}>
+            {displayText}
           </div>
         </foreignObject>
-        {selected ? <SelectionBox x={x} y={y} width={Math.max(width, 42)} height={Math.max(height, 28)} onResizePointerDown={onPointerDown} /> : null}
+        {selected ? <SelectionBox x={x} y={y} width={boxWidth} height={textLayout.height} onResizePointerDown={onPointerDown} /> : null}
       </g>
     );
   }

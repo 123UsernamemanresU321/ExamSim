@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { layoutAnnotationTextBox } from "../_shared/annotation-text-layout.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type PdfAnnotation = {
@@ -191,19 +192,32 @@ function drawAnnotation(page: any, annotation: PdfAnnotation, font: any) {
     return;
   }
 
-  const text = (annotation.type === "comment" ? annotation.comment : annotation.text) || "";
+  const text = annotation.type === "comment"
+    ? `Comment: ${annotation.comment || ""}`
+    : annotation.text || "";
   if (text.trim()) {
     const fontSize = clamp(Number(annotation.style?.font_size ?? 10), 7, 48);
-    page.drawRectangle({ x, y, width: boxWidth, height: boxHeight, color: rgb(1, 1, 1), opacity: 0.82, borderColor: color, borderWidth: 0.8 });
-    page.drawText(text.slice(0, 240), {
-      x: x + 4,
-      y: y + boxHeight - fontSize - 4,
-      size: fontSize,
-      font,
-      color,
-      maxWidth: Math.max(20, boxWidth - 8),
-      lineHeight: fontSize + 2,
-      opacity,
+    const layout = layoutAnnotationTextBox({
+      text,
+      boxWidth,
+      boxHeight,
+      fontSize,
+      measureText: (line, size) => font.widthOfTextAtSize(line, size),
+    });
+    const effectiveBoxHeight = Math.min(Math.max(layout.height, boxHeight), Math.max(8, pageHeight - 2));
+    const effectiveY = clamp(pageHeight - browserY - effectiveBoxHeight, 0, Math.max(0, pageHeight - effectiveBoxHeight));
+    const background = annotation.type === "comment" ? rgb(1, 0.95, 0.78) : rgb(1, 1, 1);
+    page.drawRectangle({ x, y: effectiveY, width: boxWidth, height: effectiveBoxHeight, color: background, opacity: 0.94, borderColor: color, borderWidth: 0.8 });
+    const maxLines = Math.max(1, Math.floor((effectiveBoxHeight - layout.paddingY * 2) / layout.lineHeight));
+    layout.lines.slice(0, maxLines).forEach((line, index) => {
+      page.drawText(line || " ", {
+        x: x + layout.paddingX,
+        y: effectiveY + effectiveBoxHeight - layout.paddingY - fontSize - index * layout.lineHeight,
+        size: fontSize,
+        font,
+        color,
+        opacity,
+      });
     });
   }
 }

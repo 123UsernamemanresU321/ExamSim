@@ -495,7 +495,9 @@ describe("work annotations and mark discussion tickets", () => {
     expect(read("components/owner/work-annotation-studio.tsx")).toContain("font_size");
     const edge = read("supabase/functions/generate-annotated-pdf/index.ts");
     expect(edge).toContain("const fontSize");
-    expect(edge).toContain("lineHeight: fontSize + 2");
+    expect(edge).toContain("layoutAnnotationTextBox");
+    expect(edge).toContain("effectiveBoxHeight");
+    expect(read("components/owner/pdf-annotation-page.tsx")).toContain("layoutAnnotationTextBox");
   });
 
   it("separates marking, moderation, and dispute workspaces in the owner UI", () => {

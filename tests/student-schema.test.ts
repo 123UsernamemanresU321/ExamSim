@@ -36,4 +36,13 @@ describe("student-side schema and visibility boundaries", () => {
     expect(migration).not.toContain("on public.assessment_versions for select");
     expect(migration).not.toContain("on public.question_nodes for select");
   });
+
+  it("keeps feedback read receipts independent of direct feedback release table access", () => {
+    const migration = readFileSync("supabase/migrations/202605250001_fix_feedback_read_receipts_rls.sql", "utf8");
+    expect(migration).toContain('drop policy if exists "students manage own feedback reads"');
+    expect(migration).toContain("on public.student_feedback_reads for all to authenticated");
+    expect(migration).toContain("a.assignee_profile_id = public.current_profile_id()");
+    expect(migration).not.toContain("join public.feedback_releases");
+    expect(migration).not.toContain("fr.visible_to_student");
+  });
 });

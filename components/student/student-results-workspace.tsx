@@ -23,6 +23,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
   const questionTree = buildMarkingTree(workspace.questionNodes);
   const selectableGroups = getSelectableMarkingGroups(questionTree);
   const readMarkedRef = useRef(false);
+  const feedbackReleaseId = getFeedbackReleaseId(workspace.feedbackRelease);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     selectableGroups[0]?.id ?? null
   );
@@ -35,10 +36,12 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
   const totals = selectedNode ? computeMarkingTotals(selectedNode, workspace.marks) : null;
 
   useEffect(() => {
-    if (readMarkedRef.current || !workspace.feedbackRelease?.id) return;
+    if (readMarkedRef.current || !feedbackReleaseId) return;
     readMarkedRef.current = true;
-    void markStudentFeedbackRead(attemptId, workspace.feedbackRelease?.id);
-  }, [attemptId, workspace.feedbackRelease?.id]);
+    void markStudentFeedbackRead(attemptId, feedbackReleaseId).catch((error) => {
+      console.warn("Could not mark feedback as read", error);
+    });
+  }, [attemptId, feedbackReleaseId]);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
@@ -196,6 +199,11 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
       </div>
     </div>
   );
+}
+
+function getFeedbackReleaseId(release: AttemptReviewWorkspace["feedbackRelease"]): string | null {
+  if (!release) return null;
+  return release.id ?? (release as { feedback_release_id?: string | null }).feedback_release_id ?? null;
 }
 
 function StudentSubmissionBlock({

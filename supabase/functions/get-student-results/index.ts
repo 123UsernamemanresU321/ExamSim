@@ -52,6 +52,10 @@ serve(async (request) => {
       .from("feedback_releases")
       .select("*")
       .eq("attempt_id", attempt.id)
+      .eq("visible_to_student", true)
+      .is("revoked_at", null)
+      .order("released_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (feedbackError) throw feedbackError;
 
@@ -78,6 +82,10 @@ serve(async (request) => {
         sourceObjectPath: null,
         commentBank: [],
       });
+    }
+
+    if (profile.app_role === "student" && feedbackRelease?.id) {
+      await markVisibleFeedbackRead(admin, profile.id, attempt.id, feedbackRelease.id);
     }
 
     const [
@@ -175,3 +183,31 @@ serve(async (request) => {
     return errorResponse(error, "get-student-results failed");
   }
 });
+
+async function markVisibleFeedbackRead(admin: any, studentProfileId: string, attemptId: string, currentReleaseId: string) {
+  const { data: releases, error: releaseError } = await admin
+    .from("feedback_releases")
+    .select("id")
+    .eq("attempt_id", attemptId)
+    .eq("visible_to_student", true)
+    .is("revoked_at", null);
+  if (releaseError) {
+    console.warn("Could not load visible feedback releases for read receipt", releaseError);
+    return;
+  }
+  const releaseIds = new Set<string>((releases ?? []).map((release: { id: string }) => release.id));
+  releaseIds.add(currentReleaseId);
+  const now = new Date().toISOString();
+  for (const releaseId of releaseIds) {
+    const { error } = await admin.from("student_feedback_reads").upsert(
+      {
+        student_profile_id: studentProfileId,
+        attempt_id: attemptId,
+        feedback_release_id: releaseId,
+        read_at: now,
+      },
+      { onConflict: "student_profile_id,attempt_id,feedback_release_id" },
+    );
+    if (error) console.warn("Could not mark feedback release as read", { attemptId, releaseId, error });
+  }
+}

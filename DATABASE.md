@@ -116,9 +116,10 @@ The TypeScript equivalent of the state machine lives in `lib/attempt-state.ts` a
   accommodations, recovery actions, private markscheme mapping rows, or calendar recommendations unless a future
   release path explicitly exposes sanitized data.
 - Student experience tables are scoped by `student_profile_id = current_profile_id()` or by ownership of the related
-  attempt. Feedback reads and confidence ratings require a visible, non-revoked feedback release. Assessment materials
-  are student-readable only for assigned attempts and only when the material is not `owner_only`; the app then applies
-  the material's state-specific visibility policy.
+  attempt. Feedback read receipts are scoped to the assigned attempt and do not require direct student reads on
+  `feedback_releases`; the released feedback list/result payload remains Edge-mediated. Confidence ratings require a
+  visible, non-revoked feedback release. Assessment materials are student-readable only for assigned attempts and only
+  when the material is not `owner_only`; the app then applies the material's state-specific visibility policy.
 
 ## Indexes
 
