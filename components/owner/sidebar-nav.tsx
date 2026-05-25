@@ -127,7 +127,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
   return (
     <aside 
       className={cn(
-        "hidden border-r border-[var(--border)] bg-[var(--surface-muted)] transition-all duration-300 md:block relative",
+        "relative hidden border-r border-[var(--border)] bg-[var(--surface-muted)] transition-[width] duration-200 md:block",
         isCollapsed ? "w-16" : "w-60 px-3 py-5"
       )}
       aria-label="Owner navigation"
@@ -142,7 +142,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
           type="button"
           variant="ghost"
           onClick={onToggle}
-          className={cn("h-8 w-8 p-0 hover:bg-white/50 rounded-full", isCollapsed && "mt-2")}
+          className={cn("h-8 w-8 rounded-md p-0 hover:bg-white", isCollapsed && "mt-2")}
         >
           {isCollapsed ? <Menu size={16} /> : <ChevronLeft size={16} />}
         </Button>
@@ -158,7 +158,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
                   <Link
                     key={href}
                     className={cn(
-                      "flex h-12 w-12 items-center justify-center rounded-lg transition-all",
+                      "flex h-12 w-12 items-center justify-center rounded-md transition-colors",
                       isActive ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)] hover:bg-white hover:text-[var(--primary)]",
                     )}
                     href={href}
@@ -206,7 +206,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
                         <Link
                           key={href}
                           className={cn(
-                            "flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition-all",
+                            "flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition-colors",
                             isActive ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)] hover:bg-white hover:text-[var(--primary)]",
                           )}
                           href={href}
@@ -223,14 +223,47 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
           })
         )}
       </nav>
-
-      {/* Decorative indicator for collapsed state */}
-      {isCollapsed && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 opacity-20">
-          <ShieldCheck size={24} />
-        </div>
-      )}
     </aside>
+  );
+}
+
+export function OwnerMobileNav() {
+  const pathname = usePathname();
+  const activeSection = ownerNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)));
+  const activeItem = activeSection?.items.find((item) => isRouteActive(pathname, item.href));
+
+  return (
+    <details className="rounded-lg border border-[var(--border)] bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--ink)] [&::-webkit-details-marker]:hidden">
+        <span>{activeItem?.label ?? "Owner navigation"}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </summary>
+      <nav className="grid gap-3 border-t border-[var(--border)] p-3 text-sm" aria-label="Owner mobile navigation">
+        {ownerNavSections.map((section) => (
+          <section key={section.id}>
+            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--subtle)]">{section.title}</p>
+            <div className="grid gap-1">
+              {section.items.map(({ href, label, Icon }) => {
+                const isActive = isRouteActive(pathname, href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2.5 py-2 font-semibold transition-colors",
+                      isActive ? "bg-[var(--surface-muted)] text-[var(--primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--primary)]",
+                    )}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </nav>
+    </details>
   );
 }
 

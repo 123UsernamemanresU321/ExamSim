@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -89,8 +89,8 @@ export function AiParseReviewPanel({
       <Field label="Owner notes for AI">
         <Textarea value={ownerNotes} onChange={(event) => setOwnerNotes(event.target.value)} placeholder="Example: IB sections should be grouped by Section A/B; preserve subquestion labels." />
       </Field>
-      <Button type="button" variant="secondary" disabled={isSubmitting} onClick={() => void requestSuggestion()}>
-        <Sparkles size={16} aria-hidden="true" />
+      <Button type="button" variant="secondary" isLoading={isSubmitting} onClick={() => void requestSuggestion()}>
+        {!isSubmitting ? <FileSearch size={16} aria-hidden="true" /> : null}
         Request DeepSeek suggestion
       </Button>
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}

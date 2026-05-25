@@ -51,7 +51,9 @@ export function ResponseTextArea({
       lastSavedText.current = currentText;
       onSaveStatusChange?.("saved");
     } catch (err) {
-      console.error("Autosave failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Autosave failed:", err);
+      }
       onSaveStatusChange?.("error");
     }
   }

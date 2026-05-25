@@ -20,8 +20,11 @@ export async function AuthAwareHeaderNav() {
 
   if (!profile) {
     return (
-      <div className="flex items-center gap-3">
-        <ButtonLink href="/login" variant="secondary">Continue setup</ButtonLink>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <ButtonLink href="/login" variant="secondary">
+          <span className="hidden sm:inline">Continue setup</span>
+          <span className="sm:hidden">Setup</span>
+        </ButtonLink>
         <AccountSummary label={user.email ?? "Signed in"} role="Account setup needed" dashboardHref={null} />
       </div>
     );
@@ -33,10 +36,11 @@ export async function AuthAwareHeaderNav() {
   const roleLabel = isOwner ? "Owner" : "Student";
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <ButtonLink href={dashboardHref} variant="secondary">
         <LayoutDashboard size={16} aria-hidden="true" />
-        {dashboardLabel}
+        <span className="hidden lg:inline">{dashboardLabel}</span>
+        <span className="lg:hidden">Dashboard</span>
       </ButtonLink>
       <AccountSummary label={profile.display_name || profile.email || "Signed in"} role={roleLabel} dashboardHref={dashboardHref} />
     </div>
@@ -45,7 +49,7 @@ export async function AuthAwareHeaderNav() {
 
 function AccountSummary({ label, role, dashboardHref }: { label: string; role: string; dashboardHref: string | null }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm shadow-sm">
+    <div className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-white px-2 py-1.5 text-sm sm:gap-3 sm:px-3">
       <UserCircle size={18} aria-hidden="true" className="text-[var(--primary)]" />
       <div className="hidden min-w-0 sm:block">
         <p className="max-w-44 truncate font-semibold text-[var(--ink)]">{label}</p>

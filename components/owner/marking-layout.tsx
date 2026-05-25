@@ -45,7 +45,9 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
       });
       router.refresh();
     } catch (error) {
-      console.error("Release failed", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Release failed", error);
+      }
       alert("Failed to release marks: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsReleasing(false);

@@ -76,7 +76,9 @@ function QuestionBlock({
       });
       setIsFlagged(!isFlagged);
     } catch (e) {
-      console.error("Flagging failed", e);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Flagging failed", e);
+      }
     }
   }
 

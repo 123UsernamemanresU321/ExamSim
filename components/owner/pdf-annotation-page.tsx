@@ -294,7 +294,7 @@ function PdfAnnotationPageComponent({
 
   return (
     <div
-      className={cn("annotation-page-shell relative inline-block bg-white shadow-xl", className)}
+      className={cn("annotation-page-shell relative inline-block bg-white shadow-[var(--shadow-card)]", className)}
       style={{ userSelect: "none", WebkitUserSelect: "none" }}
     >
       {error ? (

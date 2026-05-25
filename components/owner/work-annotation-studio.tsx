@@ -186,7 +186,9 @@ export function WorkAnnotationStudio({
       setDeletedIds(new Set());
       setSaveStatus("saved");
     } catch (error) {
-      console.error("Annotation autosave failed", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Annotation autosave failed", error);
+      }
       setSaveStatus("failed");
     }
   }, [annotationKind, attemptId, dirtyIds, deletedIds, node.id, response, slot, studioAnnotations]);
@@ -337,14 +339,14 @@ export function WorkAnnotationStudio({
       </Button>
       {open ? (
         <div
-          className="annotation-studio fixed inset-0 z-50 bg-slate-950/80 p-3 text-[var(--ink)] backdrop-blur-sm"
+          className="annotation-studio fixed inset-0 z-50 bg-slate-950/80 p-3 text-[var(--ink)]"
           role="dialog"
           aria-modal="true"
           aria-label={`Annotation studio for ${node.node_key}`}
           style={{ userSelect: "none", WebkitUserSelect: "none" }}
         >
           <span className="hidden">annotation-v2</span>
-          <div className="grid h-full grid-rows-[auto_auto_1fr] overflow-hidden rounded-xl border border-slate-700 bg-slate-100 shadow-2xl">
+          <div className="grid h-full grid-rows-[auto_auto_1fr] overflow-hidden rounded-lg border border-slate-700 bg-slate-100 shadow-[var(--shadow-popover)]">
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Annotation Studio</p>
@@ -499,7 +501,7 @@ function TypedResponseAnnotationSurface({
   onSelectAnnotation: (annotationId: string | null) => void;
 }) {
   return (
-    <div className={cn("relative max-w-[780px] bg-white p-10 shadow-xl", "min-h-[840px] w-[720px]")}>
+    <div className={cn("relative max-w-[780px] bg-white p-10 shadow-[var(--shadow-card)]", "min-h-[840px] w-[720px]")}>
       <pre className="pointer-events-none whitespace-pre-wrap font-serif text-[15px] leading-8 text-slate-900">{responseText}</pre>
       <div className="absolute inset-0">
         <TextAnnotationOverlay

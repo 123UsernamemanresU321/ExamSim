@@ -1,12 +1,14 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, Download, FileText, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { saveAccessibilityPreferences, saveNotificationPreferences } from "@/app/student/student-actions";
 import { ServerTimeVerificationCard } from "@/components/student/server-time-verification-card";
 import { StudentProgressScoreFilter } from "@/components/student/student-progress-score-filter";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Select } from "@/components/ui/form";
 import { formatInTimezone } from "@/lib/attempt-state";
 import { generateIcsEvent, type FinalizationChecklist, type StudentAttemptCard, type StudentCommandCenterData, type StudentFeedbackCard, type StudentProgressSnapshot } from "@/lib/student-experience";
 import type { StudentDevice, StudentDeviceCheck, StudentIncidentReport, StudentNotification, StudentNotificationPreferences, StudentPerformancePreferences, UploadQueueEvent, UploadSlot } from "@/types/database";
@@ -385,9 +387,9 @@ export function NotificationPreferencesPanel({ preferences }: { preferences: Stu
           <span>Browser notifications enabled</span>
           <input name="browser_notifications_enabled" type="checkbox" defaultChecked={preferences?.browser_notifications_enabled ?? false} />
         </label>
-        <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white" type="submit">
+        <Button type="submit">
           Save notification settings
-        </button>
+        </Button>
       </form>
     </Card>
   );
@@ -407,20 +409,20 @@ export function AccessibilityPreferencesPanel({ performance }: { performance: St
         </label>
         <label className="grid gap-1">
           <span className="font-semibold">Interface font size</span>
-          <select name="interface_font_size" className="rounded-md border border-[var(--border)] bg-white px-3 py-2">
+          <Select name="interface_font_size">
             <option value="normal">Normal</option>
             <option value="large">Large</option>
             <option value="extra_large">Extra large</option>
-          </select>
+          </Select>
         </label>
         <label className="grid gap-1">
           <span className="font-semibold">Timer display</span>
-          <select name="timer_display_mode" className="rounded-md border border-[var(--border)] bg-white px-3 py-2">
+          <Select name="timer_display_mode">
             <option value="full">Full</option>
             <option value="compact">Compact</option>
             <option value="final_10">Final 10 minutes only</option>
             <option value="hidden_until_warning">Hidden until warning</option>
-          </select>
+          </Select>
         </label>
         <label className="flex items-center justify-between rounded-md border border-[var(--border)] p-3">
           <span>High contrast</span>
@@ -433,9 +435,9 @@ export function AccessibilityPreferencesPanel({ performance }: { performance: St
         <p className="rounded-md bg-[var(--surface-muted)] p-3 text-[var(--muted)]">
           Font size, contrast, line spacing, timer display, reading width, and reduced-motion controls are stored in your accessibility preferences.
         </p>
-        <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white" type="submit">
+        <Button type="submit">
           Save accessibility settings
-        </button>
+        </Button>
       </form>
     </Card>
   );
@@ -447,18 +449,6 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--subtle)]">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-[var(--ink)]">{value}</p>
     </Card>
-  );
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-5 text-sm">
-      <div className="flex items-center gap-2 font-semibold text-[var(--ink)]">
-        <FileText size={16} aria-hidden="true" />
-        {title}
-      </div>
-      <p className="mt-1 text-[var(--muted)]">{description}</p>
-    </div>
   );
 }
 

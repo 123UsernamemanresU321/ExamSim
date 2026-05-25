@@ -66,7 +66,9 @@ export function ChoiceResponseControl({
       });
       setStatus("saved");
     } catch (error) {
-      console.error("Choice autosave failed:", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Choice autosave failed:", error);
+      }
       setStatus("error");
     }
   }
@@ -185,7 +187,9 @@ export function NumericalResponseControl({
       lastSavedValue.current = currentValue;
       setStatus("saved");
     } catch (error) {
-      console.error("Numerical autosave failed:", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Numerical autosave failed:", error);
+      }
       setStatus("error");
     }
   }

@@ -42,12 +42,9 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
                 {feedback.total_awarded_marks}/{feedback.total_available_marks} marks
               </p>
             </div>
-            <a 
-              href={`/student/attempts/${id}/results`}
-              className="rounded-lg bg-[#123d18] px-4 py-2 text-sm font-bold !text-white transition-all hover:bg-[#1a5522] hover:shadow-lg active:scale-95"
-            >
-              View Full Results
-            </a>
+            <ButtonLink href={`/student/attempts/${id}/results`} className="bg-[#123d18] hover:bg-[#1a5522]">
+              View full results
+            </ButtonLink>
           </div>
         </Card>
       ) : null}

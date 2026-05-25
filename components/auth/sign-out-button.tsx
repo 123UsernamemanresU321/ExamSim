@@ -16,9 +16,9 @@ export function SignOutButton() {
   }
 
   return (
-    <Button type="button" variant="ghost" onClick={() => void signOut()}>
+    <Button type="button" variant="ghost" className="px-2 sm:px-3" onClick={() => void signOut()}>
       <LogOut size={16} aria-hidden="true" />
-      Sign out
+      <span className="hidden sm:inline">Sign out</span>
     </Button>
   );
 }

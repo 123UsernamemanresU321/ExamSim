@@ -137,6 +137,46 @@ export function StudentSidebarNav() {
   );
 }
 
+export function StudentMobileNav() {
+  const pathname = usePathname();
+  const activeSection = studentNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)));
+  const activeItem = activeSection?.items.find((item) => isRouteActive(pathname, item.href));
+
+  return (
+    <details className="rounded-lg border border-[var(--border)] bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--ink)] [&::-webkit-details-marker]:hidden">
+        <span>{activeItem?.label ?? "Student navigation"}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </summary>
+      <nav className="grid gap-3 border-t border-[var(--border)] p-3 text-sm" aria-label="Student mobile navigation">
+        {studentNavSections.map((section) => (
+          <section key={section.id}>
+            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--subtle)]">{section.title}</p>
+            <div className="grid gap-1">
+              {section.items.map(({ href, label, Icon }) => {
+                const isActive = isRouteActive(pathname, href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2.5 py-2 font-semibold transition-colors",
+                      isActive ? "bg-[var(--surface-muted)] text-[var(--primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--primary)]",
+                    )}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </nav>
+    </details>
+  );
+}
+
 function isRouteActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }

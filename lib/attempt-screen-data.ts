@@ -139,7 +139,9 @@ async function getReleasedPackageResult(attemptId: string, stateToken: string) {
     });
     const parsed = normalizedPackageSchema.safeParse(response.assessment_package);
     if (!parsed.success) {
-      console.error("Schema validation failed:", parsed.error.format());
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Schema validation failed:", parsed.error.format());
+      }
       return { 
       package: null,
       assetUrls: {},

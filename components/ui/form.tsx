@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { InputHTMLAttributes, LabelHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, LabelHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
@@ -10,7 +10,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        "min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm shadow-sm",
+        "min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors placeholder:text-[var(--subtle)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
         className,
       )}
       {...props}
@@ -22,7 +22,19 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        "min-h-32 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm shadow-sm",
+        "min-h-32 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors placeholder:text-[var(--subtle)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      className={cn(
+        "min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
         className,
       )}
       {...props}

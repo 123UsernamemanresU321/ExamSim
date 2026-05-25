@@ -184,7 +184,8 @@ describe("student experience utilities", () => {
     expect(button).toContain("bg-[var(--primary)] !text-white");
     expect(button).toContain("bg-[var(--danger)] !text-white");
     expect(progressFilter).toContain("bg-[var(--primary)] !text-white");
-    expect(panels).toContain("bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white");
+    expect(panels).toContain('import { Button, ButtonLink } from "@/components/ui/button"');
+    expect(panels).toContain('<Button type="submit">');
   });
 });
 

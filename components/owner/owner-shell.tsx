@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { SidebarNav } from "./sidebar-nav";
+import { OwnerMobileNav, SidebarNav } from "./sidebar-nav";
 
 export function OwnerShell({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div 
-      className="app-shell-grid h-[calc(100vh-64px)] transition-all duration-300 overflow-hidden"
+      className="app-shell-grid min-h-[calc(100vh-64px)]"
       style={{ "--sidebar-width": isCollapsed ? "64px" : "256px" } as React.CSSProperties}
     >
+      <div className="border-b border-[var(--border)] bg-[var(--surface-muted)] p-3 md:hidden">
+        <OwnerMobileNav />
+      </div>
       <SidebarNav isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
-      <main className="min-w-0 flex flex-col h-full px-5 py-8 md:px-8 overflow-y-auto">{children}</main>
+      <main className="min-w-0 px-4 py-6 sm:px-5 md:px-8 md:py-8">{children}</main>
     </div>
   );
 }

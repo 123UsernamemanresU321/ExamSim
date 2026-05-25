@@ -59,7 +59,7 @@ export function MarkingSidebarTree({
           </span>
         </div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
-          <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-[var(--primary)] transition-[width] duration-200" style={{ width: `${progress}%` }} />
         </div>
       </div>
 

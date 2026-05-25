@@ -377,7 +377,9 @@ function MarkingResponseCard({
       setLastSaved(new Date());
       router.refresh();
     } catch (error) {
-      console.error("Save failed", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Save failed", error);
+      }
       alert("Failed to save: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsSaving(false);
@@ -525,7 +527,7 @@ function MarkingResponseCard({
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="secondary"
-                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
                     onClick={() => setIsFlagged(!isFlagged)}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
@@ -533,7 +535,7 @@ function MarkingResponseCard({
                   </Button>
                   <Button
                     variant="secondary"
-                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
                     onClick={() => setIsUnreadable(!isUnreadable)}
                   >
                     <Ban size={12} className="mr-1.5" />
@@ -552,7 +554,7 @@ function MarkingResponseCard({
                     value={awarded}
                     onChange={(e) => setAwarded(e.target.value)}
                     className={cn(
-                      "text-3xl font-black h-16 pl-6 transition-all",
+                      "h-16 pl-6 text-3xl font-semibold transition-colors",
                       isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
                     )}
                   />
@@ -564,7 +566,7 @@ function MarkingResponseCard({
                 <div className="col-span-2 grid grid-rows-2 gap-2">
                   <Button
                     variant="secondary"
-                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
+                    className={cn("h-full text-[10px] font-bold uppercase tracking-tight transition-colors", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
                     onClick={() => setIsFlagged(!isFlagged)}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
@@ -572,7 +574,7 @@ function MarkingResponseCard({
                   </Button>
                   <Button
                     variant="secondary"
-                    className={cn("h-full text-[10px] font-bold uppercase tracking-tighter transition-all", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
+                    className={cn("h-full text-[10px] font-bold uppercase tracking-tight transition-colors", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
                     onClick={() => setIsUnreadable(!isUnreadable)}
                   >
                     <Ban size={12} className="mr-1.5" />

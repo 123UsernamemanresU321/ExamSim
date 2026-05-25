@@ -24,7 +24,6 @@ export function MineruHostedPanel({
   );
 
   const invoke = useCallback(async (functionName: "mineru-submit-hosted-job" | "mineru-poll-hosted-job", parseJobId: string, options: { force?: boolean } = {}) => {
-    console.log(`[MinerU] Calling ${functionName} for job ${parseJobId}...`);
     setBusyJobId(parseJobId);
     setMessage(
       functionName === "mineru-submit-hosted-job"
@@ -37,7 +36,6 @@ export function MineruHostedPanel({
         body: { parse_job_id: parseJobId, force: options.force ?? false },
         requiresAal2: true,
       });
-      console.log(`[MinerU] ${functionName} response received:`, data);
       setMessage(
         functionName === "mineru-submit-hosted-job"
           ? `Hosted MinerU job ${data?.restarted ? "restarted" : "submitted"}. Status: ${data?.status ?? "running"}. Upload mode: ${data?.upload_mode ?? "server-side"}.`
@@ -50,7 +48,9 @@ export function MineruHostedPanel({
       // Re-fetch workspace data so the UI updates immediately
       if (onRefresh) await onRefresh();
     } catch (error) {
-      console.error(`[MinerU] ${functionName} failed:`, error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(`[MinerU] ${functionName} failed:`, error);
+      }
       setMessage(error instanceof Error ? error.message : "Hosted MinerU request failed.");
     } finally {
       setBusyJobId(null);
@@ -116,19 +116,19 @@ export function MineruHostedPanel({
             {job.error_message ? <p className="mt-2 text-sm text-[var(--danger)]">{job.error_message}</p> : null}
             <div className="mt-3 flex flex-wrap gap-2">
               {canSubmit ? (
-                <Button type="button" variant="secondary" disabled={isBusy} onClick={() => void invoke("mineru-submit-hosted-job", job.id)}>
+                <Button type="button" variant="secondary" isLoading={isBusy} onClick={() => void invoke("mineru-submit-hosted-job", job.id)}>
                   <UploadCloud size={16} aria-hidden="true" />
                   Submit to MinerU
                 </Button>
               ) : null}
               {canPoll ? (
-                <Button type="button" variant="secondary" disabled={isBusy} onClick={() => void invoke("mineru-poll-hosted-job", job.id)}>
-                  <RefreshCw size={16} className={isBusy ? "animate-spin" : ""} aria-hidden="true" />
+                <Button type="button" variant="secondary" isLoading={isBusy} onClick={() => void invoke("mineru-poll-hosted-job", job.id)}>
+                  {!isBusy ? <RefreshCw size={16} aria-hidden="true" /> : null}
                   Check result
                 </Button>
               ) : null}
               {canRestart ? (
-                <Button type="button" variant="secondary" disabled={isBusy} onClick={() => void invoke("mineru-submit-hosted-job", job.id, { force: true })}>
+                <Button type="button" variant="secondary" isLoading={isBusy} onClick={() => void invoke("mineru-submit-hosted-job", job.id, { force: true })}>
                   <UploadCloud size={16} aria-hidden="true" />
                   Restart MinerU job
                 </Button>
