@@ -65,10 +65,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   }
 
   return (
-    <form className="grid gap-4" onSubmit={onSubmit}>
+    <form className="grid gap-5" onSubmit={onSubmit}>
       <Field
-        label="Owner email or student login code"
-        description="Owners use their email address. Students use the login code issued by the owner; Exam Vault maps it to the internal Supabase alias."
+        label="Credentials"
+        description="Owners sign in using their registered email. Students sign in using their issued login code (e.g., STU-XXXX)."
       >
         <Input
           name="email"
@@ -78,16 +78,28 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           spellCheck={false}
           placeholder="owner@example.com or STU-XXXX"
           required
+          className="focus:shadow-[0_0_0_2px_rgba(3,22,53,0.1)] transition-all duration-200"
         />
       </Field>
-      <Field label="Password">
-        <Input name="password" type="password" autoComplete="current-password" required />
+      <Field label="Security Password">
+        <Input 
+          name="password" 
+          type="password" 
+          autoComplete="current-password" 
+          required 
+          placeholder="••••••••••••"
+          className="focus:shadow-[0_0_0_2px_rgba(3,22,53,0.1)] transition-all duration-200"
+        />
       </Field>
-      <Button type="submit">
+      <Button type="submit" className="w-full justify-center gap-2.5 transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm">
         <LogIn size={16} aria-hidden="true" />
-        Log in as owner or student
+        Authenticate Account
       </Button>
-      {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
+      {message ? (
+        <div className="rounded-md bg-[var(--surface-muted)] px-3 py-2 border border-[var(--border)] text-xs text-[var(--muted)]" role="status">
+          <p className="font-semibold">{message}</p>
+        </div>
+      ) : null}
     </form>
   );
 }

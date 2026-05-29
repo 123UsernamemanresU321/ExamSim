@@ -738,7 +738,12 @@ function SubmissionPdfPreview({ objectPath, sanityCheck, onDownload }: { objectP
 }
 
 function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[]; onInsert: (text: string) => void }) {
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
   if (!items.length) return null;
+
+  const categories = ["All", ...Array.from(new Set(items.map((item) => item.category).filter(Boolean) as string[]))];
+
   async function insertSnippet(item: CommentBankItem) {
     onInsert(item.comment_text);
     try {
@@ -751,22 +756,51 @@ function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[];
       // Usage tracking is non-critical; keep the inserted feedback in place.
     }
   }
+
+  const filteredItems = selectedCategory === "All"
+    ? items
+    : items.filter((item) => item.category === selectedCategory);
+
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-2">
-      <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-[var(--subtle)]">Comment bank</p>
-      <div className="flex flex-wrap gap-2">
-        {items.slice(0, 6).map((item) => (
+    <div className="rounded-lg border border-[var(--border)] bg-slate-50/50 p-3 space-y-2">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[var(--subtle)]">Comment bank repository</p>
+        {categories.length > 2 && (
+          <div className="flex flex-wrap gap-1">
+            {categories.slice(0, 5).map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight transition-all cursor-pointer",
+                  selectedCategory === cat
+                    ? "bg-[var(--primary)] text-white font-extrabold"
+                    : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-100"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {filteredItems.slice(0, 10).map((item) => (
           <Button
             key={item.id}
             type="button"
             variant="secondary"
-            className="h-7 rounded-md px-2 text-[10px] font-bold"
+            className="h-7 rounded-md px-2 text-[10px] font-semibold border border-slate-200 bg-white hover:bg-slate-100 transition-colors"
             onClick={() => insertSnippet(item)}
             title={item.comment_text}
           >
-            {item.label}
+            📋 {item.label}
           </Button>
         ))}
+        {filteredItems.length === 0 && (
+          <p className="text-[10px] text-slate-400 italic">No feedback comments under this category.</p>
+        )}
       </div>
     </div>
   );

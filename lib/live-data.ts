@@ -474,6 +474,7 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
 }
 
 export async function listOwnerAttempts(): Promise<AttemptSummary[]> {
+  if (isDemoModeEnabled()) return demoAttemptSummaries();
   try {
     const supabase = await createSupabaseServerClient();
     const { data: attempts, error: attemptError } = await supabase
@@ -484,12 +485,12 @@ export async function listOwnerAttempts(): Promise<AttemptSummary[]> {
 
     return mapAttemptCollections(attempts ?? []);
   } catch (error) {
-    if (isDemoModeEnabled()) return demoAttemptSummaries();
     throw error;
   }
 }
 
 export async function listStudentAttempts(): Promise<AttemptSummary[]> {
+  if (isDemoModeEnabled()) return demoAttemptSummaries();
   try {
     const supabase = await createSupabaseServerClient();
     const { data: attempts, error: attemptError } = await supabase
@@ -500,7 +501,6 @@ export async function listStudentAttempts(): Promise<AttemptSummary[]> {
 
     return mapAttemptCollections(attempts ?? []);
   } catch (error) {
-    if (isDemoModeEnabled()) return demoAttemptSummaries();
     throw error;
   }
 }

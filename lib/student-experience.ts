@@ -3,6 +3,7 @@ import { invokeEdgeFunctionServer } from "@/lib/edge/server";
 import { calculateServerTimeDriftStatus, type ServerTimeDriftStatus } from "@/lib/student-experience-core";
 import { listStudentAttempts } from "@/lib/live-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDemoModeEnabled } from "@/lib/runtime";
 import type {
   AssessmentMaterial,
   Attempt,
@@ -363,6 +364,27 @@ export async function getStudentCommandCenterData(studentProfileId: string): Pro
 
 export async function listStudentAttemptCards(studentProfileId: string): Promise<StudentAttemptCard[]> {
   const attempts = await listStudentAttempts();
+  if (isDemoModeEnabled()) {
+    return attempts.map((attempt) => ({
+      id: attempt.id,
+      title: attempt.title,
+      paper_code: attempt.paper_code,
+      subject: attempt.subject,
+      assessment_kind: attempt.assessment_kind,
+      state: attempt.state,
+      start_at_utc: attempt.start_at_utc,
+      end_at_utc: attempt.end_at_utc,
+      upload_deadline_at_utc: attempt.upload_deadline_at_utc,
+      display_timezone: attempt.display_timezone,
+      unread_feedback_count: attempt.id === "att_finished" ? 1 : 0,
+      failed_upload_count: 0,
+      needs_finalization: attempt.state === "UPLOAD_ONLY",
+      correction_pending: attempt.id === "att_finished",
+      feedback_released: attempt.id === "att_finished",
+      released_score_percent: attempt.id === "att_finished" ? 85 : null,
+      upload_completion_percent: attempt.state === "FINISHED_REVIEW" ? 100 : 0,
+    }));
+  }
   const attemptIds = attempts.map((attempt) => attempt.id);
   if (!attemptIds.length) return [];
 
@@ -451,6 +473,22 @@ function kindOrder(kind: StudentProgressScoreGroup["kind"]): number {
 }
 
 export async function listStudentFeedbackCards(studentProfileId: string): Promise<StudentFeedbackCard[]> {
+  if (isDemoModeEnabled()) {
+    return [
+      {
+        attempt_id: "att_finished",
+        feedback_release_id: "feedback_demo",
+        title: "IB-style Physics Paper 2",
+        paper_code: "PHY-P2",
+        released_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        read_at: null,
+        marks_released: true,
+        comments_released: true,
+        annotated_pdf_available: true,
+        corrections_required: true,
+      },
+    ];
+  }
   const attempts = await listStudentAttempts();
   const attemptIds = attempts.map((attempt) => attempt.id);
   if (!attemptIds.length) return [];
@@ -503,6 +541,23 @@ export async function getStudentDevicesData(studentProfileId: string) {
 }
 
 export async function getStudentReadinessData(studentProfileId: string, attemptId: string): Promise<StudentReadinessData> {
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    const attempts = await listStudentAttemptCards(studentProfileId);
+    return {
+      attempt: attempts.find((attempt) => attempt.id === attemptId) ?? null,
+      latestCheck: {
+        id: "check_demo",
+        student_profile_id: studentProfileId,
+        device_id_hash: "demo-hash",
+        attempt_id: attemptId,
+        status: "passed",
+        checks_json: {},
+        warnings_json: [],
+        created_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+      } as any,
+      serverNowUtc: new Date().toISOString(),
+    };
+  }
   const attempts = await listStudentAttemptCards(studentProfileId);
   const latestCheck = await safeSingle<StudentDeviceCheck>("student_device_checks", (supabase) =>
     supabase.from("student_device_checks").select("*").eq("student_profile_id", studentProfileId).eq("attempt_id", attemptId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -517,6 +572,35 @@ export async function getStudentReadinessData(studentProfileId: string, attemptI
 export async function getStudentFinalizeData(studentProfileId: string, attemptId: string): Promise<StudentFinalizeData> {
   const attempts = await listStudentAttemptCards(studentProfileId);
   const attempt = attempts.find((item) => item.id === attemptId) ?? null;
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    const uploadItems: FinalizationUploadItem[] = [
+      {
+        slot_id: "slot_demo_1",
+        label: "Q1",
+        status: "uploaded",
+        file_name: "physics_paper2_q1.pdf",
+        sanity_status: "accepted",
+        warnings: [],
+      },
+      {
+        slot_id: "slot_demo_2",
+        label: "Q2",
+        status: "blank_placeholder",
+        file_name: null,
+        sanity_status: null,
+        warnings: [],
+      },
+    ];
+    return {
+      attempt,
+      uploadItems,
+      checklist: buildFinalizationChecklist({
+        requireBlankForSkipped: true,
+        typedResponsesPending: false,
+        uploadItems,
+      }),
+    };
+  }
   const [slots, sanityChecks, queueEvents] = await Promise.all([
     safeStudentRows<UploadSlot>("upload_slots", (supabase) => supabase.from("upload_slots").select("*").eq("attempt_id", attemptId).order("created_at")),
     safeStudentRows<UploadSanityCheck>("upload_sanity_checks", (supabase) => supabase.from("upload_sanity_checks").select("*").order("created_at", { ascending: false })),
@@ -539,6 +623,49 @@ export async function getStudentFinalizeData(studentProfileId: string, attemptId
 export async function getStudentRecoveryStatusData(studentProfileId: string, attemptId: string): Promise<StudentRecoveryStatusData> {
   const attempts = await listStudentAttemptCards(studentProfileId);
   const attempt = attempts.find((item) => item.id === attemptId) ?? null;
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    return {
+      attempt,
+      slots: [
+        {
+          id: "slot_demo_1",
+          attempt_id: attemptId,
+          question_node_id: "q1",
+          required: true,
+          object_path: "demo/q1.pdf",
+          original_file_name: "q1.pdf",
+          uploaded_at: new Date(Date.now() - 600 * 1000).toISOString(),
+          file_size_bytes: 1024 * 1024,
+          content_type: "application/pdf",
+          confirmed_by_profile_id: studentProfileId,
+          locked_at: new Date(Date.now() - 600 * 1000).toISOString(),
+          annotated_object_path: null,
+          annotated_generated_at: null,
+          is_blank_placeholder: false,
+          status: "uploaded",
+          created_at: new Date(Date.now() - 1200 * 1000).toISOString(),
+          updated_at: new Date(Date.now() - 600 * 1000).toISOString(),
+        },
+      ],
+      queueEvents: [],
+      incidents: [
+        {
+          id: "incident_demo",
+          attempt_id: attemptId,
+          student_profile_id: studentProfileId,
+          incident_type: "internet_issue",
+          description: "Slight delay in saving responses",
+          severity: "low",
+          status: "submitted",
+          resolved_at: null,
+          created_at: new Date(Date.now() - 300 * 1000).toISOString(),
+          updated_at: new Date(Date.now() - 300 * 1000).toISOString(),
+        } as any,
+      ],
+      accommodations: [],
+      safeStatus: "no_action_needed",
+    };
+  }
   const [slots, queueEvents, incidents, accommodations] = await Promise.all([
     safeStudentRows<UploadSlot>("upload_slots", (supabase) => supabase.from("upload_slots").select("*").eq("attempt_id", attemptId).order("created_at")),
     safeStudentRows<UploadQueueEvent>("upload_queue_events", (supabase) => supabase.from("upload_queue_events").select("*").eq("student_profile_id", studentProfileId).order("created_at", { ascending: false })),
@@ -552,6 +679,19 @@ export async function getStudentRecoveryStatusData(studentProfileId: string, att
 }
 
 export async function getStudentMaterialsForAttempt(attemptId: string): Promise<StudentMaterial[]> {
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    return [
+      {
+        id: "mat_demo_1",
+        title: "IB Physics Formula Booklet",
+        material_type: "formula_booklet",
+        visibility_policy: "always",
+        object_path: null,
+        content_html: "<p>Standard formula sheet content for physics simulation.</p>",
+        signed_url: null,
+      },
+    ];
+  }
   const attempt = await safeSingle<Attempt>("attempts", (supabase) => supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle());
   if (!attempt) return [];
   const serverNowUtc = new Date().toISOString();

@@ -253,20 +253,20 @@ export function ExamWorkspace({
   }
 
   return (
-    <div className="exam-mode">
+    <div className="exam-mode pb-12">
       <TelemetryListener attemptId={attemptId} attemptSessionId={attemptSessionId} stateToken={stateToken} />
-      <header className="sticky top-0 z-10 -mx-5 mb-8 border-b border-[var(--border)] bg-[rgba(246,249,255,0.96)] px-5 py-3 backdrop-blur md:-mx-8 md:px-8">
+      <header className="sticky top-0 z-50 -mx-5 mb-8 border-b border-[#dde3ee] bg-white/80 backdrop-blur-md px-5 py-4 shadow-sm transition-all duration-200 md:-mx-8 md:px-8">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AttemptStateBadge state="ACTIVE" />
             <div>
-              <h1 className="font-semibold">{assessmentPackage.assessment.title}</h1>
+              <h1 className="text-lg font-bold tracking-tight text-[var(--ink)] md:text-xl">{assessmentPackage.assessment.title}</h1>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--subtle)]">
                 {assessmentPackage.assessment.paper_code} · {attempt.delivery_mode === "seb_required" ? "Safe Exam Browser Mode" : "Browser Mode (Standard)"}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <ServerTimeVerificationCard serverNowUtc={attempt.server_now_utc} timezone={attempt.display_timezone} compact />
             <LastSavedBadge responses={responses} />
             <CountdownTimer
@@ -277,37 +277,47 @@ export function ExamWorkspace({
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-[1540px] gap-8 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]">
-        <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
+      <div className="mx-auto grid max-w-[1540px] gap-8 px-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]">
+        <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start transition-all duration-200">
           <QuestionNavigator questions={assessmentPackage.questions} />
         </div>
-        <QuestionPaper 
-          questions={assessmentPackage.questions} 
-          attemptId={attemptId}
-          ownerProfileId={attempt.owner_profile_id}
-          stateToken={stateToken}
-          assetUrls={assetUrls}
-          responses={responses}
-          annotations={annotations}
-          uploadSlots={uploadSlots}
-          onUploadComplete={handleUploadComplete}
-        />
-        <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
+        <div className="transition-all duration-200">
+          <QuestionPaper 
+            questions={assessmentPackage.questions} 
+            attemptId={attemptId}
+            ownerProfileId={attempt.owner_profile_id}
+            stateToken={stateToken}
+            assetUrls={assetUrls}
+            responses={responses}
+            annotations={annotations}
+            uploadSlots={uploadSlots}
+            onUploadComplete={handleUploadComplete}
+          />
+        </div>
+        <aside className="grid content-start gap-5 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
           <StudentMaterialsDrawer materials={materials} />
-          <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-[var(--ink)]">Response panel</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Typed answers autosave during ACTIVE. Upload URLs are issued one slot at a time.
+          
+          <section className="relative overflow-hidden rounded-xl border border-[#dde3ee] bg-white p-5 shadow-[var(--shadow-card)] transition-all hover:shadow-md">
+            <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-blue-600 to-indigo-600" />
+            <h2 className="text-sm font-bold tracking-wide uppercase text-[var(--ink)]">Response Control Panel</h2>
+            <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+              Typed answers are saved instantly. PDF uploads will be requested one slot at a time per question.
             </p>
-            <SubmitExamButton attemptId={attemptId} stateToken={stateToken} className="mt-4" />
-            <div className="mt-3 flex flex-wrap gap-2">
-              <ButtonLink href={`/student/attempts/${attemptId}/recovery-status`} variant="secondary">Report issue</ButtonLink>
-              <ButtonLink href={`/student/attempts/${attemptId}/finalize`} variant="secondary">Finalization checklist</ButtonLink>
+            <SubmitExamButton attemptId={attemptId} stateToken={stateToken} className="mt-4 w-full shadow-sm transition-all hover:brightness-110 active:scale-[0.98]" />
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-4">
+              <ButtonLink href={`/student/attempts/${attemptId}/recovery-status`} variant="secondary" className="justify-center text-xs font-semibold transition-all hover:bg-red-50 hover:text-red-700 hover:border-red-200">
+                Report Issue
+              </ButtonLink>
+              <ButtonLink href={`/student/attempts/${attemptId}/finalize`} variant="secondary" className="justify-center text-xs font-semibold transition-all hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200">
+                Finalize Checklist
+              </ButtonLink>
             </div>
           </section>
-          <div className="lg:hidden">
+
+          <div className="lg:hidden rounded-xl border border-[#dde3ee] bg-white p-4 shadow-sm">
             <QuestionNavigator questions={assessmentPackage.questions} />
           </div>
+
           {uploadNodes.map((node) => (
             <UploadSlotCard
               key={node.node_id}
@@ -320,8 +330,9 @@ export function ExamWorkspace({
               onUploadComplete={handleUploadComplete}
             />
           ))}
-          <section className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)] shadow-sm">
-            Browser telemetry is moderation evidence only. It does not prove cheating.
+
+          <section className="rounded-xl border border-[var(--border)] bg-[rgba(246,249,255,0.6)] p-4 text-xs leading-relaxed text-[var(--muted)] shadow-sm italic text-center">
+            🔒 Browser telemetry is recorded as moderation evidence. Respect standard honor code guidelines.
           </section>
         </aside>
       </div>

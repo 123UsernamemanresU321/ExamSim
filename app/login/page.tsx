@@ -10,35 +10,39 @@ export default function LoginPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto grid min-h-[calc(100vh-64px)] max-w-5xl place-items-center px-5 py-10">
-        <Card className="paper-sheet grid w-full gap-8 p-6 md:grid-cols-[1fr_1fr] md:p-8">
-          <section className="border-b border-[var(--border)] pb-6 md:border-b-0 md:border-r md:pb-0 md:pr-8">
-            <CardHeader>
-              <CardTitle>Owner and student login</CardTitle>
-              <CardDescription>
-                Owners enter their email and password. Students enter their owner-issued login code and password in this
-                same form.
-              </CardDescription>
-            </CardHeader>
-            <Suspense fallback={<LoginForm />}>
-              <LoginFormWithNext />
-            </Suspense>
+      <main className="mx-auto grid min-h-[calc(100vh-64px)] max-w-5xl place-items-center px-6 py-12 md:py-16">
+        <Card className="paper-sheet relative overflow-hidden grid w-full gap-8 p-6 md:grid-cols-[1.1fr_0.9fr] md:p-12 rounded-xl transition-all duration-300 hover:shadow-lg before:absolute before:top-0 before:left-0 before:right-0 before:h-1.5 before:bg-gradient-to-r before:from-[var(--primary)] before:to-[var(--success)]">
+          <section className="flex flex-col justify-between border-b border-[var(--border)] pb-8 md:border-b-0 md:border-r md:pb-0 md:pr-10">
+            <div>
+              <CardHeader className="p-0 mb-6">
+                <CardTitle className="text-2xl font-bold text-[var(--ink)]">Portal Authentication</CardTitle>
+                <CardDescription className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  Access your secure Exam Vault workspace. Owners enter their administrative credentials; students enter their personalized login code and password.
+                </CardDescription>
+              </CardHeader>
+              <Suspense fallback={<LoginForm />}>
+                <LoginFormWithNext />
+              </Suspense>
+            </div>
           </section>
-          <section className="md:pl-2">
-            <CardHeader>
-              <CardTitle>Student access</CardTitle>
-              <CardDescription>
-                Students activate with a login code and one-time activation code before setting a password.
-              </CardDescription>
-            </CardHeader>
-            <div className="grid gap-4 text-sm leading-6 text-[var(--muted)]">
-              <p>
-                After activation, return to this page and use the login form with your login code, for example
-                STU-XXXX, plus the password you set. No student email address is needed.
-              </p>
-              <ButtonLink href="/activate" variant="secondary">
-                Activate student account
-              </ButtonLink>
+          <section className="flex flex-col justify-between md:pl-6">
+            <div>
+              <CardHeader className="p-0 mb-6">
+                <CardTitle className="text-xl font-bold text-[var(--ink)]">Student Activation</CardTitle>
+                <CardDescription className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  First-time students activate using a secure login code and one-time activation code to initialize credentials.
+                </CardDescription>
+              </CardHeader>
+              <div className="grid gap-5 text-sm leading-6 text-[var(--muted)]">
+                <p>
+                  Once successfully activated, return to this portal and use the login form with your personalized code (e.g., <code className="rounded bg-[var(--surface-muted)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[var(--primary)]">STU-XXXX</code>) and password.
+                </p>
+                <ButtonLink href="/activate" variant="secondary" className="w-full justify-center transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0">
+                  Activate Account
+                </ButtonLink>
+              </div>
+            </div>
+            <div className="mt-8 border-t border-[var(--border)] pt-6">
               <PasskeySignInButton />
             </div>
           </section>

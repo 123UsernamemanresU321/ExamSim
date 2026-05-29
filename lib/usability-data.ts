@@ -1,4 +1,5 @@
 import { computeAttemptState } from "@/lib/attempt-state";
+import { isDemoModeEnabled } from "@/lib/runtime";
 import { buildModerationTimeline } from "@/lib/moderation-timeline";
 import { classifyMarkingQueueRow, type MarkingQueueRow } from "@/lib/marking-queue";
 import { computePaperHealth } from "@/lib/paper-health";
@@ -38,6 +39,40 @@ import type {
 } from "@/types/database";
 
 export async function listMarkingQueue() {
+  if (isDemoModeEnabled()) {
+    return [
+      {
+        attempt_id: "att_active",
+        assessment_title: "Olympiad Mock Paper 1",
+        paper_code: "MATH-MOCK-01",
+        student_name: "Owner practice persona",
+        missing_upload_slots: 0,
+        uploaded_slots: 2,
+        total_upload_slots: 2,
+        mark_count: 2,
+        markable_leaf_count: 3,
+        feedback_released: false,
+        moderation_severity: "none",
+        incident_affected: false,
+        sections: ["partially_marked"],
+      },
+      {
+        attempt_id: "att_waiting",
+        assessment_title: "IB-style Physics Paper 2",
+        paper_code: "PHY-HL-P2",
+        student_name: "Naledi Mokoena",
+        missing_upload_slots: 1,
+        uploaded_slots: 0,
+        total_upload_slots: 1,
+        mark_count: 0,
+        markable_leaf_count: 5,
+        feedback_released: false,
+        moderation_severity: "none",
+        incident_affected: false,
+        sections: ["missing_uploads"],
+      },
+    ];
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("owner_marking_queue").select("*").order("last_updated_at", { ascending: false });
   if (error) throw error;
@@ -48,6 +83,37 @@ export async function listMarkingQueue() {
 }
 
 export async function listFeedbackReleaseControlRows() {
+  if (isDemoModeEnabled()) {
+    return [
+      {
+        attempt: {
+          id: "att_finished",
+          assessment_id: "demo_assessment",
+          assignee_profile_id: "student_1",
+          start_at_utc: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+          end_at_utc: new Date(Date.now() - 2 * 24 * 3600 * 1000 + 7200 * 1000).toISOString(),
+          display_timezone: "Africa/Johannesburg",
+          delivery_mode: "browser",
+          solutions_requested: true,
+          assessments: {
+            title: "Quiz: Number Theory",
+            paper_code: "NT-Q2",
+          },
+          profiles: {
+            display_name: "Naledi Mokoena",
+          },
+        } as unknown as Attempt,
+        release: {
+          id: "feedback_demo",
+          attempt_id: "att_finished",
+          released_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+          visible_to_student: true,
+          total_awarded_marks: 8,
+          total_available_marks: 10,
+        } as unknown as FeedbackRelease,
+      },
+    ];
+  }
   const supabase = await createSupabaseServerClient();
   const [{ data: attempts, error: attemptError }, { data: releases, error: releaseError }] = await Promise.all([
     supabase.from("attempts").select("*").order("created_at", { ascending: false }),
@@ -114,6 +180,44 @@ export async function listCohortsWithMembers() {
 }
 
 export async function getAttemptRecoveryWorkspace(attemptId: string) {
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    return {
+      attempt: {
+        id: attemptId,
+        assessment_id: "demo_assessment",
+        assessment_version_id: "demo_version",
+        assignee_profile_id: "student_1",
+        start_at_utc: new Date(Date.now() - 3600 * 1000).toISOString(),
+        duration_seconds: 3600,
+        end_at_utc: new Date(Date.now() + 3600 * 1000).toISOString(),
+        upload_deadline_at_utc: new Date(Date.now() + 7200 * 1000).toISOString(),
+        display_timezone: "Africa/Johannesburg",
+        delivery_mode: "browser",
+        solutions_requested: true,
+        typed_enabled: true,
+        per_question_upload_enabled: true,
+        require_blank_for_skipped: true,
+        seb_browser_exam_key_hashes: [],
+        seb_config_key_hashes: [],
+        seb_config_path: null,
+        state_cache: null,
+        created_at: new Date(Date.now() - 7200 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 7200 * 1000).toISOString(),
+        assessments: {
+          title: "IB-style Physics Paper 2",
+          paper_code: "PHY-P2",
+        },
+        profiles: {
+          display_name: "Demo Student",
+        },
+      },
+      slots: [],
+      events: [],
+      incidents: [],
+      accommodations: [],
+      actions: [],
+    };
+  }
   const supabase = await createSupabaseServerClient();
   const [
     { data: attempt, error: attemptError },
@@ -161,6 +265,18 @@ export async function getAttemptRecoveryWorkspace(attemptId: string) {
 }
 
 export async function getSubmissionReceipt(attemptId: string) {
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    return {
+      id: "receipt_demo",
+      attempt_id: attemptId,
+      student_profile_id: "student_1",
+      finalized_at: new Date(Date.now() - 300 * 1000).toISOString(),
+      slots_json: [
+        { question_node_id: "q1", file_name: "physics_paper2_q1.pdf", page_count: 4 },
+      ],
+      created_at: new Date(Date.now() - 300 * 1000).toISOString(),
+    };
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("submission_receipts").select("*").eq("attempt_id", attemptId).maybeSingle();
   if (error) throw error;
@@ -335,6 +451,66 @@ export async function listPaperGeneratorWorkspace() {
 }
 
 export async function getCorrectionNotebookWorkspace(attemptId: string) {
+  if (isDemoModeEnabled() && attemptId.startsWith("att_")) {
+    return {
+      attempt: {
+        id: attemptId,
+        assessment_id: "demo_assessment",
+        assessment_version_id: "demo_version",
+        assignee_profile_id: "student_1",
+        start_at_utc: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+        duration_seconds: 3600,
+        end_at_utc: new Date(Date.now() - 2 * 24 * 3600 * 1000 + 3600 * 1000).toISOString(),
+        upload_deadline_at_utc: new Date(Date.now() - 2 * 24 * 3600 * 1000 + 7200 * 1000).toISOString(),
+        display_timezone: "Africa/Johannesburg",
+        delivery_mode: "browser",
+        solutions_requested: true,
+      },
+      notebook: {
+        id: "notebook_demo",
+        attempt_id: attemptId,
+        student_profile_id: "student_1",
+        status: "in_progress",
+        created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+      },
+      entries: [
+        {
+          id: "entry_demo_1",
+          notebook_id: "notebook_demo",
+          question_node_id: "q1",
+          corrected_solution_html: "<p>The correct derivation utilizes the SUVAT equation v^2 = u^2 + 2as.</p>",
+          reflection_text: "I initially forgot that gravity acts downwards, causing a sign error.",
+          created_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+        },
+      ],
+      feedback: {
+        total_awarded_marks: 8,
+        total_available_marks: 10,
+        summary_text: "Good attempt, but watch out for visual signs in mechanics.",
+      },
+      questionNodes: [
+        {
+          id: "q1",
+          assessment_version_id: "demo_version",
+          parent_node_id: null,
+          node_key: "Q1",
+          ordinal: 1,
+          node_type: "question",
+          title: "Mechanics Question",
+          prompt_html: "<p>A ball is dropped from a height of 10m. Calculate its final velocity.</p>",
+          prompt_latex: null,
+          marks: 10,
+          response_mode: "typed_or_upload",
+          interaction_json: null,
+          markscheme_html: null,
+          assets: [],
+          source_page_start: null,
+          source_page_end: null,
+          created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        },
+      ],
+    };
+  }
   const supabase = await createSupabaseServerClient();
   const [{ data: attempt, error: attemptError }, { data: notebook, error: notebookError }] = await Promise.all([
     supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle(),

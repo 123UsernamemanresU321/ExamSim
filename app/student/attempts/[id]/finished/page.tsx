@@ -21,7 +21,7 @@ export default async function FinishedReviewPage({ params }: { params: Promise<{
     <div className="mx-auto max-w-[980px]">
       <SectionHeading
         title="Time is up"
-        description={`Attempt ${id} is finished. Uploads and editing are disabled; content is readonly for review.`}
+        description={`Attempt ${id} is finished. Submissions are closed; content is readonly for review.`}
       />
       <Card className="mb-5 flex flex-wrap items-center justify-between gap-4 border-[#e7a09a] bg-[var(--danger-bg)] shadow-none">
         <AttemptStateBadge state="FINISHED_REVIEW" />

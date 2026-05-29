@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateServerTimeDriftStatus } from "@/lib/student-experience-core";
+import { cn } from "@/lib/utils";
 
 type CheckResult = {
   key: string;
@@ -54,27 +55,57 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Exam Lobby Readiness Check</CardTitle>
-        <CardDescription>Checks session, server time, upload support, fullscreen support, storage, browser notifications, and screen size.</CardDescription>
-      </CardHeader>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Badge tone={overall === "passed" ? "success" : overall === "failed" ? "danger" : "warning"}>{overall}</Badge>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-[var(--muted)]">
-            {saveStatus === "saving" ? "Saving device check..." : saveStatus === "saved" ? "Device profile updated" : saveStatus === "failed" ? "Save failed" : "Ready"}
-          </span>
-          <Button type="button" onClick={runAgain} disabled={isPending}>{isPending ? "Saving check..." : "Run check again"}</Button>
+    <Card className="shadow-md">
+      <CardHeader className="border-b border-[var(--border)] pb-5 mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-xl font-bold">Exam Lobby Readiness Verification</CardTitle>
+            <CardDescription className="mt-1 text-sm">
+              Confirming hardware, screen size, local sandbox environment, storage connectivity, and server synchronization before you begin.
+            </CardDescription>
+          </div>
+          <Button 
+            type="button" 
+            onClick={runAgain} 
+            disabled={isPending}
+            className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0"
+          >
+            {isPending ? "Re-verifying..." : "Run Checks Again"}
+          </Button>
         </div>
+      </CardHeader>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-[var(--surface-muted)] p-3 rounded-lg border border-[var(--border)]/60">
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold text-[var(--ink)]">Overall Status:</span>
+          <Badge tone={overall === "passed" ? "success" : overall === "failed" ? "danger" : "warning"} className="font-bold px-3 py-1 text-xs uppercase rounded-full">
+            {overall === "passed" ? "Passed and Ready" : overall === "failed" ? "Failed Actions Required" : "Warnings Detected"}
+          </Badge>
+        </div>
+        <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] animate-pulse">
+          {saveStatus === "saving" ? "Refreshing remote profile..." : saveStatus === "saved" ? "Cloud verification profile active" : saveStatus === "failed" ? "Cloud sync failed" : "Verification idle"}
+        </span>
       </div>
-      <div className="grid gap-3">
+      <div className="grid gap-3.5">
         {checks.map((check) => (
-          <div key={check.key} className="flex items-start gap-3 rounded-md border border-[var(--border)] p-3">
-            {check.status === "passed" ? <CheckCircle2 className="mt-0.5 text-[var(--success)]" size={18} /> : <AlertTriangle className="mt-0.5 text-[var(--warning)]" size={18} />}
+          <div 
+            key={check.key} 
+            className={cn(
+              "flex items-start gap-4 rounded-lg border p-4 transition-all duration-200",
+              check.status === "passed" ? "border-[var(--success)]/30 bg-[var(--success-bg)]/5 hover:bg-[var(--success-bg)]/10" : 
+              check.status === "failed" ? "border-[var(--danger)]/30 bg-[var(--danger-bg)]/5 hover:bg-[var(--danger-bg)]/10" : 
+              "border-[var(--warning)]/30 bg-[var(--warning-bg)]/5 hover:bg-[var(--warning-bg)]/10"
+            )}
+          >
+            <div className="shrink-0 mt-0.5">
+              {check.status === "passed" ? (
+                <CheckCircle2 className="text-[var(--success)]" size={20} />
+              ) : (
+                <AlertTriangle className={check.status === "failed" ? "text-[var(--danger)]" : "text-[var(--warning)]"} size={20} />
+              )}
+            </div>
             <div>
-              <p className="font-semibold">{check.label}</p>
-              <p className="text-sm text-[var(--muted)]">{check.detail}</p>
+              <p className="font-bold text-[var(--ink)]">{check.label}</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{check.detail}</p>
             </div>
           </div>
         ))}

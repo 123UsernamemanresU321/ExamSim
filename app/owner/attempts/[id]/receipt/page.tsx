@@ -6,7 +6,7 @@ export default async function OwnerSubmissionReceiptPage({ params }: { params: P
   const { id } = await params;
   const receipt = await getSubmissionReceipt(id);
   if (!receipt) return <SectionHeading title="No submission receipt" description="The attempt has not produced a receipt yet." />;
-  const receiptJson = receipt.receipt_json as { assessment_title?: string; paper_code?: string | null; finalized_at?: string | null; slots?: Array<Record<string, unknown>> };
+  const receiptJson = (receipt as any).receipt_json as { assessment_title?: string; paper_code?: string | null; finalized_at?: string | null; slots?: Array<Record<string, unknown>> };
   return (
     <>
       <SectionHeading

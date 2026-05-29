@@ -1,5 +1,7 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, Download, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, RotateCcw, Lock, ShieldCheck } from "lucide-react";
+import { SubmitExamButton } from "@/components/submit-exam-button";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { saveAccessibilityPreferences, saveNotificationPreferences } from "@/app/student/student-actions";
 import { ServerTimeVerificationCard } from "@/components/student/server-time-verification-card";
@@ -19,33 +21,52 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
   const notificationUnread = data.notifications.filter((item) => !item.read_at).length;
 
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-4 md:grid-cols-4">
-        <SummaryCard label="Active" value={data.attempts.filter((attempt) => attempt.state === "ACTIVE").length} />
-        <SummaryCard label="Upcoming" value={data.attempts.filter((attempt) => attempt.state === "WAITING").length} />
-        <SummaryCard label="Unread feedback" value={unreadFeedback.length} />
-        <SummaryCard label="Alerts" value={notificationUnread} />
+    <div className="grid gap-6">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <SummaryCard label="Active Simulation" value={data.attempts.filter((attempt) => attempt.state === "ACTIVE").length} tone="success" />
+        <SummaryCard label="Upcoming Scheduled" value={data.attempts.filter((attempt) => attempt.state === "WAITING").length} tone="active" />
+        <SummaryCard label="Unread Feedback" value={unreadFeedback.length} tone="warning" />
+        <SummaryCard label="Urgent Notifications" value={notificationUnread} tone="default" />
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Urgent actions</CardTitle>
-            <CardDescription>Only the items that need action now.</CardDescription>
+            <CardDescription>Actions requiring your immediate attention.</CardDescription>
           </CardHeader>
           {data.urgentActions.length ? (
-            <div className="grid gap-2">
+            <div className="grid gap-3 p-1">
               {data.urgentActions.slice(0, 5).map((action) => (
-                <Link key={`${action.kind}-${action.attempt.id}`} href={action.href} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] p-3 hover:bg-[var(--surface-muted)]">
-                  <div>
-                    <p className="font-semibold text-[var(--ink)]">{action.label}</p>
+                <Link 
+                  key={`${action.kind}-${action.attempt.id}`} 
+                  href={action.href} 
+                  className={cn(
+                    "flex items-center justify-between gap-4 rounded-lg border p-4 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0 hover:shadow-sm",
+                    action.kind === "active_exam" ? "border-[var(--success)] bg-[var(--success-bg)]/20 hover:bg-[var(--success-bg)]/35" :
+                    action.kind === "failed_upload" || action.kind === "upload_deadline" ? "border-[var(--danger)] bg-[var(--danger-bg)]/20 hover:bg-[var(--danger-bg)]/35" :
+                    "border-[var(--border)] bg-white hover:bg-[var(--surface-muted)]"
+                  )}
+                >
+                  <div className="grid gap-1">
+                    <span className={cn(
+                      "text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded w-fit",
+                      action.kind === "active_exam" ? "bg-[var(--success)] !text-white" :
+                      action.kind === "failed_upload" || action.kind === "upload_deadline" ? "bg-[var(--danger)] !text-white" :
+                      "bg-[var(--surface-panel)] text-[var(--primary)]"
+                    )}>
+                      {action.kind.replaceAll("_", " ")}
+                    </span>
+                    <p className="font-bold text-[var(--ink)] mt-1">{action.label}</p>
                     <p className="text-sm text-[var(--muted)]">{action.attempt.title}{action.attempt.paper_code ? ` · ${action.attempt.paper_code}` : ""}</p>
                   </div>
-                  <ArrowRight size={18} aria-hidden="true" />
+                  <div className="rounded-full bg-white p-2 border border-[var(--border)] shadow-sm shrink-0">
+                    <ArrowRight size={16} className="text-[var(--ink)]" aria-hidden="true" />
+                  </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <EmptyState title="No urgent actions" description="Upcoming exams and released feedback will appear here." />
+            <EmptyState title="No urgent actions" description="All caught up! Upcoming exams and released feedback will appear here." />
           )}
         </Card>
         <div className="grid gap-5">
@@ -73,27 +94,37 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
 
 export function StudentAttemptTimeline({ attempts, compact = false }: { attempts: StudentAttemptCard[]; compact?: boolean }) {
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>Timeline</CardTitle>
-        <CardDescription>{compact ? "Next exams and upload windows." : "Server-based start, end, and upload window times."}</CardDescription>
+        <CardDescription>{compact ? "Next exams and upload windows." : "Server-authoritative scheduling, start, end, and upload deadline configurations."}</CardDescription>
       </CardHeader>
       {attempts.length ? (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           {attempts.map((attempt) => (
-            <div key={attempt.id} className="rounded-md border border-[var(--border)] p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-semibold">{attempt.title}</p>
+            <div 
+              key={attempt.id} 
+              className={cn(
+                "relative overflow-hidden rounded-lg border p-4 pl-5 transition-all duration-300 hover:shadow-sm",
+                attempt.state === "ACTIVE" ? "border-[var(--success)] border-l-4 border-l-[var(--success)]" :
+                attempt.state === "UPLOAD_ONLY" ? "border-[var(--warning)] border-l-4 border-l-[var(--warning)]" :
+                "border-[var(--border)] border-l-4 border-l-[var(--subtle)]"
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="font-bold text-[var(--ink)]">{attempt.title}</p>
                 <AttemptStateBadge state={attempt.state} />
               </div>
-              <p className="mt-1 text-sm text-[var(--muted)]">
+              <p className="mt-2 text-sm text-[var(--muted)]">
                 {formatInTimezone(attempt.start_at_utc, attempt.display_timezone)} to {formatInTimezone(attempt.end_at_utc, attempt.display_timezone)}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <ButtonLink href={`/student/attempts/${attempt.id}/readiness`} variant="secondary">Readiness</ButtonLink>
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                <ButtonLink href={`/student/attempts/${attempt.id}/readiness`} variant="secondary" className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0">
+                  Run Readiness
+                </ButtonLink>
                 {compact ? null : (
                   <a
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)]"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)] transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm"
                     href={`data:text/calendar;charset=utf-8,${encodeURIComponent(generateIcsEvent({
                       id: attempt.id,
                       title: attempt.title,
@@ -107,7 +138,7 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
                     download={`${attempt.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.ics`}
                   >
                     <Download size={16} aria-hidden="true" />
-                    ICS
+                    Add to Calendar (.ics)
                   </a>
                 )}
               </div>
@@ -115,7 +146,7 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
           ))}
         </div>
       ) : (
-        <EmptyState title="No attempts" description="Assigned exams and released reviews will appear here." />
+        <EmptyState title="No assigned sessions" description="Your timeline is empty. Contact your assessment coordinator." />
       )}
     </Card>
   );
@@ -123,25 +154,39 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
 
 export function StudentFeedbackPreview({ feedback, compact = false }: { feedback: StudentFeedbackCard[]; compact?: boolean }) {
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>Feedback inbox</CardTitle>
-        <CardDescription>{compact ? "Unread released feedback." : "Released marks, comments, annotated PDFs, and corrections."}</CardDescription>
+        <CardDescription>{compact ? "Unread released feedback." : "Released marks, commentary annotations, and response corrections."}</CardDescription>
       </CardHeader>
       {feedback.length ? (
         <div className="grid gap-3">
           {feedback.map((item) => (
-            <Link key={`${item.attempt_id}-${item.released_at}`} href={`/student/attempts/${item.attempt_id}/results`} className="rounded-md border border-[var(--border)] p-3 hover:bg-[var(--surface-muted)]">
+            <Link 
+              key={`${item.attempt_id}-${item.released_at}`} 
+              href={`/student/attempts/${item.attempt_id}/results`} 
+              className={cn(
+                "group relative overflow-hidden rounded-lg border p-4 transition-all duration-300 hover:shadow-sm",
+                item.read_at ? "border-[var(--border)] bg-white hover:bg-[var(--surface-muted)]" : "border-[var(--border)] bg-[var(--surface-panel)]/50 hover:bg-[var(--surface-panel)]"
+              )}
+            >
               <div className="flex items-center justify-between gap-3">
-                <p className="font-semibold">{item.title}</p>
-                <Badge tone={item.read_at ? "neutral" : "accent"}>{item.read_at ? "read" : "unread"}</Badge>
+                <p className="font-bold text-[var(--ink)]">{item.title}</p>
+                <Badge tone={item.read_at ? "neutral" : "accent"} className="transition-all duration-300">
+                  {item.read_at ? "read" : "new feedback"}
+                </Badge>
               </div>
-              <p className="mt-1 text-sm text-[var(--muted)]">{item.paper_code ?? "No paper code"} · Released {new Date(item.released_at).toLocaleString()}</p>
+              <p className="mt-1 text-sm text-[var(--muted)] group-hover:text-[var(--ink)] transition-colors">
+                {item.paper_code ?? "General"} · Released {new Date(item.released_at).toLocaleString()}
+              </p>
             </Link>
           ))}
         </div>
       ) : (
-        <EmptyState title={compact ? "No unread feedback" : "No released feedback"} description={compact ? "Read feedback remains available in the feedback inbox." : "Feedback appears here only after the owner releases it."} />
+        <EmptyState 
+          title={compact ? "No unread feedback" : "No released feedback"} 
+          description={compact ? "All feedback read! Read feedback remains available in the full feedback inbox." : "Assessment reviews and mistake patterns will appear here once released by the owner."} 
+        />
       )}
     </Card>
   );
@@ -299,28 +344,117 @@ export function StudentDevicesPanel({ devices, checks }: { devices: StudentDevic
   );
 }
 
-export function FinalizationChecklistPanel({ checklist }: { checklist: FinalizationChecklist }) {
+export function FinalizationChecklistPanel({ 
+  checklist,
+  attemptId,
+  stateToken,
+}: { 
+  checklist: FinalizationChecklist;
+  attemptId?: string;
+  stateToken?: string;
+}) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pre-finalization checklist</CardTitle>
-        <CardDescription>Confirm uploads, blanks, sanity warnings, and pending transfers before finalizing.</CardDescription>
+    <Card className="shadow-lg border-[#dde3ee] overflow-hidden">
+      <CardHeader className="bg-gradient-to-b from-gray-50 to-white border-b border-[#dde3ee] pb-4">
+        <div className="flex items-center gap-2 text-indigo-900">
+          <ShieldCheck size={22} className="text-indigo-600 animate-pulse" />
+          <CardTitle className="text-lg font-bold tracking-tight">Pre-Finalization Verification Portal</CardTitle>
+        </div>
+        <CardDescription className="text-xs">
+          Your answers are systematically checked against active upload slots, security boundaries, and validation rules. Review the ledger below before transmitting your official attempt.
+        </CardDescription>
       </CardHeader>
-      <div className="grid gap-3">
-        {checklist.items.map((item) => (
-          <div key={item.slot_id} className="flex items-start gap-3 rounded-md border border-[var(--border)] p-3">
-            {item.severity === "ok" ? <CheckCircle2 className="mt-0.5 text-[var(--success)]" size={18} /> : <AlertTriangle className="mt-0.5 text-[var(--warning)]" size={18} />}
+      
+      <div className="p-5 grid gap-4">
+        <div className="grid gap-3">
+          {checklist.items.map((item) => (
+            <div 
+              key={item.slot_id} 
+              className={`flex items-start gap-4 rounded-lg border p-4 transition-all duration-200 hover:shadow-sm ${
+                item.severity === "ok" 
+                  ? "border-emerald-100 bg-emerald-50/30" 
+                  : item.severity === "warning"
+                  ? "border-amber-100 bg-amber-50/20"
+                  : "border-red-100 bg-red-50/20"
+              }`}
+            >
+              <div className="mt-0.5">
+                {item.severity === "ok" ? (
+                  <CheckCircle2 className="text-emerald-600" size={20} />
+                ) : item.severity === "warning" ? (
+                  <AlertTriangle className="text-amber-600" size={20} />
+                ) : (
+                  <AlertTriangle className="text-red-600" size={20} />
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="font-bold text-[var(--ink)] text-sm tracking-tight">{item.label}</p>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    item.severity === "ok"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : item.severity === "warning"
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-red-100 text-red-800"
+                  }`}>
+                    {item.severity === "ok" ? "Secured" : item.severity === "warning" ? "Optional / Empty" : "Action Required"}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--muted)] mt-1">{item.message}</p>
+                {item.file_name ? (
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded bg-white px-2 py-1 text-xs border border-gray-100 text-gray-600 font-mono shadow-sm">
+                    📄 {item.file_name}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className={`mt-2 rounded-xl border p-4 text-sm relative overflow-hidden ${
+          checklist.canFinalize 
+            ? "border-emerald-200 bg-emerald-50/30 text-emerald-950" 
+            : "border-amber-200 bg-amber-50/40 text-amber-950"
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5">
+              {checklist.canFinalize ? (
+                <ShieldCheck size={20} className="text-emerald-700" />
+              ) : (
+                <Lock size={20} className="text-amber-700" />
+              )}
+            </div>
             <div>
-              <p className="font-semibold">{item.label}</p>
-              <p className="text-sm text-[var(--muted)]">{item.message}</p>
-              {item.file_name ? <p className="mt-1 text-xs text-[var(--subtle)]">{item.file_name}</p> : null}
+              <p className="font-bold text-sm">
+                {checklist.canFinalize 
+                  ? "Verification Integrity Check Passed" 
+                  : "Verification Integrity Blocked"}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed opacity-90">
+                {checklist.canFinalize 
+                  ? "All required question partitions have received either a valid PDF response or a confirmed blank submission slot. The system is ready to lock and compile your work." 
+                  : "Some required question blocks have not been satisfied. You must upload a document or explicitly submit a blank placeholder for each blocked slot before final submission."}
+              </p>
             </div>
           </div>
-        ))}
-      </div>
-      <div className="mt-4 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-sm">
-        <p className="font-semibold">{checklist.canFinalize ? "Ready to finalize" : "Action needed before finalization"}</p>
-        <p className="mt-1 text-[var(--muted)]">I understand that missing items may be submitted as missing.</p>
+        </div>
+
+        {checklist.canFinalize && attemptId && stateToken ? (
+          <div className="mt-4 border-t border-dashed border-[#dde3ee] pt-5">
+            <div className="rounded-lg bg-indigo-50/40 border border-indigo-100 p-4 mb-4 text-xs text-indigo-900 leading-relaxed">
+              ⚠️ <strong>Important Security Protocol:</strong> Finalizing will permanently seal your exam submission. The owner/marking staff will receive immediate access. You cannot reverse this lock.
+            </div>
+            <SubmitExamButton 
+              attemptId={attemptId} 
+              stateToken={stateToken} 
+              className="py-6 text-base font-bold shadow-lg bg-gradient-to-r from-blue-700 to-indigo-700 text-white hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 rounded-xl w-full border-0" 
+            />
+          </div>
+        ) : !checklist.canFinalize ? (
+          <div className="mt-4 rounded-xl bg-gray-100 text-gray-400 p-5 text-center font-bold text-sm border border-gray-200 cursor-not-allowed">
+            🔒 Finalization Locked (Fulfill requirements above to unlock)
+          </div>
+        ) : null}
       </div>
     </Card>
   );
@@ -443,11 +577,18 @@ export function AccessibilityPreferencesPanel({ performance }: { performance: St
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string | number }) {
+function SummaryCard({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "active" | "warning" | "success" | "default" }) {
+  const borderTone = {
+    success: "border-l-4 border-l-[var(--success)] before:bg-[var(--success)]",
+    active: "border-l-4 border-l-[var(--primary)] before:bg-[var(--primary)]",
+    warning: "border-l-4 border-l-[var(--warning)] before:bg-[var(--warning)]",
+    default: "border-l-4 border-l-[var(--subtle)] before:bg-[var(--subtle)]",
+  }[tone];
+
   return (
-    <Card className="shadow-sm">
+    <Card className={cn("relative overflow-hidden pl-6 py-4 shadow-sm transition-all duration-300 hover:shadow-md", borderTone)}>
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--subtle)]">{label}</p>
-      <p className="mt-2 text-3xl font-semibold text-[var(--ink)]">{value}</p>
+      <p className="mt-2 text-3xl font-extrabold text-[var(--ink)]">{value}</p>
     </Card>
   );
 }

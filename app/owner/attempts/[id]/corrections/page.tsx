@@ -45,7 +45,7 @@ export default async function OwnerCorrectionsPage({ params }: { params: Promise
           <Card className="p-5">
             <p className="text-sm font-bold text-[var(--ink)]">Notebook status: {workspace.notebook.status}</p>
           </Card>
-          {workspace.entries.map((entry, index) => (
+          {workspace.entries.map((entry: any, index) => (
             <Card key={entry.id} className="p-5">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-black text-[var(--ink)]">Question {index + 1}</h2>

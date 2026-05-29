@@ -39,10 +39,10 @@ export default async function HomePage() {
               Server-controlled exam delivery
             </div>
             <h1 className="paper-body max-w-3xl text-5xl font-semibold leading-[0.98] text-[var(--ink)] md:text-7xl">
-              Timed exam practice with private uploads and marking review.
+              Secure, institutional-grade timed exam simulation
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--muted)]">
-              Exam Vault gives a single owner controlled assessment ingestion, server-authoritative release,
+              Timed exam practice with private uploads and marking review. Exam Vault gives a single owner controlled assessment ingestion, server-authoritative release,
               root-question uploads, annotation, feedback release, and moderation evidence without pretending the browser is locked down.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">

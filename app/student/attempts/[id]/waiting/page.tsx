@@ -20,39 +20,52 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
   const materials = await getStudentMaterialsForAttempt(id);
 
   return (
-    <div className="mx-auto max-w-[840px]">
+    <div className="mx-auto max-w-[840px] px-2 py-4">
       <SectionHeading
-        title="Waiting room"
-        description="Only metadata is shown before start time. The assessment package is not requested or rendered here."
+        title="Lobby Waiting Room"
+        description="Only exam metadata is preloaded before the official start time. Content is locked server-side to prevent client leaks."
       />
-      <Card className="paper-sheet grid gap-7 px-7 py-8 md:px-12 md:py-10">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <Card className="paper-sheet relative overflow-hidden grid gap-8 px-6 py-8 md:px-12 md:py-10 rounded-xl transition-all duration-300 hover:shadow-lg before:absolute before:top-0 before:left-0 before:right-0 before:h-1.5 before:bg-gradient-to-r before:from-[var(--primary)] before:to-[var(--warning)] shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-5 border-b border-[var(--border)] pb-6">
           <AttemptStateBadge state={attempt.state} />
-          <CountdownTimer
-            serverNowUtc={attempt.server_now_utc}
-            targetUtc={attempt.countdown_target_utc}
-            state={attempt.state}
-          />
+          <div className="rounded-lg bg-[var(--surface-muted)] p-2.5 border border-[var(--border)] shadow-sm">
+            <CountdownTimer
+              serverNowUtc={attempt.server_now_utc}
+              targetUtc={attempt.countdown_target_utc}
+              state={attempt.state}
+            />
+          </div>
         </div>
         <div>
-          <h2 className="paper-body text-3xl font-semibold">{attempt.title}</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            {attempt.paper_code} · Starts {formatInTimezone(attempt.start_at_utc, attempt.display_timezone)}
+          <h2 className="paper-body text-3xl md:text-4xl font-extrabold text-[var(--ink)] leading-snug">{attempt.title}</h2>
+          <p className="mt-2 text-sm font-semibold tracking-wide text-[var(--muted)]">
+            Paper Reference: <code className="rounded bg-[var(--surface-muted)] px-1.5 py-0.5 font-mono text-xs">{attempt.paper_code || "General"}</code> · Starts {formatInTimezone(attempt.start_at_utc, attempt.display_timezone)}
           </p>
         </div>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Prepare your workspace. When the local countdown reaches zero, the client refreshes server state; the
-          browser does not unlock content by itself.
+          Please prepare your desktop environment and materials. When the countdown reaches zero, the workspace will automatically refresh to request the unlocked assessment package from the server.
         </p>
-        <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
-          The server will release the normalized package only after `get-attempt-state` computes ACTIVE.
-          This page intentionally has no hidden exam payload.
+        <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--surface-muted)] p-4 text-xs leading-6 text-[var(--muted)] shadow-inner">
+          <p className="font-bold text-[var(--primary)] mb-1">Defense-in-Depth Notice:</p>
+          The remote decryption package is released exclusively through <code className="font-semibold">get-attempt-package</code> only after the UTC time passes the server-authoritative threshold. This page contains zero hidden document payloads.
         </div>
         <ServerTimeVerificationCard serverNowUtc={attempt.server_now_utc} timezone={attempt.display_timezone} />
         <StudentMaterialsDrawer materials={materials} />
-        <div className="flex flex-wrap gap-3">
-          <ButtonLink href={`/student/attempts/${id}/readiness`} variant="secondary">Run readiness check</ButtonLink>
-          <ButtonLink href={`/student/attempts/${id}/recovery-status`} variant="secondary">Report issue</ButtonLink>
+        <div className="flex flex-wrap gap-3.5 border-t border-[var(--border)] pt-6 mt-2">
+          <ButtonLink 
+            href={`/student/attempts/${id}/readiness`} 
+            variant="secondary"
+            className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm"
+          >
+            Verify Device readiness
+          </ButtonLink>
+          <ButtonLink 
+            href={`/student/attempts/${id}/recovery-status`} 
+            variant="secondary"
+            className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm"
+          >
+            Report Technical Issue
+          </ButtonLink>
         </div>
       </Card>
     </div>

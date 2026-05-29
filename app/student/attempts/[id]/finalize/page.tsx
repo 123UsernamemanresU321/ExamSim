@@ -5,11 +5,13 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { requireAppRole } from "@/lib/auth/server";
 import { getStudentFinalizeData } from "@/lib/student-experience";
+import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 
 export default async function StudentFinalizePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const profile = await requireAppRole("student", `/student/attempts/${id}/finalize`);
   const data = await getStudentFinalizeData(profile?.id ?? "", id);
+  const screenData = await getAttemptScreenData(id, false).catch(() => ({ stateToken: "" }));
 
   if (!data.attempt) {
     return <SectionHeading title="Attempt not found" description="Open the command center and choose an assigned attempt." />;
@@ -19,7 +21,11 @@ export default async function StudentFinalizePage({ params }: { params: Promise<
     <>
       <SectionHeading title="Finalize Attempt" description="Review root-question uploads, blank submissions, failed transfers, and sanity warnings before finalizing." />
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <FinalizationChecklistPanel checklist={data.checklist} />
+        <FinalizationChecklistPanel 
+          checklist={data.checklist} 
+          attemptId={id} 
+          stateToken={screenData.stateToken} 
+        />
         <Card>
           <h2 className="text-lg font-semibold">Report an issue before finalizing</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">If an upload or device problem affected your submission, document it here before finalization.</p>

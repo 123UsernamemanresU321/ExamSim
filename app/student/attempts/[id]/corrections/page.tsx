@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
-import { NotebookPen } from "lucide-react";
+import { NotebookPen, CheckCircle, Save, Sparkles, BookOpen, MessageSquare } from "lucide-react";
 import { buildMarkingTree, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCorrectionNotebookWorkspace } from "@/lib/usability-data";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 
 async function createNotebook(formData: FormData) {
   "use server";
@@ -69,61 +71,149 @@ async function saveCorrections(formData: FormData) {
 export default async function StudentCorrectionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const workspace = await getCorrectionNotebookWorkspace(id);
-  const feedbackReleased = Boolean(workspace.feedback?.visible_to_student);
+  const feedbackReleased = Boolean((workspace.feedback as any)?.visible_to_student);
 
   return (
-    <main className="space-y-6 p-6 md:p-8">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Correction Notebook</p>
-        <h1 className="mt-2 text-3xl font-black text-[var(--ink)]">Correct and reflect</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Corrections are learning records. They do not change the original exam mark.
+    <main className="max-w-[1000px] mx-auto space-y-8 p-6 md:p-10 pb-16">
+      
+      {/* Title & Header Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-slate-900 to-indigo-950 p-6 md:p-8 text-white shadow-lg">
+        <div className="absolute top-0 right-0 h-full w-1/3 opacity-10 bg-radial-gradient from-white to-transparent" />
+        <div className="flex items-center gap-3">
+          <BookOpen className="text-blue-400" size={28} />
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-300">Continuous Mastery</span>
+        </div>
+        <h1 className="mt-2 text-2xl font-black md:text-3xl tracking-tight text-white">Correction & Reflective Notebook</h1>
+        <p className="mt-2 text-xs leading-relaxed text-slate-300 max-w-2xl">
+          Corrections are powerful learning evidence. Reworking incorrect steps and summarizing insights drives cognitive growth. Original exam scores are untouched.
         </p>
       </div>
 
       {!feedbackReleased ? (
-        <Card className="p-8">
-          <h2 className="font-black text-[var(--ink)]">Feedback has not been released yet</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">Your correction notebook opens after the owner releases feedback.</p>
+        <Card className="border-amber-100 bg-amber-50/20 p-8 shadow-sm flex flex-col items-center text-center">
+          <Sparkles className="text-amber-500 animate-spin" size={32} />
+          <h2 className="mt-4 font-black text-slate-900 text-lg">Correction Ledger Under Assembly</h2>
+          <p className="mt-2 text-xs text-[var(--muted)] max-w-md leading-relaxed">
+            Your notebook will automatically build once the assessment coordinator publishes the official cohort marks and annotated feedback.
+          </p>
+          <ButtonLink href="/student" variant="secondary" className="mt-5 text-xs font-semibold">
+            Return to Command Center
+          </ButtonLink>
         </Card>
       ) : !workspace.notebook ? (
-        <Card className="p-8 text-center">
-          <NotebookPen className="mx-auto text-[var(--primary)]" size={42} />
-          <h2 className="mt-4 text-xl font-black text-[var(--ink)]">Start your correction notebook</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--muted)]">You will get one correction entry per main question.</p>
-          <form action={createNotebook} className="mt-5">
+        <Card className="border-[#dde3ee] p-10 text-center shadow-md bg-white">
+          <NotebookPen className="mx-auto text-indigo-600 animate-bounce" size={48} />
+          <h2 className="mt-5 text-xl font-bold text-slate-900">Start Your Reflective Rework</h2>
+          <p className="mx-auto mt-2 max-w-md text-xs text-[var(--muted)] leading-relaxed">
+            Generate your personalized correction directory. We will allocate one dedicated reworking module for each core question block.
+          </p>
+          <form action={createNotebook} className="mt-6">
             <input type="hidden" name="attempt_id" value={id} />
-            <Button type="submit">Start correction notebook</Button>
+            <Button type="submit" className="px-6 py-2.5 font-bold shadow-md bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all">
+              Initialize Correction Notebook
+            </Button>
           </form>
         </Card>
       ) : (
-        <form action={saveCorrections} className="space-y-4">
+        <form action={saveCorrections} className="space-y-6">
           <input type="hidden" name="attempt_id" value={id} />
           <input type="hidden" name="notebook_id" value={workspace.notebook.id} />
-          {workspace.entries.map((entry, index) => (
-            <Card key={entry.id} className="p-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-black text-[var(--ink)]">Question {index + 1}</h2>
-                <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--muted)]">{entry.status}</span>
-              </div>
-              <label className="block">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Corrected solution</span>
-                <textarea name={`correction_${entry.id}`} defaultValue={entry.correction_text ?? ""} rows={5} className="mt-1 w-full rounded-lg border border-[var(--border)] p-3" />
-              </label>
-              <label className="mt-4 block">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Reflection</span>
-                <textarea name={`reflection_${entry.id}`} defaultValue={entry.reflection_text ?? ""} rows={3} className="mt-1 w-full rounded-lg border border-[var(--border)] p-3" />
-              </label>
-              <label className="mt-4 block max-w-xs">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Confidence after correction</span>
-                <input name={`confidence_${entry.id}`} type="number" min="1" max="5" defaultValue={entry.confidence_after_correction ?? ""} className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" />
-              </label>
-              {entry.owner_feedback ? <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-900">{entry.owner_feedback}</p> : null}
-            </Card>
-          ))}
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" name="intent" value="save" variant="secondary">Save draft</Button>
-            <Button type="submit" name="intent" value="submit">Submit correction notebook</Button>
+          
+          <div className="space-y-4">
+            {workspace.entries.map((entry: any, index) => {
+              const isSubmitted = entry.status === "submitted";
+              return (
+                <Card key={entry.id} className="border-[#dde3ee] shadow-sm overflow-hidden bg-white hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center justify-between border-b border-[#dde3ee] bg-slate-50/50 px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 font-mono text-xs font-bold text-slate-800">
+                        {index + 1}
+                      </span>
+                      <h2 className="font-bold text-slate-900 text-sm">Question Block Partition</h2>
+                    </div>
+                    <Badge tone={isSubmitted ? "success" : "neutral"} className="text-[10px] uppercase font-bold tracking-wider">
+                      {entry.status}
+                    </Badge>
+                  </div>
+                  
+                  <div className="p-5 space-y-4">
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[var(--subtle)]">Corrected Math / Solution Steps</span>
+                      <p className="text-[11px] text-[var(--muted)] mb-1">Rework the steps, calculate the correct values, or provide missing logic:</p>
+                      <textarea 
+                        name={`correction_${entry.id}`} 
+                        placeholder="Detail your corrected proof, mathematical formulas, or textual answer partitions here..."
+                        defaultValue={entry.correction_text ?? ""} 
+                        rows={5} 
+                        className="mt-1 w-full rounded-lg border border-[#dde3ee] p-3 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono" 
+                      />
+                    </label>
+                    
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[var(--subtle)]">Self-Reflection & Takeaways</span>
+                      <p className="text-[11px] text-[var(--muted)] mb-1">What cognitive error occurred? (e.g. calculation slip, misread prompt, missing theorem):</p>
+                      <textarea 
+                        name={`reflection_${entry.id}`} 
+                        placeholder="e.g. I lost 2 marks due to a silly calculation slip on step 3. Next time, I will double check the sign distribution..."
+                        defaultValue={entry.reflection_text ?? ""} 
+                        rows={3} 
+                        className="mt-1 w-full rounded-lg border border-[#dde3ee] p-3 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+                      />
+                    </label>
+                    
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[var(--subtle)]">Post-Correction Confidence</span>
+                        <select 
+                          name={`confidence_${entry.id}`} 
+                          defaultValue={entry.confidence_after_correction ?? ""} 
+                          className="mt-1 w-full rounded-lg border border-[#dde3ee] bg-white px-3 py-2.5 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none"
+                        >
+                          <option value="">Select confidence rating</option>
+                          <option value="5">⭐⭐⭐⭐⭐ 5 - Highly Confident</option>
+                          <option value="4">⭐⭐⭐⭐ 4 - Good Understanding</option>
+                          <option value="3">⭐⭐⭐ 3 - Satisfactory</option>
+                          <option value="2">⭐⭐ 2 - Weak Understanding</option>
+                          <option value="1">⭐ 1 - Retake Needed</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {entry.owner_feedback ? (
+                      <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/20 p-4 text-xs text-emerald-950 flex items-start gap-2.5">
+                        <MessageSquare className="text-emerald-700 mt-0.5 flex-shrink-0" size={16} />
+                        <div>
+                          <p className="font-bold">Assigned Evaluator Commentary:</p>
+                          <p className="mt-1 leading-relaxed opacity-90">{entry.owner_feedback}</p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-dashed border-[#dde3ee] pt-6 justify-end">
+            <Button 
+              type="submit" 
+              name="intent" 
+              value="save" 
+              variant="secondary"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-95 flex items-center gap-1.5"
+            >
+              <Save size={14} />
+              Save Progress Draft
+            </Button>
+            <Button 
+              type="submit" 
+              name="intent" 
+              value="submit"
+              className="px-6 py-2.5 text-xs font-bold uppercase tracking-wider shadow-md bg-gradient-to-r from-blue-700 to-indigo-700 text-white hover:brightness-110 transition-all duration-150 active:scale-95 flex items-center gap-1.5 border-0"
+            >
+              <CheckCircle size={14} />
+              Lock & Submit Correction Notebook
+            </Button>
           </div>
         </form>
       )}

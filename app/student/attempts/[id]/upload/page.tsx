@@ -29,13 +29,24 @@ export default async function UploadOnlyPage({ params }: { params: Promise<{ id:
         title="Upload only"
         description="Writing time has ended. Typed writing is disabled; upload slots remain available until the server deadline."
       />
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[#d7b85f] bg-[var(--warning-bg)] p-4">
-        <AttemptStateBadge state="UPLOAD_ONLY" />
-        <CountdownTimer
-          serverNowUtc={attempt.server_now_utc}
-          targetUtc={attempt.countdown_target_utc}
-          state="UPLOAD_ONLY"
-        />
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between rounded-xl border-l-4 border-l-[var(--warning)] border border-[var(--border)] bg-[var(--warning-bg)] p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-[var(--warning)]/10 p-2 border border-[var(--warning)]/20">
+            <AttemptStateBadge state="UPLOAD_ONLY" />
+          </div>
+          <div>
+            <h2 className="font-bold text-[var(--gold)]">Writing Window Closed</h2>
+            <p className="text-xs text-[var(--muted)] mt-0.5">All text answers are locked. Please complete your PDF uploads before the server deadline.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-[var(--border)] shadow-sm shrink-0">
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Upload Time Remaining:</span>
+          <CountdownTimer
+            serverNowUtc={attempt.server_now_utc}
+            targetUtc={attempt.countdown_target_utc}
+            state="UPLOAD_ONLY"
+          />
+        </div>
       </div>
       <div className="grid gap-6 xl:grid-cols-[minmax(620px,840px)_380px] xl:justify-center">
         {assessmentPackage ? (
