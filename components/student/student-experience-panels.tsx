@@ -461,6 +461,48 @@ export function FinalizationChecklistPanel({
   );
 }
 
+export function FinalizationTimelinePanel({ checklist, attemptTitle }: { checklist: FinalizationChecklist; attemptTitle: string }) {
+  const events = [
+    { label: "Writing phase", detail: `${attemptTitle} writing window is controlled by server-computed attempt state.`, tone: "neutral" },
+    ...checklist.items.map((item) => ({
+      label: item.label,
+      detail: item.file_name
+        ? `${item.status.replaceAll("_", " ")} · ${item.file_name}`
+        : item.message,
+      tone: item.severity,
+    })),
+    {
+      label: checklist.canFinalize ? "Ready to finalize" : "Finalization blocked",
+      detail: checklist.canFinalize
+        ? "All required root-question upload slots have been satisfied."
+        : checklist.blockingReasons.join(" ") || "Complete the blocked upload requirements first.",
+      tone: checklist.canFinalize ? "ok" : "blocked",
+    },
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Finalization timeline</CardTitle>
+        <CardDescription>Server and upload milestones for this submission package.</CardDescription>
+      </CardHeader>
+      <ol className="relative grid gap-3 border-l border-[var(--border)] pl-4">
+        {events.map((event, index) => (
+          <li key={`${event.label}-${index}`} className="relative">
+            <span className={`absolute -left-[22px] top-1 grid size-3 rounded-full border ${
+              event.tone === "ok" ? "border-[var(--success)] bg-[var(--success)]" :
+              event.tone === "warning" ? "border-[var(--warning)] bg-[var(--warning)]" :
+              event.tone === "blocked" ? "border-[var(--danger)] bg-[var(--danger)]" :
+              "border-[var(--border)] bg-white"
+            }`} aria-hidden="true" />
+            <p className="text-sm font-semibold text-[var(--ink)]">{event.label}</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{event.detail}</p>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
 export function RecoveryStatusPanel({ slots, queueEvents, incidents, safeStatus }: { slots: UploadSlot[]; queueEvents: UploadQueueEvent[]; incidents: StudentIncidentReport[]; safeStatus: string }) {
   return (
     <div className="grid gap-5 xl:grid-cols-3">

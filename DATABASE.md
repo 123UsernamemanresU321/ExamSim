@@ -20,6 +20,8 @@ Question hierarchy metadata and root-question-only upload slot generation are ad
 `supabase/migrations/202605170002_question_hierarchy_root_upload_slots.sql`.
 The usability workflow package is added in
 `supabase/migrations/202605200001_usability_upgrade_package.sql`.
+The exam operations package is added in
+`supabase/migrations/20260612164408_exam_operations_package.sql`.
 
 ## Tables
 
@@ -74,6 +76,9 @@ The usability workflow package is added in
 - `student_recovery_codes`
 - `student_feedback_reads`
 - `student_confidence_ratings`
+- `owner_saved_views`
+- `owner_bulk_operations`
+- `marker_assignments`
 - `parse_jobs`
 - `parse_job_artifacts`
 - `ai_parse_suggestions`
@@ -195,6 +200,9 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
 - `student_recovery_codes` stores only hashed student recovery codes; plaintext is shown once by the server action.
 - `student_feedback_reads` powers the feedback inbox read/unread state.
 - `student_confidence_ratings` stores post-feedback confidence ratings per released question node.
+- `owner_saved_views` stores owner-specific saved filters, sorting, and visible-column preferences for dense operational pages.
+- `owner_bulk_operations` stores auditable records for validated batch actions such as upload extensions, feedback release of existing packages, incident review, and recovery review queueing.
+- `marker_assignments` tracks owner-profile marking assignment status for attempts, root questions, and leaf questions without introducing a separate marker auth role.
 - `profiles.student_13_plus_attested` records owner attestation without collecting date of birth.
 - `parse_jobs` and `parse_job_artifacts` model self-hosted MinerU output as draft evidence for owner review.
 - `parse_jobs.parser` supports `mineru`, `deepseek_ai`, and `qti_import` draft workflows.

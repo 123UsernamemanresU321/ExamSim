@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   BarChart3,
+  Gauge,
   FileText,
+  LifeBuoy,
   LayoutDashboard,
   ShieldCheck,
   Users,
@@ -70,6 +72,16 @@ const ownerNavSections: NavSection[] = [
       { href: "/owner/students", label: "Students", Icon: Users },
       { href: "/owner/cohorts", label: "Cohorts", Icon: Boxes },
       { href: "/owner/attempts", label: "Attempts", Icon: BarChart3 },
+    ],
+  },
+  {
+    id: "operations",
+    title: "Operations",
+    description: "Exam day and support",
+    Icon: Gauge,
+    items: [
+      { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge },
+      { href: "/owner/support", label: "Support Console", Icon: LifeBuoy },
     ],
   },
   {

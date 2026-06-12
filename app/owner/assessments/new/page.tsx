@@ -11,7 +11,7 @@ export default async function NewAssessmentPage() {
     <>
       <PageHeader
         eyebrow="Assessments"
-        title="Create New Assessment"
+        title="Create Assessment"
         description="Upload PDF, paste LaTeX, or import a normalized JSON package. Sources are stored in private Storage."
       />
       <div className="grid max-w-[1200px] gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">

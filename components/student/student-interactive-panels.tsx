@@ -23,6 +23,8 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
   const initialSaveDone = useRef(false);
 
   const overall = checks.some((check) => check.status === "failed") ? "failed" : checks.some((check) => check.status === "warning") ? "warning" : "passed";
+  const completedChecks = checks.filter((check) => check.status === "passed" || check.status === "warning" || check.status === "failed").length;
+  const completionPercent = Math.round((completedChecks / Math.max(1, checks.length)) * 100);
 
   const saveReadinessCheck = useCallback((next: CheckResult[]) => {
     startTransition(() => {
@@ -83,6 +85,15 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
           {saveStatus === "saving" ? "Saving readiness check..." : saveStatus === "saved" ? "Readiness check saved" : saveStatus === "failed" ? "Readiness sync failed" : "Verification idle"}
         </span>
+        <div className="basis-full">
+          <div className="mb-1 flex justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">
+            <span>Lobby checklist progress</span>
+            <span>{completionPercent}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-[2px] border border-[var(--border)] bg-white">
+            <div className={`h-full ${overall === "failed" ? "bg-[var(--danger)]" : overall === "warning" ? "bg-[var(--warning)]" : "bg-[var(--success)]"}`} style={{ width: `${completionPercent}%` }} />
+          </div>
+        </div>
       </div>
       <div className="grid gap-3.5">
         {checks.map((check) => (

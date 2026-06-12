@@ -1,10 +1,15 @@
 import { SectionHeading } from "@/components/section-heading";
+import { SavedViewsToolbar } from "@/components/owner/saved-views-toolbar";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
+import { listOwnerSavedViews } from "@/lib/owner-operations";
 import { MarkingLayout } from "@/components/owner/marking-layout";
 
 export default async function MarkAttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const workspace = await getOwnerAttemptReviewWorkspace(id);
+  const [workspace, savedViews] = await Promise.all([
+    getOwnerAttemptReviewWorkspace(id),
+    listOwnerSavedViews("marking_workspace"),
+  ]);
   
   if (!workspace.attempt) {
     return (
@@ -33,6 +38,14 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
           title={`${workspace.attempt.student}'s Submission`}
           description={`Attempt ${id}. Review telemetry, mark responses, and provide feedback.`}
         />
+        <div className="mt-4">
+          <SavedViewsToolbar
+            scope="marking_workspace"
+            views={savedViews}
+            basePath={`/owner/attempts/${id}/mark`}
+            currentFilters={{ attempt_id: id, selected: "current-root" }}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-hidden px-6 pb-6">
         <MarkingLayout workspace={workspace} attemptId={id} />

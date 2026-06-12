@@ -1,6 +1,6 @@
 import { submitStudentIncidentReport } from "@/app/student/student-actions";
 import { SectionHeading } from "@/components/section-heading";
-import { FinalizationChecklistPanel } from "@/components/student/student-experience-panels";
+import { FinalizationChecklistPanel, FinalizationTimelinePanel } from "@/components/student/student-experience-panels";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { requireAppRole } from "@/lib/auth/server";
@@ -26,6 +26,7 @@ export default async function StudentFinalizePage({ params }: { params: Promise<
           attemptId={id} 
           stateToken={screenData.stateToken} 
         />
+        <FinalizationTimelinePanel checklist={data.checklist} attemptTitle={data.attempt.title} />
         <Card>
           <h2 className="text-lg font-semibold">Report an issue before finalizing</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">If an upload or device problem affected your submission, document it here before finalization.</p>

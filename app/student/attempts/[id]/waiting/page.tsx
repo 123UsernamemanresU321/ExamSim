@@ -47,7 +47,7 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
         </p>
         <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--surface-muted)] p-4 text-xs leading-6 text-[var(--muted)] shadow-inner">
           <p className="font-bold text-[var(--primary)] mb-1">Defense-in-Depth Notice:</p>
-          The remote decryption package is released exclusively through <code className="font-semibold">get-attempt-package</code> only after the UTC time passes the server-authoritative threshold. This page contains zero hidden document payloads.
+          No hidden exam payload is present before ACTIVE. The remote decryption package is released exclusively through <code className="font-semibold">get-attempt-package</code> only after the UTC time passes the server-authoritative threshold.
         </div>
         <ServerTimeVerificationCard serverNowUtc={attempt.server_now_utc} timezone={attempt.display_timezone} />
         <StudentMaterialsDrawer materials={materials} />

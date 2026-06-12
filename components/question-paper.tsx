@@ -57,7 +57,10 @@ function QuestionBlock({
   depth?: number;
 }) {
   const initialValue = responses.find(r => r.question_node_id === node.node_id)?.answer_text ?? "";
-  const [isFlagged, setIsFlagged] = useState(annotations.some(a => a.question_node_id === node.node_id && a.body === "flagged"));
+  const initialFlag = annotations.find(a => a.question_node_id === node.node_id && a.annotation_type === "student_flag" && a.body !== "unflagged");
+  const [isFlagged, setIsFlagged] = useState(Boolean(initialFlag));
+  const [flagNote, setFlagNote] = useState(initialFlag && initialFlag.body !== "flagged" ? initialFlag.body : "");
+  const [showFlagNote, setShowFlagNote] = useState(Boolean(initialFlag && initialFlag.body !== "flagged"));
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createSupabaseBrowserClient();
@@ -72,6 +75,7 @@ function QuestionBlock({
           question_node_key: node.node_key,
           flagged: !isFlagged,
           state_token: stateToken,
+          note: !isFlagged ? flagNote.trim().slice(0, 500) : undefined,
         },
       });
       setIsFlagged(!isFlagged);
@@ -211,6 +215,22 @@ function QuestionBlock({
               <Flag size={14} aria-hidden="true" className={cn("mr-2", isFlagged && "fill-current text-red-500")} />
               {isFlagged ? "Question Flagged" : "Flag for review"}
             </Button>
+            <Button type="button" variant="ghost" disabled={readonly} onClick={() => setShowFlagNote((value) => !value)} className="ml-2 h-8 px-3 text-xs font-semibold">
+              {showFlagNote ? "Hide note" : "Add note"}
+            </Button>
+            {showFlagNote ? (
+              <label className="mt-3 grid max-w-xl gap-1 text-xs font-semibold text-[var(--ink)]">
+                Flag note
+                <textarea
+                  value={flagNote}
+                  onChange={(event) => setFlagNote(event.target.value.slice(0, 500))}
+                  disabled={readonly}
+                  placeholder="Optional note for yourself or owner review, e.g. 'come back to part b'."
+                  className="min-h-20 rounded-[4px] border border-[var(--border)] bg-white px-3 py-2 text-sm font-normal text-[var(--ink)]"
+                />
+                <span className="font-normal text-[var(--muted)]">{flagNote.length}/500. Save by pressing Flag for review.</span>
+              </label>
+            ) : null}
           </div>
         </>
       )}

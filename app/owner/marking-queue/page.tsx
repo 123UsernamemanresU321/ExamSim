@@ -1,4 +1,6 @@
 import { AlertTriangle, CheckCircle2, FileText, Send, ShieldAlert, BadgeInfo } from "lucide-react";
+import { assignMarker } from "@/app/owner/operations-actions";
+import { SavedViewsToolbar } from "@/components/owner/saved-views-toolbar";
 import { SectionHeading } from "@/components/section-heading";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -7,8 +9,9 @@ import { DataListMeta, DataTable, DataTableCell, DataTableRow } from "@/componen
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { listMarkingQueue } from "@/lib/usability-data";
+import { listMarkerAssignments, listOwnerSavedViews } from "@/lib/owner-operations";
 import type { AttemptState } from "@/lib/constants";
-import { markingProgress } from "@/lib/marking-queue";
+import { markingProgress, type MarkingQueueSection } from "@/lib/marking-queue";
 
 const sectionLabels: Record<string, string> = {
   needs_marking: "Needs marking",
@@ -20,8 +23,15 @@ const sectionLabels: Record<string, string> = {
   incident_affected: "Incident Reported",
 };
 
-export default async function MarkingQueuePage() {
-  const rows = await listMarkingQueue();
+export default async function MarkingQueuePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const sectionFilter = typeof params.section === "string" ? params.section : "";
+  const [allRows, views, assignments] = await Promise.all([
+    listMarkingQueue(),
+    listOwnerSavedViews("marking_queue"),
+    listMarkerAssignments(),
+  ]);
+  const rows = sectionFilter ? allRows.filter((row) => row.sections.includes(sectionFilter as MarkingQueueSection)) : allRows;
 
   const totalAttempts = rows.length;
   const needsMarkingCount = rows.filter((r) => r.sections.includes("needs_marking")).length;
@@ -34,6 +44,14 @@ export default async function MarkingQueuePage() {
         title="Marking queue"
         description="Triage scripts by marking progress, upload status, moderation signals, incidents, and feedback release state."
       />
+      <SavedViewsToolbar scope="marking_queue" views={views} basePath="/owner/marking-queue" currentFilters={{ section: sectionFilter }} />
+      <form className="flex flex-wrap gap-2 rounded-[4px] border border-[var(--border)] bg-white p-3">
+        <select name="section" defaultValue={sectionFilter} className="h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
+          <option value="">All queue sections</option>
+          {Object.entries(sectionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <button type="submit" className="h-10 rounded-[2px] bg-[var(--primary)] px-4 text-sm font-semibold !text-white">Apply queue filter</button>
+      </form>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active scripts" value={totalAttempts} />
@@ -130,6 +148,19 @@ export default async function MarkingQueuePage() {
 
                 <DataTableCell className="text-right">
                   <div className="flex flex-wrap justify-end gap-2">
+                  <details className="relative">
+                    <summary className="inline-flex min-h-9 cursor-pointer list-none items-center justify-center gap-2 rounded-[2px] border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--surface-muted)] [&::-webkit-details-marker]:hidden">
+                      Assign
+                    </summary>
+                    <form action={assignMarker} className="absolute right-0 z-20 mt-2 grid w-64 gap-2 rounded-[4px] border border-[var(--border)] bg-white p-3 text-left shadow-[var(--shadow-card)]">
+                      <input type="hidden" name="attempt_id" value={row.attempt_id} />
+                      <input type="hidden" name="marker_profile_id" value="" />
+                      <p className="text-xs text-[var(--muted)]">
+                        Assigns this script to the current owner profile for v1 marker tracking.
+                      </p>
+                      <button type="submit" className="h-9 rounded-[2px] bg-[var(--primary)] px-3 text-xs font-semibold !text-white">Assign to me</button>
+                    </form>
+                  </details>
                   <ButtonLink 
                     href={`/owner/attempts/${row.attempt_id}/mark`}
                   >
@@ -154,6 +185,18 @@ export default async function MarkingQueuePage() {
           })}
         </DataTable>
       )}
+      {assignments.length ? (
+        <section className="rounded-[4px] border border-[var(--border)] bg-white p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Marker assignments</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {assignments.slice(0, 12).map((assignment) => (
+              <Badge key={assignment.id} tone={assignment.status === "completed" || assignment.status === "released" ? "success" : assignment.status === "in_progress" ? "warning" : "neutral"}>
+                {assignment.assignment_scope.replaceAll("_", " ")} · {assignment.status}
+              </Badge>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

@@ -143,6 +143,28 @@ export async function saveAccessibilityPreferences(formData: FormData) {
   revalidatePath("/student/accessibility");
 }
 
+export async function saveStudentExamPreference(key: string, value: Json) {
+  const profile = await requireAppRole("student", "/student");
+  const supabase = await createSupabaseServerClient();
+  const { data: existing, error: readError } = await supabase
+    .from("student_accessibility_preferences")
+    .select("preferences_json")
+    .eq("student_profile_id", profile?.id ?? "")
+    .maybeSingle();
+  if (readError) throw readError;
+  const current = existing?.preferences_json && typeof existing.preferences_json === "object" && !Array.isArray(existing.preferences_json)
+    ? existing.preferences_json as Record<string, Json | undefined>
+    : {};
+  await supabase.from("student_accessibility_preferences").upsert(
+    {
+      student_profile_id: profile?.id ?? "",
+      preferences_json: { ...current, [key]: value } as Json,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "student_profile_id" },
+  );
+}
+
 export async function generateStudentRecoveryCode(): Promise<{ code: string | null; error: string | null }> {
   const profile = await requireAppRole("student", "/student/security");
   const code = randomBytes(8).toString("hex").toUpperCase();

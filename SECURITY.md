@@ -84,6 +84,13 @@ Advanced learning workflow tables follow the same boundary:
 - Student incident reports and recovery status panels expose only student-submitted reports, upload slot status, and safe
   accommodation summaries. Owner recovery notes and audit internals are not exposed.
 - Student recovery codes are generated server-side, shown once, and stored only as SHA-256 hashes.
+- Owner saved views, bulk operation records, marker assignments, operations board data, and support console records are
+  owner-only. Bulk operations are validated server-side, recorded in `owner_bulk_operations`, and audited; students never
+  receive owner operation metadata. Marker assignment v1 uses owner profiles only and does not add a new student-visible
+  role or permission path.
+- Student active-exam usability controls such as navigator filters, upload queue drawer, reconnect banner, flag notes,
+  pinned materials, layout controls, and keyboard shortcut help do not decide timing, release, upload acceptance, or
+  finalization. Those controls call the same server/Edge-validated state-token workflows as the original exam page.
 
 ## Private Bucket Model
 

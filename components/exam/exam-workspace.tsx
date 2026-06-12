@@ -6,10 +6,17 @@ import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionNavigator } from "@/components/question-navigator";
 import { QuestionPaper } from "@/components/question-paper";
 import { TelemetryListener } from "@/components/telemetry-listener";
-import { UploadSlotCard } from "@/components/upload-slot-card";
 import { SubmitExamButton } from "@/components/submit-exam-button";
 import { ServerTimeVerificationCard } from "@/components/student/server-time-verification-card";
 import { StudentMaterialsDrawer } from "@/components/student/allowed-materials-drawer";
+import {
+  ExamWorkspaceControls,
+  KeyboardShortcutsPanel,
+  PinnedMaterialsPanel,
+  ReconnectRecoveryBanner,
+  UploadQueueDrawer,
+  type ExamLayoutMode,
+} from "@/components/student/exam-ops-panels";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { flattenQuestionNodes, normalizedPackageSchema } from "@/lib/assessment-package";
@@ -40,6 +47,8 @@ export function ExamWorkspace({
   const [isLoadingPackage, setIsLoadingPackage] = useState(!initialScreenData.package);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attemptSessionId, setAttemptSessionId] = useState<string | undefined>();
+  const [layoutMode, setLayoutMode] = useState<ExamLayoutMode>("standard");
+  const [toolsOpen, setToolsOpen] = useState(true);
   const sessionStarted = useRef(false);
 
   useEffect(() => {
@@ -267,6 +276,7 @@ export function ExamWorkspace({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <ExamWorkspaceControls mode={layoutMode} onModeChange={setLayoutMode} toolsOpen={toolsOpen} onToolsOpenChange={setToolsOpen} />
             <ServerTimeVerificationCard serverNowUtc={attempt.server_now_utc} timezone={attempt.display_timezone} compact />
             <LastSavedBadge responses={responses} />
             <CountdownTimer
@@ -277,9 +287,18 @@ export function ExamWorkspace({
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-[1540px] gap-6 px-4 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]">
+      <div className="mx-auto max-w-[1540px] px-4">
+        <ReconnectRecoveryBanner attemptId={attemptId} />
+      </div>
+      <div className={`mx-auto grid max-w-[1540px] gap-6 px-4 ${
+        layoutMode === "focus"
+          ? "lg:grid-cols-[220px_1fr]"
+          : layoutMode === "wide"
+          ? "lg:grid-cols-[220px_1fr] xl:grid-cols-[220px_minmax(0,1.35fr)_300px]"
+          : "lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]"
+      }`}>
         <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
-          <QuestionNavigator questions={assessmentPackage.questions} />
+          <QuestionNavigator questions={assessmentPackage.questions} responses={responses} annotations={annotations} uploadSlots={uploadSlots} />
         </div>
         <div>
           <QuestionPaper 
@@ -294,8 +313,11 @@ export function ExamWorkspace({
             onUploadComplete={handleUploadComplete}
           />
         </div>
-        <aside className="grid content-start gap-4 xl:sticky xl:top-24 xl:self-start" aria-label="Response tools">
+        <aside className={`content-start gap-4 xl:sticky xl:top-24 xl:self-start ${
+          layoutMode === "focus" || !toolsOpen ? "hidden xl:hidden" : "grid"
+        }`} aria-label="Response tools">
           <StudentMaterialsDrawer materials={materials} />
+          <PinnedMaterialsPanel materials={materials} />
           
           <section className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
             <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink)]">Response panel</h2>
@@ -311,24 +333,22 @@ export function ExamWorkspace({
                 Finalize Checklist
               </ButtonLink>
             </div>
+            <div className="mt-3">
+              <KeyboardShortcutsPanel />
+            </div>
           </section>
 
           <div className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)] lg:hidden">
-            <QuestionNavigator questions={assessmentPackage.questions} />
+            <QuestionNavigator questions={assessmentPackage.questions} responses={responses} annotations={annotations} uploadSlots={uploadSlots} />
           </div>
 
-          {uploadNodes.map((node) => (
-            <UploadSlotCard
-              key={node.node_id}
-              attemptId={attemptId}
-              questionNodeId={node.node_id}
-              questionKey={node.node_key}
-              stateToken={stateToken}
-              status="pending"
-              slot={uploadSlots.find((slot) => slot.question_node_id === node.node_id)}
-              onUploadComplete={handleUploadComplete}
-            />
-          ))}
+          <UploadQueueDrawer
+            uploadNodes={uploadNodes}
+            uploadSlots={uploadSlots}
+            attemptId={attemptId}
+            stateToken={stateToken}
+            onUploadComplete={handleUploadComplete}
+          />
 
           <section className="rounded-[4px] border border-[var(--border)] bg-white p-4 text-center text-xs leading-relaxed text-[var(--muted)] shadow-[var(--shadow-card)]">
             Browser telemetry is recorded as moderation evidence. It is not treated as proof of misconduct by itself.

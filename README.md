@@ -15,6 +15,7 @@ Browser Mode is tamper-evident, not tamper-proof. The browser records moderation
 - Playwright scaffold for the critical owner/student flows.
 - Production Browser Mode hardening: owner MFA/AAL2 gates, group assignments, strict one-PDF-per-question uploads, marking/rubric scaffolding, feedback release, audit logs, passkey beta UI, legal pages, and hosted MinerU parse review.
 - Production completion scaffolding: hosted MinerU API parsing, optional self-hosted MinerU worker fallback, DeepSeek AI parse review, SEB key validation, conservative QTI import/export, Cloudflare Worker KMS wrapping, and real marking-packet ZIP generation.
+- Exam operations package: owner saved views, command palette, exam-day operations board, student support console, bulk operation audit records, marker assignment tracking, publish diff/package integrity checks, destructive action previews, active-exam upload queue, navigator filters, reconnect banner, flag notes, pinned materials, shortcuts, and finalization timeline.
 
 Supported response modes in the normalized package are `none`, `typed_text`, `upload_pdf`, `typed_or_upload`,
 `multiple_choice`, and `numerical`. Multiple-choice supports single-select and multi-select through

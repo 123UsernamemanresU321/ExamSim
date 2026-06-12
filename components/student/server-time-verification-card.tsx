@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { calculateServerTimeDriftStatus } from "@/lib/student-experience-core";
@@ -14,7 +14,16 @@ export function ServerTimeVerificationCard({
   timezone: string;
   compact?: boolean;
 }) {
-  const localNowUtc = useMemo(() => new Date().toISOString(), []);
+  const [localNowUtc, setLocalNowUtc] = useState(serverNowUtc);
+  useEffect(() => {
+    const update = () => setLocalNowUtc(new Date().toISOString());
+    const timeoutId = window.setTimeout(update, 0);
+    const intervalId = window.setInterval(update, 30_000);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, []);
   const drift = calculateServerTimeDriftStatus(serverNowUtc, localNowUtc);
   const tone = drift.status === "synced" ? "success" : drift.status === "minor_drift" ? "warning" : "danger";
 

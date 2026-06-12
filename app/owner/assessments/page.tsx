@@ -1,4 +1,6 @@
 import { Plus } from "lucide-react";
+import Link from "next/link";
+import { SavedViewsToolbar } from "@/components/owner/saved-views-toolbar";
 import { SectionHeading } from "@/components/section-heading";
 import { ButtonLink } from "@/components/ui/button";
 import { DataListMeta, DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
@@ -6,9 +8,19 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { AssessmentStatusBadge, ParseBadge, StatusBadge } from "@/components/ui/status-badge";
 import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-button";
 import { listOwnerAssessments } from "@/lib/live-data";
+import { listOwnerSavedViews } from "@/lib/owner-operations";
 
-export default async function OwnerAssessmentsPage() {
-  const assessments = await listOwnerAssessments();
+export default async function OwnerAssessmentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const q = typeof params.q === "string" ? params.q : "";
+  const status = typeof params.status === "string" ? params.status : "";
+  const [allAssessments, views] = await Promise.all([listOwnerAssessments(), listOwnerSavedViews("assessments")]);
+  const assessments = allAssessments.filter((assessment) => {
+    const haystack = `${assessment.title} ${assessment.paper_code ?? ""} ${assessment.assessment_kind}`.toLowerCase();
+    const matchesQuery = !q || haystack.includes(q.toLowerCase());
+    const matchesStatus = !status || assessment.latest_status === status;
+    return matchesQuery && matchesStatus;
+  });
   return (
     <>
       <SectionHeading
@@ -19,10 +31,32 @@ export default async function OwnerAssessmentsPage() {
           New assessment
         </ButtonLink>}
       />
+      <div className="mb-4 grid gap-3">
+        <SavedViewsToolbar scope="assessments" views={views} basePath="/owner/assessments" currentFilters={{ q, status }} />
+        <form className="flex flex-wrap gap-2 rounded-[4px] border border-[var(--border)] bg-white p-3">
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Filter by title, code, or kind"
+            className="h-10 min-w-[240px] flex-1 rounded-[2px] border border-[var(--border)] px-3 text-sm"
+          />
+          <select name="status" defaultValue={status} className="h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
+            <option value="">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="review_required">Review required</option>
+            <option value="published">Published</option>
+            <option value="archived">Archived</option>
+          </select>
+          <button type="submit" className="h-10 rounded-[2px] bg-[var(--primary)] px-4 text-sm font-semibold !text-white">Apply filters</button>
+          <Link href="/owner/assessments" className="inline-flex h-10 items-center rounded-[2px] border border-[var(--border)] px-4 text-sm font-semibold text-[var(--muted)] hover:bg-[var(--surface-muted)]">
+            Reset
+          </Link>
+        </form>
+      </div>
       {assessments.length === 0 ? (
         <EmptyState
-          title="No assessments yet"
-          description="Create an assessment, upload source material, and keep it in review until the parser tree and security settings are approved."
+          title={allAssessments.length ? "No assessments match these filters" : "No assessments yet"}
+          description={allAssessments.length ? "Adjust the saved view or clear filters to see more assessment records." : "Create an assessment, upload source material, and keep it in review until the parser tree and security settings are approved."}
           action={<ButtonLink href="/owner/assessments/new">Create assessment</ButtonLink>}
         />
       ) : (

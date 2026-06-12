@@ -16,6 +16,7 @@ serve(async (request) => {
       question_node_key?: string;
       flagged: boolean;
       state_token: string;
+      note?: string;
     }>(request);
     if (!body.attempt_id || (!body.question_node_id && !body.question_node_key) || !body.state_token) {
       return json({ error: "attempt_id, question_node_id or question_node_key, and state_token are required" }, 400);
@@ -55,20 +56,21 @@ serve(async (request) => {
 
     const ownerProfileId = attempt.assessments?.owner_profile_id;
     if (!ownerProfileId) throw new Error("Assessment owner not found");
+    const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
     const { error: annotationError } = await admin.from("submission_annotations").insert({
       attempt_id: body.attempt_id,
       question_node_id: node.id,
       owner_profile_id: ownerProfileId,
       annotation_type: "student_flag",
-      body: body.flagged ? "flagged" : "unflagged",
-      anchor_json: {},
+      body: body.flagged ? (note || "flagged") : "unflagged",
+      anchor_json: body.flagged && note ? { note } : {},
     });
     if (annotationError) throw annotationError;
 
     await admin.from("attempt_events").insert({
       attempt_id: body.attempt_id,
       event_type: body.flagged ? "question.flagged" : "question.unflagged",
-      payload_json: { question_node_id: node.id, question_node_key: node.node_key },
+      payload_json: { question_node_id: node.id, question_node_key: node.node_key, has_note: Boolean(note) },
     });
 
     return json({ ok: true, flagged: body.flagged, question_node_id: node.id, question_node_key: node.node_key });

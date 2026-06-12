@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, HelpCircle, Menu, Search } from "lucide-react";
+import { Bell, HelpCircle, Menu } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { IconButton } from "@/components/ui/icon-button";
+import { OwnerCommandPalette } from "@/components/owner/owner-command-palette";
 import { OwnerMobileNav, SidebarNav } from "./sidebar-nav";
 
 export function OwnerShell({ children, displayName = "Admin User" }: { children: React.ReactNode; displayName?: string }) {
@@ -24,10 +25,7 @@ export function OwnerShell({ children, displayName = "Admin User" }: { children:
             <IconButton className="hidden md:inline-flex" onClick={() => setIsCollapsed(!isCollapsed)} aria-label="Toggle owner navigation">
               <Menu size={16} aria-hidden="true" />
             </IconButton>
-            <label className="hidden w-full max-w-md items-center gap-3 rounded-[2px] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--muted)] md:flex">
-              <Search size={15} aria-hidden="true" />
-              <span>Search across Exam Vault...</span>
-            </label>
+            <OwnerCommandPalette />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <IconButton aria-label="Notifications"><Bell size={16} aria-hidden="true" /></IconButton>

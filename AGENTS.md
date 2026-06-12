@@ -24,3 +24,5 @@ Future coding agents working on Exam Vault must:
 - Do not make client clock or readiness checks authoritative; student countdown, finalization, upload, and content release flows must keep using server-computed attempt state.
 - Do not expose student data across accounts in command center, feedback inbox, archive, progress, device, notification, recovery, or confidence routes.
 - Keep student upload queue changes tied to root-question upload slots; subquestions get marks and feedback, not separate upload/annotation ownership.
+- Keep owner bulk operations, marker assignments, and saved operational views behind owner-only RLS and server actions; do not expose operations board or support console metadata to students.
+- Keep student flag notes routed through the checked `set-question-flag` Edge Function; do not store them as client-only exam state.

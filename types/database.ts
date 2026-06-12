@@ -845,6 +845,45 @@ export type StudentConfidenceRating = {
   updated_at: string;
 };
 
+export type OwnerSavedView = {
+  id: string;
+  owner_profile_id: string;
+  view_scope: "assessments" | "attempts" | "marking_queue" | "marking_workspace" | "feedback" | "students" | "question_bank" | "security" | "support_console";
+  name: string;
+  filters_json: Json;
+  sort_json: Json;
+  columns_json: Json;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OwnerBulkOperation = {
+  id: string;
+  owner_profile_id: string;
+  operation_type: "release_feedback" | "grant_upload_extension" | "mark_incident_reviewed" | "queue_recovery_review" | "assign_marker" | "export_receipts";
+  target_kind: "attempt" | "assessment" | "student" | "upload_slot";
+  target_ids: string[];
+  status: "queued" | "running" | "completed" | "failed" | "partial";
+  request_json: Json;
+  result_json: Json;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type MarkerAssignment = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string | null;
+  attempt_id: string | null;
+  question_node_id: string | null;
+  marker_profile_id: string;
+  assignment_scope: "attempt" | "root_question" | "leaf_question";
+  status: "assigned" | "in_progress" | "completed" | "released";
+  created_at: string;
+  updated_at: string;
+};
+
 export type ModerationReport = {
   id: string;
   attempt_id: string;
@@ -1226,6 +1265,24 @@ export type Database = {
         Row: StudentConfidenceRating;
         Insert: Partial<StudentConfidenceRating> & Pick<StudentConfidenceRating, "student_profile_id" | "attempt_id" | "question_node_id" | "confidence">;
         Update: Partial<StudentConfidenceRating>;
+        Relationships: [];
+      };
+      owner_saved_views: {
+        Row: OwnerSavedView;
+        Insert: Partial<OwnerSavedView> & Pick<OwnerSavedView, "owner_profile_id" | "view_scope" | "name">;
+        Update: Partial<OwnerSavedView>;
+        Relationships: [];
+      };
+      owner_bulk_operations: {
+        Row: OwnerBulkOperation;
+        Insert: Partial<OwnerBulkOperation> & Pick<OwnerBulkOperation, "owner_profile_id" | "operation_type" | "target_kind">;
+        Update: Partial<OwnerBulkOperation>;
+        Relationships: [];
+      };
+      marker_assignments: {
+        Row: MarkerAssignment;
+        Insert: Partial<MarkerAssignment> & Pick<MarkerAssignment, "owner_profile_id" | "attempt_id" | "marker_profile_id" | "assignment_scope">;
+        Update: Partial<MarkerAssignment>;
         Relationships: [];
       };
       parse_jobs: {
