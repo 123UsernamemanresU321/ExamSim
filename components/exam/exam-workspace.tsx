@@ -255,7 +255,7 @@ export function ExamWorkspace({
   return (
     <div className="exam-mode pb-12">
       <TelemetryListener attemptId={attemptId} attemptSessionId={attemptSessionId} stateToken={stateToken} />
-      <header className="sticky top-0 z-50 -mx-5 mb-8 border-b border-[#dde3ee] bg-white/80 backdrop-blur-md px-5 py-4 shadow-sm transition-all duration-200 md:-mx-8 md:px-8">
+      <header className="sticky top-0 z-50 -mx-5 mb-8 border-b border-[var(--border)] bg-white px-5 py-4 shadow-sm md:-mx-8 md:px-8">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AttemptStateBadge state="ACTIVE" />
@@ -278,10 +278,10 @@ export function ExamWorkspace({
         </div>
       </header>
       <div className="mx-auto grid max-w-[1540px] gap-8 px-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]">
-        <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start transition-all duration-200">
+        <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
           <QuestionNavigator questions={assessmentPackage.questions} />
         </div>
-        <div className="transition-all duration-200">
+        <div>
           <QuestionPaper 
             questions={assessmentPackage.questions} 
             attemptId={attemptId}
@@ -297,18 +297,17 @@ export function ExamWorkspace({
         <aside className="grid content-start gap-5 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
           <StudentMaterialsDrawer materials={materials} />
           
-          <section className="relative overflow-hidden rounded-xl border border-[#dde3ee] bg-white p-5 shadow-[var(--shadow-card)] transition-all hover:shadow-md">
-            <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-blue-600 to-indigo-600" />
+          <section className="rounded-lg border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-card)]">
             <h2 className="text-sm font-bold tracking-wide uppercase text-[var(--ink)]">Response Control Panel</h2>
             <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
               Typed answers are saved instantly. PDF uploads will be requested one slot at a time per question.
             </p>
-            <SubmitExamButton attemptId={attemptId} stateToken={stateToken} className="mt-4 w-full shadow-sm transition-all hover:brightness-110 active:scale-[0.98]" />
+            <SubmitExamButton attemptId={attemptId} stateToken={stateToken} className="mt-4 w-full shadow-sm" />
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-4">
-              <ButtonLink href={`/student/attempts/${attemptId}/recovery-status`} variant="secondary" className="justify-center text-xs font-semibold transition-all hover:bg-red-50 hover:text-red-700 hover:border-red-200">
+              <ButtonLink href={`/student/attempts/${attemptId}/recovery-status`} variant="secondary" className="justify-center text-xs font-semibold">
                 Report Issue
               </ButtonLink>
-              <ButtonLink href={`/student/attempts/${attemptId}/finalize`} variant="secondary" className="justify-center text-xs font-semibold transition-all hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200">
+              <ButtonLink href={`/student/attempts/${attemptId}/finalize`} variant="secondary" className="justify-center text-xs font-semibold">
                 Finalize Checklist
               </ButtonLink>
             </div>
@@ -331,8 +330,8 @@ export function ExamWorkspace({
             />
           ))}
 
-          <section className="rounded-xl border border-[var(--border)] bg-[rgba(246,249,255,0.6)] p-4 text-xs leading-relaxed text-[var(--muted)] shadow-sm italic text-center">
-            🔒 Browser telemetry is recorded as moderation evidence. Respect standard honor code guidelines.
+          <section className="rounded-lg border border-[var(--border)] bg-white p-4 text-center text-xs leading-relaxed text-[var(--muted)] shadow-sm">
+            Browser telemetry is recorded as moderation evidence. It is not treated as proof of misconduct by itself.
           </section>
         </aside>
       </div>

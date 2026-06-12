@@ -30,14 +30,14 @@ export function AnnotationPropertiesPanel({
     <div className="grid gap-3">
       {/* SECTION 1: Properties */}
       <section className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Annotation properties</h3>
+        <h3 className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">Annotation properties</h3>
         {annotation ? (
           <div className="mt-3.5 grid gap-3">
             
             {/* Visibility & Severity Row */}
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-0.5">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Visibility</span>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Visibility</span>
                 <select
                   className="h-8 rounded bg-white border border-slate-200 px-2 text-xs font-semibold focus:outline-none"
                   value={annotation.visibility}
@@ -49,7 +49,7 @@ export function AnnotationPropertiesPanel({
               </div>
 
               <div className="grid gap-0.5">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Severity</span>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Severity</span>
                 <select
                   className="h-8 rounded bg-white border border-slate-200 px-2 text-xs font-semibold focus:outline-none"
                   value={annotation.severity}
@@ -66,7 +66,7 @@ export function AnnotationPropertiesPanel({
             {/* Comment/Text input */}
             {annotation.type === "text" || annotation.type === "comment" ? (
               <div className="grid gap-1">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Text Content</span>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Text Content</span>
                 <Textarea
                   value={annotation.type === "comment" ? annotation.comment ?? "" : annotation.text ?? ""}
                   onChange={(event) =>
@@ -82,7 +82,7 @@ export function AnnotationPropertiesPanel({
             {/* Stroke Width & Font Size Grid */}
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-0.5">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Stroke weight</span>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Stroke weight</span>
                 <Input
                   type="number"
                   min={1}
@@ -95,7 +95,7 @@ export function AnnotationPropertiesPanel({
 
               {fontSizedTypes.has(annotation.type) ? (
                 <div className="grid gap-0.5">
-                  <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Font size</span>
+                  <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Font size</span>
                   <Input
                     type="number"
                     min={8}
@@ -118,7 +118,7 @@ export function AnnotationPropertiesPanel({
 
             {/* Color Swatches */}
             <div className="grid gap-1">
-              <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Palette color</span>
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Palette color</span>
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {colors.map((color) => {
                   const isActive = activeColor.toLowerCase() === color.toLowerCase();
@@ -127,7 +127,7 @@ export function AnnotationPropertiesPanel({
                       key={color}
                       type="button"
                       className={cn(
-                        "h-6 w-6 rounded-full border border-white shadow-sm ring-1 ring-slate-200 transition-transform active:scale-95 cursor-pointer",
+                        "h-6 w-6 rounded-full border border-white shadow-sm ring-1 ring-slate-200 transition-transform  cursor-pointer",
                         isActive && "ring-2 ring-indigo-500 scale-110"
                       )}
                       style={{ backgroundColor: color }}
@@ -147,13 +147,13 @@ export function AnnotationPropertiesPanel({
 
       {/* SECTION 2: Mark Summary */}
       <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Node Mark Summary</h3>
+        <h3 className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">Node Mark Summary</h3>
         <p className="mt-2 rounded bg-slate-50 border border-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-800">{markSummary}</p>
       </section>
 
       {/* SECTION 3: Private Notes */}
       <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Marker Private Ledger</h3>
+        <h3 className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">Marker Private Ledger</h3>
         <Textarea 
           className="mt-2 text-xs p-2 min-h-16 border-slate-200 focus:ring-1" 
           value={privateNotes} 
@@ -165,7 +165,7 @@ export function AnnotationPropertiesPanel({
 
       {/* SECTION 4: Student Feedback */}
       <section className="rounded-xl border border-blue-100 bg-blue-50/20 p-3 shadow-sm">
-        <h3 className="text-[9px] font-black uppercase tracking-widest text-blue-600">Student Feedback summary</h3>
+        <h3 className="text-[9px] font-semibold uppercase tracking-widest text-blue-600">Student Feedback summary</h3>
         <Textarea 
           className="mt-2 text-xs p-2 min-h-20 bg-white border-blue-100 focus:border-blue-400 focus:ring-blue-400/20" 
           value={studentFeedback} 

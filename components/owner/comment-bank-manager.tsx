@@ -62,7 +62,7 @@ export function CommentBankManager({ items }: { items: CommentBankItem[] }) {
     <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
       <form action={submit} className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">
         <div className="mb-5">
-          <h2 className="text-sm font-black uppercase tracking-widest text-[var(--ink)]">New snippet</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--ink)]">New snippet</h2>
           <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
             Snippets can be inserted into private marker notes or student-facing feedback while marking.
           </p>

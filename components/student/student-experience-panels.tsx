@@ -11,6 +11,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/form";
+import { StatCard } from "@/components/ui/stat-card";
 import { formatInTimezone } from "@/lib/attempt-state";
 import { generateIcsEvent, type FinalizationChecklist, type StudentAttemptCard, type StudentCommandCenterData, type StudentFeedbackCard, type StudentProgressSnapshot } from "@/lib/student-experience";
 import type { StudentDevice, StudentDeviceCheck, StudentIncidentReport, StudentNotification, StudentNotificationPreferences, StudentPerformancePreferences, UploadQueueEvent, UploadSlot } from "@/types/database";
@@ -22,7 +23,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Active Simulation" value={data.attempts.filter((attempt) => attempt.state === "ACTIVE").length} tone="success" />
         <SummaryCard label="Upcoming Scheduled" value={data.attempts.filter((attempt) => attempt.state === "WAITING").length} tone="active" />
         <SummaryCard label="Unread Feedback" value={unreadFeedback.length} tone="warning" />
@@ -41,7 +42,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
                   key={`${action.kind}-${action.attempt.id}`} 
                   href={action.href} 
                   className={cn(
-                    "flex items-center justify-between gap-4 rounded-lg border p-4 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0 hover:shadow-sm",
+                    "flex items-center justify-between gap-4 rounded-lg border p-4 hover:bg-[var(--surface-muted)]",
                     action.kind === "active_exam" ? "border-[var(--success)] bg-[var(--success-bg)]/20 hover:bg-[var(--success-bg)]/35" :
                     action.kind === "failed_upload" || action.kind === "upload_deadline" ? "border-[var(--danger)] bg-[var(--danger-bg)]/20 hover:bg-[var(--danger-bg)]/35" :
                     "border-[var(--border)] bg-white hover:bg-[var(--surface-muted)]"
@@ -49,7 +50,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
                 >
                   <div className="grid gap-1">
                     <span className={cn(
-                      "text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded w-fit",
+                      "w-fit rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
                       action.kind === "active_exam" ? "bg-[var(--success)] !text-white" :
                       action.kind === "failed_upload" || action.kind === "upload_deadline" ? "bg-[var(--danger)] !text-white" :
                       "bg-[var(--surface-panel)] text-[var(--primary)]"
@@ -105,7 +106,7 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
             <div 
               key={attempt.id} 
               className={cn(
-                "relative overflow-hidden rounded-lg border p-4 pl-5 transition-all duration-300 hover:shadow-sm",
+                "relative overflow-hidden rounded-lg border p-4 pl-5",
                 attempt.state === "ACTIVE" ? "border-[var(--success)] border-l-4 border-l-[var(--success)]" :
                 attempt.state === "UPLOAD_ONLY" ? "border-[var(--warning)] border-l-4 border-l-[var(--warning)]" :
                 "border-[var(--border)] border-l-4 border-l-[var(--subtle)]"
@@ -119,12 +120,12 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
                 {formatInTimezone(attempt.start_at_utc, attempt.display_timezone)} to {formatInTimezone(attempt.end_at_utc, attempt.display_timezone)}
               </p>
               <div className="mt-4 flex flex-wrap gap-2.5">
-                <ButtonLink href={`/student/attempts/${attempt.id}/readiness`} variant="secondary" className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0">
+                <ButtonLink href={`/student/attempts/${attempt.id}/readiness`} variant="secondary">
                   Run Readiness
                 </ButtonLink>
                 {compact ? null : (
                   <a
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)] transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)]"
                     href={`data:text/calendar;charset=utf-8,${encodeURIComponent(generateIcsEvent({
                       id: attempt.id,
                       title: attempt.title,
@@ -166,17 +167,17 @@ export function StudentFeedbackPreview({ feedback, compact = false }: { feedback
               key={`${item.attempt_id}-${item.released_at}`} 
               href={`/student/attempts/${item.attempt_id}/results`} 
               className={cn(
-                "group relative overflow-hidden rounded-lg border p-4 transition-all duration-300 hover:shadow-sm",
+                "group relative overflow-hidden rounded-lg border p-4",
                 item.read_at ? "border-[var(--border)] bg-white hover:bg-[var(--surface-muted)]" : "border-[var(--border)] bg-[var(--surface-panel)]/50 hover:bg-[var(--surface-panel)]"
               )}
             >
               <div className="flex items-center justify-between gap-3">
                 <p className="font-bold text-[var(--ink)]">{item.title}</p>
-                <Badge tone={item.read_at ? "neutral" : "accent"} className="transition-all duration-300">
+                <Badge tone={item.read_at ? "neutral" : "accent"}>
                   {item.read_at ? "read" : "new feedback"}
                 </Badge>
               </div>
-              <p className="mt-1 text-sm text-[var(--muted)] group-hover:text-[var(--ink)] transition-colors">
+              <p className="mt-1 text-sm text-[var(--muted)] group-hover:text-[var(--ink)]">
                 {item.paper_code ?? "General"} · Released {new Date(item.released_at).toLocaleString()}
               </p>
             </Link>
@@ -354,14 +355,14 @@ export function FinalizationChecklistPanel({
   stateToken?: string;
 }) {
   return (
-    <Card className="shadow-lg border-[#dde3ee] overflow-hidden">
-      <CardHeader className="bg-gradient-to-b from-gray-50 to-white border-b border-[#dde3ee] pb-4">
-        <div className="flex items-center gap-2 text-indigo-900">
-          <ShieldCheck size={22} className="text-indigo-600 animate-pulse" />
-          <CardTitle className="text-lg font-bold tracking-tight">Pre-Finalization Verification Portal</CardTitle>
+    <Card className="overflow-hidden border-[var(--border)] shadow-[var(--shadow-card)]">
+      <CardHeader className="border-b border-[var(--border)] bg-white pb-4">
+        <div className="flex items-center gap-2 text-[var(--ink)]">
+          <ShieldCheck size={22} className="text-[var(--primary)]" />
+          <CardTitle className="text-lg font-semibold tracking-tight">Pre-finalization checklist</CardTitle>
         </div>
         <CardDescription className="text-xs">
-          Your answers are systematically checked against active upload slots, security boundaries, and validation rules. Review the ledger below before transmitting your official attempt.
+          Review upload slots, blank submissions, and warnings before locking your attempt.
         </CardDescription>
       </CardHeader>
       
@@ -370,7 +371,7 @@ export function FinalizationChecklistPanel({
           {checklist.items.map((item) => (
             <div 
               key={item.slot_id} 
-              className={`flex items-start gap-4 rounded-lg border p-4 transition-all duration-200 hover:shadow-sm ${
+              className={`flex items-start gap-4 rounded-lg border p-4 ${
                 item.severity === "ok" 
                   ? "border-emerald-100 bg-emerald-50/30" 
                   : item.severity === "warning"
@@ -403,7 +404,7 @@ export function FinalizationChecklistPanel({
                 <p className="text-xs text-[var(--muted)] mt-1">{item.message}</p>
                 {item.file_name ? (
                   <div className="mt-2 inline-flex items-center gap-1.5 rounded bg-white px-2 py-1 text-xs border border-gray-100 text-gray-600 font-mono shadow-sm">
-                    📄 {item.file_name}
+                    {item.file_name}
                   </div>
                 ) : null}
               </div>
@@ -442,17 +443,17 @@ export function FinalizationChecklistPanel({
         {checklist.canFinalize && attemptId && stateToken ? (
           <div className="mt-4 border-t border-dashed border-[#dde3ee] pt-5">
             <div className="rounded-lg bg-indigo-50/40 border border-indigo-100 p-4 mb-4 text-xs text-indigo-900 leading-relaxed">
-              ⚠️ <strong>Important Security Protocol:</strong> Finalizing will permanently seal your exam submission. The owner/marking staff will receive immediate access. You cannot reverse this lock.
+              <strong>Important:</strong> Finalizing seals your exam submission. The owner and marking staff will receive access, and you cannot reverse this lock.
             </div>
             <SubmitExamButton 
               attemptId={attemptId} 
               stateToken={stateToken} 
-              className="py-6 text-base font-bold shadow-lg bg-gradient-to-r from-blue-700 to-indigo-700 text-white hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 rounded-xl w-full border-0" 
+              className="flex w-full items-center justify-center gap-2 rounded-lg py-4 text-base font-semibold" 
             />
           </div>
         ) : !checklist.canFinalize ? (
           <div className="mt-4 rounded-xl bg-gray-100 text-gray-400 p-5 text-center font-bold text-sm border border-gray-200 cursor-not-allowed">
-            🔒 Finalization Locked (Fulfill requirements above to unlock)
+            Finalization locked. Complete the requirements above to unlock.
           </div>
         ) : null}
       </div>
@@ -578,19 +579,8 @@ export function AccessibilityPreferencesPanel({ performance }: { performance: St
 }
 
 function SummaryCard({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "active" | "warning" | "success" | "default" }) {
-  const borderTone = {
-    success: "border-l-4 border-l-[var(--success)] before:bg-[var(--success)]",
-    active: "border-l-4 border-l-[var(--primary)] before:bg-[var(--primary)]",
-    warning: "border-l-4 border-l-[var(--warning)] before:bg-[var(--warning)]",
-    default: "border-l-4 border-l-[var(--subtle)] before:bg-[var(--subtle)]",
-  }[tone];
-
-  return (
-    <Card className={cn("relative overflow-hidden pl-6 py-4 shadow-sm transition-all duration-300 hover:shadow-md", borderTone)}>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--subtle)]">{label}</p>
-      <p className="mt-2 text-3xl font-extrabold text-[var(--ink)]">{value}</p>
-    </Card>
-  );
+  const statTone = tone === "success" ? "success" : tone === "warning" ? "warning" : tone === "active" ? "info" : "neutral";
+  return <StatCard label={label} value={value} tone={statTone} />;
 }
 
 function formatReleasedScore(attempt: StudentAttemptCard): string {

@@ -83,7 +83,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
               variant={workspace.feedbackRelease ? "secondary" : "primary"}
               onClick={handleRelease}
               disabled={isReleasing}
-              className="gap-2 font-black uppercase tracking-widest text-[10px] h-9"
+              className="gap-2 font-semibold uppercase tracking-widest text-[10px] h-9"
             >
               {isReleasing ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -147,7 +147,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
           <TabsContent value="discussion" className="flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-sm p-6 mt-0">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] pb-4">
               <div>
-                <h2 className="text-lg font-black text-[var(--ink)]">Discussion / Appeals</h2>
+                <h2 className="text-lg font-semibold text-[var(--ink)]">Discussion / Appeals</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
                   Use this separate workspace for student questions, marking disputes, and clarification threads. Marking and annotation controls stay in the Marking tab.
                 </p>

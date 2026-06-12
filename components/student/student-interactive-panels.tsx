@@ -55,7 +55,7 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
   }
 
   return (
-    <Card className="shadow-md">
+    <Card className="shadow-[var(--shadow-card)]">
       <CardHeader className="border-b border-[var(--border)] pb-5 mb-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -68,7 +68,6 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
             type="button" 
             onClick={runAgain} 
             disabled={isPending}
-            className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0"
           >
             {isPending ? "Re-verifying..." : "Run Checks Again"}
           </Button>
@@ -81,8 +80,8 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
             {overall === "passed" ? "Passed and Ready" : overall === "failed" ? "Failed Actions Required" : "Warnings Detected"}
           </Badge>
         </div>
-        <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] animate-pulse">
-          {saveStatus === "saving" ? "Refreshing remote profile..." : saveStatus === "saved" ? "Cloud verification profile active" : saveStatus === "failed" ? "Cloud sync failed" : "Verification idle"}
+        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+          {saveStatus === "saving" ? "Saving readiness check..." : saveStatus === "saved" ? "Readiness check saved" : saveStatus === "failed" ? "Readiness sync failed" : "Verification idle"}
         </span>
       </div>
       <div className="grid gap-3.5">
@@ -90,7 +89,7 @@ export function ReadinessCheckPanel({ attemptId, serverNowUtc }: { attemptId: st
           <div 
             key={check.key} 
             className={cn(
-              "flex items-start gap-4 rounded-lg border p-4 transition-all duration-200",
+              "flex items-start gap-4 rounded-lg border p-4",
               check.status === "passed" ? "border-[var(--success)]/30 bg-[var(--success-bg)]/5 hover:bg-[var(--success-bg)]/10" : 
               check.status === "failed" ? "border-[var(--danger)]/30 bg-[var(--danger-bg)]/5 hover:bg-[var(--danger-bg)]/10" : 
               "border-[var(--warning)]/30 bg-[var(--warning-bg)]/5 hover:bg-[var(--warning-bg)]/10"

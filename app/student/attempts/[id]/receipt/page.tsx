@@ -5,6 +5,23 @@ import { getSubmissionReceipt } from "@/lib/usability-data";
 import { PrintReceiptButton } from "@/components/student/print-receipt-button";
 import { ShieldCheck, Database } from "lucide-react";
 
+type ReceiptJson = {
+  assessment_title?: string;
+  paper_code?: string | null;
+  attempt_short_code?: string;
+  finalized_at?: string;
+  slots?: Array<{ 
+    question_node_id: string; 
+    status: string; 
+    file_name: string | null; 
+    uploaded_at: string | null; 
+    page_count: number | null; 
+    sanity_status: string | null; 
+    warnings: unknown[]; 
+    file_hash: string | null;
+  }>;
+};
+
 export default async function StudentReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const receipt = await getSubmissionReceipt(id);
@@ -13,22 +30,7 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
     return <SectionHeading title="Submission receipt not ready" description="Finalize the attempt first, then refresh this page." />;
   }
 
-  const receiptJson = (receipt as any).receipt_json as {
-    assessment_title?: string;
-    paper_code?: string | null;
-    attempt_short_code?: string;
-    finalized_at?: string;
-    slots?: Array<{ 
-      question_node_id: string; 
-      status: string; 
-      file_name: string | null; 
-      uploaded_at: string | null; 
-      page_count: number | null; 
-      sanity_status: string | null; 
-      warnings: unknown[]; 
-      file_hash: string | null 
-    }>;
-  };
+  const receiptJson = receipt.receipt_json as ReceiptJson;
 
   const attemptCode = receiptJson.attempt_short_code ?? receipt.id.slice(0, 8).toUpperCase();
   const finalizedDate = receiptJson.finalized_at ? new Date(receiptJson.finalized_at) : null;
@@ -37,30 +39,24 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
     <>
       <div className="print:hidden">
         <SectionHeading
-          title="Official Attempt Receipt"
+          title="Submission receipt"
           description={`${receiptJson.assessment_title ?? "Assessment"} · Paper ${receiptJson.paper_code ?? "N/A"}`}
         />
       </div>
 
       <div className="mx-auto max-w-[920px] pb-12">
-        {/* Academic Certificate / Transcript Card */}
-        <Card className="relative overflow-hidden border border-[#c8d4e6] bg-white p-6 shadow-xl md:p-10 print:border-2 print:border-black print:p-8 print:shadow-none">
-          
-          {/* Institutional Top Accents */}
-          <div className="absolute top-0 left-0 h-2 w-full bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-950 print:bg-black" />
-
-          {/* Transcript Header */}
+        <Card className="border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-card)] md:p-10 print:border-2 print:border-black print:p-8 print:shadow-none">
           <div className="flex flex-col justify-between gap-6 border-b-2 border-slate-900 pb-6 md:flex-row md:items-center print:border-black">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-slate-900 print:text-black">
-                <ShieldCheck size={26} className="text-blue-800 print:text-black" />
-                <span className="text-xs font-black uppercase tracking-[0.2em]">Exam Vault System</span>
+                <ShieldCheck size={24} className="text-[var(--primary)] print:text-black" />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em]">Exam Vault</span>
               </div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl print:text-black print:text-2xl">
-                Assessment Submission Transcript
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl print:text-black print:text-2xl">
+                Assessment submission receipt
               </h2>
               <p className="text-xs text-[var(--muted)] print:text-black">
-                Cryptographically Signed & Locked Simulation Records
+                Locked submission record for this attempt.
               </p>
             </div>
             
@@ -69,13 +65,12 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
                 CODE: {attemptCode}
               </span>
               <p className="mt-2 text-[10px] uppercase tracking-wider text-[var(--subtle)] print:text-black">
-                Receipt Verification Ledger
+                Receipt verification
               </p>
             </div>
           </div>
 
-          {/* Meta Detail Table */}
-          <div className="my-8 rounded-lg border border-[#dde3ee] bg-slate-50/50 p-5 md:p-6 print:border-black print:bg-white">
+          <div className="my-8 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-5 md:p-6 print:border-black print:bg-white">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-dashed border-[#dde3ee] pb-1.5 print:text-black print:border-black">
               Attempt Parameters
             </h3>
@@ -97,10 +92,9 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          {/* Ledger Table */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-2 print:text-black print:border-black">
-              Partitions and Submissions Ledger
+              Upload slots and submissions
             </h3>
             
             <div className="overflow-x-auto">
@@ -165,12 +159,11 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          {/* Secure Audit Signature Panel */}
           <div className="mt-10 border-t-2 border-slate-900 pt-6 md:flex md:items-center md:justify-between print:border-black print:text-black">
             <div className="flex items-center gap-3">
               <Database className="text-slate-700 print:text-black" size={24} />
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--subtle)] print:text-black">System Verification Ledger Hash</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--subtle)] print:text-black">System verification reference</p>
                 <p className="font-mono text-[10px] text-slate-950 font-bold break-all print:text-black">
                   SEC-SIG-{attemptCode}-{receipt.id.slice(0, 12).toUpperCase()}
                 </p>
@@ -178,20 +171,19 @@ export default async function StudentReceiptPage({ params }: { params: Promise<{
             </div>
             
             <div className="mt-4 text-left text-[10px] text-[var(--muted)] md:mt-0 md:text-right print:text-black">
-              <p className="font-semibold">Verified by Exam Vault Integrity Protocol</p>
-              <p className="mt-0.5">Database Sync Status: Confirmed & Sealed</p>
+              <p className="font-semibold">Verified by Exam Vault</p>
+              <p className="mt-0.5">Database sync status: confirmed</p>
             </div>
           </div>
 
         </Card>
 
-        {/* Action Buttons for Normal Browser Mode */}
         <div className="mt-6 flex flex-wrap justify-between items-center gap-4 print:hidden px-2">
-          <ButtonLink href={`/student/attempts/${id}/recovery-status`} variant="secondary" className="shadow-sm">
-            ← View Attempt Recovery Workspace
+          <ButtonLink href={`/student/attempts/${id}/recovery-status`} variant="secondary">
+            View attempt recovery
           </ButtonLink>
           <div className="flex gap-3">
-            <PrintReceiptButton className="shadow-lg transition-transform duration-150 active:scale-95" />
+            <PrintReceiptButton />
           </div>
         </div>
       </div>

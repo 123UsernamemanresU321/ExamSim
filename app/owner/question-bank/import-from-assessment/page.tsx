@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 import { getAssessmentWorkspace, listOwnerAssessments } from "@/lib/live-data";
 import { extractQuestionBankDrafts } from "@/lib/question-bank";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
+import { AssessmentStatusBadge } from "@/components/ui/status-badge";
 
 async function extractToQuestionBank(formData: FormData) {
   "use server";
@@ -87,34 +91,38 @@ export default async function ImportQuestionBankPage({
       : [];
 
   return (
-    <main className="space-y-6 p-8">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Import From Assessment</p>
-        <h1 className="mt-2 text-3xl font-black text-[var(--ink)]">Extract root questions</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Extraction uses the repaired root-question tree. It preserves source page fallback and child structure; owner review remains required before reuse.
-        </p>
-      </div>
+    <main className="space-y-6">
+      <PageHeader
+        eyebrow="Import from assessment"
+        title="Extract root questions"
+        description="Extraction uses the repaired root-question tree. It preserves source page fallback and child structure; owner review remains required before reuse."
+      />
 
       <Card className="p-6">
-        <h2 className="mb-4 font-black text-[var(--ink)]">Choose an assessment</h2>
-        <div className="grid gap-3 md:grid-cols-2">
+        <SectionHeader title="Choose an assessment" />
+        <DataList>
           {assessments.map((assessment) => (
-            <Link key={assessment.id} href={`/owner/question-bank/import-from-assessment?assessment_id=${assessment.id}`}>
-              <div className="rounded-lg border border-[var(--border)] bg-white p-4 hover:border-[var(--primary)]">
-                <p className="font-black text-[var(--ink)]">{assessment.title}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">{assessment.paper_code ?? "No paper code"} · {assessment.latest_status ?? "no version"}</p>
-              </div>
-            </Link>
+            <DataListRow key={assessment.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <Link href={`/owner/question-bank/import-from-assessment?assessment_id=${assessment.id}`} className="min-w-0">
+                <p className="truncate font-semibold text-[var(--ink)]">{assessment.title}</p>
+                <DataListMeta className="mt-1">
+                  <span>{assessment.paper_code ?? "No paper code"}</span>
+                  <AssessmentStatusBadge status={assessment.latest_status} />
+                </DataListMeta>
+              </Link>
+              <Link href={`/owner/question-bank/import-from-assessment?assessment_id=${assessment.id}`} className="text-sm font-semibold text-[var(--primary)]">
+                Select
+              </Link>
+            </DataListRow>
           ))}
-        </div>
+        </DataList>
       </Card>
 
       {workspace ? (
         <Card className="p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-black text-[var(--ink)]">Extractable root questions</h2>
+              <h2 className="font-semibold text-[var(--ink)]">Extractable root questions</h2>
               <p className="text-sm text-[var(--muted)]">{drafts.length} root question drafts found.</p>
             </div>
             <form action={extractToQuestionBank}>
@@ -123,20 +131,20 @@ export default async function ImportQuestionBankPage({
             </form>
           </div>
           {drafts.length ? (
-            <div className="space-y-3">
+            <DataList>
               {drafts.map((draft) => (
-                <div key={draft.root.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                  <p className="font-black text-[var(--ink)]">{draft.rootNodeKey} · {draft.title}</p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
+                <DataListRow key={draft.root.id}>
+                  <p className="font-semibold text-[var(--ink)]">{draft.rootNodeKey} · {draft.title}</p>
+                  <DataListMeta className="mt-1">
+                    <span>
                     {draft.marksAvailable ?? "?"} marks · {draft.children.length} child parts · pages {draft.sourcePageStart ?? "?"}-{draft.sourcePageEnd ?? draft.sourcePageStart ?? "?"}
-                  </p>
-                </div>
+                    </span>
+                  </DataListMeta>
+                </DataListRow>
               ))}
-            </div>
+            </DataList>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-sm text-[var(--muted)]">
-              No root questions were found. Run parser repair and parse review first.
-            </div>
+            <EmptyState title="No root questions found" description="Run parser repair and parse review before extracting question bank items." />
           )}
         </Card>
       ) : null}

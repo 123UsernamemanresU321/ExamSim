@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 import { getCorrectionNotebookWorkspace } from "@/lib/usability-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Textarea } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import type { CorrectionEntry } from "@/types/database";
 
 async function reviewCorrections(formData: FormData) {
   "use server";
@@ -26,18 +31,15 @@ export default async function OwnerCorrectionsPage({ params }: { params: Promise
   const workspace = await getCorrectionNotebookWorkspace(id);
 
   return (
-    <main className="space-y-6 p-8">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Correction Review</p>
-        <h1 className="mt-2 text-3xl font-black text-[var(--ink)]">Student correction notebook</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">Review corrections without changing the original exam marks.</p>
-      </div>
+    <main className="space-y-6">
+      <PageHeader
+        eyebrow="Correction review"
+        title="Student correction notebook"
+        description="Review corrections without changing the original exam marks."
+      />
 
       {!workspace.notebook ? (
-        <Card className="p-8">
-          <h2 className="font-black text-[var(--ink)]">No notebook yet</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">The student has not started a correction notebook for this attempt.</p>
-        </Card>
+        <EmptyState title="No notebook yet" description="The student has not started a correction notebook for this attempt." />
       ) : (
         <form action={reviewCorrections} className="space-y-4">
           <input type="hidden" name="attempt_id" value={id} />
@@ -45,25 +47,25 @@ export default async function OwnerCorrectionsPage({ params }: { params: Promise
           <Card className="p-5">
             <p className="text-sm font-bold text-[var(--ink)]">Notebook status: {workspace.notebook.status}</p>
           </Card>
-          {workspace.entries.map((entry: any, index) => (
+          {(workspace.entries as CorrectionEntry[]).map((entry, index) => (
             <Card key={entry.id} className="p-5">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-black text-[var(--ink)]">Question {index + 1}</h2>
-                <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--muted)]">{entry.status}</span>
+                <h2 className="font-semibold text-[var(--ink)]">Question {index + 1}</h2>
+                <Badge>{entry.status}</Badge>
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Corrected solution</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Corrected solution</p>
                   <p className="mt-2 whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-white p-3 text-sm leading-6">{entry.correction_text || "No correction text."}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Reflection</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Reflection</p>
                   <p className="mt-2 whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-white p-3 text-sm leading-6">{entry.reflection_text || "No reflection text."}</p>
                 </div>
               </div>
               <label className="mt-4 block">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Owner response</span>
-                <textarea name={`owner_feedback_${entry.id}`} defaultValue={entry.owner_feedback ?? ""} rows={3} className="mt-1 w-full rounded-lg border border-[var(--border)] p-3" />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Owner response</span>
+                <Textarea name={`owner_feedback_${entry.id}`} defaultValue={entry.owner_feedback ?? ""} rows={3} className="mt-1" />
               </label>
             </Card>
           ))}

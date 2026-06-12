@@ -12,7 +12,7 @@ export function PrintReceiptButton({ className }: { className?: string }) {
       className={className}
     >
       <Printer size={16} className="mr-2" />
-      Print Official Transcript
+      Print receipt
     </Button>
   );
 }

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DangerMenu, DangerMenuItem } from "@/components/ui/danger-menu";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
@@ -21,13 +22,9 @@ export function DeleteAttemptButton({
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   async function deleteAttempt() {
-    const confirmed = window.confirm(
-      `Delete ${studentName}'s attempt for "${assessmentTitle}"? This removes its uploads, marks, annotations, reports, receipts, and recovery records. This cannot be undone.`,
-    );
-    if (!confirmed) return;
-
     setIsDeleting(true);
     setMessage("Deleting attempt...");
     const supabase = createSupabaseBrowserClient();
@@ -37,6 +34,7 @@ export function DeleteAttemptButton({
         requiresAal2: true,
       });
       setMessage("Attempt deleted.");
+      setIsConfirmOpen(false);
       router.refresh();
       if (redirectTo) router.replace(redirectTo);
     } catch (error) {
@@ -47,16 +45,27 @@ export function DeleteAttemptButton({
   }
 
   return (
-    <div className="grid gap-2">
-      <Button type="button" variant="danger" disabled={isDeleting} onClick={() => void deleteAttempt()}>
-        <Trash2 size={16} aria-hidden="true" />
-        Delete attempt
-      </Button>
+    <div className="grid justify-items-start gap-2">
+      <DangerMenu>
+        <DangerMenuItem disabled={isDeleting} onClick={() => setIsConfirmOpen(true)}>
+          <Trash2 size={16} aria-hidden="true" />
+          Delete attempt
+        </DangerMenuItem>
+      </DangerMenu>
       {message ? (
         <p className="text-sm text-[var(--muted)]" role="status">
           {message}
         </p>
       ) : null}
+      <ConfirmDialog
+        open={isConfirmOpen}
+        title="Delete attempt?"
+        description={`Delete ${studentName}'s attempt for "${assessmentTitle}". This removes uploads, marks, annotations, reports, receipts, and recovery records. This cannot be undone.`}
+        confirmLabel="Delete attempt"
+        isLoading={isDeleting}
+        onCancel={() => setIsConfirmOpen(false)}
+        onConfirm={() => void deleteAttempt()}
+      />
     </div>
   );
 }

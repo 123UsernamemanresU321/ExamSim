@@ -61,7 +61,7 @@ export function MarkschemeMapperPanel({
   return (
     <div className="grid gap-4 xl:grid-cols-[300px_1fr]">
       <aside className="rounded-xl border border-[var(--border)] bg-white p-4">
-        <h2 className="text-sm font-black uppercase tracking-widest text-[var(--ink)]">Question target</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--ink)]">Question target</h2>
         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
           Select the question node, then map markscheme sections to it. Cover and general instruction sections should be ignored.
         </p>
@@ -97,7 +97,7 @@ export function MarkschemeMapperPanel({
                     <Badge tone={node.status === "mapped" ? "success" : node.status === "ignored" ? "neutral" : "warning"}>
                       {node.status.replaceAll("_", " ")}
                     </Badge>
-                    {node.node_key ? <span className="text-xs font-black text-[var(--ink)]">{node.node_key}</span> : null}
+                    {node.node_key ? <span className="text-xs font-semibold text-[var(--ink)]">{node.node_key}</span> : null}
                     {node.source_page_start ? (
                       <span className="text-xs text-[var(--muted)]">page {node.source_page_start}</span>
                     ) : null}

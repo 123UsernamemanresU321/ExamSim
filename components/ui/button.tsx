@@ -7,7 +7,9 @@ const variants = {
   primary: "bg-[var(--primary)] !text-white hover:bg-[var(--primary-strong)]",
   secondary: "border border-[var(--border)] bg-white text-[var(--ink)] hover:bg-[var(--surface-muted)]",
   ghost: "text-[var(--ink)] hover:bg-[var(--surface-muted)]",
+  subtle: "border border-transparent bg-[var(--surface-muted)] text-[var(--ink)] hover:border-[var(--border)] hover:bg-white",
   danger: "bg-[var(--danger)] !text-white hover:bg-[#8c1212]",
+  dangerSubtle: "border border-[#e7a09a] bg-white text-[var(--danger)] hover:bg-[var(--danger-bg)]",
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

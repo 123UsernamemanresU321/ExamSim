@@ -2,9 +2,12 @@ import { AlertTriangle, CheckCircle2, FileText, Send, ShieldAlert, BadgeInfo } f
 import { SectionHeading } from "@/components/section-heading";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import { listMarkingQueue } from "@/lib/usability-data";
+import type { AttemptState } from "@/lib/constants";
 import { markingProgress } from "@/lib/marking-queue";
 
 const sectionLabels: Record<string, string> = {
@@ -20,66 +23,49 @@ const sectionLabels: Record<string, string> = {
 export default async function MarkingQueuePage() {
   const rows = await listMarkingQueue();
 
-  // Summary Metrics Calculation
   const totalAttempts = rows.length;
   const needsMarkingCount = rows.filter((r) => r.sections.includes("needs_marking")).length;
   const highModCount = rows.filter((r) => r.sections.includes("high_moderation_signal")).length;
   const incidentCount = rows.filter((r) => r.sections.includes("incident_affected")).length;
 
   return (
-    <main className="max-w-[1200px] mx-auto space-y-6 pb-12">
+    <main className="space-y-6 pb-12">
       <SectionHeading
-        title="Owner Marking Control Center"
-        description="Monitor, grade, and moderate cohort simulation scripts. Resolve incident reports and coordinate feedback releases."
+        title="Marking queue"
+        description="Triage scripts by marking progress, upload status, moderation signals, incidents, and feedback release state."
       />
 
-      {/* Cohort Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <Card className="border-[#dde3ee] shadow-sm bg-white p-5 flex flex-col justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--subtle)]">Active Scripts</p>
-          <h3 className="text-2xl font-black text-slate-900 mt-1">{totalAttempts}</h3>
-        </Card>
-        <Card className="border-[#dde3ee] shadow-sm bg-white p-5 flex flex-col justify-between border-l-4 border-l-blue-600">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-800">Unstarted / Queue</p>
-          <h3 className="text-2xl font-black text-blue-950 mt-1">{needsMarkingCount}</h3>
-        </Card>
-        <Card className="border-[#dde3ee] shadow-sm bg-white p-5 flex flex-col justify-between border-l-4 border-l-rose-500">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rose-800">Moderation Signals</p>
-          <h3 className="text-2xl font-black text-rose-950 mt-1">{highModCount}</h3>
-        </Card>
-        <Card className="border-[#dde3ee] shadow-sm bg-white p-5 flex flex-col justify-between border-l-4 border-l-amber-500">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Incident Logs</p>
-          <h3 className="text-2xl font-black text-amber-950 mt-1">{incidentCount}</h3>
-        </Card>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Active scripts" value={totalAttempts} />
+        <StatCard label="Needs marking" value={needsMarkingCount} tone={needsMarkingCount ? "info" : "neutral"} />
+        <StatCard label="Moderation signals" value={highModCount} tone={highModCount ? "danger" : "neutral"} />
+        <StatCard label="Incident logs" value={incidentCount} tone={incidentCount ? "warning" : "neutral"} />
       </div>
 
-      {/* Triage Queue List */}
-      <div className="space-y-4">
-        {rows.length === 0 ? (
-          <Card className="p-8 text-center border-dashed border-2">
-            <p className="text-sm text-[var(--muted)] font-semibold italic">No active assessment scripts found in the marking queue.</p>
-          </Card>
-        ) : (
-          rows.map((row) => {
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No scripts in the marking queue"
+          description="Attempts will appear here after students submit work or when moderation, upload, incident, or release states need review."
+        />
+      ) : (
+        <DataList>
+          {rows.map((row) => {
             const progress = markingProgress(row);
             const isHighMod = row.sections.includes("high_moderation_signal");
             const isIncident = row.sections.includes("incident_affected");
+            const queueRow = row as typeof row & { state?: string };
+            const state = toAttemptState(queueRow.state);
             
             return (
-              <Card 
+              <DataListRow
                 key={row.attempt_id} 
-                className={`grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center p-5 border transition-all duration-200 hover:shadow-md bg-white ${
-                  isHighMod 
-                    ? "border-rose-200 border-l-[6px] border-l-rose-500 bg-rose-50/5" 
-                    : isIncident 
-                    ? "border-amber-200 border-l-[6px] border-l-amber-500 bg-amber-50/5"
-                    : "border-[#dde3ee]"
+                className={`grid gap-4 border-l-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${
+                  isHighMod ? "border-l-[var(--danger)]" : isIncident ? "border-l-[var(--warning)]" : "border-l-transparent"
                 }`}
               >
-                <div>
-                  {/* Status & Flag Badges */}
-                  <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                    <AttemptStateBadge state={((row as any).state as never) ?? "FINISHED_REVIEW"} />
+                <div className="min-w-0">
+                  <DataListMeta className="mb-2.5">
+                    <AttemptStateBadge state={state} />
                     {row.sections.map((section) => {
                       const isMod = section === "high_moderation_signal";
                       const isInc = section === "incident_affected";
@@ -88,97 +74,84 @@ export default async function MarkingQueuePage() {
                         <Badge 
                           key={section} 
                           tone={isMod ? "danger" : isInc ? "warning" : isRel ? "success" : "neutral"}
-                          className="text-[9px] uppercase font-extrabold tracking-wider"
+                          className="uppercase tracking-[0.08em]"
                         >
-                          {isMod && <ShieldAlert size={10} className="mr-1 inline-block -mt-0.5" />}
-                          {isInc && <BadgeInfo size={10} className="mr-1 inline-block -mt-0.5" />}
+                          {isMod ? <ShieldAlert size={10} className="mr-1 inline-block -mt-0.5" /> : null}
+                          {isInc ? <BadgeInfo size={10} className="mr-1 inline-block -mt-0.5" /> : null}
                           {sectionLabels[section] || section}
                         </Badge>
                       );
                     })}
-                  </div>
+                  </DataListMeta>
 
-                  {/* Header Title */}
-                  <h2 className="text-base font-extrabold text-[var(--ink)] tracking-tight">{row.assessment_title}</h2>
-                  <p className="text-xs text-[var(--muted)] font-semibold mt-1">
-                    👥 {row.student_name} · Paper {row.paper_code ?? "N/A"}
+                  <h2 className="truncate text-base font-semibold text-[var(--ink)]">{row.assessment_title}</h2>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {row.student_name} · Paper {row.paper_code ?? "N/A"}
                   </p>
 
-                  {/* Detailed Metrics Footer */}
-                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-[var(--muted)]">
+                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-[var(--muted)]">
                     <span className="flex items-center gap-1.5">
-                      <FileText size={14} className="text-slate-500" />
-                      Uploads: <strong className="text-slate-900">{row.uploaded_slots}/{row.total_upload_slots}</strong>
+                      <FileText size={14} className="text-[var(--subtle)]" />
+                      Uploads: <strong className="text-[var(--ink)]">{row.uploaded_slots}/{row.total_upload_slots}</strong>
                     </span>
 
-                    {/* Highly Visual Progress Bar */}
                     <span className="flex items-center gap-2">
-                      <CheckCircle2 size={14} className="text-slate-500" />
-                      Marking Progress:
+                      <CheckCircle2 size={14} className="text-[var(--subtle)]" />
+                      Marking:
                       <div className="inline-flex items-center gap-2">
-                        <div className="h-2 w-24 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 shadow-inner">
+                        <div className="h-2 w-24 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-panel)]">
                           <div 
-                            className={`h-full rounded-full transition-all duration-300 ${
-                              progress === 100 
-                                ? "bg-emerald-600" 
-                                : progress > 0 
-                                ? "bg-blue-600" 
-                                : "bg-slate-300"
-                            }`} 
+                            className={`h-full rounded-full ${progress === 100 ? "bg-[var(--success)]" : progress > 0 ? "bg-[var(--primary)]" : "bg-[var(--surface-panel)]"}`} 
                             style={{ width: `${progress}%` }} 
                           />
                         </div>
-                        <strong className="text-slate-950 font-bold">{progress}%</strong>
+                        <strong className="text-[var(--ink)]">{progress}%</strong>
                       </div>
                     </span>
 
                     <span className="flex items-center gap-1.5">
-                      <AlertTriangle size={14} className="text-slate-500" />
+                      <AlertTriangle size={14} className="text-[var(--subtle)]" />
                       Moderation: 
-                      <strong className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                        row.moderation_severity === "high" 
-                          ? "bg-rose-100 text-rose-800" 
-                          : "bg-slate-100 text-slate-700"
-                      }`}>
+                      <strong className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink)]">
                         {row.moderation_severity ?? "none"}
                       </strong>
                     </span>
 
                     <span className="flex items-center gap-1.5">
-                      <Send size={14} className="text-slate-500" />
-                      Dispatch: <strong className="text-slate-900">{row.feedback_released ? "Released" : "Held in Triage"}</strong>
+                      <Send size={14} className="text-[var(--subtle)]" />
+                      Feedback: <strong className="text-[var(--ink)]">{row.feedback_released ? "Released" : "Held"}</strong>
                     </span>
                   </div>
                 </div>
 
-                {/* Queue Actions */}
-                <div className="flex flex-wrap gap-2 lg:justify-end mt-4 lg:mt-0">
+                <div className="flex flex-wrap gap-2 lg:justify-end">
                   <ButtonLink 
                     href={`/owner/attempts/${row.attempt_id}/mark`}
-                    className="shadow-sm font-bold bg-gradient-to-r from-blue-700 to-indigo-700 text-white hover:brightness-110 active:scale-95 transition-all py-2 px-4"
                   >
-                    Evaluate Answer
+                    Mark
                   </ButtonLink>
                   <ButtonLink 
                     href={`/owner/attempts/${row.attempt_id}/report`} 
                     variant="secondary"
-                    className="text-xs font-semibold py-2 px-3 hover:bg-slate-100"
                   >
                     Timeline
                   </ButtonLink>
                   <ButtonLink 
                     href={`/owner/attempts/${row.attempt_id}/recovery`} 
                     variant="secondary"
-                    className="text-xs font-semibold py-2 px-3 hover:bg-slate-100"
                   >
                     Recovery
                   </ButtonLink>
                 </div>
-              </Card>
+              </DataListRow>
             );
-          })
-        )}
-      </div>
+          })}
+        </DataList>
+      )}
     </main>
   );
+}
+
+function toAttemptState(value: string | undefined): AttemptState {
+  return value === "WAITING" || value === "ACTIVE" || value === "UPLOAD_ONLY" || value === "FINISHED_REVIEW" ? value : "FINISHED_REVIEW";
 }
