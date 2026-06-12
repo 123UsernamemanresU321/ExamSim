@@ -115,8 +115,8 @@ export function CommentBankManager({ items }: { items: CommentBankItem[] }) {
                 </div>
                 <Button
                   type="button"
-                  variant="secondary"
-                  className="gap-2 text-red-700 hover:bg-red-600 hover:!text-white"
+                  variant="dangerSubtle"
+                  className="gap-2"
                   disabled={busyId === item.id}
                   onClick={() => deleteItem(item.id)}
                 >

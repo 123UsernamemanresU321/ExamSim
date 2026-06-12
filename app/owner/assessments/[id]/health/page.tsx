@@ -114,12 +114,12 @@ function IssueList({
 function StatusPill({ status, compact = false }: { status: string; compact?: boolean }) {
   const tone =
     status === "ready"
-      ? "border-green-200 bg-green-50 text-green-800"
+      ? "border-[var(--success)]/20 bg-[var(--success-bg)] text-[var(--success)]"
       : status === "blocked"
-        ? "border-red-200 bg-red-50 text-red-800"
+        ? "border-[var(--danger)]/20 bg-[var(--danger-bg)] text-[var(--danger)]"
         : status === "warning"
-          ? "border-amber-200 bg-amber-50 text-amber-800"
-          : "border-slate-200 bg-slate-50 text-slate-600";
+          ? "border-[var(--warning)]/20 bg-[var(--warning-bg)] text-[var(--warning)]"
+          : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--subtle)]";
   return (
     <span className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${tone}`}>
       {status === "ready" ? <CheckCircle2 size={13} /> : null}

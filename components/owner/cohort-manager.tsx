@@ -54,7 +54,7 @@ export function CohortManager({
             <Textarea name="description" placeholder="Optional class notes." />
           </Field>
           <Field label="Members">
-            <div className="grid max-h-72 gap-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-slate-50 p-2">
+            <div className="grid max-h-72 gap-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-2">
               {students.length === 0 ? (
                 <p className="p-3 text-sm text-[var(--muted)]">Create students before creating a cohort.</p>
               ) : (

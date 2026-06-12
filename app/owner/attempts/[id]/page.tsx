@@ -60,9 +60,9 @@ export default async function OwnerAttemptDetailPage({ params }: { params: Promi
             View receipt
           </ButtonLink>
         </Card>
-        <Card className="border-red-200 bg-red-50">
-          <h2 className="text-lg font-semibold text-red-950">Delete this attempt</h2>
-          <p className="mt-2 text-sm text-red-900">
+        <Card className="border-[var(--danger)]/30 bg-[var(--danger-bg)]/30">
+          <h2 className="text-lg font-semibold text-[var(--danger)]">Delete this attempt</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
             Removes this student&apos;s uploads, marks, annotations, reports, feedback release, receipt, and recovery records. The assessment and other student attempts remain untouched.
           </p>
           <div className="mt-4">

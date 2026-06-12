@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea } from "@/components/ui/form";
+import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { SUBJECT_PRESETS } from "@/lib/subjects";
@@ -99,8 +99,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
           label="Assessment template"
           description="Optional. Select a saved policy preset so the assessment kind matches the publish settings you will apply later."
         >
-          <select
-            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
+          <Select
             value={selectedTemplateId}
             onChange={(event) => {
               setSelectedTemplateId(event.target.value);
@@ -114,7 +113,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
                 {template.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
@@ -168,9 +167,8 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
           label="Assessment kind"
           description="Controls how the paper is categorized in dashboards. It does not weaken timing, content release, or upload rules."
         >
-          <select
+          <Select
             name="assessment_kind"
-            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
             value={assessmentKind}
             onChange={(event) => setAssessmentKind(event.target.value)}
           >
@@ -178,22 +176,21 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
             <option value="quiz">quiz</option>
             <option value="test">test</option>
             <option value="exam">exam</option>
-          </select>
+          </Select>
         </Field>
         <Field
           label="Source kind"
           description="Choose JSON for a ready normalized package, LaTeX for deterministic question detection plus AI repair, or PDF for hosted MinerU/OCR draft parsing."
         >
-          <select
+          <Select
             name="source_kind"
-            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
             value={sourceKind}
             onChange={(event) => setSourceKind(event.target.value)}
           >
             <option value="json">json</option>
             <option value="latex">latex</option>
             <option value="pdf">pdf</option>
-          </select>
+          </Select>
         </Field>
         {sourceKind === "pdf" ? (
           <Field
@@ -235,9 +232,8 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
           label="Markscheme source kind"
           description="Choose none if you only have the question paper. Choose PDF, LaTeX, or JSON when you want DeepSeek to infer per-part marks and marking guidance from the markscheme."
         >
-          <select
+          <Select
             name="markscheme_source_kind"
-            className="min-h-11 rounded-md border border-[var(--border)] bg-white px-3"
             value={markschemeKind}
             onChange={(event) => setMarkschemeKind(event.target.value)}
           >
@@ -245,7 +241,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
             <option value="json">json</option>
             <option value="latex">latex</option>
             <option value="pdf">pdf</option>
-          </select>
+          </Select>
         </Field>
         {markschemeKind === "pdf" ? (
           <Field

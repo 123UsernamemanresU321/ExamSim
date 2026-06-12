@@ -157,9 +157,9 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
               <p className="mt-2 text-sm text-[var(--muted)]">No markscheme is attached to this question bank item.</p>
             )}
           </Card>
-          <Card className="border-red-200 bg-red-50 p-5">
-            <h2 className="font-semibold text-red-950">Delete from question bank</h2>
-            <p className="mt-2 text-sm leading-6 text-red-900">
+          <Card className="border-[var(--danger)]/30 bg-[var(--danger-bg)]/30 p-5">
+            <h2 className="font-semibold text-[var(--danger)]">Delete from question bank</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               Removes this reusable question and its child tree from the question bank. It does not delete the original assessment, source PDF, markscheme, or published paper.
             </p>
             <div className="mt-4">

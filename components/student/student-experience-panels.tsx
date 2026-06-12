@@ -373,19 +373,19 @@ export function FinalizationChecklistPanel({
               key={item.slot_id} 
               className={`flex items-start gap-4 rounded-lg border p-4 ${
                 item.severity === "ok" 
-                  ? "border-emerald-100 bg-emerald-50/30" 
+                  ? "border-[var(--success)]/20 bg-[var(--success-bg)]/20" 
                   : item.severity === "warning"
-                  ? "border-amber-100 bg-amber-50/20"
-                  : "border-red-100 bg-red-50/20"
+                  ? "border-[var(--warning)]/20 bg-[var(--warning-bg)]/15"
+                  : "border-[var(--danger)]/20 bg-[var(--danger-bg)]/20"
               }`}
             >
               <div className="mt-0.5">
                 {item.severity === "ok" ? (
-                  <CheckCircle2 className="text-emerald-600" size={20} />
+                  <CheckCircle2 className="text-[var(--success)]" size={20} />
                 ) : item.severity === "warning" ? (
-                  <AlertTriangle className="text-amber-600" size={20} />
+                  <AlertTriangle className="text-[var(--warning)]" size={20} />
                 ) : (
-                  <AlertTriangle className="text-red-600" size={20} />
+                  <AlertTriangle className="text-[var(--danger)]" size={20} />
                 )}
               </div>
               <div className="flex-1">
@@ -393,10 +393,10 @@ export function FinalizationChecklistPanel({
                   <p className="font-bold text-[var(--ink)] text-sm tracking-tight">{item.label}</p>
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                     item.severity === "ok"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-[var(--success-bg)] text-[var(--success)]"
                       : item.severity === "warning"
-                      ? "bg-amber-100 text-amber-800"
-                      : "bg-red-100 text-red-800"
+                      ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+                      : "bg-[var(--danger-bg)] text-[var(--danger)]"
                   }`}>
                     {item.severity === "ok" ? "Secured" : item.severity === "warning" ? "Optional / Empty" : "Action Required"}
                   </span>
@@ -414,15 +414,15 @@ export function FinalizationChecklistPanel({
 
         <div className={`mt-2 rounded-xl border p-4 text-sm relative overflow-hidden ${
           checklist.canFinalize 
-            ? "border-emerald-200 bg-emerald-50/30 text-emerald-950" 
-            : "border-amber-200 bg-amber-50/40 text-amber-950"
+            ? "border-[var(--success)]/20 bg-[var(--success-bg)]/10 text-[var(--success)]" 
+            : "border-[var(--warning)]/20 bg-[var(--warning-bg)]/15 text-[var(--warning)]"
         }`}>
           <div className="flex items-start gap-3">
             <div className="mt-0.5">
               {checklist.canFinalize ? (
-                <ShieldCheck size={20} className="text-emerald-700" />
+                <ShieldCheck size={20} className="text-[var(--success)]" />
               ) : (
-                <Lock size={20} className="text-amber-700" />
+                <Lock size={20} className="text-[var(--warning)]" />
               )}
             </div>
             <div>

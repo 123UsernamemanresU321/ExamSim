@@ -177,7 +177,7 @@ export function ExamWorkspace({
           <h1 className="text-xl font-semibold text-[var(--ink)]">
             {attempt.delivery_mode === "seb_required" ? "Safe Exam Browser Required" : "Exam content is not available yet"}
           </h1>
-          <div className="mt-4 rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100">
+          <div className="mt-4 rounded-md bg-[var(--danger-bg)]/20 p-4 text-sm text-[var(--danger)] border border-[var(--danger)]/20">
             <p className="font-bold">Verification Error:</p>
             <p>{loadError || packageError || "The server has not released the exam package for this attempt state."}</p>
           </div>

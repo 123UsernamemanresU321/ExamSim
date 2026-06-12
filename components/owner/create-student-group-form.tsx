@@ -49,7 +49,7 @@ export function CreateStudentGroupForm({ students }: { students: StudentSummary[
         <Textarea name="description" placeholder="Optional notes for this group." />
       </Field>
       <Field label="Members">
-        <div className="grid max-h-56 gap-2 overflow-auto rounded-md border border-[var(--border)] bg-white p-3">
+        <div className="grid max-h-56 gap-2 overflow-auto rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-3">
           {students.length === 0 ? (
             <p className="text-sm text-[var(--muted)]">Create students before adding groups.</p>
           ) : (
