@@ -10,7 +10,7 @@ test("public landing explains browser mode and private release", async ({ page }
 test("student waiting screen shows metadata only", async ({ page }) => {
   await page.goto("/student/attempts/att_waiting/waiting");
   await expect(page.getByRole("heading", { name: /waiting room/i })).toBeVisible();
-  await expect(page.getByText(/no hidden exam payload/i)).toBeVisible();
+  await expect(page.getByText(/paper is locked until start time/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /IB-style Physics Paper 2/i })).toBeVisible();
 });
 
@@ -29,6 +29,16 @@ test("upload and finished states keep writing readonly", async ({ page }) => {
   await page.goto("/student/attempts/att_finished/finished");
   await expect(page.getByText("FINISHED REVIEW")).toBeVisible();
   await expect(page.getByText(/uploads and editing are disabled/i)).toBeVisible();
+});
+
+test("student recovery status can report issues and links to scoped finalization", async ({ page }) => {
+  await page.goto("/student/attempts/att_upload/recovery-status");
+  await expect(page.getByRole("heading", { name: /attempt recovery status/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /report a technical issue/i })).toBeVisible();
+  await expect(page.getByLabel(/issue type/i)).toBeVisible();
+  await expect(page.getByLabel(/what happened/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /submit issue report/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /open finalization/i })).toHaveAttribute("href", "/student/attempts/att_upload/finalize");
 });
 
 test("owner can reach creation and moderation report screens", async ({ page }) => {

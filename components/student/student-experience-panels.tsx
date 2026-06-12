@@ -3,7 +3,7 @@ import { SubmitExamButton } from "@/components/submit-exam-button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
-import { saveAccessibilityPreferences, saveNotificationPreferences } from "@/app/student/student-actions";
+import { saveAccessibilityPreferences, saveNotificationPreferences, submitStudentIncidentReport } from "@/app/student/student-actions";
 import { ServerTimeVerificationCard } from "@/components/student/server-time-verification-card";
 import { StudentProgressScoreFilter } from "@/components/student/student-progress-score-filter";
 import { Badge } from "@/components/ui/badge";
@@ -503,7 +503,20 @@ export function FinalizationTimelinePanel({ checklist, attemptTitle }: { checkli
   );
 }
 
-export function RecoveryStatusPanel({ slots, queueEvents, incidents, safeStatus }: { slots: UploadSlot[]; queueEvents: UploadQueueEvent[]; incidents: StudentIncidentReport[]; safeStatus: string }) {
+export function RecoveryStatusPanel({
+  attemptId,
+  slots,
+  queueEvents,
+  incidents,
+  safeStatus,
+}: {
+  attemptId: string;
+  slots: UploadSlot[];
+  queueEvents: UploadQueueEvent[];
+  incidents: StudentIncidentReport[];
+  safeStatus: string;
+}) {
+  const submitIncident = submitStudentIncidentReport.bind(null, attemptId);
   return (
     <div className="grid gap-5 xl:grid-cols-3">
       <Card className="xl:col-span-2">
@@ -521,20 +534,76 @@ export function RecoveryStatusPanel({ slots, queueEvents, incidents, safeStatus 
           </div>
         )) : <EmptyState title="No upload slots" description="This attempt has no root-question PDF upload slots." />}
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Next action</CardTitle>
-          <CardDescription>{safeStatus.replaceAll("_", " ")}</CardDescription>
-        </CardHeader>
-        <div className="grid gap-3 text-sm text-[var(--muted)]">
-          <p>{queueEvents.length} upload queue event{queueEvents.length === 1 ? "" : "s"} recorded.</p>
-          <p>{incidents.length} incident report{incidents.length === 1 ? "" : "s"} submitted.</p>
-          <ButtonLink href="../finalize" variant="secondary">
-            <RotateCcw size={16} aria-hidden="true" />
-            Open finalization
-          </ButtonLink>
-        </div>
-      </Card>
+      <div className="grid gap-5">
+        <Card>
+          <CardHeader>
+            <CardTitle>Report a technical issue</CardTitle>
+            <CardDescription>Use this if something went wrong with internet, uploads, scanning, browser crashes, or a wrong file.</CardDescription>
+          </CardHeader>
+          <form action={submitIncident} className="grid gap-3">
+            <input type="hidden" name="reported_from" value="recovery_status" />
+            <label className="grid gap-1 text-sm font-semibold text-[var(--ink)]">
+              Issue type
+              <select name="incident_type" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--ink)]">
+                <option value="upload_problem">Upload problem</option>
+                <option value="internet_issue">Internet issue</option>
+                <option value="browser_crash">Browser crash</option>
+                <option value="wrong_file_uploaded">Wrong file uploaded</option>
+                <option value="scanner_camera_issue">Scanner or camera issue</option>
+                <option value="power_cut">Power cut</option>
+                <option value="medical_issue">Medical issue</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-semibold text-[var(--ink)]">
+              What happened?
+              <textarea
+                name="description"
+                required
+                minLength={8}
+                maxLength={2000}
+                rows={5}
+                placeholder="Describe what happened, which question or upload was affected, and what you tried."
+                className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium leading-6 text-[var(--ink)]"
+              />
+            </label>
+            <Button type="submit">
+              <AlertTriangle size={16} aria-hidden="true" />
+              Submit issue report
+            </Button>
+          </form>
+          {incidents.length ? (
+            <div className="mt-5 border-t border-[var(--border)] pt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Submitted reports</p>
+              <div className="mt-3 grid gap-2">
+                {incidents.slice(0, 3).map((incident) => (
+                  <div key={incident.id} className="rounded-[3px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[var(--ink)]">{incident.incident_type.replaceAll("_", " ")}</p>
+                      <Badge tone={incident.status === "resolved" ? "success" : incident.status === "rejected" ? "danger" : "warning"}>{incident.status}</Badge>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted)]">{incident.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Next action</CardTitle>
+            <CardDescription>{safeStatus.replaceAll("_", " ")}</CardDescription>
+          </CardHeader>
+          <div className="grid gap-3 text-sm text-[var(--muted)]">
+            <p>{queueEvents.length} upload queue event{queueEvents.length === 1 ? "" : "s"} recorded.</p>
+            <p>{incidents.length} incident report{incidents.length === 1 ? "" : "s"} submitted.</p>
+            <ButtonLink href={`/student/attempts/${attemptId}/finalize`} variant="secondary">
+              <RotateCcw size={16} aria-hidden="true" />
+              Open finalization
+            </ButtonLink>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -44,22 +44,36 @@ export async function recordReadinessCheck(attemptId: string, checks: Record<str
 
 export async function submitStudentIncidentReport(attemptId: string, formData: FormData) {
   const profile = await requireAppRole("student", `/student/attempts/${attemptId}/recovery-status`);
+  const studentProfileId = profile?.id ?? "";
   const incidentTypeRaw = String(formData.get("incident_type") ?? "other");
   const incidentType = STUDENT_INCIDENT_TYPES.has(incidentTypeRaw) ? incidentTypeRaw : "other";
-  const description = String(formData.get("description") ?? "").trim();
-  if (!description) return;
+  const description = String(formData.get("description") ?? "").trim().slice(0, 2000);
+  if (!description) throw new Error("Please describe the issue before submitting.");
   const supabase = await createSupabaseServerClient();
-  await supabase.from("student_incident_reports").insert({
+
+  const { data: attempt, error: attemptError } = await supabase
+    .from("attempts")
+    .select("id, state_cache")
+    .eq("id", attemptId)
+    .eq("assignee_profile_id", studentProfileId)
+    .maybeSingle();
+  if (attemptError) throw new Error(`Could not verify this attempt: ${attemptError.message}`);
+  if (!attempt) throw new Error("This attempt is not available for your student account.");
+
+  const { error } = await supabase.from("student_incident_reports").insert({
     attempt_id: attemptId,
-    student_profile_id: profile?.id ?? "",
+    student_profile_id: studentProfileId,
     incident_type: incidentType as "internet_issue" | "power_cut" | "browser_crash" | "upload_problem" | "wrong_file_uploaded" | "scanner_camera_issue" | "medical_issue" | "other",
     description,
     payload_json: {
       reported_from: String(formData.get("reported_from") ?? "student"),
+      attempt_state: attempt.state_cache ?? "unknown",
       client_note: "Student-submitted incident report.",
     },
   });
+  if (error) throw new Error(`Could not submit incident report: ${error.message}`);
   revalidatePath(`/student/attempts/${attemptId}/recovery-status`);
+  revalidatePath(`/owner/support`);
 }
 
 export async function saveStudentConfidenceRating(attemptId: string, questionNodeId: string, formData: FormData) {

@@ -88,4 +88,23 @@ describe("20-feature operations package", () => {
     expect(studentLayout).toContain("bg-[var(--sidebar)] text-white");
     expect(studentSidebar).toContain("student-sidebar-nav-link");
   });
+
+  it("makes student recovery status a real incident reporting surface", () => {
+    const recoveryPage = read("app/student/attempts/[id]/recovery-status/page.tsx");
+    const panel = read("components/student/student-experience-panels.tsx");
+    const actions = read("app/student/student-actions.ts");
+    const waiting = read("app/student/attempts/[id]/waiting/page.tsx");
+
+    expect(recoveryPage).toContain("attemptId={id}");
+    expect(panel).toContain("submitStudentIncidentReport.bind(null, attemptId)");
+    expect(panel).toContain("Report a technical issue");
+    expect(panel).toContain("Submit issue report");
+    expect(panel).toContain("href={`/student/attempts/${attemptId}/finalize`}");
+    expect(waiting).toContain("Report technical issue");
+
+    expect(actions).toContain(".eq(\"assignee_profile_id\", studentProfileId)");
+    expect(actions).toContain("slice(0, 2000)");
+    expect(actions).toContain("attempt_state");
+    expect(actions).toContain("Could not submit incident report");
+  });
 });

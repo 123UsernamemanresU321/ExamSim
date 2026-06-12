@@ -15,7 +15,7 @@ export default async function StudentRecoveryStatusPage({ params }: { params: Pr
   return (
     <>
       <SectionHeading title="Attempt Recovery Status" description="Safe view of upload problems, incident reports, owner extensions, and next actions." />
-      <RecoveryStatusPanel slots={data.slots} queueEvents={data.queueEvents} incidents={data.incidents} safeStatus={data.safeStatus} />
+      <RecoveryStatusPanel attemptId={id} slots={data.slots} queueEvents={data.queueEvents} incidents={data.incidents} safeStatus={data.safeStatus} />
     </>
   );
 }
