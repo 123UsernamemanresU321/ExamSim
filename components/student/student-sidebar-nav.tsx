@@ -87,27 +87,27 @@ export function StudentSidebarNav() {
   }
 
   return (
-    <nav className="grid gap-2 text-sm font-semibold text-[var(--muted)]" aria-label="Student navigation">
+    <nav className="grid gap-1 text-xs font-semibold" aria-label="Student navigation">
       {studentNavSections.map((section) => {
         const isExpanded = expandedSections.has(section.id);
         const sectionActive = section.id === activeSectionId;
         const SectionIcon = section.Icon;
         return (
-          <section key={section.id} className="rounded-lg">
+          <section key={section.id}>
             <button
               type="button"
               className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition hover:bg-white",
-                sectionActive ? "text-[var(--ink)]" : "text-[var(--muted)]",
+                "flex w-full items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors hover:bg-[var(--sidebar-active)] hover:text-white",
+                sectionActive ? "text-white" : "text-[var(--sidebar-muted)]",
               )}
               aria-expanded={isExpanded}
               aria-controls={`student-nav-section-${section.id}`}
               onClick={() => toggleSection(section.id)}
             >
-              <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] !text-white" : "bg-white text-[var(--subtle)]")}>
+              <span className="flex size-5 items-center justify-center">
                 <SectionIcon size={15} aria-hidden="true" />
               </span>
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-[0.12em]">{section.title}</span>
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold tracking-[0.02em]">{section.title}</span>
               {isExpanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
             </button>
             {isExpanded ? (
@@ -119,8 +119,8 @@ export function StudentSidebarNav() {
                       key={href}
                       href={href}
                       className={cn(
-                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition",
-                        isActive ? "bg-white text-[var(--primary)] shadow-sm" : "hover:bg-white hover:text-[var(--primary)]",
+                        "flex items-center gap-2 rounded-[4px] px-2.5 py-2 text-[13px] transition-colors",
+                        isActive ? "bg-[var(--sidebar-active)] text-white" : "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-active)] hover:text-white",
                       )}
                     >
                       <Icon size={15} aria-hidden="true" />
@@ -143,7 +143,7 @@ export function StudentMobileNav() {
   const activeItem = activeSection?.items.find((item) => isRouteActive(pathname, item.href));
 
   return (
-    <details className="rounded-lg border border-[var(--border)] bg-white">
+    <details className="rounded-[4px] border border-[var(--border)] bg-white">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--ink)] [&::-webkit-details-marker]:hidden">
         <span>{activeItem?.label ?? "Student navigation"}</span>
         <ChevronDown size={16} aria-hidden="true" />
@@ -151,7 +151,7 @@ export function StudentMobileNav() {
       <nav className="grid gap-3 border-t border-[var(--border)] p-3 text-sm" aria-label="Student mobile navigation">
         {studentNavSections.map((section) => (
           <section key={section.id}>
-            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--subtle)]">{section.title}</p>
+            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">{section.title}</p>
             <div className="grid gap-1">
               {section.items.map(({ href, label, Icon }) => {
                 const isActive = isRouteActive(pathname, href);
@@ -160,7 +160,7 @@ export function StudentMobileNav() {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 font-semibold transition-colors",
+                      "flex items-center gap-2 rounded-[2px] px-2.5 py-2 font-semibold transition-colors",
                       isActive ? "bg-[var(--surface-muted)] text-[var(--primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--primary)]",
                     )}
                   >

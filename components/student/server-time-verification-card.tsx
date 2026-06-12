@@ -19,9 +19,9 @@ export function ServerTimeVerificationCard({
   const tone = drift.status === "synced" ? "success" : drift.status === "minor_drift" ? "warning" : "danger";
 
   return (
-    <div className={compact ? "flex items-center gap-2 text-xs" : "rounded-lg border border-[var(--border)] bg-white p-4 shadow-sm"}>
+    <div className={compact ? "flex items-center gap-2 text-xs text-slate-200" : "rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]"}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 font-semibold text-[var(--ink)]">
+        <div className={`flex items-center gap-2 font-semibold ${compact ? "text-slate-100" : "text-[var(--ink)]"}`}>
           <Clock size={compact ? 14 : 18} aria-hidden="true" />
           Server time
         </div>

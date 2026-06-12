@@ -1,8 +1,8 @@
 import { SectionHeading } from "@/components/section-heading";
-import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
+import { ExamStateBadge } from "@/components/ui/status-badge";
 import { listOwnerAttempts } from "@/lib/live-data";
 
 export default async function OwnerAttemptsPage() {
@@ -18,25 +18,25 @@ export default async function OwnerAttemptsPage() {
           <p className="text-sm text-[var(--muted)]">No attempts scheduled yet.</p>
         </Card>
       ) : (
-        <DataList>
+        <DataTable headers={["Attempt", "Student", "State", "Action"]}>
           {attempts.map((attempt) => (
-            <DataListRow key={attempt.id} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-              <div className="min-w-0">
-                <DataListMeta className="mb-2">
-                  <AttemptStateBadge state={attempt.state} />
-                  <span className="font-semibold text-[var(--muted)]">{attempt.student}</span>
-                </DataListMeta>
-                <h2 className="truncate text-base font-semibold text-[var(--ink)]">{attempt.title}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{attempt.paper_code ?? "No paper code"}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <DataTableRow key={attempt.id}>
+              <DataTableCell className="w-[45%]">
+                <p className="truncate font-semibold text-[var(--ink)]">{attempt.title}</p>
+                <p className="mt-1 font-mono text-xs text-[var(--muted)]">{attempt.paper_code ?? "No paper code"}</p>
+              </DataTableCell>
+              <DataTableCell className="w-[25%] text-[var(--muted)]">{attempt.student}</DataTableCell>
+              <DataTableCell className="w-[15%]">
+                <ExamStateBadge state={attempt.state} />
+              </DataTableCell>
+              <DataTableCell className="w-[15%] text-right">
                 <ButtonLink href={`/owner/attempts/${attempt.id}`} variant="secondary">
                   Review
                 </ButtonLink>
-              </div>
-            </DataListRow>
+              </DataTableCell>
+            </DataTableRow>
           ))}
-        </DataList>
+        </DataTable>
       )}
     </>
   );

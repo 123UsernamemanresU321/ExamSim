@@ -11,7 +11,7 @@ export default function LoginPage() {
     <>
       <AppHeader />
       <main className="mx-auto grid min-h-[calc(100vh-64px)] max-w-5xl place-items-center px-6 py-12 md:py-16">
-        <Card className="grid w-full gap-8 rounded-lg p-6 md:grid-cols-[1.1fr_0.9fr] md:p-10">
+        <Card className="grid w-full gap-8 p-6 md:grid-cols-[1.1fr_0.9fr] md:p-10">
           <section className="flex flex-col justify-between border-b border-[var(--border)] pb-8 md:border-b-0 md:border-r md:pb-0 md:pr-10">
             <div>
               <CardHeader className="p-0 mb-6">

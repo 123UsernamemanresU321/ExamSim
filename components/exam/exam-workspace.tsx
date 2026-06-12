@@ -151,7 +151,7 @@ export function ExamWorkspace({
   if (isLoadingPackage) {
     const isSeb = initialScreenData.attempt.delivery_mode === "seb_required";
     return (
-      <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6">
+      <section className="mx-auto grid max-w-[760px] gap-4 rounded-[4px] border border-[var(--border)] bg-white p-6">
         <AttemptStateBadge state={attempt.state} />
         <h1 className="text-xl font-semibold text-[var(--ink)]">
           {isSeb ? "Verifying Exam Environment..." : "Unlocking Exam Content..."}
@@ -171,13 +171,13 @@ export function ExamWorkspace({
   // Show error screen if the package is missing after attempt
   if (!assessmentPackage) {
     return (
-      <section className="mx-auto grid max-w-[760px] gap-4 rounded-lg border border-[var(--border)] bg-white p-6 shadow-sm">
+      <section className="mx-auto grid max-w-[760px] gap-4 rounded-[4px] border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-card)]">
         <AttemptStateBadge state={attempt.state} />
         <div>
           <h1 className="text-xl font-semibold text-[var(--ink)]">
             {attempt.delivery_mode === "seb_required" ? "Safe Exam Browser Required" : "Exam content is not available yet"}
           </h1>
-          <div className="mt-4 rounded-md bg-[var(--danger-bg)]/20 p-4 text-sm text-[var(--danger)] border border-[var(--danger)]/20">
+          <div className="mt-4 rounded-[4px] border border-[var(--danger)]/20 bg-[var(--danger-bg)]/20 p-4 text-sm text-[var(--danger)]">
             <p className="font-bold">Verification Error:</p>
             <p>{loadError || packageError || "The server has not released the exam package for this attempt state."}</p>
           </div>
@@ -192,7 +192,7 @@ export function ExamWorkspace({
                 <div className="flex flex-col gap-3 sm:flex-row border-t border-[var(--border)] pt-4 mt-4">
                   <a 
                     href={sebConfigUrl} 
-                    className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--border)] px-4 text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-muted)] transition-colors"
+                    className="inline-flex h-9 items-center justify-center rounded-[2px] border border-[var(--border)] px-4 text-xs font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--surface-muted)]"
                   >
                     Download .seb Configuration
                   </a>
@@ -253,15 +253,15 @@ export function ExamWorkspace({
   }
 
   return (
-    <div className="exam-mode pb-12">
+    <div className="exam-mode min-h-screen bg-[var(--background)] pb-12">
       <TelemetryListener attemptId={attemptId} attemptSessionId={attemptSessionId} stateToken={stateToken} />
-      <header className="sticky top-0 z-50 -mx-5 mb-8 border-b border-[var(--border)] bg-white px-5 py-4 shadow-sm md:-mx-8 md:px-8">
+      <header className="sticky top-0 z-50 mb-6 border-b border-slate-700 bg-[var(--sidebar)] px-4 py-3 text-white shadow-[0_1px_0_rgba(0,0,0,0.2)] md:px-6">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AttemptStateBadge state="ACTIVE" />
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-[var(--ink)] md:text-xl">{assessmentPackage.assessment.title}</h1>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--subtle)]">
+              <h1 className="text-lg font-semibold tracking-tight text-white md:text-xl">{assessmentPackage.assessment.title}</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
                 {assessmentPackage.assessment.paper_code} · {attempt.delivery_mode === "seb_required" ? "Safe Exam Browser Mode" : "Browser Mode (Standard)"}
               </p>
             </div>
@@ -277,8 +277,8 @@ export function ExamWorkspace({
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-[1540px] gap-8 px-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]">
-        <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
+      <div className="mx-auto grid max-w-[1540px] gap-6 px-4 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_320px]">
+        <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
           <QuestionNavigator questions={assessmentPackage.questions} />
         </div>
         <div>
@@ -294,11 +294,11 @@ export function ExamWorkspace({
             onUploadComplete={handleUploadComplete}
           />
         </div>
-        <aside className="grid content-start gap-5 xl:sticky xl:top-28 xl:self-start" aria-label="Response tools">
+        <aside className="grid content-start gap-4 xl:sticky xl:top-24 xl:self-start" aria-label="Response tools">
           <StudentMaterialsDrawer materials={materials} />
           
-          <section className="rounded-lg border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-card)]">
-            <h2 className="text-sm font-bold tracking-wide uppercase text-[var(--ink)]">Response Control Panel</h2>
+          <section className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink)]">Response panel</h2>
             <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
               Typed answers are saved instantly. PDF uploads will be requested one slot at a time per question.
             </p>
@@ -313,7 +313,7 @@ export function ExamWorkspace({
             </div>
           </section>
 
-          <div className="lg:hidden rounded-xl border border-[#dde3ee] bg-white p-4 shadow-sm">
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)] lg:hidden">
             <QuestionNavigator questions={assessmentPackage.questions} />
           </div>
 
@@ -330,7 +330,7 @@ export function ExamWorkspace({
             />
           ))}
 
-          <section className="rounded-lg border border-[var(--border)] bg-white p-4 text-center text-xs leading-relaxed text-[var(--muted)] shadow-sm">
+          <section className="rounded-[4px] border border-[var(--border)] bg-white p-4 text-center text-xs leading-relaxed text-[var(--muted)] shadow-[var(--shadow-card)]">
             Browser telemetry is recorded as moderation evidence. It is not treated as proof of misconduct by itself.
           </section>
         </aside>

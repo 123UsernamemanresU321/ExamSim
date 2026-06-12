@@ -4,7 +4,7 @@ import { Filter, PlusCircle } from "lucide-react";
 import { listQuestionBankWorkspace } from "@/lib/usability-data";
 import { SUBJECT_PRESETS } from "@/lib/subjects";
 import { ButtonLink } from "@/components/ui/button";
-import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 
@@ -36,7 +36,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
         }
       />
 
-      <section className="rounded-lg border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
+      <section className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
         <SectionHeader
           title="Subject filters"
           description="Use subjects to scope extraction and paper generation."
@@ -61,35 +61,40 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
       </section>
 
       {filteredItems.length ? (
-        <DataList>
+        <DataTable headers={["Question", "Subject & tags", "Marks", "Structure", "Action"]}>
           {filteredItems.map((item) => (
-            <DataListRow key={item.id} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-              <Link href={`/owner/question-bank/${item.id}`} className="min-w-0">
-                <DataListMeta className="mb-2">
-                  <span>{item.paper_code ?? "No paper code"}</span>
-                  <span>{item.root_node_key}</span>
-                  <span>{item.marks_available ?? "?"} marks</span>
-                </DataListMeta>
-                <h2 className="truncate text-base font-semibold text-[var(--ink)]">{item.title ?? `Question ${item.root_node_key}`}</h2>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
+            <DataTableRow key={item.id}>
+              <DataTableCell className="w-[42%]">
+                <Link href={`/owner/question-bank/${item.id}`} className="min-w-0">
+                  <p className="truncate font-semibold text-[var(--ink)]">{item.title ?? `Question ${item.root_node_key}`}</p>
+                  <p className="mt-1 font-mono text-xs text-[var(--muted)]">
+                    {item.paper_code ?? "No paper code"} · {item.root_node_key}
+                  </p>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--muted)]">
                   {(item.prompt_html ?? item.prompt_latex ?? "No prompt preview.").replace(/<[^>]+>/g, " ")}
-                </p>
+                  </p>
+                </Link>
+              </DataTableCell>
+              <DataTableCell className="w-[25%]">
                 <div className="mt-3 flex flex-wrap gap-2">
                   {item.subject ? <Chip>{item.subject}</Chip> : null}
                   {item.tags.slice(0, 4).map((itemTag) => (
                     <Chip key={itemTag}>{itemTag}</Chip>
                   ))}
                   {item.has_visual_assets ? <Chip>visual source</Chip> : null}
-                  <Chip>{childrenByItem.get(item.id) ?? 0} child parts</Chip>
                   {item.do_not_reuse ? <Chip>do not reuse</Chip> : null}
                 </div>
-              </Link>
-              <ButtonLink href={`/owner/question-bank/${item.id}`} variant="secondary">
-                Open
-              </ButtonLink>
-            </DataListRow>
+              </DataTableCell>
+              <DataTableCell className="w-[10%] font-mono text-xs">{item.marks_available ?? "?"}</DataTableCell>
+              <DataTableCell className="w-[13%] text-xs text-[var(--muted)]">{childrenByItem.get(item.id) ?? 0} child parts</DataTableCell>
+              <DataTableCell className="w-[10%] text-right">
+                <ButtonLink href={`/owner/question-bank/${item.id}`} variant="secondary">
+                  Open
+                </ButtonLink>
+              </DataTableCell>
+            </DataTableRow>
           ))}
-        </DataList>
+        </DataTable>
       ) : (
         <EmptyState
           title="No question bank items yet"
@@ -101,5 +106,5 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
 }
 
 function Chip({ children }: { children: ReactNode }) {
-  return <span className="rounded-full border border-[var(--border)] bg-white px-2 py-1 text-xs font-semibold text-[var(--muted)]">{children}</span>;
+  return <span className="rounded-[2px] border border-[var(--border)] bg-white px-2 py-1 text-xs font-semibold text-[var(--muted)]">{children}</span>;
 }

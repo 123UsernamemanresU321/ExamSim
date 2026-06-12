@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils";
 
 export function LoadingSkeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn("animate-pulse rounded-md bg-[var(--surface-panel)]", className)} />;
+  return <div aria-hidden="true" className={cn("animate-pulse rounded-[2px] bg-[var(--surface-panel)]", className)} />;
 }
 
 export function PageSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="grid gap-5">
-      <div className="border-b border-[var(--border)] pb-5">
+      <div className="pb-2">
         <LoadingSkeleton className="h-4 w-36" />
         <LoadingSkeleton className="mt-3 h-8 w-72 max-w-full" />
         <LoadingSkeleton className="mt-3 h-4 w-[32rem] max-w-full" />
@@ -17,7 +17,7 @@ export function PageSkeleton({ rows = 5 }: { rows?: number }) {
           <LoadingSkeleton key={index} className="h-28" />
         ))}
       </div>
-      <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-white">
+      <div className="overflow-hidden rounded-[4px] border border-[var(--border)] bg-white">
         {Array.from({ length: rows }).map((_, index) => (
           <div key={index} className="border-b border-[var(--border)] p-4 last:border-b-0">
             <LoadingSkeleton className="h-4 w-48" />

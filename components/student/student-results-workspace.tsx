@@ -47,7 +47,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Released feedback</p>
           <p className="text-sm text-[var(--muted)]">Use the correction notebook to respond to feedback after reviewing each main question.</p>
@@ -56,7 +56,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden xl:flex-row">
       {/* Navigation Tree */}
-      <aside className="max-h-80 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-2 xl:max-h-none xl:w-80 xl:flex-shrink-0">
+      <aside className="max-h-80 overflow-y-auto rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-2 xl:max-h-none xl:w-80 xl:flex-shrink-0">
         <MarkingSidebarTree
           questionNodes={workspace.questionNodes}
           selectedNodeId={selectedNodeId}
@@ -71,7 +71,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
       {/* Main Content Vertical Stack */}
       <main className="flex flex-1 flex-col gap-6 overflow-hidden">
         {/* Top: Question Content */}
-        <section className="flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-card)] md:p-8">
+        <section className="flex-1 overflow-y-auto rounded-[4px] border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-card)] md:p-8">
           <MarkingCenterPanel
             node={selectedNode}
             marks={workspace.marks}
@@ -82,7 +82,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
         </section>
 
         {/* Bottom: Student Response & Feedback */}
-        <section className="flex-1 overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-[var(--shadow-card)]">
+        <section className="flex-1 overflow-hidden rounded-[4px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)]">
            <div className="flex h-full flex-col overflow-hidden lg:flex-row">
               {/* Left: Your Answer */}
               <div className="flex-1 space-y-6 overflow-y-auto border-b border-[var(--border)] p-5 md:p-8 lg:border-b-0 lg:border-r">
@@ -92,8 +92,8 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                  {selectedLeaves.length > 0 ? (
                    <div className="space-y-4">
                      {selectedNode && selectedRootSlot ? (
-                       <div className="rounded-lg border border-[#78a86d] bg-[var(--success-bg)]/35 p-5">
-                         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                       <div className="rounded-[4px] border border-[var(--success)]/25 bg-[var(--success-bg)] p-5">
+                         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--success)]">
                            Full upload for {selectedNode.node_key}
                          </div>
                          <StudentSubmissionBlock
@@ -109,7 +109,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                        const shouldShowLeafCard = Boolean(response?.answer_text) || (leaf.id === selectedNode?.id && !selectedRootSlot);
                        if (!shouldShowLeafCard) return null;
                         return (
-                          <div key={leaf.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-5">
+                          <div key={leaf.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-5">
                             <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">{leaf.node_key}</div>
                             <StudentSubmissionBlock
                               attemptId={attemptId}
@@ -123,7 +123,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                       })}
                    </div>
                  ) : (
-                   <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-[var(--border)] text-sm italic text-[var(--muted)]">
+                   <div className="flex h-32 items-center justify-center rounded-[4px] border border-dashed border-[var(--border)] text-sm italic text-[var(--muted)]">
                      No digital response recorded for this question.
                    </div>
                  )}
@@ -155,7 +155,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                         workspace.annotations
                           .filter((a) => a.question_node_id === leaf.id && a.annotation_type === "feedback")
                           .map((f) => (
-                            <div key={f.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-5 text-[15px] leading-relaxed text-[var(--ink)] shadow-sm">
+                            <div key={f.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-5 text-[15px] leading-relaxed text-[var(--ink)] shadow-sm">
                               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">{leaf.node_key}</div>
                               <MathRenderer html={f.body} />
                             </div>
@@ -163,7 +163,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                       )}
                     </div>
                   ) : (
-                    <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-[var(--border)] px-6 text-center text-sm italic text-[var(--muted)]">
+                    <div className="flex h-24 items-center justify-center rounded-[4px] border border-dashed border-[var(--border)] px-6 text-center text-sm italic text-[var(--muted)]">
                       No specific comments for this question.
                     </div>
                   )}
@@ -189,7 +189,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                       ))}
                     </div>
                   ) : (
-                    <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-sm italic text-[var(--muted)]">
+                    <p className="rounded-[4px] border border-dashed border-[var(--border)] p-4 text-sm italic text-[var(--muted)]">
                       Select a marked part to open a discussion.
                     </p>
                   )}
@@ -244,7 +244,7 @@ function StudentSubmissionBlock({
   return (
     <div className="grid gap-4">
       {formatted ? (
-        <div className="rounded-lg border border-white bg-white p-4 shadow-sm">
+        <div className="rounded-[4px] border border-white bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             <FileText size={12} /> Your typed work
           </div>
@@ -253,18 +253,18 @@ function StudentSubmissionBlock({
       ) : null}
 
       {slot?.object_path ? (
-        <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-4">
+        <div className="rounded-[4px] border border-[var(--success)]/25 bg-[var(--success-bg)] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Released annotated PDF</p>
-              <p className="text-xs leading-5 text-emerald-900/70">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--success)]">Released annotated PDF</p>
+              <p className="text-xs leading-5 text-[var(--success)]">
                 The visible copy includes released marker annotations. Your original upload is not embedded here.
               </p>
             </div>
             <Button
               type="button"
               variant="secondary"
-              className="bg-white text-emerald-700 hover:bg-emerald-700 hover:!text-white"
+              className="bg-white text-[var(--success)] hover:bg-[var(--success)] hover:!text-white"
               onClick={() => (annotatedSignedUrl ? window.open(annotatedSignedUrl, "_blank", "noopener,noreferrer") : undefined)}
               disabled={!annotatedSignedUrl}
             >
@@ -272,13 +272,13 @@ function StudentSubmissionBlock({
             </Button>
           </div>
           {annotatedSignedUrl ? (
-            <iframe title={`Annotated answer for ${node.node_key}`} src={annotatedSignedUrl} className="h-[520px] w-full rounded-lg border border-emerald-100 bg-white" />
+            <iframe title={`Annotated answer for ${node.node_key}`} src={annotatedSignedUrl} className="h-[520px] w-full rounded-[4px] border border-[var(--success)]/25 bg-white" />
           ) : (
-            <div className="rounded-lg border border-dashed border-emerald-100 bg-white/70 p-5 text-sm italic text-emerald-800">
+            <div className="rounded-[4px] border border-dashed border-[var(--success)]/25 bg-white/70 p-5 text-sm italic text-[var(--success)]">
               A visibly annotated copy has not been released for this upload yet.
             </div>
           )}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-[var(--border)] bg-white px-4 py-3">
             <p className="text-xs leading-5 text-slate-600">
               Original copy is available on request for checking your submitted file.
             </p>
@@ -356,7 +356,7 @@ function StudentTicketPanel({
   }
 
   return (
-    <section className="mt-4 rounded-lg border border-blue-100 bg-white p-4">
+    <section className="mt-4 rounded-[4px] border border-[var(--border)] bg-white p-4">
       <h4 className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">
         <MessageSquare size={13} /> Mark discussion
       </h4>
@@ -369,7 +369,7 @@ function StudentTicketPanel({
           {tickets.map((ticket) => {
             const ticketMessages = messages.filter((item) => item.ticket_id === ticket.id);
             return (
-              <div key={ticket.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+              <div key={ticket.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-[var(--ink)]">{ticket.subject}</p>
@@ -384,7 +384,7 @@ function StudentTicketPanel({
                     <div
                       key={ticketMessage.id}
                       className={cn(
-                        "rounded-md p-2 text-xs leading-5",
+                        "rounded-[2px] p-2 text-xs leading-5",
                         ticketMessage.author_role === "student" ? "bg-white text-slate-800" : "bg-[var(--surface-panel)] text-[var(--ink)]",
                       )}
                     >
@@ -415,7 +415,7 @@ function StudentTicketPanel({
 
       <div className="grid gap-2">
         <input
-          className="min-h-10 rounded-md border border-[var(--border)] bg-white px-3 text-sm"
+          className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm"
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
           placeholder={`Question about ${node.node_key}`}

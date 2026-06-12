@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { SectionHeading } from "@/components/section-heading";
 import { ButtonLink } from "@/components/ui/button";
-import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { DataListMeta, DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AssessmentStatusBadge, ParseBadge, StatusBadge } from "@/components/ui/status-badge";
 import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-button";
@@ -26,27 +26,35 @@ export default async function OwnerAssessmentsPage() {
           action={<ButtonLink href="/owner/assessments/new">Create assessment</ButtonLink>}
         />
       ) : (
-        <DataList>
+        <DataTable headers={["Assessment title & code", "Status & badges", "Metadata", "Actions"]}>
           {assessments.map((assessment) => (
-            <DataListRow key={assessment.id} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-              <div className="min-w-0">
-                <DataListMeta className="mb-2">
+            <DataTableRow key={assessment.id}>
+              <DataTableCell className="w-[38%]">
+                <h2 className="text-lg font-semibold leading-6 text-black">{assessment.title}</h2>
+                <p className="mt-0.5 font-mono text-xs text-[var(--muted)]">{assessment.paper_code ?? "NO-CODE"}</p>
+              </DataTableCell>
+              <DataTableCell className="w-[24%]">
+                <DataListMeta>
                   <AssessmentStatusBadge status={assessment.latest_status} />
                   <StatusBadge status={assessment.assessment_kind} />
                   <ParseBadge confidence={assessment.parse_confidence} />
                 </DataListMeta>
-                <h2 className="truncate text-base font-semibold text-[var(--ink)]">{assessment.title}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{assessment.paper_code ?? "No paper code"}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              </DataTableCell>
+              <DataTableCell className="w-[24%]">
+                <p className="text-[13px] text-[var(--ink)]">{assessment.latest_version_id ? "Version ready" : "No version"}</p>
+                <p className="mt-0.5 text-[13px] text-[var(--muted)]">Created {new Date(assessment.created_at).toLocaleDateString()}</p>
+              </DataTableCell>
+              <DataTableCell className="w-[14%]">
+                <div className="flex items-center justify-end gap-2">
                 <ButtonLink href={`/owner/assessments/${assessment.id}`} variant="secondary">
                   Open
                 </ButtonLink>
                 <DeleteAssessmentButton assessmentId={assessment.id} title={assessment.title} redirectTo={null} />
-              </div>
-            </DataListRow>
+                </div>
+              </DataTableCell>
+            </DataTableRow>
           ))}
-        </DataList>
+        </DataTable>
       )}
     </>
   );

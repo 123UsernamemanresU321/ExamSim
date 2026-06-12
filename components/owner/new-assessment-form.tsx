@@ -139,7 +139,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
               <button
                 key={subjectName}
                 type="button"
-                className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                className={`rounded-[2px] border px-3 py-2 text-xs font-semibold transition-colors ${
                   subject === subjectName
                     ? "border-[var(--primary)] bg-[var(--primary)] !text-white"
                     : "border-[var(--border)] bg-white text-[var(--muted)] hover:border-[var(--primary)]"
@@ -215,12 +215,12 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
         </Link>
       ) : null}
       {sourceKind === "pdf" ? (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
+        <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
           PDF parsing queues a hosted MinerU job after the private upload is stored. Submit and poll the job from the
           review screen. Parsed output remains review-required before publish.
         </div>
       ) : null}
-      <section className="grid gap-4 rounded-lg border border-[var(--border)] bg-white p-4">
+      <section className="grid gap-4 rounded-[4px] border border-[var(--border)] bg-white p-4">
         <div>
           <h2 className="text-base font-semibold text-[var(--ink)]">Optional markscheme source</h2>
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
@@ -273,7 +273,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
       </Button>
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}
       {created ? (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm">
+        <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm">
           <p className="font-semibold">Draft version created with parse confidence {Math.round(created.parse_confidence * 100)}%.</p>
           {"markscheme_parse_job_id" in created && created.markscheme_parse_job_id ? (
             <p className="mt-1 text-[var(--muted)]">A separate markscheme MinerU job was queued for review.</p>

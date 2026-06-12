@@ -15,13 +15,13 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("mb-6 flex flex-col gap-4 border-b border-[var(--border)] pb-5 md:flex-row md:items-end md:justify-between", className)}>
+    <header className={cn("mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between", className)}>
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--subtle)]">{eyebrow}</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{eyebrow}</p>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--ink)] md:text-3xl">{title}</h1>
-        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
+        <h1 className="text-[30px] font-bold leading-9 tracking-[-0.02em] text-black">{title}</h1>
+        {description ? <p className="mt-1 max-w-3xl text-sm leading-5 text-[var(--muted)]">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2 md:justify-end">{actions}</div> : null}
     </header>
@@ -42,8 +42,8 @@ export function SectionHeader({
   return (
     <div className={cn("mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between", className)}>
       <div>
-        <h2 className="text-base font-semibold text-[var(--ink)]">{title}</h2>
-        {description ? <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
+        <h2 className="text-lg font-semibold leading-6 text-black">{title}</h2>
+        {description ? <p className="mt-1 text-sm leading-5 text-[var(--muted)]">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>

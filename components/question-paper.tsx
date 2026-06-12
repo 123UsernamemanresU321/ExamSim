@@ -24,7 +24,7 @@ function AssetImage({ path, signedUrl }: { path: string; signedUrl?: string }) {
       <img
         src={url}
         alt="Question diagram"
-        className="max-h-[500px] max-w-full rounded-lg border border-[var(--border)] bg-white object-contain shadow-md"
+        className="max-h-[500px] max-w-full rounded-[4px] border border-[var(--border)] bg-white object-contain shadow-[var(--shadow-card)]"
         loading="lazy"
       />
     </div>
@@ -112,7 +112,7 @@ function QuestionBlock({
     <article 
       id={node.node_id} 
       className={cn(
-        "scroll-mt-24 border-t border-[#dde3ee] py-6 first:border-t-0 first:pt-0",
+        "scroll-mt-24 border-t border-[var(--border)] py-6 first:border-t-0 first:pt-0",
         depth > 0 && "ml-4 md:ml-8 border-t-0 pt-2"
       )}
     >
@@ -200,7 +200,7 @@ function QuestionBlock({
                 One PDF for all parts of {node.node_key}. Include every subpart in this single file and label subquestions clearly.
               </p>
               {uploadSlot?.status === "uploaded" ? (
-                <p className="basis-full rounded-md border border-[#78a86d] bg-[var(--success-bg)] px-3 py-2 text-xs font-semibold text-[#123d18]" role="status">
+            <p className="basis-full rounded-[4px] border border-[var(--success)]/25 bg-[var(--success-bg)] px-3 py-2 text-xs font-semibold text-[var(--success)]" role="status">
                   Uploaded: {uploadSlot.original_file_name ?? uploadSlot.object_path?.split("/").pop() ?? "PDF confirmed"}
                 </p>
               ) : null}
@@ -258,7 +258,7 @@ export function QuestionPaper({
   onUploadComplete?: (completion: StudentUploadCompletion) => void;
 }) {
   return (
-    <main className="paper-sheet min-h-[80vh] rounded-lg border border-[var(--border)] px-6 py-8 md:px-12 md:py-12">
+    <main className="paper-sheet min-h-[80vh] rounded-[4px] border border-[var(--border)] px-6 py-8 shadow-[var(--shadow-card)] md:px-12 md:py-12">
       <div className="mx-auto max-w-[920px]">
         {questions.map((node) => (
           <QuestionBlock 

@@ -3,14 +3,14 @@ import type { InputHTMLAttributes, LabelHTMLAttributes, SelectHTMLAttributes, Te
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cn("text-sm font-semibold text-[var(--ink)]", className)} {...props} />;
+  return <label className={cn("text-xs font-semibold tracking-[0.02em] text-black", className)} {...props} />;
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       className={cn(
-        "min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors placeholder:text-[var(--subtle)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
+        "min-h-10 w-full rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors placeholder:text-[#6b7280] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
         className,
       )}
       {...props}
@@ -22,7 +22,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        "min-h-32 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors placeholder:text-[var(--subtle)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
+        "min-h-32 w-full rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors placeholder:text-[#6b7280] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
         className,
       )}
       {...props}
@@ -34,7 +34,7 @@ export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectE
   return (
     <select
       className={cn(
-        "min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
+        "min-h-10 w-full rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm transition-colors focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15 disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]",
         className,
       )}
       {...props}

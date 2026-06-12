@@ -21,7 +21,7 @@ export function Button({ className, variant = "primary", isLoading = false, disa
   return (
     <button
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-9 items-center justify-center gap-2 rounded-[2px] px-4 py-2 text-xs font-semibold tracking-[0.02em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:cursor-not-allowed disabled:opacity-50",
         variants[variant],
         className,
       )}
@@ -46,7 +46,7 @@ export function ButtonLink({ className, variant = "primary", href, children, ...
     <Link
       href={href}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
+        "inline-flex min-h-9 items-center justify-center gap-2 rounded-[2px] px-4 py-2 text-xs font-semibold tracking-[0.02em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
         variants[variant],
         className,
       )}

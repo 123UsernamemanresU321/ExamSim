@@ -1,6 +1,7 @@
 import { OwnerMfaPanel, OwnerPasswordPanel } from "@/components/auth/mfa-panel";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
+import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 
 export default function OwnerSecurityPage() {
   return (
@@ -16,14 +17,31 @@ export default function OwnerSecurityPage() {
         </div>
         <Card className="content-start">
           <h2 className="text-lg font-semibold">Production baseline</h2>
-          <ul className="mt-3 grid gap-3 text-sm leading-6 text-[var(--muted)]">
-            <li>Owner MFA uses Supabase TOTP and upgrades the session to AAL2.</li>
-            <li>Student accounts use owner-issued aliases and activation codes, not real email delivery.</li>
-            <li>Browser Mode remains tamper-evident. Server functions enforce timing, release, uploads, and exports.</li>
-            <li>SEB Secure Mode requires copied Browser Exam Key and Config Key values on publish; user-agent checks are not accepted.</li>
-            <li>Students must be 13+ for production v1; the app stores an owner attestation, not a date of birth.</li>
-          </ul>
-          <div className="mt-5 rounded-md border border-[var(--border)] bg-white p-4 text-sm leading-6 text-[var(--muted)]">
+          <div className="mt-4">
+            <DataTable headers={["Control", "Production rule"]} className="shadow-none">
+              <DataTableRow>
+                <DataTableCell className="font-semibold">Owner MFA</DataTableCell>
+                <DataTableCell className="text-[var(--muted)]">Supabase TOTP upgrades owner sessions to AAL2.</DataTableCell>
+              </DataTableRow>
+              <DataTableRow>
+                <DataTableCell className="font-semibold">Student accounts</DataTableCell>
+                <DataTableCell className="text-[var(--muted)]">Owner-issued aliases and activation codes, not real email delivery.</DataTableCell>
+              </DataTableRow>
+              <DataTableRow>
+                <DataTableCell className="font-semibold">Browser Mode</DataTableCell>
+                <DataTableCell className="text-[var(--muted)]">Tamper-evident only; server functions enforce timing, release, uploads, and exports.</DataTableCell>
+              </DataTableRow>
+              <DataTableRow>
+                <DataTableCell className="font-semibold">SEB Secure Mode</DataTableCell>
+                <DataTableCell className="text-[var(--muted)]">Requires copied Browser Exam Key and Config Key values; user-agent checks are not accepted.</DataTableCell>
+              </DataTableRow>
+              <DataTableRow>
+                <DataTableCell className="font-semibold">Age attestation</DataTableCell>
+                <DataTableCell className="text-[var(--muted)]">Students must be 13+ for production v1; the app stores an owner attestation, not a date of birth.</DataTableCell>
+              </DataTableRow>
+            </DataTable>
+          </div>
+          <div className="mt-5 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
             <p className="font-semibold text-[var(--ink)]">SEB setup</p>
             <p>
               Generate and save the final Safe Exam Browser configuration for the assessment, then copy the Browser Exam

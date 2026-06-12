@@ -14,7 +14,7 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-5 text-sm", className)}>
+    <div className={cn("rounded-[4px] border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-5 text-sm", className)}>
       <div className="flex items-center gap-2 font-semibold text-[var(--ink)]">
         <FileText size={16} aria-hidden="true" />
         <p>{title}</p>

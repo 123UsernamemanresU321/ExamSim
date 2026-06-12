@@ -4,15 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
-  BarChart3, 
-  FileText, 
-  LayoutDashboard, 
-  ShieldCheck, 
-  Users, 
-  ChevronLeft, 
+  BarChart3,
+  FileText,
+  LayoutDashboard,
+  ShieldCheck,
+  Users,
   ChevronDown,
   ChevronRight,
-  Menu,
   ListChecks,
   MessageSquareText,
   Tags,
@@ -26,7 +24,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 type NavItem = {
   href: string;
@@ -107,7 +104,7 @@ const ownerNavSections: NavSection[] = [
   },
 ];
 
-export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; onToggle: () => void }) {
+export function SidebarNav({ isCollapsed, displayName = "Admin User" }: { isCollapsed: boolean; onToggle: () => void; displayName?: string }) {
   const pathname = usePathname();
   const activeSectionId = useMemo(() => {
     return ownerNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)))?.id ?? "main";
@@ -127,44 +124,41 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
   return (
     <aside 
       className={cn(
-        "relative hidden border-r border-[var(--border)] bg-[var(--surface-muted)] transition-[width] duration-200 md:block",
-        isCollapsed ? "w-16" : "w-60 px-3 py-5"
+        "relative hidden min-h-screen border-r border-[rgba(226,232,240,0.1)] bg-[var(--sidebar)] text-white transition-[width] duration-200 md:flex md:flex-col",
+        isCollapsed ? "w-16" : "w-[260px]"
       )}
       aria-label="Owner navigation"
     >
-      <div className={cn("flex items-center justify-between mb-8", isCollapsed ? "flex-col gap-4 px-2 py-4" : "px-3")}>
+      <div className={cn("border-b border-[rgba(226,232,240,0.1)]", isCollapsed ? "px-2 py-4" : "px-6 py-6")}>
         {!isCollapsed && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--subtle)]">Owner</p>
+          <div className="flex items-center gap-3">
+            <span className="grid size-8 place-items-center rounded-[2px] bg-[var(--primary)] text-sm font-bold text-white">E</span>
+            <div>
+              <p className="text-lg font-bold leading-6 tracking-[-0.01em] text-white">Exam Vault</p>
+              <p className="text-xs font-semibold tracking-[0.02em] text-[var(--sidebar-muted)]">Institutional Security</p>
+            </div>
           </div>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onToggle}
-          className={cn("h-8 w-8 rounded-md p-0 hover:bg-white", isCollapsed && "mt-2")}
-        >
-          {isCollapsed ? <Menu size={16} /> : <ChevronLeft size={16} />}
-        </Button>
+        {isCollapsed ? <span className="mx-auto grid size-8 place-items-center rounded-[2px] bg-[var(--primary)] text-sm font-bold text-white">E</span> : null}
       </div>
 
-      <nav className={cn("text-sm font-semibold text-[var(--muted)]", isCollapsed ? "grid gap-2 px-2" : "space-y-1.5 overflow-y-auto pb-10")}>
+      <nav className={cn("flex-1 text-xs font-semibold", isCollapsed ? "grid content-start gap-2 px-2 py-4" : "space-y-1 overflow-y-auto px-3 py-4")}>
         {isCollapsed ? (
           ownerNavSections.map((section) => (
-            <div key={section.id} className="grid gap-1 border-b border-[var(--border)] pb-2 last:border-b-0" aria-label={section.title}>
+            <div key={section.id} className="grid gap-1 border-b border-[rgba(226,232,240,0.1)] pb-2 last:border-b-0" aria-label={section.title}>
               {section.items.map(({ href, label, Icon }) => {
                 const isActive = isRouteActive(pathname, href);
                 return (
                   <Link
                     key={href}
                     className={cn(
-                      "flex h-12 w-12 items-center justify-center rounded-md transition-colors",
-                      isActive ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)] hover:bg-white hover:text-[var(--primary)]",
+                      "flex size-12 items-center justify-center rounded-[4px] transition-colors",
+                      isActive ? "bg-[var(--sidebar-active)] text-white" : "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-active)] hover:text-white",
                     )}
                     href={href}
                     title={label}
                   >
-                    <Icon size={20} aria-hidden="true" className={cn(isActive ? "text-[var(--primary)]" : "text-[var(--subtle)]")} />
+                    <Icon size={18} aria-hidden="true" />
                     <span className="sr-only">{label}</span>
                   </Link>
                 );
@@ -177,23 +171,23 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
             const sectionActive = section.id === activeSectionId;
             const SectionIcon = section.Icon;
             return (
-              <section key={section.id} className="rounded-lg">
+              <section key={section.id}>
                 <button
                   type="button"
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition hover:bg-white",
-                    sectionActive ? "text-[var(--ink)]" : "text-[var(--muted)]",
+                    "flex w-full items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors hover:bg-[var(--sidebar-active)] hover:text-white",
+                    sectionActive ? "text-white" : "text-[var(--sidebar-muted)]",
                   )}
                   aria-expanded={isExpanded}
                   aria-controls={`owner-nav-section-${section.id}`}
                   onClick={() => toggleSection(section.id)}
                   title={section.description}
                 >
-                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-md", sectionActive ? "bg-[var(--primary)] !text-white" : "bg-white text-[var(--subtle)]")}>
+                  <span className="flex size-5 items-center justify-center">
                     <SectionIcon size={16} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold uppercase tracking-[0.12em]">{section.title}</span>
+                    <span className="block truncate text-xs font-semibold tracking-[0.02em]">{section.title}</span>
                   </span>
                   {isExpanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
                 </button>
@@ -207,11 +201,11 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
                           key={href}
                           className={cn(
                             "flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition-colors",
-                            isActive ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)] hover:bg-white hover:text-[var(--primary)]",
+                            isActive ? "bg-[var(--sidebar-active)] text-white" : "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-active)] hover:text-white",
                           )}
                           href={href}
                         >
-                          <Icon size={15} aria-hidden="true" className={cn(isActive ? "text-[var(--primary)]" : "text-[var(--subtle)]")} />
+                          <Icon size={15} aria-hidden="true" />
                           <span>{label}</span>
                         </Link>
                       );
@@ -223,6 +217,17 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
           })
         )}
       </nav>
+      {!isCollapsed ? (
+        <div className="border-t border-[rgba(226,232,240,0.1)] px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="grid size-8 place-items-center rounded-full bg-[#565e74] text-xs font-semibold text-white">{initials(displayName)}</span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold tracking-[0.02em] text-white">{displayName}</p>
+              <p className="truncate text-[11px] text-[var(--sidebar-muted)]">System Administrator</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -233,7 +238,7 @@ export function OwnerMobileNav() {
   const activeItem = activeSection?.items.find((item) => isRouteActive(pathname, item.href));
 
   return (
-    <details className="rounded-lg border border-[var(--border)] bg-white">
+    <details className="rounded-[4px] border border-[var(--border)] bg-white">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--ink)] [&::-webkit-details-marker]:hidden">
         <span>{activeItem?.label ?? "Owner navigation"}</span>
         <ChevronDown size={16} aria-hidden="true" />
@@ -241,7 +246,7 @@ export function OwnerMobileNav() {
       <nav className="grid gap-3 border-t border-[var(--border)] p-3 text-sm" aria-label="Owner mobile navigation">
         {ownerNavSections.map((section) => (
           <section key={section.id}>
-            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--subtle)]">{section.title}</p>
+            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">{section.title}</p>
             <div className="grid gap-1">
               {section.items.map(({ href, label, Icon }) => {
                 const isActive = isRouteActive(pathname, href);
@@ -250,7 +255,7 @@ export function OwnerMobileNav() {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 font-semibold transition-colors",
+                      "flex items-center gap-2 rounded-[2px] px-2.5 py-2 font-semibold transition-colors",
                       isActive ? "bg-[var(--surface-muted)] text-[var(--primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--primary)]",
                     )}
                   >
@@ -265,6 +270,15 @@ export function OwnerMobileNav() {
       </nav>
     </details>
   );
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "AD";
 }
 
 function isRouteActive(pathname: string, href: string) {

@@ -29,9 +29,9 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-[rgba(1,11,29,0.58)] p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="w-full max-w-lg rounded-lg border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-popover)]">
+      <div className="w-full max-w-lg rounded-[4px] border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-popover)]">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--danger-bg)] text-[var(--danger)]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-[2px] bg-[var(--danger-bg)] text-[var(--danger)]">
             <AlertTriangle size={18} aria-hidden="true" />
           </span>
           <div>

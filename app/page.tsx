@@ -34,7 +34,7 @@ export default async function HomePage() {
       <main>
         <section className="page-container grid gap-10 py-12 md:min-h-[calc(100vh-64px)] md:grid-cols-[1fr_0.92fr] md:items-center md:py-10">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-[2px] border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
               <ShieldCheck size={15} aria-hidden="true" />
               Server-controlled exam delivery
             </div>
@@ -53,8 +53,8 @@ export default async function HomePage() {
               ))}
             </div>
           </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-[var(--shadow-card)]">
-            <div className="paper-sheet paper-body rounded-md border border-[var(--border)] px-6 py-8">
+          <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-[var(--shadow-card)]">
+            <div className="paper-sheet paper-body rounded-[4px] border border-[var(--border)] px-6 py-8">
               <p className="font-sans text-xs font-semibold uppercase tracking-[0.2em] text-[var(--subtle)]">
                 Locked assessment preview
               </p>
@@ -64,9 +64,9 @@ export default async function HomePage() {
                 instructions, and a countdown only.
               </p>
               <div className="mt-8 grid grid-cols-3 gap-3 text-center font-mono text-[var(--primary)]">
-                <span className="rounded-md border border-[var(--border)] bg-white py-3 text-2xl">00</span>
-                <span className="rounded-md border border-[var(--border)] bg-white py-3 text-2xl">42</span>
-                <span className="rounded-md border border-[var(--border)] bg-white py-3 text-2xl">19</span>
+                <span className="rounded-[2px] border border-[var(--border)] bg-white py-3 text-2xl">00</span>
+                <span className="rounded-[2px] border border-[var(--border)] bg-white py-3 text-2xl">42</span>
+                <span className="rounded-[2px] border border-[var(--border)] bg-white py-3 text-2xl">19</span>
               </div>
             </div>
           </div>

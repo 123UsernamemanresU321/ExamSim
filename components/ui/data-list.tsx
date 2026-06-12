@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export function DataList({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-[var(--shadow-card)]", className)}>{children}</div>;
+  return <div className={cn("overflow-hidden rounded-[4px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)]", className)}>{children}</div>;
 }
 
 export function DataListRow({
@@ -13,7 +13,7 @@ export function DataListRow({
   className?: string;
 }) {
   return (
-    <div className={cn("border-b border-[var(--border)] p-4 last:border-b-0 transition-colors hover:bg-[var(--surface-muted)]/60", className)}>
+    <div className={cn("border-b border-[var(--border)] px-4 py-3 last:border-b-0 transition-colors hover:bg-[var(--surface-muted)]/70", className)}>
       {children}
     </div>
   );
@@ -33,10 +33,10 @@ export function DataTable({
   className?: string;
 }) {
   return (
-    <div className={cn("overflow-x-auto rounded-lg border border-[var(--border)] bg-white shadow-[var(--shadow-card)]", className)}>
-      <table className="w-full min-w-[720px] border-collapse text-sm">
+    <div className={cn("overflow-x-auto rounded-[4px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)]", className)}>
+      <table className="w-full min-w-[720px] border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-[var(--border)] bg-[var(--surface-muted)] text-left text-xs font-semibold uppercase tracking-[0.1em] text-[var(--subtle)]">
+          <tr className="border-b border-[var(--border)] bg-[var(--surface-muted)] text-left text-xs font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
             {headers.map((header) => (
               <th key={header} className="px-4 py-3">
                 {header}
@@ -55,5 +55,5 @@ export function DataTableRow({ children, className }: { children: ReactNode; cla
 }
 
 export function DataTableCell({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn("px-4 py-3 align-middle", className)}>{children}</td>;
+  return <td className={cn("px-4 py-3 align-middle text-[13px]", className)}>{children}</td>;
 }

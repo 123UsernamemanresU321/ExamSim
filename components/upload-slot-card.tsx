@@ -111,7 +111,7 @@ export function UploadSlotCard({
             <p className="text-sm text-[var(--muted)]">Status: {currentStatus.replace("_", " ")} · queue {queueState.replace("_", " ")}</p>
           </div>
           {currentStatus === "uploaded" ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#78a86d] bg-[var(--success-bg)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#123d18]">
+            <span className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--success)]/25 bg-[var(--success-bg)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--success)]">
               <CheckCircle2 size={12} /> Uploaded
             </span>
           ) : null}
@@ -120,14 +120,14 @@ export function UploadSlotCard({
           One PDF for all parts of Question {questionKey}, max {uploadSizeLabel()}. Label every subquestion clearly inside the PDF.
         </p>
         {uploadedFileName ? (
-          <div className="mt-3 rounded-md border border-[#78a86d] bg-[var(--success-bg)] p-3 text-xs leading-5 text-[#123d18]">
+          <div className="mt-3 rounded-[4px] border border-[var(--success)]/25 bg-[var(--success-bg)] p-3 text-xs leading-5 text-[var(--success)]">
             <p className="font-bold">Uploaded file: {uploadedFileName}</p>
             <p>
               {uploadedFileSize ? `${formatBytes(uploadedFileSize)} · ` : ""}
               {uploadedAt ? `Confirmed ${new Date(uploadedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Confirmed"}
             </p>
             {localUpload?.sanityStatus ? (
-              <div className="mt-2 rounded border border-white/70 bg-white/60 p-2 text-[#123d18]">
+              <div className="mt-2 rounded-[2px] border border-white/70 bg-white/60 p-2 text-[var(--success)]">
                 <p className="font-bold">Sanity check: {localUpload.sanityStatus.replaceAll("_", " ")}</p>
                 {typeof localUpload.pageCount === "number" ? <p>{localUpload.pageCount} page{localUpload.pageCount === 1 ? "" : "s"} detected.</p> : null}
                 {localUpload.sanityWarnings?.length ? (

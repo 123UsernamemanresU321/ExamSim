@@ -3,7 +3,7 @@ import { CreateStudentForm } from "@/components/owner/create-student-form";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DataList, DataListRow } from "@/components/ui/data-list";
+import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { listOwnerStudentGroups, listOwnerStudents } from "@/lib/live-data";
 
 export default async function OwnerStudentsPage() {
@@ -31,17 +31,15 @@ export default async function OwnerStudentsPage() {
             {groups.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No groups yet.</p>
             ) : (
-              <DataList>
+              <DataTable headers={["Group", "Description", "Members"]} className="shadow-none">
                 {groups.map((group) => (
-                  <DataListRow key={group.id} className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-semibold text-[var(--ink)]">{group.name}</p>
-                      {group.description && <p className="text-xs text-[var(--muted)] mt-0.5">{group.description}</p>}
-                    </div>
-                    <span className="text-xs font-semibold text-[var(--subtle)]">{group.member_count} member(s)</span>
-                  </DataListRow>
+                  <DataTableRow key={group.id}>
+                    <DataTableCell className="font-semibold text-[var(--ink)]">{group.name}</DataTableCell>
+                    <DataTableCell className="text-[var(--muted)]">{group.description ?? "No description"}</DataTableCell>
+                    <DataTableCell className="font-mono text-xs text-[var(--subtle)]">{group.member_count}</DataTableCell>
+                  </DataTableRow>
                 ))}
-              </DataList>
+              </DataTable>
             )}
           </Card>
 
@@ -50,19 +48,19 @@ export default async function OwnerStudentsPage() {
             {students.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No students yet.</p>
             ) : (
-              <DataList>
+              <DataTable headers={["Student", "Login code", "Status"]} className="shadow-none">
                 {students.map((student) => (
-                  <DataListRow key={student.id} className="flex items-center justify-between gap-4">
-                    <div>
-                      <h2 className="font-semibold text-[var(--ink)]">{student.display_name}</h2>
-                      <p className="text-xs text-[var(--muted)] mt-0.5">Login code: <span className="font-mono">{student.login_code}</span></p>
-                    </div>
-                    <Badge tone={student.activated_at ? "success" : "warning"}>
+                  <DataTableRow key={student.id}>
+                    <DataTableCell className="font-semibold text-[var(--ink)]">{student.display_name}</DataTableCell>
+                    <DataTableCell className="font-mono text-xs text-[var(--muted)]">{student.login_code}</DataTableCell>
+                    <DataTableCell>
+                      <Badge tone={student.activated_at ? "success" : "warning"}>
                       {student.activated_at ? "Activated" : "Pending"}
-                    </Badge>
-                  </DataListRow>
+                      </Badge>
+                    </DataTableCell>
+                  </DataTableRow>
                 ))}
-              </DataList>
+              </DataTable>
             )}
           </Card>
         </div>

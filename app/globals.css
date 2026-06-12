@@ -3,35 +3,37 @@
 @import "katex/dist/katex.min.css";
 
 :root {
-  --background: #f6f9ff;
-  --foreground: #151c22;
-  --muted: #44474e;
-  --subtle: #75777f;
-  --border: #c5c6cf;
+  --background: #f8fafc;
+  --foreground: #1b1b1d;
+  --muted: #64748b;
+  --subtle: #76777d;
+  --border: #e2e8f0;
   --surface: #ffffff;
   --surface-strong: #ffffff;
-  --surface-muted: #eef4fd;
-  --surface-panel: #e8eef7;
-  --primary: #031635;
-  --primary-strong: #010b1d;
-  --accent: #031635;
-  --accent-strong: #010b1d;
-  --gold: #7b5800;
-  --ink: #151c22;
-  --success: #216c2f;
-  --success-bg: #bcf0ae;
-  --warning: #7b5800;
-  --warning-bg: #fff4ce;
+  --surface-muted: #f6f3f5;
+  --surface-panel: #f1f5f9;
+  --primary: #316bf3;
+  --primary-strong: #0051d5;
+  --accent: #316bf3;
+  --accent-strong: #0051d5;
+  --sidebar: #131b2e;
+  --sidebar-muted: #64748b;
+  --sidebar-active: #3f465c;
+  --ink: #1b1b1d;
+  --success: #166534;
+  --success-bg: rgba(22, 101, 52, 0.1);
+  --warning: #92400e;
+  --warning-bg: rgba(146, 64, 14, 0.1);
   --danger: #ba1a1a;
-  --danger-bg: #ffdad6;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --container-page: 1440px;
-  --shadow: 0 1px 2px rgba(3, 22, 53, 0.06), 0 14px 34px rgba(3, 22, 53, 0.08);
-  --shadow-card: 0 1px 2px rgba(3, 22, 53, 0.06), 0 8px 20px rgba(3, 22, 53, 0.05);
-  --shadow-popover: 0 18px 48px rgba(3, 22, 53, 0.14);
+  --danger-bg: rgba(186, 26, 26, 0.1);
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --container-page: 1280px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-popover: 0 18px 48px rgba(19, 27, 46, 0.16);
 }
 
 * {
@@ -109,8 +111,13 @@ button {
 .app-shell-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: calc(100vh - 64px);
-  --sidebar-width: 256px;
+  min-height: 100vh;
+  --sidebar-width: 260px;
+}
+
+.app-page-canvas {
+  min-width: 0;
+  padding: 32px;
 }
 
 .student-font-large {
@@ -137,6 +144,12 @@ button {
   .app-shell-grid {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
     transition: grid-template-columns 180ms ease;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-page-canvas {
+    padding: 24px 16px;
   }
 }
 

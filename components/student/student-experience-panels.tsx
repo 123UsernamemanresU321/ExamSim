@@ -30,7 +30,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
         <SummaryCard label="Urgent Notifications" value={notificationUnread} tone="default" />
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle>Urgent actions</CardTitle>
             <CardDescription>Actions requiring your immediate attention.</CardDescription>
@@ -42,7 +42,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
                   key={`${action.kind}-${action.attempt.id}`} 
                   href={action.href} 
                   className={cn(
-                    "flex items-center justify-between gap-4 rounded-lg border p-4 hover:bg-[var(--surface-muted)]",
+                    "flex items-center justify-between gap-4 rounded-[4px] border p-4 transition-colors hover:bg-[var(--surface-muted)]",
                     action.kind === "active_exam" ? "border-[var(--success)] bg-[var(--success-bg)]/20 hover:bg-[var(--success-bg)]/35" :
                     action.kind === "failed_upload" || action.kind === "upload_deadline" ? "border-[var(--danger)] bg-[var(--danger-bg)]/20 hover:bg-[var(--danger-bg)]/35" :
                     "border-[var(--border)] bg-white hover:bg-[var(--surface-muted)]"
@@ -60,7 +60,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
                     <p className="font-bold text-[var(--ink)] mt-1">{action.label}</p>
                     <p className="text-sm text-[var(--muted)]">{action.attempt.title}{action.attempt.paper_code ? ` · ${action.attempt.paper_code}` : ""}</p>
                   </div>
-                  <div className="rounded-full bg-white p-2 border border-[var(--border)] shadow-sm shrink-0">
+                  <div className="grid size-8 shrink-0 place-items-center rounded-[2px] border border-[var(--border)] bg-white">
                     <ArrowRight size={16} className="text-[var(--ink)]" aria-hidden="true" />
                   </div>
                 </Link>
@@ -72,7 +72,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
         </Card>
         <div className="grid gap-5">
           <ServerTimeVerificationCard serverNowUtc={data.serverNowUtc} timezone="Africa/Johannesburg" />
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle>Quick links</CardTitle>
               <CardDescription>Readiness, feedback, and settings without scanning the full sidebar.</CardDescription>
@@ -95,7 +95,7 @@ export function StudentCommandCenter({ data }: { data: StudentCommandCenterData 
 
 export function StudentAttemptTimeline({ attempts, compact = false }: { attempts: StudentAttemptCard[]; compact?: boolean }) {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader>
         <CardTitle>Timeline</CardTitle>
         <CardDescription>{compact ? "Next exams and upload windows." : "Server-authoritative scheduling, start, end, and upload deadline configurations."}</CardDescription>
@@ -106,7 +106,7 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
             <div 
               key={attempt.id} 
               className={cn(
-                "relative overflow-hidden rounded-lg border p-4 pl-5",
+                "relative overflow-hidden rounded-[4px] border p-4 pl-5",
                 attempt.state === "ACTIVE" ? "border-[var(--success)] border-l-4 border-l-[var(--success)]" :
                 attempt.state === "UPLOAD_ONLY" ? "border-[var(--warning)] border-l-4 border-l-[var(--warning)]" :
                 "border-[var(--border)] border-l-4 border-l-[var(--subtle)]"
@@ -125,7 +125,7 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
                 </ButtonLink>
                 {compact ? null : (
                   <a
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--surface-muted)]"
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-[2px] border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold transition-colors hover:bg-[var(--surface-muted)]"
                     href={`data:text/calendar;charset=utf-8,${encodeURIComponent(generateIcsEvent({
                       id: attempt.id,
                       title: attempt.title,
@@ -155,7 +155,7 @@ export function StudentAttemptTimeline({ attempts, compact = false }: { attempts
 
 export function StudentFeedbackPreview({ feedback, compact = false }: { feedback: StudentFeedbackCard[]; compact?: boolean }) {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader>
         <CardTitle>Feedback inbox</CardTitle>
         <CardDescription>{compact ? "Unread released feedback." : "Released marks, commentary annotations, and response corrections."}</CardDescription>
@@ -167,7 +167,7 @@ export function StudentFeedbackPreview({ feedback, compact = false }: { feedback
               key={`${item.attempt_id}-${item.released_at}`} 
               href={`/student/attempts/${item.attempt_id}/results`} 
               className={cn(
-                "group relative overflow-hidden rounded-lg border p-4",
+                "group relative overflow-hidden rounded-[4px] border p-4 transition-colors",
                 item.read_at ? "border-[var(--border)] bg-white hover:bg-[var(--surface-muted)]" : "border-[var(--border)] bg-[var(--surface-panel)]/50 hover:bg-[var(--surface-panel)]"
               )}
             >
@@ -203,7 +203,7 @@ export function StudentNotificationList({ notifications }: { notifications: Stud
       {notifications.length ? (
         <div className="grid gap-3">
           {notifications.map((notification) => (
-            <div key={notification.id} className="rounded-md border border-[var(--border)] p-3">
+          <div key={notification.id} className="rounded-[4px] border border-[var(--border)] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold">{notification.title}</p>
                 <Badge tone={notification.read_at ? "neutral" : "accent"}>{notification.read_at ? "read" : "unread"}</Badge>
@@ -283,7 +283,7 @@ export function StudentProgressPanel({ progress }: { progress: StudentProgressSn
         {progress.common_mistakes.length ? (
           <div className="grid gap-2">
             {progress.common_mistakes.map((mistake) => (
-              <div key={mistake.label} className="flex items-center justify-between rounded-md border border-[var(--border)] p-3">
+              <div key={mistake.label} className="flex items-center justify-between rounded-[4px] border border-[var(--border)] p-3">
                 <span>{mistake.label}</span>
                 <Badge tone="warning">{mistake.count}</Badge>
               </div>
@@ -299,7 +299,7 @@ export function StudentProgressPanel({ progress }: { progress: StudentProgressSn
 
 export function DeviceReadinessSummary({ devices, latestCheck }: { devices: StudentDevice[]; latestCheck: StudentDeviceCheck | null }) {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader>
         <CardTitle>Device readiness</CardTitle>
         <CardDescription>{devices.length ? `${devices.length} device record${devices.length === 1 ? "" : "s"}` : "No saved device profile yet."}</CardDescription>
@@ -322,7 +322,7 @@ export function StudentDevicesPanel({ devices, checks }: { devices: StudentDevic
           <CardDescription>Recent browsers used for readiness checks and exams.</CardDescription>
         </CardHeader>
         {devices.length ? devices.map((device) => (
-          <div key={device.id} className="mb-3 rounded-md border border-[var(--border)] p-3">
+          <div key={device.id} className="mb-3 rounded-[4px] border border-[var(--border)] p-3">
             <p className="font-semibold">{device.display_name ?? device.browser_label ?? "Unnamed device"}</p>
             <p className="text-sm text-[var(--muted)]">Last seen {new Date(device.last_seen_at).toLocaleString()}</p>
             <Badge tone={device.last_check_status === "passed" ? "success" : device.last_check_status === "failed" ? "danger" : "warning"}>{device.last_check_status ?? "not checked"}</Badge>
@@ -335,7 +335,7 @@ export function StudentDevicesPanel({ devices, checks }: { devices: StudentDevic
           <CardDescription>Past PDF, upload, fullscreen, network, and session checks.</CardDescription>
         </CardHeader>
         {checks.length ? checks.map((check) => (
-          <div key={check.id} className="mb-3 flex items-center justify-between rounded-md border border-[var(--border)] p-3">
+          <div key={check.id} className="mb-3 flex items-center justify-between rounded-[4px] border border-[var(--border)] p-3">
             <span>{new Date(check.created_at).toLocaleString()}</span>
             <Badge tone={check.status === "passed" ? "success" : check.status === "failed" ? "danger" : "warning"}>{check.status}</Badge>
           </div>
@@ -355,7 +355,7 @@ export function FinalizationChecklistPanel({
   stateToken?: string;
 }) {
   return (
-    <Card className="overflow-hidden border-[var(--border)] shadow-[var(--shadow-card)]">
+    <Card className="overflow-hidden border-[var(--border)]">
       <CardHeader className="border-b border-[var(--border)] bg-white pb-4">
         <div className="flex items-center gap-2 text-[var(--ink)]">
           <ShieldCheck size={22} className="text-[var(--primary)]" />
@@ -371,7 +371,7 @@ export function FinalizationChecklistPanel({
           {checklist.items.map((item) => (
             <div 
               key={item.slot_id} 
-              className={`flex items-start gap-4 rounded-lg border p-4 ${
+              className={`flex items-start gap-4 rounded-[4px] border p-4 ${
                 item.severity === "ok" 
                   ? "border-[var(--success)]/20 bg-[var(--success-bg)]/20" 
                   : item.severity === "warning"
@@ -391,7 +391,7 @@ export function FinalizationChecklistPanel({
               <div className="flex-1">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="font-bold text-[var(--ink)] text-sm tracking-tight">{item.label}</p>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  <span className={`rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                     item.severity === "ok"
                       ? "bg-[var(--success-bg)] text-[var(--success)]"
                       : item.severity === "warning"
@@ -412,7 +412,7 @@ export function FinalizationChecklistPanel({
           ))}
         </div>
 
-        <div className={`mt-2 rounded-xl border p-4 text-sm relative overflow-hidden ${
+        <div className={`relative mt-2 overflow-hidden rounded-[4px] border p-4 text-sm ${
           checklist.canFinalize 
             ? "border-[var(--success)]/20 bg-[var(--success-bg)]/10 text-[var(--success)]" 
             : "border-[var(--warning)]/20 bg-[var(--warning-bg)]/15 text-[var(--warning)]"
@@ -442,17 +442,17 @@ export function FinalizationChecklistPanel({
 
         {checklist.canFinalize && attemptId && stateToken ? (
           <div className="mt-4 border-t border-dashed border-[#dde3ee] pt-5">
-            <div className="rounded-lg bg-indigo-50/40 border border-indigo-100 p-4 mb-4 text-xs text-indigo-900 leading-relaxed">
+            <div className="mb-4 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-xs leading-relaxed text-[var(--ink)]">
               <strong>Important:</strong> Finalizing seals your exam submission. The owner and marking staff will receive access, and you cannot reverse this lock.
             </div>
             <SubmitExamButton 
               attemptId={attemptId} 
               stateToken={stateToken} 
-              className="flex w-full items-center justify-center gap-2 rounded-lg py-4 text-base font-semibold" 
+              className="flex w-full items-center justify-center gap-2 py-4 text-sm font-semibold" 
             />
           </div>
         ) : !checklist.canFinalize ? (
-          <div className="mt-4 rounded-xl bg-gray-100 text-gray-400 p-5 text-center font-bold text-sm border border-gray-200 cursor-not-allowed">
+          <div className="mt-4 cursor-not-allowed rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-5 text-center text-sm font-bold text-[var(--muted)]">
             Finalization locked. Complete the requirements above to unlock.
           </div>
         ) : null}
