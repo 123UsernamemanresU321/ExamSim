@@ -17,7 +17,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
   // On exam pages, we want to maximize screen space and avoid navigation distractions.
   return (
     <div className={`app-shell-grid group has-[.exam-mode]:!grid-cols-1 ${fontSize} ${highContrast} ${lowBandwidth}`}>
-      <aside className="hidden min-h-screen border-r border-[rgba(226,232,240,0.1)] bg-[var(--sidebar)] md:flex md:flex-col group-has-[.exam-mode]:!hidden">
+      <aside className="hidden min-h-screen border-r border-[rgba(226,232,240,0.1)] bg-[var(--sidebar)] text-white md:flex md:flex-col group-has-[.exam-mode]:!hidden">
         <div className="border-b border-[rgba(226,232,240,0.1)] px-6 py-6">
           <div className="flex items-center gap-3">
             <span className="grid size-8 place-items-center rounded-[2px] bg-[var(--primary)] text-sm font-bold text-white">E</span>

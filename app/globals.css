@@ -140,6 +140,26 @@ button {
   transition: none !important;
 }
 
+.student-sidebar-nav-section,
+.student-sidebar-nav-link {
+  color: var(--sidebar-muted);
+}
+
+.student-sidebar-nav-section:hover,
+.student-sidebar-nav-link:hover {
+  background: var(--sidebar-active);
+  color: #ffffff;
+}
+
+.student-sidebar-nav-section-active {
+  color: #ffffff;
+}
+
+.student-sidebar-nav-link-active {
+  background: var(--sidebar-active);
+  color: #ffffff;
+}
+
 @media (min-width: 768px) {
   .app-shell-grid {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);

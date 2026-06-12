@@ -77,12 +77,15 @@ describe("20-feature operations package", () => {
 
   it("keeps homepage auth-aware and fixes dark sidebar contrast", () => {
     const home = read("app/page.tsx");
+    const studentLayout = read("app/student/layout.tsx");
     const globals = read("app/globals.css");
     const studentSidebar = read("components/student/student-sidebar-nav.tsx");
     expect(home).toContain("Go to Owner Dashboard");
     expect(home).toContain("Go to Student Command Center");
     expect(home).toContain("Operational gateway");
     expect(globals).toContain("--sidebar-muted: #c1c9d8");
-    expect(studentSidebar).toContain("text-[var(--sidebar-muted)]");
+    expect(globals).toContain(".student-sidebar-nav-link");
+    expect(studentLayout).toContain("bg-[var(--sidebar)] text-white");
+    expect(studentSidebar).toContain("student-sidebar-nav-link");
   });
 });

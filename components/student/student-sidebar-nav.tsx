@@ -97,8 +97,8 @@ export function StudentSidebarNav() {
             <button
               type="button"
               className={cn(
-                "flex w-full items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors hover:bg-[var(--sidebar-active)] hover:text-white",
-                sectionActive ? "text-white" : "text-[var(--sidebar-muted)]",
+                "flex w-full items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors",
+                sectionActive ? "student-sidebar-nav-section-active" : "student-sidebar-nav-section",
               )}
               aria-expanded={isExpanded}
               aria-controls={`student-nav-section-${section.id}`}
@@ -120,7 +120,7 @@ export function StudentSidebarNav() {
                       href={href}
                       className={cn(
                         "flex items-center gap-2 rounded-[4px] px-2.5 py-2 text-[13px] transition-colors",
-                        isActive ? "bg-[var(--sidebar-active)] text-white" : "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-active)] hover:text-white",
+                        isActive ? "student-sidebar-nav-link-active" : "student-sidebar-nav-link",
                       )}
                     >
                       <Icon size={15} aria-hidden="true" />
