@@ -24,7 +24,7 @@ export function ModerationContextTimeline({ groups }: { groups: Array<{ phase: s
     <div className="grid gap-5">
       {groups.filter((group) => group.events.length > 0).map((group) => (
         <section key={group.phase} className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-black uppercase tracking-widest text-[var(--ink)]">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[var(--ink)]">
             {phaseLabels[group.phase] ?? group.phase}
           </h3>
           <ol className="relative grid gap-4 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-[var(--border)]">
@@ -39,7 +39,7 @@ export function ModerationContextTimeline({ groups }: { groups: Array<{ phase: s
                     <Icon size={12} />
                   </span>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-black uppercase tracking-widest text-[var(--ink)]">{event.eventType.replaceAll(".", " ")}</p>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--ink)]">{event.eventType.replaceAll(".", " ")}</p>
                     <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--muted)]">
                       <Clock size={11} />
                       {new Date(event.timestamp).toLocaleString()}

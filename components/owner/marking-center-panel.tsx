@@ -53,7 +53,7 @@ export function MarkingCenterPanel({
             <span className="flex min-h-9 min-w-9 items-center justify-center rounded-full bg-[var(--primary)] px-2 text-xs font-bold !text-white">
               {node.node_key}
             </span>
-            <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ink)]">
+            <h2 className="text-2xl font-semibold tracking-tight text-[var(--ink)]">
               {node.title || "Question Content"}
             </h2>
           </div>
@@ -62,7 +62,7 @@ export function MarkingCenterPanel({
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Badge tone="accent" className="px-3 py-1 text-sm font-black italic tracking-tighter">
+          <Badge tone="accent" className="px-3 py-1 text-sm font-semibold italic tracking-tighter">
             {totals.awarded} / {totals.max} MARKS
           </Badge>
           {totals.hasExplicitTotalMismatch ? (
@@ -120,12 +120,12 @@ export function MarkingCenterPanel({
             <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-8 shadow-sm">
               {findNodeMarkschemeHtml(node) ? (
                 <div className="prose prose-sm max-w-none">
-                  <div className="mb-2 text-[9px] font-black uppercase tracking-widest text-blue-400">Question Guidance</div>
+                  <div className="mb-2 text-[9px] font-semibold uppercase tracking-widest text-blue-400">Question Guidance</div>
                   <MathRenderer html={findNodeMarkschemeHtml(node) ?? undefined} />
                 </div>
               ) : markschemeHtml ? (
                 <div className="prose prose-sm max-w-none">
-                  <div className="mb-2 text-[9px] font-black uppercase tracking-widest text-blue-400">Global Assessment Markscheme</div>
+                  <div className="mb-2 text-[9px] font-semibold uppercase tracking-widest text-blue-400">Global Assessment Markscheme</div>
                   <MathRenderer html={markschemeHtml} />
                 </div>
               ) : markschemePdfPath ? (
@@ -196,7 +196,7 @@ function SourcePdfFallback({
     <div className="mt-6 rounded-xl border border-amber-100 bg-amber-50/40 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Original PDF context</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700">Original PDF context</p>
           <p className="text-xs leading-5 text-amber-900/80">
             Use this fallback when OCR loses a diagram, graph, table, or image for {node.node_key} ({pageLabel}).
           </p>
@@ -272,7 +272,7 @@ function QuestionPromptNode({
             {isLeaf ? ` • ${node.response_mode.replaceAll("_", " ")}` : " • derived total"}
           </p>
         </div>
-        <Badge tone={isLeaf ? "neutral" : "accent"} className="font-black tabular-nums">
+        <Badge tone={isLeaf ? "neutral" : "accent"} className="font-semibold tabular-nums">
           {totals.awarded} / {totals.max}
         </Badge>
       </div>

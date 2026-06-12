@@ -140,7 +140,7 @@ export function NewAssessmentForm({ templates = [] }: { templates?: AssessmentTe
               <button
                 key={subjectName}
                 type="button"
-                className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
                   subject === subjectName
                     ? "border-[var(--primary)] bg-[var(--primary)] !text-white"
                     : "border-[var(--border)] bg-white text-[var(--muted)] hover:border-[var(--primary)]"

@@ -11,7 +11,7 @@ export default function LoginPage() {
     <>
       <AppHeader />
       <main className="mx-auto grid min-h-[calc(100vh-64px)] max-w-5xl place-items-center px-6 py-12 md:py-16">
-        <Card className="paper-sheet relative overflow-hidden grid w-full gap-8 p-6 md:grid-cols-[1.1fr_0.9fr] md:p-12 rounded-xl transition-all duration-300 hover:shadow-lg before:absolute before:top-0 before:left-0 before:right-0 before:h-1.5 before:bg-gradient-to-r before:from-[var(--primary)] before:to-[var(--success)]">
+        <Card className="grid w-full gap-8 rounded-lg p-6 md:grid-cols-[1.1fr_0.9fr] md:p-10">
           <section className="flex flex-col justify-between border-b border-[var(--border)] pb-8 md:border-b-0 md:border-r md:pb-0 md:pr-10">
             <div>
               <CardHeader className="p-0 mb-6">
@@ -37,7 +37,7 @@ export default function LoginPage() {
                 <p>
                   Once successfully activated, return to this portal and use the login form with your personalized code (e.g., <code className="rounded bg-[var(--surface-muted)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[var(--primary)]">STU-XXXX</code>) and password.
                 </p>
-                <ButtonLink href="/activate" variant="secondary" className="w-full justify-center transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0">
+                <ButtonLink href="/activate" variant="secondary" className="w-full justify-center">
                   Activate Account
                 </ButtonLink>
               </div>

@@ -6,6 +6,11 @@ import { SUBJECT_PRESETS } from "@/lib/subjects";
 import { listPaperGeneratorWorkspace } from "@/lib/usability-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input, Select } from "@/components/ui/form";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 async function generatePaper(formData: FormData) {
   "use server";
@@ -53,45 +58,36 @@ export default async function PaperGeneratorPage() {
   const subjects = [...new Set([...SUBJECT_PRESETS, ...questionBankItems.map((item) => item.subject).filter((value): value is string => Boolean(value))])];
 
   return (
-    <main className="space-y-6 p-8">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Custom Paper Generator</p>
-        <h1 className="mt-2 text-3xl font-black text-[var(--ink)]">Assemble papers from the question bank</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          This generator does not invent questions. It selects reusable private question-bank items, then the generated draft goes through normal review and publish checks.
-        </p>
-      </div>
+    <main className="space-y-6">
+      <PageHeader
+        eyebrow="Custom paper generator"
+        title="Assemble papers from the question bank"
+        description="This generator does not invent questions. It selects reusable private question-bank items, then the draft goes through normal review and publish checks."
+      />
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
         <Card className="p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Wand2 size={18} className="text-[var(--primary)]" />
-            <h2 className="font-black text-[var(--ink)]">Generate draft</h2>
-          </div>
+          <SectionHeader title="Generate draft" actions={<Wand2 size={18} className="text-[var(--primary)]" aria-hidden="true" />} />
           <form action={generatePaper} className="space-y-4">
-            <label className="block">
-              <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Title</span>
-              <input name="title" className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" defaultValue="Generated practice paper" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Subject</span>
-              <select name="subject" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2">
+            <Field label="Title">
+              <Input name="title" defaultValue="Generated practice paper" />
+            </Field>
+            <Field label="Subject">
+              <Select name="subject">
                 <option value="">Any subject</option>
                 {subjects.map((subject) => (
                   <option key={subject} value={subject}>
                     {subject}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Target marks</span>
-              <input name="target_marks" type="number" min="1" className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" defaultValue={30} />
-            </label>
-            <label className="block">
-              <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Duration minutes</span>
-              <input name="duration_minutes" type="number" min="1" className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" defaultValue={60} />
-            </label>
+              </Select>
+            </Field>
+            <Field label="Target marks">
+              <Input name="target_marks" type="number" min="1" defaultValue={30} />
+            </Field>
+            <Field label="Duration minutes">
+              <Input name="duration_minutes" type="number" min="1" defaultValue={60} />
+            </Field>
             <Button type="submit" className="w-full !text-white" disabled={!questionBankItems.length}>
               <FilePlus2 size={16} /> Generate paper
             </Button>
@@ -99,27 +95,25 @@ export default async function PaperGeneratorPage() {
         </Card>
 
         <Card className="p-6">
-          <h2 className="mb-4 font-black text-[var(--ink)]">Generated drafts</h2>
+          <SectionHeader title="Generated drafts" />
           {generatedPapers.length ? (
-            <div className="space-y-3">
+            <DataList>
               {generatedPapers.map((paper) => (
-                <div key={paper.id} className="rounded-lg border border-[var(--border)] bg-white p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black text-[var(--ink)]">{paper.title}</p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {paper.subject ?? "No subject"} · target {paper.target_marks ?? "?"} marks · {itemsByPaper.get(paper.id) ?? 0} questions
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--muted)]">{paper.status}</span>
+                <DataListRow key={paper.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-[var(--ink)]">{paper.title}</p>
+                    <DataListMeta className="mt-1">
+                      <span>{paper.subject ?? "No subject"}</span>
+                      <span>target {paper.target_marks ?? "?"} marks</span>
+                      <span>{itemsByPaper.get(paper.id) ?? 0} questions</span>
+                    </DataListMeta>
                   </div>
-                </div>
+                  <StatusBadge status={paper.status} />
+                </DataListRow>
               ))}
-            </div>
+            </DataList>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-sm text-[var(--muted)]">
-              No generated drafts yet. Add question bank items, then generate a paper.
-            </div>
+            <EmptyState title="No generated drafts" description="Add question bank items, then generate a paper for review." />
           )}
         </Card>
       </div>

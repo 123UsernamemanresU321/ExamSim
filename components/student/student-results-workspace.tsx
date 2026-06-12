@@ -49,7 +49,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
     <div className="flex h-full flex-col gap-4 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Released feedback</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Released feedback</p>
           <p className="text-sm text-[var(--muted)]">Use the correction notebook to respond to feedback after reviewing each main question.</p>
         </div>
         <ButtonLink href={`/student/attempts/${attemptId}/corrections`}>Open correction notebook</ButtonLink>
@@ -86,14 +86,14 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
            <div className="flex h-full flex-col overflow-hidden lg:flex-row">
               {/* Left: Your Answer */}
               <div className="flex-1 space-y-6 overflow-y-auto border-b border-[var(--border)] p-5 md:p-8 lg:border-b-0 lg:border-r">
-                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+                 <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">
                    <FileText size={14} /> Your Submission
                  </div>
                  {selectedLeaves.length > 0 ? (
                    <div className="space-y-4">
                      {selectedNode && selectedRootSlot ? (
                        <div className="rounded-lg border border-[#78a86d] bg-[var(--success-bg)]/35 p-5">
-                         <div className="mb-3 text-xs font-black uppercase tracking-widest text-emerald-700">
+                         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
                            Full upload for {selectedNode.node_key}
                          </div>
                          <StudentSubmissionBlock
@@ -110,7 +110,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                        if (!shouldShowLeafCard) return null;
                         return (
                           <div key={leaf.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-5">
-                            <div className="mb-3 text-xs font-black uppercase tracking-widest text-[var(--subtle)]">{leaf.node_key}</div>
+                            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">{leaf.node_key}</div>
                             <StudentSubmissionBlock
                               attemptId={attemptId}
                               node={leaf}
@@ -133,11 +133,11 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
               <div className="w-full flex-shrink-0 space-y-8 overflow-y-auto bg-[var(--surface-muted)] p-5 md:p-8 lg:w-[360px] xl:w-[420px]">
                 {/* Score */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">
                     <Award size={14} /> Points Awarded
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black italic tracking-tighter text-[var(--primary)]">
+                    <span className="text-5xl font-semibold italic text-[var(--primary)]">
                       {totals?.awarded ?? 0}
                     </span>
                     <span className="text-xl font-bold text-[var(--subtle)]">/ {totals?.max ?? 0}</span>
@@ -146,7 +146,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
 
                 {/* Feedback */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">
                     <MessageSquare size={14} /> Teacher&apos;s Feedback
                   </div>
                   {selectedLeaves.some((leaf) => workspace.annotations.some((a) => a.question_node_id === leaf.id && a.annotation_type === "feedback")) ? (
@@ -155,22 +155,22 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                         workspace.annotations
                           .filter((a) => a.question_node_id === leaf.id && a.annotation_type === "feedback")
                           .map((f) => (
-                            <div key={f.id} className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 shadow-sm text-[15px] leading-relaxed text-blue-900">
-                              <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-blue-400">{leaf.node_key}</div>
+                            <div key={f.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-5 text-[15px] leading-relaxed text-[var(--ink)] shadow-sm">
+                              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">{leaf.node_key}</div>
                               <MathRenderer html={f.body} />
                             </div>
                           )),
                       )}
                     </div>
                   ) : (
-                    <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-blue-100 text-blue-400 italic text-sm text-center px-6">
+                    <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-[var(--border)] px-6 text-center text-sm italic text-[var(--muted)]">
                       No specific comments for this question.
                     </div>
                   )}
                 </div>
 
                 <section className="space-y-4">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">
                     <MessageSquare size={14} /> Discussion / appeals
                   </div>
                   <p className="text-xs leading-5 text-[var(--muted)]">
@@ -189,7 +189,7 @@ export function StudentResultsWorkspace({ workspace, attemptId }: { workspace: A
                       ))}
                     </div>
                   ) : (
-                    <p className="rounded-xl border border-dashed border-blue-100 p-4 text-sm italic text-blue-400">
+                    <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-sm italic text-[var(--muted)]">
                       Select a marked part to open a discussion.
                     </p>
                   )}
@@ -245,7 +245,7 @@ function StudentSubmissionBlock({
     <div className="grid gap-4">
       {formatted ? (
         <div className="rounded-lg border border-white bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             <FileText size={12} /> Your typed work
           </div>
           <p className="whitespace-pre-wrap text-[16px] leading-relaxed text-[var(--ink)]">{formatted}</p>
@@ -256,7 +256,7 @@ function StudentSubmissionBlock({
         <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Released annotated PDF</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">Released annotated PDF</p>
               <p className="text-xs leading-5 text-emerald-900/70">
                 The visible copy includes released marker annotations. Your original upload is not embedded here.
               </p>
@@ -357,7 +357,7 @@ function StudentTicketPanel({
 
   return (
     <section className="mt-4 rounded-lg border border-blue-100 bg-white p-4">
-      <h4 className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+      <h4 className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">
         <MessageSquare size={13} /> Mark discussion
       </h4>
       <p className="mb-4 text-xs leading-5 text-[var(--muted)]">
@@ -369,11 +369,11 @@ function StudentTicketPanel({
           {tickets.map((ticket) => {
             const ticketMessages = messages.filter((item) => item.ticket_id === ticket.id);
             return (
-              <div key={ticket.id} className="rounded-lg border border-blue-100 bg-blue-50/30 p-3">
+              <div key={ticket.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-[var(--ink)]">{ticket.subject}</p>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">{ticket.status.replaceAll("_", " ")}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">{ticket.status.replaceAll("_", " ")}</p>
                   </div>
                   <Badge tone={ticket.status === "resolved" || ticket.status === "closed" ? "success" : "accent"}>
                     {ticket.status === "owner_review" ? "Awaiting marker" : ticket.status.replaceAll("_", " ")}
@@ -385,10 +385,10 @@ function StudentTicketPanel({
                       key={ticketMessage.id}
                       className={cn(
                         "rounded-md p-2 text-xs leading-5",
-                        ticketMessage.author_role === "student" ? "bg-white text-slate-800" : "bg-blue-100 text-blue-950",
+                        ticketMessage.author_role === "student" ? "bg-white text-slate-800" : "bg-[var(--surface-panel)] text-[var(--ink)]",
                       )}
                     >
-                      <span className="font-black uppercase tracking-widest">
+                      <span className="font-semibold uppercase tracking-[0.12em]">
                         {ticketMessage.author_role === "student" ? "You" : "Marker"}:{" "}
                       </span>
                       {ticketMessage.body}

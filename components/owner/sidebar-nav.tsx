@@ -135,7 +135,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
       <div className={cn("flex items-center justify-between mb-8", isCollapsed ? "flex-col gap-4 px-2 py-4" : "px-3")}>
         {!isCollapsed && (
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Owner</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--subtle)]">Owner</p>
           </div>
         )}
         <Button
@@ -193,7 +193,7 @@ export function SidebarNav({ isCollapsed, onToggle }: { isCollapsed: boolean; on
                     <SectionIcon size={16} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-black uppercase tracking-[0.13em]">{section.title}</span>
+                    <span className="block truncate text-xs font-semibold uppercase tracking-[0.12em]">{section.title}</span>
                   </span>
                   {isExpanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
                 </button>

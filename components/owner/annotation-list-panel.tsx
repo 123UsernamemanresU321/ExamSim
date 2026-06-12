@@ -20,7 +20,7 @@ export function AnnotationListPanel({
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Annotation list</h3>
+        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Annotation list</h3>
         <Badge tone="neutral">{annotations.length}</Badge>
       </div>
       {annotations.length ? (
@@ -37,7 +37,7 @@ export function AnnotationListPanel({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-600">
                     {annotation.type} · page {annotation.page_index + 1}
                   </p>
                   <p className="mt-1 line-clamp-2 text-sm text-slate-700">

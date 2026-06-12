@@ -179,7 +179,7 @@ function RootQuestionUploadCard({
     <section className="overflow-hidden rounded-xl border border-blue-100 bg-blue-50/20 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-white px-5 py-3">
         <div>
-          <h3 className="text-sm font-black text-[var(--ink)]">Student upload for {node.node_key}</h3>
+          <h3 className="text-sm font-semibold text-[var(--ink)]">Student upload for {node.node_key}</h3>
           <p className="text-xs leading-5 text-[var(--muted)]">
             One PDF covers the full main question and all nested subparts.
           </p>
@@ -238,7 +238,7 @@ export function MarkingDiscussionWorkspace({
         <div key={node.id} className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-black text-[var(--ink)]">{node.node_key}</h3>
+              <h3 className="text-sm font-semibold text-[var(--ink)]">{node.node_key}</h3>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--subtle)]">
                 {node.title || node.response_mode.replaceAll("_", " ")}
               </p>
@@ -411,7 +411,7 @@ function MarkingResponseCard({
     <div id={`mark-response-${node.id}`} className="scroll-mt-24 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-slate-50/70 px-5 py-3">
         <div>
-          <h3 className="text-sm font-black text-[var(--ink)]">{node.node_key}</h3>
+          <h3 className="text-sm font-semibold text-[var(--ink)]">{node.node_key}</h3>
           <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--subtle)]">
             {node.title || node.response_mode.replaceAll("_", " ")}
           </p>
@@ -424,7 +424,7 @@ function MarkingResponseCard({
       {/* Left Column: Response Viewer Area */}
       <div className="flex-1 overflow-y-auto space-y-6 pr-4">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--subtle)]">Student Submission</h3>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--subtle)]">Student Submission</h3>
           {slot?.uploaded_at && (
             <Badge tone="neutral" className="text-[9px] bg-transparent border-none opacity-50">
               {new Date(slot.uploaded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -445,7 +445,7 @@ function MarkingResponseCard({
           <SubmissionPdfPreview objectPath={slot.object_path} onDownload={() => downloadFile(slot.object_path!)} />
         ) : !canShowStudentWork ? (
           <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-6">
-            <p className="text-sm font-black uppercase tracking-widest text-blue-800">No separate subpart submission</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-blue-800">No separate subpart submission</p>
             <p className="mt-2 text-sm leading-6 text-blue-900/75">
               Student work and PDF annotations are attached to the main-question upload above. Use this panel only for marks,
               private notes, and student-facing feedback for {node.node_key}.
@@ -465,7 +465,7 @@ function MarkingResponseCard({
           <div className="rounded-lg border-2 border-orange-200 bg-orange-50 p-4 flex items-start gap-3 text-orange-800 shadow-sm animate-in zoom-in-95 duration-200">
             <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-black uppercase tracking-tight">Status: Unreadable</p>
+              <p className="text-xs font-semibold uppercase tracking-tight">Status: Unreadable</p>
               <p className="text-xs opacity-80 leading-relaxed">The file is corrupt or the handwriting is not legible. Marks may be affected.</p>
             </div>
           </div>
@@ -491,7 +491,7 @@ function MarkingResponseCard({
         <div className="flex flex-col gap-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-[var(--subtle)]">
                 Assessment Outcome
               </label>
               <div className="flex items-center gap-2">
@@ -510,7 +510,7 @@ function MarkingResponseCard({
                   <Button
                     type="button"
                     variant={binaryDecision === "correct" ? "primary" : "secondary"}
-                    className={cn("h-14 font-black", binaryDecision === "correct" && "!text-white")}
+                    className={cn("h-14 font-semibold", binaryDecision === "correct" && "!text-white")}
                     onClick={() => setBinaryDecision("correct")}
                   >
                     Correct - award full marks
@@ -518,7 +518,7 @@ function MarkingResponseCard({
                   <Button
                     type="button"
                     variant={binaryDecision === "incorrect" ? "primary" : "secondary"}
-                    className={cn("h-14 font-black", binaryDecision === "incorrect" && "!text-white")}
+                    className={cn("h-14 font-semibold", binaryDecision === "incorrect" && "!text-white")}
                     onClick={() => setBinaryDecision("incorrect")}
                   >
                     Incorrect - award 0 marks
@@ -558,7 +558,7 @@ function MarkingResponseCard({
                       isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
                     )}
                   />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-black text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-semibold text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
                     PTS
                   </div>
                 </div>
@@ -592,7 +592,7 @@ function MarkingResponseCard({
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
+              <label className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
                 <User size={12} /> Student Feedback
               </label>
               <Textarea
@@ -608,7 +608,7 @@ function MarkingResponseCard({
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <label className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                 <Lock size={12} /> Internal Annotation
               </label>
               <Textarea
@@ -642,7 +642,7 @@ function MarkingResponseCard({
           <Button 
             onClick={handleSave} 
             disabled={isSaving || isOverLimit || (usesBinaryMarking && binaryDecision === "unmarked")}
-            className="px-8 font-black uppercase tracking-widest shadow-lg shadow-blue-500/20"
+            className="px-8 font-semibold uppercase tracking-widest shadow-lg shadow-blue-500/20"
           >
             {isSaving ? (
               <div className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full mr-2" />
@@ -696,7 +696,7 @@ function SubmissionPdfPreview({ objectPath, sanityCheck, onDownload }: { objectP
     <div className="rounded-xl border border-blue-100 bg-blue-50/10 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Student work - uploaded PDF</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500">Student work - uploaded PDF</p>
           <p className="text-xs text-blue-700/70">Original submission stays unchanged. Marker annotations are stored as a separate review layer.</p>
           {sanityCheck ? (
             <p className="mt-1 text-xs font-semibold text-blue-900">
@@ -764,7 +764,7 @@ function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[];
   return (
     <div className="rounded-lg border border-[var(--border)] bg-slate-50/50 p-3 space-y-2">
       <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-        <p className="text-[9px] font-black uppercase tracking-widest text-[var(--subtle)]">Comment bank repository</p>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-[var(--subtle)]">Comment bank repository</p>
         {categories.length > 2 && (
           <div className="flex flex-wrap gap-1">
             {categories.slice(0, 5).map((cat) => (
@@ -773,9 +773,9 @@ function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[];
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
                 className={cn(
-                  "rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight transition-all cursor-pointer",
+                  "rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight transition-colors cursor-pointer",
                   selectedCategory === cat
-                    ? "bg-[var(--primary)] text-white font-extrabold"
+                    ? "bg-[var(--primary)] text-white font-semibold"
                     : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-100"
                 )}
               >
@@ -894,7 +894,7 @@ function WorkAnnotationPanel({
       <div className="mb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Marker annotations</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Marker annotations</h4>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
               These are your comments on the student&apos;s work. Use the full-screen studio for shapes, text boxes, sketching, and page-level PDF annotations.
             </p>
@@ -917,7 +917,7 @@ function WorkAnnotationPanel({
           {annotations.map((annotation) => (
             <div key={annotation.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                   {annotation.visibility === "student_visible" ? "Student visible" : "Private"} · {annotation.severity}
                 </span>
                 <Button variant="ghost" className="h-7 px-2 text-red-600" onClick={() => void deleteAnnotation(annotation.id)}>
@@ -1023,7 +1023,7 @@ function OwnerTicketPanel({
 
   return (
     <section className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
-      <h4 className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+      <h4 className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-blue-700">
         <MessageSquare size={13} /> Mark discussion tickets
       </h4>
       <div className="mb-4 grid gap-2 rounded-lg border border-blue-100 bg-white p-3">
@@ -1042,7 +1042,7 @@ function OwnerTicketPanel({
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-bold text-[var(--ink)]">{ticket.subject}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">{ticket.status.replaceAll("_", " ")}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500">{ticket.status.replaceAll("_", " ")}</p>
                 </div>
                 <div className="flex gap-1">
                   <Button variant="secondary" className="h-7 px-2 text-[10px]" onClick={() => void updateStatus(ticket.id, "resolved")}>Resolve</Button>
@@ -1052,7 +1052,7 @@ function OwnerTicketPanel({
               <div className="mb-3 grid gap-2">
                 {ticketMessages.map((message) => (
                   <div key={message.id} className={cn("rounded-md p-2 text-xs leading-5", message.author_role === "owner" ? "bg-blue-50 text-blue-950" : "bg-slate-100 text-slate-800")}>
-                    <span className="font-black uppercase tracking-widest">{message.author_role === "owner" ? "Marker" : "Student"}: </span>
+                    <span className="font-semibold uppercase tracking-widest">{message.author_role === "owner" ? "Marker" : "Student"}: </span>
                     {message.body}
                   </div>
                 ))}

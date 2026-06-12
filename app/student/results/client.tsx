@@ -84,7 +84,7 @@ export function StudentResultsListClient() {
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 mb-1">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+                     <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--subtle)]">
                        {result.paper_code || "EXAM"}
                      </span>
                   </div>
@@ -101,7 +101,7 @@ export function StudentResultsListClient() {
 
                 <div className="flex items-center gap-8">
                   <div className="text-right">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-[var(--subtle)] flex items-center justify-end gap-1.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--subtle)] flex items-center justify-end gap-1.5">
                       <Award size={12} /> Score
                     </div>
                     <div className="text-2xl font-semibold tracking-tight text-[var(--ink)]">

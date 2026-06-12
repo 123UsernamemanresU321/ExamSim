@@ -349,8 +349,8 @@ export function WorkAnnotationStudio({
           <div className="grid h-full grid-rows-[auto_auto_1fr] overflow-hidden rounded-lg border border-slate-700 bg-slate-100 shadow-[var(--shadow-popover)]">
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Annotation Studio</p>
-                <h2 className="truncate text-lg font-black text-slate-950">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Annotation Studio</p>
+                <h2 className="truncate text-lg font-semibold text-slate-950">
                   {studentName} · {assessmentTitle}
                 </h2>
                 <p className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">

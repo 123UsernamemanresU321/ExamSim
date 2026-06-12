@@ -25,7 +25,7 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
         title="Lobby Waiting Room"
         description="Only exam metadata is preloaded before the official start time. Content is locked server-side to prevent client leaks."
       />
-      <Card className="paper-sheet relative overflow-hidden grid gap-8 px-6 py-8 md:px-12 md:py-10 rounded-xl transition-all duration-300 hover:shadow-lg before:absolute before:top-0 before:left-0 before:right-0 before:h-1.5 before:bg-gradient-to-r before:from-[var(--primary)] before:to-[var(--warning)] shadow-md">
+      <Card className="grid gap-8 rounded-lg px-6 py-8 md:px-10 md:py-10">
         <div className="flex flex-wrap items-center justify-between gap-5 border-b border-[var(--border)] pb-6">
           <AttemptStateBadge state={attempt.state} />
           <div className="rounded-lg bg-[var(--surface-muted)] p-2.5 border border-[var(--border)] shadow-sm">
@@ -37,7 +37,7 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
         <div>
-          <h2 className="paper-body text-3xl md:text-4xl font-extrabold text-[var(--ink)] leading-snug">{attempt.title}</h2>
+          <h2 className="paper-body text-3xl font-semibold leading-snug text-[var(--ink)] md:text-4xl">{attempt.title}</h2>
           <p className="mt-2 text-sm font-semibold tracking-wide text-[var(--muted)]">
             Paper Reference: <code className="rounded bg-[var(--surface-muted)] px-1.5 py-0.5 font-mono text-xs">{attempt.paper_code || "General"}</code> · Starts {formatInTimezone(attempt.start_at_utc, attempt.display_timezone)}
           </p>
@@ -55,14 +55,12 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
           <ButtonLink 
             href={`/student/attempts/${id}/readiness`} 
             variant="secondary"
-            className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm"
           >
             Verify Device readiness
           </ButtonLink>
           <ButtonLink 
             href={`/student/attempts/${id}/recovery-status`} 
             variant="secondary"
-            className="transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm"
           >
             Report Technical Issue
           </ButtonLink>

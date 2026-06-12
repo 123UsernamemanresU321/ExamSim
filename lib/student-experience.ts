@@ -398,14 +398,13 @@ export async function listStudentAttemptCards(studentProfileId: string): Promise
 
   const slotsByAttempt = groupBy(slots, (slot) => slot.attempt_id);
   const feedbackByAttempt = groupBy(releasedResults, (release) => release.attempt_id);
-  const readsByRelease = new Map(reads.map((read) => [read.feedback_release_id ?? read.attempt_id, read]));
   const sanityBySlot = latestBy(sanityChecks, (check) => check.upload_slot_id, (check) => check.created_at);
   const notebookByAttempt = new Map(notebooks.map((notebook) => [notebook.attempt_id, notebook]));
 
   return attempts.map((attempt) => {
     const attemptSlots = slotsByAttempt.get(attempt.id) ?? [];
     const releases = feedbackByAttempt.get(attempt.id) ?? [];
-    const unread = releases.filter((release) => !readsByRelease.get(release.feedback_release_id ?? release.attempt_id)?.read_at).length;
+    const unread = releases.filter((release) => !findFeedbackReadAt(reads, release.attempt_id, release.feedback_release_id ?? null)).length;
     const failedUploadCount = attemptSlots.filter((slot) => {
       const check = sanityBySlot.get(slot.id);
       return slot.status === "rejected" || check?.status === "failed";
@@ -498,7 +497,6 @@ export async function listStudentFeedbackCards(studentProfileId: string): Promis
     safeStudentRows<UploadSlot>("upload_slots", (supabase) => supabase.from("upload_slots").select("*").in("attempt_id", attemptIds)),
     safeStudentRows<{ attempt_id: string; status: string }>("correction_notebooks", (supabase) => supabase.from("correction_notebooks").select("attempt_id,status").eq("student_profile_id", studentProfileId)),
   ]);
-  const readByRelease = new Map(reads.map((read) => [read.feedback_release_id ?? read.attempt_id, read]));
   const slotsByAttempt = groupBy(slots, (slot) => slot.attempt_id);
   const notebookByAttempt = new Map(notebooks.map((notebook) => [notebook.attempt_id, notebook]));
   return releases
@@ -510,12 +508,22 @@ export async function listStudentFeedbackCards(studentProfileId: string): Promis
       title: release.assessment_title,
       paper_code: release.paper_code,
       released_at: release.released_at,
-      read_at: readByRelease.get(release.feedback_release_id ?? release.attempt_id)?.read_at ?? readByRelease.get(release.attempt_id)?.read_at ?? null,
+      read_at: findFeedbackReadAt(reads, release.attempt_id, release.feedback_release_id ?? null),
       marks_released: release.release_marks !== false,
       comments_released: release.release_comments !== false,
       annotated_pdf_available: release.release_annotated_pdfs !== false && (slotsByAttempt.get(release.attempt_id) ?? []).some((slot) => Boolean(slot.annotated_object_path)),
       corrections_required: ["not_started", "in_progress"].includes(String(notebookByAttempt.get(release.attempt_id)?.status ?? "")),
     }));
+}
+
+function findFeedbackReadAt(reads: StudentFeedbackRead[], attemptId: string, feedbackReleaseId: string | null): string | null {
+  const matchingReads = reads
+    .filter((read) => read.attempt_id === attemptId && read.read_at)
+    .filter((read) => !feedbackReleaseId || read.feedback_release_id === feedbackReleaseId || read.feedback_release_id === null)
+    .map((read) => read.read_at)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => b.localeCompare(a));
+  return matchingReads[0] ?? null;
 }
 
 export async function getStudentTimelineData(studentProfileId: string) {
@@ -549,12 +557,12 @@ export async function getStudentReadinessData(studentProfileId: string, attemptI
         id: "check_demo",
         student_profile_id: studentProfileId,
         device_id_hash: "demo-hash",
+        user_agent_hash: "demo-agent",
         attempt_id: attemptId,
         status: "passed",
         checks_json: {},
-        warnings_json: [],
         created_at: new Date(Date.now() - 3600 * 1000).toISOString(),
-      } as any,
+      } satisfies StudentDeviceCheck,
       serverNowUtc: new Date().toISOString(),
     };
   }
@@ -655,12 +663,11 @@ export async function getStudentRecoveryStatusData(studentProfileId: string, att
           student_profile_id: studentProfileId,
           incident_type: "internet_issue",
           description: "Slight delay in saving responses",
-          severity: "low",
+          affected_question_node_id: null,
+          payload_json: {},
           status: "submitted",
-          resolved_at: null,
           created_at: new Date(Date.now() - 300 * 1000).toISOString(),
-          updated_at: new Date(Date.now() - 300 * 1000).toISOString(),
-        } as any,
+        } satisfies StudentIncidentReport,
       ],
       accommodations: [],
       safeStatus: "no_action_needed",

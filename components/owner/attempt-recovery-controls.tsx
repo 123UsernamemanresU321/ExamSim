@@ -59,7 +59,7 @@ export function AttemptRecoveryControls({ attemptId }: { attemptId: string }) {
   return (
     <div className="grid gap-4">
       <form action={logIncident} className="rounded-xl border border-[var(--border)] bg-white p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-[var(--ink)]">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-[var(--ink)]">
           <Plus size={15} /> Log incident
         </h3>
         <div className="grid gap-3">
@@ -96,7 +96,7 @@ export function AttemptRecoveryControls({ attemptId }: { attemptId: string }) {
       </form>
 
       <form action={grantExtension} className="rounded-xl border border-[var(--border)] bg-white p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-[var(--ink)]">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-[var(--ink)]">
           <Clock size={15} /> Upload extension
         </h3>
         <div className="grid gap-3">

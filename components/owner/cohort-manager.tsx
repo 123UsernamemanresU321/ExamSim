@@ -43,7 +43,7 @@ export function CohortManager({
   return (
     <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
       <form action={createCohort} className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-[var(--ink)]">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-[var(--ink)]">
           <Plus size={15} /> New cohort
         </h2>
         <div className="grid gap-4">

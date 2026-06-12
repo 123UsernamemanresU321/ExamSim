@@ -8,6 +8,8 @@ import { QuestionBankSourcePreview } from "@/components/owner/question-bank-sour
 import { DeleteQuestionBankItemButton } from "@/components/owner/delete-question-bank-item-button";
 import { Card } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/form";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import { MathRenderer } from "@/components/math-renderer";
 
 async function updateQuestionBankMetadata(formData: FormData) {
@@ -36,9 +38,9 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
 
   if (!item) {
     return (
-      <main className="p-8">
+      <main>
         <Card className="p-8">
-          <h1 className="text-xl font-black text-[var(--ink)]">Question bank item not found</h1>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Question bank item not found</h1>
           <ButtonLink className="mt-4" href="/owner/question-bank">Back to question bank</ButtonLink>
         </Card>
       </main>
@@ -51,39 +53,34 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
     : [];
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="space-y-6">
       <ButtonLink href="/owner/question-bank" variant="ghost">
         <ArrowLeft size={16} /> Question bank
       </ButtonLink>
-      <Card className="p-6">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--subtle)]">{item.root_node_key}</p>
-        <h1 className="mt-2 text-3xl font-black text-[var(--ink)]">{item.title ?? `Question ${item.root_node_key}`}</h1>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-[var(--muted)]">
-          <span>{item.paper_code ?? "No paper code"}</span>
-          <span>{item.subject ?? "No subject"}</span>
-          <span>
-            {rootMarks.value ?? "?"} marks{rootMarks.source === "computed" ? " inferred from child parts" : ""}
-          </span>
-          <span>{children.length} child part{children.length === 1 ? "" : "s"}</span>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {item.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-[var(--border)] bg-white px-2 py-1 text-xs font-bold text-[var(--muted)]">
+      <PageHeader
+        eyebrow={item.root_node_key}
+        title={item.title ?? `Question ${item.root_node_key}`}
+        description={`${item.paper_code ?? "No paper code"} · ${item.subject ?? "No subject"} · ${rootMarks.value ?? "?"} marks${rootMarks.source === "computed" ? " inferred from child parts" : ""} · ${children.length} child part${children.length === 1 ? "" : "s"}`}
+      />
+      <Card className="p-5">
+        <div className="flex flex-wrap gap-2">
+          {item.tags.length ? item.tags.map((tag) => (
+            <span key={tag} className="rounded-full border border-[var(--border)] bg-white px-2 py-1 text-xs font-semibold text-[var(--muted)]">
               {tag}
             </span>
-          ))}
+          )) : <span className="text-sm text-[var(--muted)]">No tags yet.</span>}
         </div>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <Card className="p-6">
-          <h2 className="mb-4 font-black text-[var(--ink)]">Question preview</h2>
+          <SectionHeader title="Question preview" />
           <div className="prose max-w-none">
             <MathRenderer html={item.prompt_html ?? undefined} latex={item.prompt_html ? undefined : item.prompt_latex ?? undefined} />
           </div>
           {tree.length ? (
             <div className="mt-6 space-y-3">
-              <h3 className="text-sm font-black uppercase tracking-widest text-[var(--subtle)]">Question tree</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Question tree</h3>
               {tree.map((child) => (
                 <QuestionBankTreeItem key={child.id} node={child} depth={1} />
               ))}
@@ -92,7 +89,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
           {item.source_pdf_object_path ? (
             <div className="mt-8 space-y-3">
               <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-[var(--subtle)]">Original source pages and diagrams</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Original source pages and diagrams</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                   This rendered source view is the fallback for diagrams, graphs, tables, and layout that OCR or AI extraction may omit.
                 </p>
@@ -108,21 +105,18 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
 
         <aside className="space-y-4">
           <Card className="p-5">
-            <h2 className="font-black text-[var(--ink)]">Metadata and tags</h2>
+            <SectionHeader title="Metadata and tags" />
             <form action={updateQuestionBankMetadata} className="mt-4 space-y-3">
               <input type="hidden" name="question_id" value={item.id} />
-              <label className="block">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Subject</span>
-                <input name="subject" defaultValue={item.subject ?? ""} className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" placeholder="Physics, Maths AA HL, Olympiad..." />
-              </label>
-              <label className="block">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Tags</span>
-                <input name="tags" defaultValue={item.tags.join(", ")} className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" placeholder="mechanics, vectors, proof" />
-              </label>
-              <label className="block">
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Difficulty 1-5</span>
-                <input name="estimated_difficulty" type="number" min="1" max="5" defaultValue={item.estimated_difficulty ?? ""} className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2" />
-              </label>
+              <Field label="Subject">
+                <Input name="subject" defaultValue={item.subject ?? ""} placeholder="Physics, Maths AA HL, Olympiad..." />
+              </Field>
+              <Field label="Tags">
+                <Input name="tags" defaultValue={item.tags.join(", ")} placeholder="mechanics, vectors, proof" />
+              </Field>
+              <Field label="Difficulty 1-5">
+                <Input name="estimated_difficulty" type="number" min="1" max="5" defaultValue={item.estimated_difficulty ?? ""} />
+              </Field>
               <label className="flex items-start gap-2 text-sm text-[var(--muted)]">
                 <input name="do_not_reuse" type="checkbox" defaultChecked={item.do_not_reuse} className="mt-1" />
                 Do not reuse in generated papers
@@ -131,7 +125,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
             </form>
           </Card>
           <Card className="p-5">
-            <h2 className="font-black text-[var(--ink)]">Source context</h2>
+            <SectionHeader title="Source context" />
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               Source pages: {item.source_page_start ?? "?"}
               {item.source_page_end && item.source_page_end !== item.source_page_start ? `-${item.source_page_end}` : ""}
@@ -144,7 +138,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
             ) : null}
             {visualAssetRefs.length ? (
               <div className="mt-3 rounded-lg border border-[var(--border)] bg-white p-3">
-                <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">Visual references</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">Visual references</p>
                 <ul className="mt-2 space-y-1 text-xs text-[var(--muted)]">
                   {visualAssetRefs.slice(0, 6).map((ref) => (
                     <li key={ref}>{ref}</li>
@@ -154,7 +148,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
             ) : null}
           </Card>
           <Card className="p-5">
-            <h2 className="font-black text-[var(--ink)]">Markscheme</h2>
+            <SectionHeader title="Markscheme" />
             {item.markscheme_html ? (
               <div className="mt-3 prose prose-sm max-w-none">
                 <MathRenderer html={item.markscheme_html} />
@@ -164,7 +158,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
             )}
           </Card>
           <Card className="border-red-200 bg-red-50 p-5">
-            <h2 className="font-black text-red-950">Delete from question bank</h2>
+            <h2 className="font-semibold text-red-950">Delete from question bank</h2>
             <p className="mt-2 text-sm leading-6 text-red-900">
               Removes this reusable question and its child tree from the question bank. It does not delete the original assessment, source PDF, markscheme, or published paper.
             </p>
@@ -183,12 +177,12 @@ function QuestionBankTreeItem({ node, depth }: { node: QuestionBankTreeNode; dep
     <article className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4" style={{ marginLeft: `${Math.max(0, depth - 1) * 18}px` }}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-[var(--subtle)]">{node.node_key}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">{node.node_key}</p>
           <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
             {node.mark_source === "computed" ? "Computed parent total" : node.mark_source === "direct" ? "Direct mark allocation" : "Marks missing"}
           </p>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[var(--muted)]">
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">
           {node.computed_marks_available ?? "?"} marks{node.mark_source === "computed" ? " inferred" : ""}
         </span>
       </div>

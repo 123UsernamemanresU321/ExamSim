@@ -269,13 +269,26 @@ export async function getSubmissionReceipt(attemptId: string) {
     return {
       id: "receipt_demo",
       attempt_id: attemptId,
-      student_profile_id: "student_1",
-      finalized_at: new Date(Date.now() - 300 * 1000).toISOString(),
-      slots_json: [
-        { question_node_id: "q1", file_name: "physics_paper2_q1.pdf", page_count: 4 },
-      ],
+      receipt_json: {
+        assessment_title: "IB-style Physics Paper 2",
+        paper_code: "PHY-HL-P2",
+        attempt_short_code: "DEMO-ATT",
+        finalized_at: new Date(Date.now() - 300 * 1000).toISOString(),
+        slots: [
+          {
+            question_node_id: "q1",
+            status: "uploaded",
+            file_name: "physics_paper2_q1.pdf",
+            uploaded_at: new Date(Date.now() - 400 * 1000).toISOString(),
+            page_count: 4,
+            sanity_status: "accepted",
+            warnings: [],
+            file_hash: null,
+          },
+        ],
+      },
       created_at: new Date(Date.now() - 300 * 1000).toISOString(),
-    };
+    } satisfies SubmissionReceipt;
   }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("submission_receipts").select("*").eq("attempt_id", attemptId).maybeSingle();

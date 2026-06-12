@@ -25,8 +25,8 @@ export function PageThumbnailSidebar({
   return (
     <aside className="grid min-h-0 grid-rows-[auto_1fr] border-r border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-4">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Question tree</p>
-        <h2 className="mt-1 text-lg font-black text-slate-950">{questionKey}</h2>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Question tree</p>
+        <h2 className="mt-1 text-lg font-semibold text-slate-950">{questionKey}</h2>
         {questionTitle ? <p className="mt-1 text-xs leading-5 text-slate-500">{questionTitle}</p> : null}
         <div className="mt-3">
           <Badge tone={uploadStatus === "uploaded" ? "success" : "neutral"}>{uploadStatus.replaceAll("_", " ")}</Badge>
@@ -34,7 +34,7 @@ export function PageThumbnailSidebar({
       </div>
 
       <div className="overflow-y-auto p-3">
-        <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Pages</p>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Pages</p>
         <div className="grid gap-2">
           {Array.from({ length: Math.max(1, totalPages) }).map((_, index) => {
             const count = annotations.filter((annotation) => annotation.page_index === index).length;

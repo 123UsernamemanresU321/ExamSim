@@ -104,7 +104,7 @@ export function MineruHostedPanel({
                   <span className={isDone ? "text-green-600" : canPoll ? "text-amber-600" : ""}>{job.status}</span>
                   {job.external_state ? ` · ${job.external_state}` : ""}
                 </p>
-                <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-[var(--subtle)]">
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--subtle)]">
                   {parseJobPurpose(job) === "markscheme" ? "Markscheme OCR" : "Question paper OCR"}
                 </p>
               </div>

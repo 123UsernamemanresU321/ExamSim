@@ -78,7 +78,6 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           spellCheck={false}
           placeholder="owner@example.com or STU-XXXX"
           required
-          className="focus:shadow-[0_0_0_2px_rgba(3,22,53,0.1)] transition-all duration-200"
         />
       </Field>
       <Field label="Security Password">
@@ -88,10 +87,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           autoComplete="current-password" 
           required 
           placeholder="••••••••••••"
-          className="focus:shadow-[0_0_0_2px_rgba(3,22,53,0.1)] transition-all duration-200"
         />
       </Field>
-      <Button type="submit" className="w-full justify-center gap-2.5 transition-all duration-200 hover:translate-y-[-1px] active:translate-y-0 shadow-sm">
+      <Button type="submit" className="w-full justify-center gap-2.5 shadow-sm">
         <LogIn size={16} aria-hidden="true" />
         Authenticate Account
       </Button>

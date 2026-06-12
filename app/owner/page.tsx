@@ -1,7 +1,9 @@
 import { AlertTriangle, ClipboardCheck, Clock, Users } from "lucide-react";
 import { SectionHeading } from "@/components/section-heading";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { StatCard } from "@/components/ui/stat-card";
+import { ParseBadge, StatusBadge } from "@/components/ui/status-badge";
 import { sampleReport } from "@/lib/demo-data";
 import { listOwnerAssessments, listOwnerAttempts, listOwnerStudents } from "@/lib/live-data";
 
@@ -20,44 +22,27 @@ export default async function OwnerDashboardPage() {
         title="Owner dashboard"
         description="Operational view for scheduling, assignments, parse review, and moderation evidence."
       />
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <Clock className="mb-3 text-[var(--accent)]" aria-hidden="true" />
-          <p className="text-2xl font-semibold">{attempts.length}</p>
-          <p className="text-sm text-[var(--muted)]">Scheduled attempts</p>
-        </Card>
-        <Card>
-          <ClipboardCheck className="mb-3 text-[var(--accent)]" aria-hidden="true" />
-          <p className="text-2xl font-semibold">{publishedCount}</p>
-          <p className="text-sm text-[var(--muted)]">Published version</p>
-        </Card>
-        <Card>
-          <Users className="mb-3 text-[var(--accent)]" aria-hidden="true" />
-          <p className="text-2xl font-semibold">{students.length}</p>
-          <p className="text-sm text-[var(--muted)]">Managed students</p>
-        </Card>
-        <Card>
-          <AlertTriangle className="mb-3 text-[var(--warning)]" aria-hidden="true" />
-          <p className="text-2xl font-semibold">{reviewCount}</p>
-          <p className="text-sm text-[var(--muted)]">Finished attempts</p>
-        </Card>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Scheduled attempts" value={attempts.length} icon={<Clock size={18} aria-hidden="true" />} />
+        <StatCard label="Published versions" value={publishedCount} icon={<ClipboardCheck size={18} aria-hidden="true" />} />
+        <StatCard label="Managed students" value={students.length} icon={<Users size={18} aria-hidden="true" />} />
+        <StatCard label="Finished attempts" value={reviewCount} tone={reviewCount > 0 ? "warning" : "neutral"} icon={<AlertTriangle size={18} aria-hidden="true" />} />
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="p-0">
           {featuredAssessment ? (
-            <>
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">{featuredAssessment.title}</h2>
-                {typeof featuredAssessment.parse_confidence === "number" ? (
-                  <Badge tone="success">parse {Math.round(featuredAssessment.parse_confidence * 100)}%</Badge>
-                ) : null}
-              </div>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Latest status: {featuredAssessment.latest_status ?? "no version"}.
-              </p>
-            </>
+            <DataList className="border-0 shadow-none">
+              <DataListRow>
+                <DataListMeta className="mb-2">
+                  <StatusBadge status={featuredAssessment.latest_status} />
+                  <ParseBadge confidence={featuredAssessment.parse_confidence} />
+                </DataListMeta>
+                <h2 className="text-base font-semibold text-[var(--ink)]">{featuredAssessment.title}</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">Latest assessment activity.</p>
+              </DataListRow>
+            </DataList>
           ) : (
-            <p className="text-sm text-[var(--muted)]">No assessments yet.</p>
+            <p className="p-5 text-sm text-[var(--muted)]">No assessments yet.</p>
           )}
         </Card>
         <Card>
