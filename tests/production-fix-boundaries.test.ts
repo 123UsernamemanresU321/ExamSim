@@ -131,6 +131,15 @@ describe("Edge state and content release boundaries", () => {
     expect(form).toContain("requiresAal2: true");
     expect(read("supabase/functions/upload-seb-config/index.ts")).toContain("requireOwnerAal2");
   });
+
+  it("does not auto-load source PDFs when opening an attempt marking workspace", () => {
+    const source = read("components/owner/marking-center-panel.tsx");
+    const fallback = source.slice(source.indexOf("function SourcePdfFallback"), source.indexOf("function QuestionPromptNode"));
+    expect(fallback).toContain("Load source preview");
+    expect(fallback).toContain("Open source PDF");
+    expect(fallback).toContain("Source PDF preview is not loaded automatically");
+    expect(fallback).not.toContain("useEffect(()");
+  });
 });
 
 describe("AI parse review boundary", () => {

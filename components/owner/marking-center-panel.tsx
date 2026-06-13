@@ -160,37 +160,50 @@ function SourcePdfFallback({
 }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
+  const [previewRequested, setPreviewRequested] = useState(false);
   const pageLabel = node.source_page_start
     ? node.source_page_end && node.source_page_end !== node.source_page_start
       ? `pages ${node.source_page_start}-${node.source_page_end}`
       : `page ${node.source_page_start}`
     : "source PDF";
 
-  useEffect(() => {
-    let cancelled = false;
-    async function signSource() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
-          body: {
-            bucket: "assessment-sources",
-            object_path: sourceObjectPath,
-            purpose: "assessment_source",
-            expires_in_seconds: 300,
-          },
-          requiresAal2: true,
-        });
-        if (!data?.signed_url) throw new Error("Could not create signed source URL");
-        if (!cancelled) setSignedUrl(data.signed_url);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Could not open source PDF");
-      }
+  async function signSource() {
+    if (signedUrl) return signedUrl;
+    setIsSigning(true);
+    setError(null);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const data = await invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+        body: {
+          bucket: "assessment-sources",
+          object_path: sourceObjectPath,
+          purpose: "assessment_source",
+          expires_in_seconds: 300,
+        },
+        requiresAal2: true,
+      });
+      if (!data?.signed_url) throw new Error("Could not create signed source URL");
+      setSignedUrl(data.signed_url);
+      return data.signed_url;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not open source PDF";
+      setError(message);
+      return null;
+    } finally {
+      setIsSigning(false);
     }
-    signSource();
-    return () => {
-      cancelled = true;
-    };
-  }, [sourceObjectPath]);
+  }
+
+  async function loadPreview() {
+    setPreviewRequested(true);
+    await signSource();
+  }
+
+  async function openSourcePdf() {
+    const url = await signSource();
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <div className="mt-6 rounded-xl border border-amber-100 bg-amber-50/40 p-4">
@@ -208,29 +221,32 @@ function SourcePdfFallback({
             </p>
           ) : null}
         </div>
-        {signedUrl ? (
-          <a
-            href={signedUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
-          >
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" className="h-9 text-xs" onClick={loadPreview} disabled={isSigning}>
+            <FileText size={14} />
+            {previewRequested && isSigning ? "Loading..." : previewRequested ? "Reload preview" : "Load source preview"}
+          </Button>
+          <Button type="button" variant="secondary" className="h-9 text-xs" onClick={openSourcePdf} disabled={isSigning}>
             <ExternalLink size={14} />
-            Open source PDF
-          </a>
-        ) : null}
+            {isSigning && !previewRequested ? "Preparing..." : "Open source PDF"}
+          </Button>
+        </div>
       </div>
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-white p-3 text-xs text-amber-900">{error}</div>
-      ) : signedUrl ? (
+      ) : previewRequested && signedUrl ? (
         <iframe
           title={`Original source PDF for ${node.node_key}`}
           src={signedUrl}
           className="h-[620px] w-full rounded-lg border border-amber-100 bg-white"
         />
-      ) : (
+      ) : previewRequested && isSigning ? (
         <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-amber-200 bg-white/60 text-sm italic text-amber-700">
           Loading original PDF context...
+        </div>
+      ) : (
+        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-amber-200 bg-white/60 text-sm italic text-amber-700">
+          Source PDF preview is not loaded automatically. Use the buttons above if you need the original paper context.
         </div>
       )}
     </div>

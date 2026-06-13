@@ -97,14 +97,15 @@ remain hidden.
 
 - `assessment-sources`: original PDFs, LaTeX, and JSON imports.
 - `assessment-packages`: immutable normalized packages and rendered assets.
-- `answer-uploads`: one current student PDF per root/main-question upload slot plus blank placeholders.
+- `answer-uploads`: one current student PDF per root/main-question upload slot plus generated blank-placeholder PDFs.
 - `marking-packets`: optional owner-only generated bundles.
 
 All buckets are private. Signed URLs are minted on demand by Edge Functions after server-side state checks.
 
 Answer upload slots are strict: one PDF per main question, max 10MB, no replacement after confirmed upload or blank
-placeholder. Subquestions and deeper parts are marked inside the main question context; they do not get separate student
-upload slots.
+placeholder. Blank submissions create a generated private PDF artifact so markers can distinguish deliberate blank
+work from missing/lost uploads. Subquestions and deeper parts are marked inside the main question context; they do not
+get separate student upload slots.
 
 ## Edge Function List
 

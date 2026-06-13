@@ -102,7 +102,9 @@ reusable bank record and generated-paper references; it does not delete the orig
 
 Upload slots enforce one PDF per root/main question, max 10MB. Subquestions and deeper parts receive marks and feedback,
 but do not receive separate student submission slots. A confirmed upload or blank placeholder locks the slot;
-replacement is not supported in production v1.
+replacement is not supported in production v1. Blank placeholders are generated server-side as private PDFs in
+`answer-uploads`, with metadata and an attempt event, so markers can distinguish deliberate blank submissions from
+missing files.
 
 Upload sanity checks are advisory moderation/marking evidence, not a replacement for owner review. The Edge fallback
 checks metadata and estimated page counts server-side; deeper OCR, handwriting readability, and blank-page detection

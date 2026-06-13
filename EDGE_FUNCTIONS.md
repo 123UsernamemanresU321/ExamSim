@@ -112,7 +112,11 @@ TODO.
 
 ## submit-blank-slot
 
-Student only for own attempt. Records a standardized blank placeholder for a slot and locks the slot.
+Student only for own attempt. Records a standardized blank placeholder for a slot and locks the slot. The function now
+generates a one-page professional `Blank Placeholder` PDF server-side, uploads it to the private `answer-uploads`
+bucket at the slot's blank placeholder path, stores the generated filename and byte size on `upload_slots`, and records
+an `upload.blank_placeholder_submitted` attempt event. This makes blank submissions visible to markers as deliberate
+student action rather than an ambiguous missing upload.
 
 ## save-text-response
 

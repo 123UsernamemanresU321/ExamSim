@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { calculateAvailableMarks, calculateAwardedMarks, isFeedbackVisibleToStudent, validateAwardedMark } from "@/lib/marking";
 import { isAllowedOwnerAal, requiresOwnerAal2 } from "@/lib/owner-security";
 import { mineruWorkerInstructions, nextParserStatusForMinerUResult } from "@/lib/parser-jobs";
 import { canAcceptOneFileForSlot, MAX_UPLOAD_BYTES, uploadSizeLabel, validatePdfUpload } from "@/lib/upload-policy";
+
+function read(path: string) {
+  return readFileSync(path, "utf8");
+}
 
 describe("production owner security helpers", () => {
   it("requires owner AAL2 for sensitive production actions", () => {
@@ -32,6 +37,17 @@ describe("strict upload policy", () => {
     expect(canAcceptOneFileForSlot({ status: "pending" })).toBe(true);
     expect(canAcceptOneFileForSlot({ status: "uploaded", object_path: "answer-uploads/a.pdf" })).toBe(false);
     expect(canAcceptOneFileForSlot({ status: "blank_placeholder", locked_at: "2026-05-06T08:00:00.000Z" })).toBe(false);
+  });
+
+  it("generates a professional PDF artifact for blank placeholders", () => {
+    const edge = read("supabase/functions/submit-blank-slot/index.ts");
+    expect(edge).toContain("PDFDocument.create");
+    expect(edge).toContain('storage.from("answer-uploads").upload');
+    expect(edge).toContain("Blank Placeholder");
+    expect(edge).toContain("original_file_name: placeholderFileName");
+    expect(edge).toContain("file_size_bytes: bytes.byteLength");
+    expect(edge).toContain('event_type: "upload.blank_placeholder_submitted"');
+    expect(edge).toContain("It is not a missing upload, lost write-up, or failed file transfer.");
   });
 });
 
