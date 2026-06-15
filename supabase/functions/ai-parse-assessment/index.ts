@@ -3,6 +3,7 @@ import { parseAiJsonObject } from "../_shared/ai-json.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
+import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
 
 type Body = {
   assessment_version_id: string;
@@ -28,12 +29,12 @@ serve(async (request) => {
     const { user, admin } = await requireOwnerAal2(request);
     const ownerProfile = await profileForAuthUser(user.id);
     const body = await readJson<Body>(request);
-    if (!body.assessment_version_id) return json({ error: "assessment_version_id is required" }, 400);
+    if (!body.assessment_version_id) return json(request, { error: "assessment_version_id is required" }, 400);
 
     const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
-    if (!apiKey) return json({ error: "DEEPSEEK_API_KEY is not configured" }, 500);
+    if (!apiKey) return json(request, { error: "DEEPSEEK_API_KEY is not configured" }, 500);
     const provider = Deno.env.get("AI_PARSE_PROVIDER") || "deepseek";
-    if (provider !== "deepseek") return json({ error: "Only DeepSeek is configured for production AI parse" }, 500);
+    if (provider !== "deepseek") return json(request, { error: "Only DeepSeek is configured for production AI parse" }, 500);
     const model = body.repair
       ? Deno.env.get("AI_PARSE_REPAIR_MODEL") || "deepseek-v4-pro"
       : Deno.env.get("AI_PARSE_MODEL") || "deepseek-v4-flash";
@@ -44,7 +45,14 @@ serve(async (request) => {
       .eq("id", body.assessment_version_id)
       .single();
     if (versionError) throw versionError;
-    if (version.assessments?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    if (version.assessments?.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
+
+    await enforceRateLimit(admin, {
+      scope: "ai-parse-assessment:owner",
+      key: ownerProfile.id,
+      limit: envInt("AI_PARSE_OWNER_HOURLY_LIMIT", 20),
+      windowSeconds: 3600,
+    });
 
     const sourceText = await loadSourceText(admin, body, version);
     const originalSourceText = version.source_object_path && !version.source_object_path.toLowerCase().endsWith(".pdf")
@@ -54,11 +62,11 @@ serve(async (request) => {
     const existingPackage = await loadNormalizedPackage(admin, version);
     const markschemeContext = await loadMarkschemeContext(admin, version, existingPackage);
     if (!sourceText.trim() && !originalSourceText.trim() && version.source_kind !== "pdf") {
-      return json({ error: "source_text or readable original source is required for non-PDF sources" }, 400);
+      return json(request, { error: "source_text or readable original source is required for non-PDF sources" }, 400);
     }
     
     if (version.source_kind === "pdf" && !sourceText.trim()) {
-      return json({ error: "The PDF has not been parsed by MinerU yet. Please run MinerU first, then use AI Suggestion." }, 400);
+      return json(request, { error: "The PDF has not been parsed by MinerU yet. Please run MinerU first, then use AI Suggestion." }, 400);
     }
 
     const { data: parseJob, error: parseJobError } = await admin
@@ -673,10 +681,10 @@ serve(async (request) => {
       confidence: suggestion.confidence,
     });
 
-    return json({ ok: true, suggestion: saved });
+    return json(request, { ok: true, suggestion: saved });
   } catch (error) {
     console.error("AI Parse error:", error);
-    return errorResponse(error, "ai-parse-assessment failed");
+    return errorResponse(request, error, "ai-parse-assessment failed");
   }
 });
 

@@ -2,8 +2,10 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
 import {
   buildMineruAuthHeaders,
+  type MineruExtractResult,
   mineruApiBaseUrl,
   pickMineruExtractResult,
 } from "../_shared/mineru-hosted.ts";
@@ -19,13 +21,19 @@ serve(async (request) => {
     const { user, admin } = await requireOwnerAal2(request);
     const ownerProfile = await profileForAuthUser(user.id);
     const body = await readJson<Body>(request);
-    if (!body.parse_job_id) return json({ error: "parse_job_id is required" }, 400);
+    if (!body.parse_job_id) return json(request, { error: "parse_job_id is required" }, 400);
 
     const { data: parseJob, error: parseJobError } = await admin.from("parse_jobs").select("*").eq("id", body.parse_job_id).single();
     if (parseJobError) throw parseJobError;
-    if (parseJob.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    if (parseJob.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
+    await enforceRateLimit(admin, {
+      scope: "mineru-poll-hosted-job:owner",
+      key: ownerProfile.id,
+      limit: envInt("MINERU_POLL_OWNER_HOURLY_LIMIT", 240),
+      windowSeconds: 3600,
+    });
     if (parseJob.external_provider !== "mineru_hosted" || !parseJob.external_batch_id) {
-      return json({ error: "Parse job has not been submitted to hosted MinerU" }, 400);
+      return json(request, { error: "Parse job has not been submitted to hosted MinerU" }, 400);
     }
 
     console.log(`Polling MinerU job result for batch: ${parseJob.external_batch_id}`);
@@ -66,7 +74,7 @@ serve(async (request) => {
           metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_poll_error: message },
         })
         .eq("id", parseJob.id);
-      return errorResponse(new Error(message), "mineru-poll-hosted-job failed");
+      return errorResponse(request, new Error(message), "mineru-poll-hosted-job failed");
     }
     
     let result: MineruExtractResult;
@@ -84,7 +92,7 @@ serve(async (request) => {
           metadata_json: { ...(parseJob.metadata_json ?? {}), last_mineru_poll_error: message, raw_result: rawResult },
         })
         .eq("id", parseJob.id);
-      return json({ ok: false, status: "failed", external_state: "parse_error", error_message: message }, 500);
+      return json(request, { ok: false, status: "failed", external_state: "parse_error", error_message: message }, 500);
     }
 
     if (result.state !== "done") {
@@ -112,7 +120,7 @@ serve(async (request) => {
         })
         .eq("id", parseJob.id);
       if (updateError) throw updateError;
-      return json({ ok: status !== "failed", status, external_state: result.state, error_message: errorMessage });
+      return json(request, { ok: status !== "failed", status, external_state: result.state, error_message: errorMessage });
     }
 
     try {
@@ -188,7 +196,7 @@ serve(async (request) => {
         result_object_path: primaryArtifact?.object_path ?? zipPath,
       });
 
-      return json({
+      return json(request, {
         ok: true,
         status: "review_required",
         result_object_path: primaryArtifact?.object_path ?? zipPath,
@@ -225,10 +233,10 @@ serve(async (request) => {
           },
         })
         .eq("id", parseJob.id);
-      return errorResponse(new Error(`Extraction failed: ${message}`), "mineru-poll-hosted-job failed");
+      return errorResponse(request, new Error(`Extraction failed: ${message}`), "mineru-poll-hosted-job failed");
     }
   } catch (error) {
-    return errorResponse(error, "mineru-poll-hosted-job failed");
+    return errorResponse(request, error, "mineru-poll-hosted-job failed");
   }
 });
 

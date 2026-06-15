@@ -156,6 +156,21 @@ Required Edge configuration:
 - `APP_ALLOWED_ORIGINS=https://examvault.tutor-mcp.com,https://exam-vault-zeta.vercel.app,http://localhost:3000`
 - `SEB_SESSION_VERIFICATION_TTL_SECONDS=300`
 
+## Edge API Hardening
+
+Supabase Edge responses reflect CORS only for `APP_ALLOWED_ORIGINS`; unknown browser origins fail closed on preflight.
+Authenticated owner/student routes and API responses are served with private no-store cache headers. Production browser
+responses include CSP, HSTS, frame, content-type, referrer, and permissions-policy headers.
+
+Student activation, AI parse suggestions, and hosted MinerU submit/poll calls use the `edge_rate_limits` table and
+`consume_edge_rate_limit` RPC as a service-role-only rate-limit boundary. Provider-side spend caps and alerting are
+still required in DeepSeek/MinerU dashboards.
+
+Self-hosted MinerU callbacks must use `MINERU_WORKER_HMAC_SECRET` and send `x-exam-vault-timestamp`,
+`x-exam-vault-delivery-id`, and `x-exam-vault-signature` over `timestamp.deliveryId.rawBody`. Callback delivery ids are
+stored in `parse_worker_callbacks` to prevent replay. The legacy `MINERU_WORKER_SECRET` header is allowed only when
+`EXAM_VAULT_ALLOW_LEGACY_WORKER_SECRET=1` for local or temporary rollout use.
+
 ## External KMS
 
 The Cloudflare KMS wrapper implements envelope-key wrapping for server-side callers. Application code generates a data
@@ -165,6 +180,6 @@ storing plaintext in KMS-required paths.
 
 ## Future Hardening
 
-- External rate limiting and anomaly alerts around Edge Functions.
+- Provider-dashboard spend caps and anomaly alerts around DeepSeek, MinerU, Supabase Edge Functions, and Storage.
 - KMS key rotation procedures and recovery drills.
 - Formal legal review before under-13 learners, school records, or third-party marketing integrations are introduced.

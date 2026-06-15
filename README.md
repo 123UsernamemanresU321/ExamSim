@@ -37,7 +37,8 @@ Server-only application and Supabase Edge secrets:
 SUPABASE_SERVICE_ROLE_KEY=
 OWNER_EMAIL=
 ATTEMPT_STATE_TOKEN_SECRET=
-MINERU_WORKER_SECRET=
+APP_ALLOWED_ORIGINS=https://examvault.tutor-mcp.com,https://exam-vault-zeta.vercel.app,http://localhost:3000
+MINERU_WORKER_HMAC_SECRET=
 MINERU_PROVIDER=hosted
 MINERU_API_KEY=
 MINERU_API_BASE_URL=https://mineru.net
@@ -49,6 +50,9 @@ DEEPSEEK_API_KEY=
 AI_PARSE_PROVIDER=deepseek
 AI_PARSE_MODEL=deepseek-v4-flash
 AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
+AI_PARSE_OWNER_HOURLY_LIMIT=20
+MINERU_SUBMIT_OWNER_HOURLY_LIMIT=20
+MINERU_POLL_OWNER_HOURLY_LIMIT=240
 EXTERNAL_KMS_PROVIDER=cloudflare
 EXTERNAL_KMS_WRAP_URL=
 EXTERNAL_KMS_UNWRAP_URL=
@@ -60,10 +64,13 @@ Optional self-hosted MinerU worker environment:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-MINERU_WORKER_SECRET=
+MINERU_WORKER_HMAC_SECRET=
 MINERU_MODEL_SOURCE=huggingface
 POLL_INTERVAL_SECONDS=20
 ```
+
+`MINERU_WORKER_SECRET` is legacy-only and must not be used in production unless `EXAM_VAULT_ALLOW_LEGACY_WORKER_SECRET=1`
+is temporarily set during a controlled worker rollout.
 
 Cloudflare KMS worker secrets and deploy-only variables:
 
@@ -112,6 +119,8 @@ Set Supabase Edge Function secrets with the Supabase CLI:
 ```bash
 supabase secrets set DEEPSEEK_API_KEY=...
 supabase secrets set AI_PARSE_PROVIDER=deepseek AI_PARSE_MODEL=deepseek-v4-flash AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
+supabase secrets set APP_ALLOWED_ORIGINS=https://examvault.tutor-mcp.com,https://exam-vault-zeta.vercel.app,http://localhost:3000
+supabase secrets set MINERU_WORKER_HMAC_SECRET=...
 supabase secrets set MINERU_PROVIDER=hosted MINERU_API_KEY=... MINERU_API_BASE_URL=https://mineru.net MINERU_UPLOAD_MODE=file_upload MINERU_MODEL_VERSION=vlm MINERU_LANGUAGE=en MINERU_STALE_AFTER_SECONDS=2700
 supabase secrets set EXTERNAL_KMS_PROVIDER=cloudflare EXTERNAL_KMS_WRAP_URL=https://<worker>/wrap EXTERNAL_KMS_UNWRAP_URL=https://<worker>/unwrap EXTERNAL_KMS_ADMIN_TOKEN=...
 ```
@@ -119,6 +128,15 @@ supabase secrets set EXTERNAL_KMS_PROVIDER=cloudflare EXTERNAL_KMS_WRAP_URL=http
 Hosted MinerU uses `MINERU_API_KEY` in Supabase Edge Functions only. By default the Edge Function requests a MinerU
 upload URL and sends the private PDF server-to-server, which avoids signed URL fetch timeouts. Output is pulled back
 into private Supabase Storage for owner review. No RunPod pod is needed for hosted mode.
+
+Self-hosted MinerU callbacks to `complete-parse-job` must include:
+
+- `x-exam-vault-timestamp`: Unix seconds or ISO timestamp.
+- `x-exam-vault-delivery-id`: unique callback id.
+- `x-exam-vault-signature`: `sha256=<hex hmac>` over `timestamp.deliveryId.rawBody` using `MINERU_WORKER_HMAC_SECRET`.
+
+Configure provider-side DeepSeek/MinerU spend caps and alerting in their dashboards. The app also enforces owner-scoped
+hourly limits through `edge_rate_limits`, but provider-level caps are still required before launch.
 
 Provision the configured owner after migrations are applied:
 

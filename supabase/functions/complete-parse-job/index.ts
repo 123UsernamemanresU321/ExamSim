@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
-import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { errorResponse, handleOptions, json } from "../_shared/http.ts";
+import { verifyMineruWorkerRequest } from "../_shared/webhook-signature.ts";
 
 type Body = {
   parse_job_id: string;
@@ -18,15 +19,32 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const workerSecret = Deno.env.get("MINERU_WORKER_SECRET");
-    if (!workerSecret) return json({ error: "MINERU_WORKER_SECRET is not configured" }, 500);
-    const provided = request.headers.get("x-mineru-worker-secret") ?? "";
-    if (provided !== workerSecret) return errorResponse(new Error("Unauthorized parser worker"), "complete-parse-job failed");
-
-    const body = await readJson<Body>(request);
-    if (!body.parse_job_id) return json({ error: "parse_job_id is required" }, 400);
+    const rawBody = await request.text();
+    const verification = await verifyMineruWorkerRequest(request, rawBody);
+    let body: Body;
+    try {
+      body = JSON.parse(rawBody) as Body;
+    } catch {
+      return json(request, { error: "Invalid JSON body" }, 400);
+    }
+    if (!body.parse_job_id) return json(request, { error: "parse_job_id is required" }, 400);
     const admin = getAdminClient();
     const now = new Date().toISOString();
+
+    const { data: existingJob, error: existingJobError } = await admin
+      .from("parse_jobs")
+      .select("id,status,assessment_version_id")
+      .eq("id", body.parse_job_id)
+      .maybeSingle();
+    if (existingJobError) throw existingJobError;
+    if (!existingJob?.id) return json(request, { error: "parse_job_id was not found" }, 400);
+
+    const insertedCallback = await recordWorkerCallback(admin, verification, body, now);
+    if (!insertedCallback) return json(request, { ok: true, duplicate: true, status: "ignored" });
+    if (!["queued", "running"].includes(String(existingJob.status))) {
+      await markWorkerCallback(admin, verification.deliveryId, "ignored", { reason: "parse_job_already_finalized", status: existingJob.status });
+      return json(request, { ok: true, status: existingJob.status, ignored: true });
+    }
 
     const { data: parseJob, error: jobError } = await admin
       .from("parse_jobs")
@@ -37,9 +55,14 @@ serve(async (request) => {
         completed_at: now,
       })
       .eq("id", body.parse_job_id)
+      .in("status", ["queued", "running"])
       .select("assessment_version_id")
-      .single();
+      .maybeSingle();
     if (jobError) throw jobError;
+    if (!parseJob?.assessment_version_id) {
+      await markWorkerCallback(admin, verification.deliveryId, "ignored", { reason: "parse_job_update_not_applied" });
+      return json(request, { ok: true, status: "ignored" });
+    }
 
     if (body.artifacts?.length) {
       const { error: artifactError } = await admin.from("parse_job_artifacts").insert(
@@ -65,8 +88,36 @@ serve(async (request) => {
         .eq("id", parseJob.assessment_version_id);
     }
 
-    return json({ ok: true, status: body.ok ? "review_required" : "failed" });
+    await markWorkerCallback(admin, verification.deliveryId, "accepted", { ok: body.ok, used_legacy_secret: verification.usedLegacySecret });
+    return json(request, { ok: true, status: body.ok ? "review_required" : "failed" });
   } catch (error) {
-    return errorResponse(error, "complete-parse-job failed");
+    return errorResponse(request, error, "complete-parse-job failed");
   }
 });
+
+async function recordWorkerCallback(admin: any, verification: Awaited<ReturnType<typeof verifyMineruWorkerRequest>>, body: Body, now: string) {
+  const { error } = await admin.from("parse_worker_callbacks").insert({
+    delivery_id: verification.deliveryId,
+    parse_job_id: body.parse_job_id,
+    signed_at: verification.usedLegacySecret ? null : new Date(Number(/^\d+$/.test(verification.timestamp) ? Number(verification.timestamp) * (verification.timestamp.length <= 10 ? 1000 : 1) : Date.parse(verification.timestamp))).toISOString(),
+    signature_prefix: verification.signature === "legacy" ? "legacy" : verification.signature.slice(0, 16),
+    status: "received",
+    received_at: now,
+    metadata_json: {
+      ok: body.ok,
+      result_object_path: body.result_object_path ?? null,
+      artifact_count: body.artifacts?.length ?? 0,
+      used_legacy_secret: verification.usedLegacySecret,
+    },
+  });
+  if (!error) return true;
+  if (String((error as { code?: string }).code) === "23505") return false;
+  throw error;
+}
+
+async function markWorkerCallback(admin: any, deliveryId: string, status: "accepted" | "ignored" | "failed", metadata: Record<string, unknown>) {
+  await admin
+    .from("parse_worker_callbacks")
+    .update({ status, metadata_json: metadata })
+    .eq("delivery_id", deliveryId);
+}

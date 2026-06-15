@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
 import {
   buildMineruAuthHeaders,
   buildMineruBatchRequest,
@@ -17,20 +18,28 @@ type Body = {
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
+  let body: Body | null = null;
   try {
     const { user, admin } = await requireOwnerAal2(request);
     const ownerProfile = await profileForAuthUser(user.id);
-    const body = await readJson<Body>(request);
-    if (!body.parse_job_id) return json({ error: "parse_job_id is required" }, 400);
-    if (Deno.env.get("MINERU_PROVIDER") !== "hosted") return json({ error: "MINERU_PROVIDER must be hosted" }, 500);
+    body = await readJson<Body>(request);
+    if (!body.parse_job_id) return json(request, { error: "parse_job_id is required" }, 400);
+    if (Deno.env.get("MINERU_PROVIDER") !== "hosted") return json(request, { error: "MINERU_PROVIDER must be hosted" }, 500);
 
     const { data: parseJob, error: parseJobError } = await admin.from("parse_jobs").select("*").eq("id", body.parse_job_id).single();
     if (parseJobError) throw parseJobError;
-    if (parseJob.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    if (parseJob.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
+
+    await enforceRateLimit(admin, {
+      scope: "mineru-submit-hosted-job:owner",
+      key: ownerProfile.id,
+      limit: envInt("MINERU_SUBMIT_OWNER_HOURLY_LIMIT", 20),
+      windowSeconds: 3600,
+    });
     
     const canForceRestart = body.force === true;
     if (!["queued", "failed"].includes(parseJob.status) && !canForceRestart) {
-      return json({ ok: true, status: parseJob.status, external_batch_id: parseJob.external_batch_id, message: "Parse job is already submitted." });
+      return json(request, { ok: true, status: parseJob.status, external_batch_id: parseJob.external_batch_id, message: "Parse job is already submitted." });
     }
 
     if (canForceRestart) {
@@ -83,7 +92,8 @@ serve(async (request) => {
         const uploadUrl = submission.uploadUrls[0];
         if (!uploadUrl) {
           console.error("MinerU did not return an upload URL. Raw response:", JSON.stringify(submitBody));
-          throw new Error(`MinerU did not return an upload URL. Response keys: ${Object.keys(submitBody).join(", ")}`);
+          const responseKeys = submitBody && typeof submitBody === "object" ? Object.keys(submitBody).join(", ") : typeof submitBody;
+          throw new Error(`MinerU did not return an upload URL. Response keys: ${responseKeys}`);
         }
         
         console.log(`Downloading source PDF from storage: ${parseJob.source_object_path}`);
@@ -193,7 +203,7 @@ serve(async (request) => {
       });
 
       console.log(`MinerU hosted job submission successful.`);
-      return json({ ok: true, status: "running", external_batch_id: submission.batchId, upload_mode: uploadMode, restarted: canForceRestart });
+      return json(request, { ok: true, status: "running", external_batch_id: submission.batchId, upload_mode: uploadMode, restarted: canForceRestart });
     } catch (error) {
       clearTimeout(submitTimeoutId);
       if (error instanceof Error && error.name === "AbortError") {
@@ -217,7 +227,7 @@ serve(async (request) => {
     } catch (dbError) {
       console.error("Failed to update parse job status on error:", dbError);
     }
-    return errorResponse(error, "mineru-submit-hosted-job failed");
+    return errorResponse(request, error, "mineru-submit-hosted-job failed");
   }
 });
 

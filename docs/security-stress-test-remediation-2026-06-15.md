@@ -1,0 +1,24 @@
+# Security Stress Test Remediation
+
+Date: 2026-06-15  
+Source report: `docs/security-stress-test-report-2026-06-15.md`
+
+| Finding | Severity | Original Issue | Remediation Performed | Code References | Test References | Remaining Manual Steps | Final Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| EV-SEC-001 | High | Owner source signed URL authorization interpolated `object_path` into a PostgREST `.or()` filter before signing the requested path. | Replaced the interpolated filter with separate exact `source_object_path` and `markscheme_source_object_path` lookups before signing. | `supabase/functions/owner-sign-storage-url/index.ts` | `tests/security-remediation.test.ts` | Run staging BOLA test with synthetic owner A/B objects. | Fixed |
+| EV-SEC-002 | High | Upload confirmation trusted client-supplied size/content type and could lock a slot before proving the object was a real PDF. | Added server-side private Storage download and byte verification before slot lock. Stored server-verified byte size/content type and kept richer sanity checking after confirmation. | `supabase/functions/_shared/pdf-upload.ts`, `supabase/functions/confirm-upload-slot/index.ts`, `supabase/functions/analyze-upload/index.ts` | `tests/security-remediation.test.ts` | Consider external malware scanning for high-stakes deployments. | Fixed |
+| EV-SEC-003 | Medium | Activation and expensive AI/OCR endpoints had no app-level rate limits or owner cost controls. | Added `edge_rate_limits`, atomic `consume_edge_rate_limit`, shared rate-limit helper, activation IP/login-code limits, and owner-scoped AI/MinerU quotas. | `supabase/migrations/20260615152427_security_report_remediation.sql`, `supabase/functions/_shared/rate-limit.ts`, `supabase/functions/activate-student/index.ts`, `supabase/functions/ai-parse-assessment/index.ts`, `supabase/functions/mineru-submit-hosted-job/index.ts`, `supabase/functions/mineru-poll-hosted-job/index.ts` | `tests/security-remediation.test.ts` | Configure DeepSeek/MinerU dashboard spend caps and alerting; monitor denied-limit events. | Fixed plus manual provider controls required |
+| EV-SEC-004 | Medium | Edge CORS used wildcard origin while allowing authorization headers. | Replaced shared wildcard CORS with exact origin reflection from `APP_ALLOWED_ORIGINS`; unknown browser origins fail closed on preflight. | `supabase/functions/_shared/http.ts` | `tests/security-remediation.test.ts` | Set `APP_ALLOWED_ORIGINS` in Supabase Edge secrets for production, preview, and local dev origins. | Fixed |
+| EV-SEC-005 | Medium | Next.js responses lacked CSP and HSTS. | Added CSP, HSTS, and private no-store cache headers for owner/student/API routes while preserving existing frame/content/referrer/permissions headers. | `next.config.ts` | `tests/security-remediation.test.ts` | Validate CSP in report-only mode against staging if new third-party assets are introduced. | Fixed |
+| EV-SEC-006 | Medium | Parser worker callback used a static shared secret without replay protection. | Added HMAC verification over `timestamp.deliveryId.rawBody`, timestamp tolerance, delivery-id replay table, and queued/running status guard. Legacy secret is opt-in only. | `supabase/functions/_shared/webhook-signature.ts`, `supabase/functions/complete-parse-job/index.ts`, `supabase/migrations/20260615152427_security_report_remediation.sql` | `tests/security-remediation.test.ts` | Update any self-hosted MinerU worker to send HMAC headers; rotate old `MINERU_WORKER_SECRET`. | Fixed plus worker rollout required |
+| EV-SEC-007 | Info | Local `.env.local` contains server-only secrets but was untracked. | Confirmed no code change needed; documented that secrets remain server-only and must live in provider secret stores. | `README.md`, `SECURITY.md` | Existing secret-boundary scans in `tests/production-fix-boundaries.test.ts` plus manual Git history check from source report. | Rotate any secret ever copied into logs, screenshots, or external tooling. | Requires manual operational hygiene |
+| EV-SEC-008 | Info | Dynamic staging validation was not performed because report inputs used placeholder URLs/accounts. | Added remediation documentation and retained staging validation as a launch gate. | `docs/security-stress-test-report-2026-06-15.md`, this file | N/A | Provide staging URLs and synthetic owner/student accounts, then run the dynamic test plan from the original report. | Requires staging validation |
+
+## Manual Launch Checklist
+
+- Set `APP_ALLOWED_ORIGINS` in Supabase Edge secrets.
+- Set `MINERU_WORKER_HMAC_SECRET` in Supabase Edge and any self-hosted MinerU worker.
+- Disable `EXAM_VAULT_ALLOW_LEGACY_WORKER_SECRET` in production after worker rollout.
+- Rotate old `MINERU_WORKER_SECRET` after HMAC rollout.
+- Configure DeepSeek and MinerU spend limits, quota alerts, and anomaly alerts in provider dashboards.
+- Run low-risk staging validation with synthetic owner/student accounts before launch.

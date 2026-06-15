@@ -10,7 +10,9 @@ hash and records the owner 13+ attestation.
 
 ## activate-student
 
-Public activation boundary. Input: `{ login_code, activation_code, new_password }`. Validates the hash, marks activation, and sets the student's password or completes the configured auth flow.
+Public activation boundary. Input: `{ login_code, activation_code, new_password }`. Rate-limited by request IP and
+normalized login code. Validates the activation hash with generic failure messages, marks activation, and sets the
+student's password or completes the configured auth flow.
 
 ## ingest-assessment
 
@@ -99,8 +101,9 @@ signed upload token for one PDF path only.
 ## confirm-upload-slot
 
 Student only for own attempt. Confirms the uploaded object path and updates the trusted slot row after state and slot
-validation. Enforces PDF content type, max 10MB file size, stores the sanitized original filename for student
-verification, and allows no replacement after successful confirmation.
+validation. Downloads the private `answer-uploads` object server-side before locking the slot, verifies actual PDF magic
+bytes and byte size, stores the sanitized original filename plus server-verified metadata, and allows no replacement
+after successful confirmation. Client-reported content type and size are advisory only.
 
 ## analyze-upload
 
@@ -151,18 +154,23 @@ members. Group assignment later expands to one attempt per student.
 
 ## complete-parse-job
 
-Worker-secret only. Legacy/self-hosted MinerU worker callback used to mark parse jobs succeeded, failed, or
-review-required and attach private Storage artifact paths. MinerU output is draft parse evidence; owner review remains
-mandatory.
+Self-hosted MinerU worker callback. Requires `MINERU_WORKER_HMAC_SECRET` with `x-exam-vault-timestamp`,
+`x-exam-vault-delivery-id`, and `x-exam-vault-signature` over `timestamp.deliveryId.rawBody`. Delivery ids are stored in
+`parse_worker_callbacks` to prevent replay, and callbacks only mutate `queued` or `running` parse jobs. Legacy
+`MINERU_WORKER_SECRET` is accepted only when `EXAM_VAULT_ALLOW_LEGACY_WORKER_SECRET=1`. MinerU output is draft parse
+evidence; owner review remains mandatory.
 
 ## mineru-submit-hosted-job
 
 Owner AAL2 only. Submits a queued PDF parse job to hosted MinerU using `MINERU_API_KEY` from Supabase Edge secrets.
 The Edge Function defaults to MinerU's file-upload URL flow, uploads the private source PDF server-to-server, stores the
 MinerU batch id on `parse_jobs`, and never exposes the MinerU token to the browser. A running job can be force-restarted
-from the owner review UI if the provider stays pending for too long.
+from the owner review UI if the provider stays pending for too long. Calls are owner-rate-limited through
+`edge_rate_limits`; provider-dashboard spend caps are still required.
 
 ## mineru-poll-hosted-job
+
+Owner AAL2 only. Polls hosted MinerU by batch id and is owner-rate-limited through `edge_rate_limits`.
 
 Owner AAL2 only. Polls hosted MinerU by batch id, downloads the completed result ZIP, uploads the ZIP and extracted
 Markdown/JSON/HTML/log artifacts to private `assessment-packages`, and marks the parse job `review_required`. Provider
@@ -297,8 +305,9 @@ If the Cloudflare KMS wrapper is configured, the ZIP object is AES-GCM encrypted
 ## owner-sign-storage-url
 
 Owner AAL2 only. Issues short-lived signed URLs for owner-only parse artifacts, answer uploads, and marking packet
-objects after checking the object belongs to the owner. Every issuance is audited. This replaces direct client-side
-Storage signing in parse review and marking views.
+objects after checking the exact requested object path belongs to the owner. Assessment source and markscheme paths use
+separate exact-match lookups rather than interpolated filter strings. Every issuance is audited. This replaces direct
+client-side Storage signing in parse review and marking views.
 
 ## get-student-results
 

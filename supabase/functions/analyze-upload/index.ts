@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { estimatePdfPageCount, hasPdfMagicBytes } from "../_shared/pdf-upload.ts";
 
 type Body = {
   upload_slot_id: string;
@@ -14,7 +15,7 @@ serve(async (request) => {
     const { user, admin } = await requireUser(request);
     const profile = await profileForAuthUser(user.id);
     const body = await readJson<Body>(request);
-    if (!body.upload_slot_id) return json({ error: "upload_slot_id is required" }, 400);
+    if (!body.upload_slot_id) return json(request, { error: "upload_slot_id is required" }, 400);
 
     const { data: slot, error: slotError } = await admin
       .from("upload_slots")
@@ -23,7 +24,7 @@ serve(async (request) => {
       .single();
     if (slotError) throw slotError;
     const attempt = Array.isArray(slot.attempts) ? slot.attempts[0] : slot.attempts;
-    if (profile.app_role !== "owner" && attempt?.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (profile.app_role !== "owner" && attempt?.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
 
     const objectPath = body.object_path ?? slot.object_path;
     const fileName = slot.original_file_name ?? objectPath?.split("/").pop() ?? null;
@@ -40,7 +41,8 @@ serve(async (request) => {
         const { data, error } = await admin.storage.from("answer-uploads").download(objectPath);
         if (error) throw error;
         const bytes = new Uint8Array(await data.arrayBuffer());
-        pageCount = estimatePageCount(bytes);
+        if (!hasPdfMagicBytes(bytes)) warnings.push({ code: "not_pdf_magic", severity: "high", message: "The uploaded object does not have a PDF header." });
+        pageCount = estimatePdfPageCount(bytes);
         hash = await sha256Hex(bytes);
         if (!pageCount || pageCount <= 0) warnings.push({ code: "page_count_unknown", severity: "medium", message: "The Edge fallback could not confirm the page count." });
       } catch (_error) {
@@ -87,31 +89,11 @@ serve(async (request) => {
       .single();
     if (saveError) throw saveError;
 
-    return json({ status, page_count: pageCount, warnings, check: saved });
+    return json(request, { status, page_count: pageCount, warnings, check: saved });
   } catch (error) {
-    return errorResponse(error, "analyze-upload failed");
+    return errorResponse(request, error, "analyze-upload failed");
   }
 });
-
-function estimatePageCount(bytes: Uint8Array) {
-  if (!bytes.length) return null;
-  const sample = new TextDecoder("iso-8859-1").decode(bytes.slice(0, Math.min(bytes.length, 12_000_000)));
-  const explicitPageCount = sample.match(/\/Type\s*\/Page(?!s)\b/g)?.length ?? 0;
-  const pageTreeCount = extractPageTreeCount(sample);
-  const candidates = [explicitPageCount, pageTreeCount].filter((count): count is number => typeof count === "number" && count > 0);
-  return candidates.length ? Math.max(...candidates) : null;
-}
-
-function extractPageTreeCount(pdfText: string): number | null {
-  const counts: number[] = [];
-  for (const match of pdfText.matchAll(/<<[\s\S]*?>>/g)) {
-    const dictionary = match[0];
-    if (!/\/Type\s*\/Pages\b/.test(dictionary)) continue;
-    const countMatch = dictionary.match(/\/Count\s+(\d+)\b/);
-    if (countMatch?.[1]) counts.push(Number(countMatch[1]));
-  }
-  return counts.length ? Math.max(...counts) : null;
-}
 
 async function sha256Hex(bytes: Uint8Array) {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
