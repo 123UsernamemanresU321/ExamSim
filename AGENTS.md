@@ -26,3 +26,5 @@ Future coding agents working on Exam Vault must:
 - Keep student upload queue changes tied to root-question upload slots; subquestions get marks and feedback, not separate upload/annotation ownership.
 - Keep owner bulk operations, marker assignments, and saved operational views behind owner-only RLS and server actions; do not expose operations board or support console metadata to students.
 - Keep student flag notes routed through the checked `set-question-flag` Edge Function; do not store them as client-only exam state.
+- Keep the no-login `/exam` flow Edge-mediated. Guest exam codes and guest access tokens must be hashed at rest, guests must not query sensitive tables directly, and package release/autosave/finalization must keep recomputing server-side attempt state.
+- Do not enable `seb_required` package release for guest attempts unless a server-verifiable SEB session evidence path exists; use the authenticated student SEB flow for secure-browser sittings.

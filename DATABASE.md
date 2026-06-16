@@ -216,6 +216,31 @@ feedback releases, work annotations, marking tickets, parser jobs, and owner aud
 - `replace_question_tree_for_version` replaces reviewed `question_nodes` and the draft package JSON in a single
   database transaction, validates duplicate/missing/cyclic parent keys, and refuses published versions.
 
+## Examsim Session Model
+
+The Examsim expansion adds code-based exam sessions without requiring student accounts for sitting the paper:
+
+- `exam_sessions` stores owner-managed sittings, hashed exam codes, open/start/close windows, delivery/security mode,
+  identity policy, attempt limits, and share instructions.
+- `student_roster_entries` stores owner-scoped memorable student numbers such as `DP1-007`, `MYP5-012`, `G11-026`, or
+  `E001`. A roster row may link to a student profile for released results, but the exam attempt itself can begin
+  without login.
+- `attempts.assignee_profile_id` is nullable for guest attempts. Guest identity fields, roster links, claim status,
+  duplicate flags, pause/force-submit timestamps, and `exam_session_id` preserve compatibility with authenticated
+  student attempts.
+- `attempt_access_tokens` stores only hashed opaque guest/resume/claim tokens. It has RLS enabled, no client read
+  policies, and privileges revoked from `anon` and `authenticated`; Edge Functions verify tokens with service-role
+  access.
+- `source_documents`, `source_pages`, and `question_source_regions` store visual PDF/LaTeX/image source anchors for the
+  visual compiler and source-page fallback editor.
+- `rubric_templates`, `rubric_template_items`, and `rubric_item_awards` support reusable rubric point banks and
+  M1/A1/B1-style checklist marking.
+- `invigilation_messages` and `live_interventions` store live chat/technical issue/broadcast messages plus owner actions
+  such as extra-time records, pause/resume, force submit, and identity resolution.
+
+All new tables are RLS-enabled. Owners manage their own rows through normal authenticated owner policies. Guest students
+use Edge Functions only and cannot query the tables directly from the browser.
+
 ## Backup Warning
 
 Database backups do not automatically include Supabase Storage object contents. Back up private buckets separately and test restoration of both database rows and object paths together.

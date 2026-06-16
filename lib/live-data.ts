@@ -174,7 +174,10 @@ function mapAttemptSummary(
     paper_code: assessment?.paper_code ?? null,
     subject: assessment?.subject ?? null,
     assessment_kind: assessment?.assessment_kind ?? null,
-    student: profileById.get(attempt.assignee_profile_id)?.display_name ?? "Student",
+    student: (attempt.assignee_profile_id ? profileById.get(attempt.assignee_profile_id)?.display_name : null)
+      ?? attempt.guest_student_name
+      ?? attempt.guest_student_number
+      ?? "Guest student",
     start_at_utc: attempt.start_at_utc,
     end_at_utc: attempt.end_at_utc,
     upload_deadline_at_utc: attempt.upload_deadline_at_utc,
@@ -508,7 +511,7 @@ export async function listStudentAttempts(): Promise<AttemptSummary[]> {
 async function mapAttemptCollections(attempts: Attempt[]): Promise<AttemptSummary[]> {
   const supabase = await createSupabaseServerClient();
   const assessmentIds = [...new Set(attempts.map((attempt) => attempt.assessment_id))];
-  const profileIds = [...new Set(attempts.map((attempt) => attempt.assignee_profile_id))];
+  const profileIds = [...new Set(attempts.map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id)))];
   const assessmentById = new Map<string, Assessment>();
   const profileById = new Map<string, Profile>();
 

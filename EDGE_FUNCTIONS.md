@@ -329,3 +329,43 @@ results page embeds the annotated copy when available and opens the original onl
 Student only. Lists the student's attempts with visible feedback releases and sanitized assessment metadata. This keeps
 the student results list off direct `feedback_releases`/`assessments` browser queries after direct student result
 policies are removed.
+
+## resolve-exam-code
+
+Public no-login entry point. Normalizes the submitted code, hashes it, finds an `exam_sessions` row by exact hash, and
+returns only safe public session metadata plus `invalid`, `not_open`, `lobby`, `live`, or `closed`. It never returns
+assessment package content or raw question nodes.
+
+## join-exam-session
+
+Public no-login join boundary. Validates student name and memorable student number, performs roster-first matching,
+creates or resumes a guest-compatible attempt, creates root-question upload slots through `create_upload_slots_for_attempt`,
+and returns an opaque guest token plus a short-lived state token. Exam codes and guest tokens are stored only as hashes.
+
+## guest-get-attempt-state
+
+Guest-only state endpoint. Verifies the opaque guest token, recomputes attempt state server-side, and issues a short-lived
+state token for subsequent guest operations. Client time is not authoritative.
+
+## guest-get-attempt-package
+
+Guest-only package release endpoint. Verifies the guest token and state token, recomputes server state, refuses `WAITING`
+content release, and loads the normalized package through private Storage/server metadata. `seb_required` guest package
+release is blocked in v1 rather than pretending browser lockdown can be proven without authenticated SEB session evidence.
+
+## guest-save-response
+
+Guest-only typed-answer autosave. Verifies guest token and state token, recomputes `ACTIVE`, resolves the requested
+question node against the attempt version, and upserts `text_responses`. It records a normal `text.autosaved` attempt
+event and does not trust client state alone.
+
+## guest-finalize-attempt
+
+Guest-only idempotent finalization. Verifies the guest token and upserts a submission receipt JSON so repeated submits do
+not duplicate the final record. Existing authenticated finalization remains unchanged.
+
+## guest-send-invigilation-message
+
+Guest-only technical issue/private message endpoint. Verifies the guest token and inserts `invigilation_messages` with
+`sender_kind = student_guest` for owner live-roster review. It is additive evidence and does not mutate moderation events
+or attempt timing.

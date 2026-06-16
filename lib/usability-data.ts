@@ -122,7 +122,7 @@ export async function listFeedbackReleaseControlRows() {
   if (attemptError) throw attemptError;
   if (releaseError) throw releaseError;
   const assessmentIds = [...new Set((attempts ?? []).map((attempt) => attempt.assessment_id))];
-  const profileIds = [...new Set((attempts ?? []).map((attempt) => attempt.assignee_profile_id))];
+  const profileIds = [...new Set((attempts ?? []).map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id)))];
   const [{ data: assessments, error: assessmentError }, { data: profiles, error: profileError }] = await Promise.all([
     assessmentIds.length ? supabase.from("assessments").select("id,title,paper_code").in("id", assessmentIds) : Promise.resolve({ data: [], error: null }),
     profileIds.length ? supabase.from("profiles").select("id,display_name").in("id", profileIds) : Promise.resolve({ data: [], error: null }),
@@ -136,7 +136,7 @@ export async function listFeedbackReleaseControlRows() {
     attempt: {
       ...(attempt as Attempt),
       assessments: assessmentById.get(attempt.assessment_id) ?? undefined,
-      profiles: profileById.get(attempt.assignee_profile_id) ?? undefined,
+      profiles: attempt.assignee_profile_id ? profileById.get(attempt.assignee_profile_id) ?? undefined : undefined,
     },
     release: releaseByAttempt.get(attempt.id) ?? null,
   }));
@@ -243,7 +243,9 @@ export async function getAttemptRecoveryWorkspace(attemptId: string) {
   const [{ data: assessment, error: assessmentError }, { data: profile, error: profileError }] = attempt
     ? await Promise.all([
         supabase.from("assessments").select("id,title,paper_code").eq("id", attempt.assessment_id).maybeSingle(),
-        supabase.from("profiles").select("id,display_name").eq("id", attempt.assignee_profile_id).maybeSingle(),
+        attempt.assignee_profile_id
+          ? supabase.from("profiles").select("id,display_name").eq("id", attempt.assignee_profile_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ])
     : [{ data: null, error: null }, { data: null, error: null }];
   if (assessmentError) throw assessmentError;
@@ -309,7 +311,7 @@ export async function getCrossMarkWorkspace(assessmentId: string) {
   if (markError) throw markError;
   if (slotError) throw slotError;
   const versionIds = new Set((attempts ?? []).map((attempt) => attempt.assessment_version_id));
-  const profileIds = [...new Set((attempts ?? []).map((attempt) => attempt.assignee_profile_id))];
+  const profileIds = [...new Set((attempts ?? []).map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id)))];
   const { data: profiles, error: profileError } = profileIds.length
     ? await supabase.from("profiles").select("id,display_name").in("id", profileIds)
     : { data: [], error: null };
@@ -318,7 +320,7 @@ export async function getCrossMarkWorkspace(assessmentId: string) {
   return {
     attempts: (attempts ?? []).map((attempt) => ({
       ...(attempt as Attempt),
-      profiles: profileById.get(attempt.assignee_profile_id) ?? undefined,
+      profiles: attempt.assignee_profile_id ? profileById.get(attempt.assignee_profile_id) ?? undefined : undefined,
     })),
     questionNodes: ((nodes ?? []) as QuestionNodeRow[]).filter((node) => versionIds.has(node.assessment_version_id)),
     marks: (marks ?? []) as Mark[],

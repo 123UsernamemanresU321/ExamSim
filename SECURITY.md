@@ -171,6 +171,25 @@ Self-hosted MinerU callbacks must use `MINERU_WORKER_HMAC_SECRET` and send `x-ex
 stored in `parse_worker_callbacks` to prevent replay. The legacy `MINERU_WORKER_SECRET` header is allowed only when
 `EXAM_VAULT_ALLOW_LEGACY_WORKER_SECRET=1` for local or temporary rollout use.
 
+## Guest Exam-Code Security
+
+The Examsim no-login flow does not grant direct browser access to assessment, question, attempt-token, or package tables.
+Students enter through `/exam`, and every sensitive guest operation goes through Edge Functions:
+
+- Exam codes are normalized and stored as SHA-256 hashes in `exam_sessions.code_hash`.
+- Guest access tokens are random opaque values shown only to the browser session and stored as hashes in
+  `attempt_access_tokens`.
+- `attempt_access_tokens` has RLS enabled, no client policies, and privileges revoked from `anon` and `authenticated`.
+- Guest package release refuses `WAITING` state and recomputes state server-side before loading the private normalized
+  package.
+- Guest autosave and finalization verify both the guest token and short-lived state token, then recompute server state.
+- Guest technical issue reports are additive `invigilation_messages`; they do not alter timing, release state, or
+  moderation evidence.
+- `seb_required` guest package release is deliberately blocked in v1. If SEB is required, use the authenticated student
+  flow that validates URL-specific Browser Exam Key and Config Key request hashes.
+- Owners reconcile ambiguous guest identities after the sitting; released results remain governed by the existing
+  feedback-release boundaries.
+
 ## External KMS
 
 The Cloudflare KMS wrapper implements envelope-key wrapping for server-side callers. Application code generates a data

@@ -43,6 +43,34 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
           {workspace.latestVersion ? <div className="mt-4"><QtiExportButton versionId={workspace.latestVersion.id} /></div> : null}
         </Card>
         <Card>
+          <h2 className="text-lg font-semibold">Visual authoring</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Edit question cards, marks, response types, source anchors, and validation fields without raw JSON.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/authoring`} variant="secondary">
+            Open editor
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Smart compiler</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Review PDF source documents, question regions, confidence warnings, and manual fallback boxes.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/compiler`} variant="secondary">
+            Open compiler
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">LaTeX workspace</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Validate Examsim LaTeX syntax before it becomes internal structured exam data.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/latex`} variant="secondary">
+            Open LaTeX import
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Rubrics</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Build reusable point banks and markscheme-derived rubric templates.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/rubrics`} variant="secondary">
+            Open rubrics
+          </ButtonLink>
+        </Card>
+        <Card>
           <h2 className="text-lg font-semibold">Paper health</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Check structure, source page ranges, markscheme mapping, delivery readiness, and security assumptions.

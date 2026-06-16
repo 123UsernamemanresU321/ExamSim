@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import {
   BarChart3,
   Gauge,
+  CalendarClock,
   FileText,
   LifeBuoy,
   LayoutDashboard,
@@ -81,6 +82,7 @@ const ownerNavSections: NavSection[] = [
     Icon: Gauge,
     items: [
       { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge },
+      { href: "/owner/exam-sessions", label: "Exam Sessions", Icon: CalendarClock },
       { href: "/owner/support", label: "Support Console", Icon: LifeBuoy },
     ],
   },

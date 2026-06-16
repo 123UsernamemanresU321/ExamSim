@@ -244,3 +244,27 @@ Cloudflare CNAME and TLS verification steps.
   upload recovery, readiness checks, server-time drift, feedback inbox, receipts, devices, notifications, archive,
   mistake patterns, confidence ratings, and progress snapshots without exposing unreleased feedback.
 - Student calendar export is local `.ics` generation only; no external calendar API is required.
+
+## Examsim Expansion
+
+Exam Vault now includes the Examsim no-login exam-code model alongside the existing authenticated student workflow.
+
+- Owners create code-based Exam Sessions from existing assessment versions at `/owner/exam-sessions`.
+- Exam codes are normalized for students and stored as hashes; generated codes are shown once after creation or rotation.
+- Students can sit an exam from `/exam` without an account by entering the exam code, name, and memorable student number.
+- Guest attempts use opaque access tokens stored as hashes in `attempt_access_tokens`; browser clients never read sensitive tables directly.
+- Guest package release, autosave, finalization, and technical-issue reporting go through dedicated Edge Functions that recompute server state.
+- Owners can monitor a live roster, broadcast messages, pause/resume, grant a small extra-time intervention record, force-submit, and reconcile guest identities to roster/account records.
+- Visual authoring routes add question-card editing, source-region fallback review, LaTeX syntax review, and rubric-template management over the existing normalized JSON data model.
+
+Deploy the new Supabase Edge Functions before enabling public exam-code entry in production:
+
+```bash
+resolve-exam-code
+join-exam-session
+guest-get-attempt-state
+guest-get-attempt-package
+guest-save-response
+guest-finalize-attempt
+guest-send-invigilation-message
+```

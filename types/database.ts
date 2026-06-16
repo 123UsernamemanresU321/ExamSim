@@ -19,7 +19,19 @@ export type Attempt = {
   assessment_id: string;
   assessment_version_id: string;
   assessment_assignment_id: string | null;
-  assignee_profile_id: string;
+  assignee_profile_id: string | null;
+  exam_session_id?: string | null;
+  roster_entry_id?: string | null;
+  guest_student_name?: string | null;
+  guest_student_number?: string | null;
+  guest_class_group?: string | null;
+  guest_identity_json?: Json;
+  claim_status?: "not_required" | "unclaimed" | "pending" | "linked" | "rejected";
+  claim_code_hash?: string | null;
+  duplicate_identity_flag?: boolean;
+  identity_review_status?: "not_required" | "needs_review" | "resolved" | "rejected";
+  paused_at?: string | null;
+  forced_submitted_at?: string | null;
   start_at_utc: string;
   duration_seconds: number;
   end_at_utc: string;
@@ -99,6 +111,163 @@ export type AssessmentVersion = {
   markscheme_source_kind: "pdf" | "latex" | "json" | null;
   markscheme_source_object_path: string | null;
   published_at: string | null;
+  created_at: string;
+};
+
+export type ExamSession = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  title: string;
+  status: "draft" | "published" | "live" | "closed" | "marking" | "returned" | "archived";
+  mode: "practice" | "timed" | "controlled" | "seb_required";
+  code_hash: string | null;
+  code_display_hint: string | null;
+  code_rotated_at: string | null;
+  open_at_utc: string;
+  close_at_utc: string;
+  start_at_utc: string;
+  duration_seconds: number;
+  upload_deadline_at_utc: string | null;
+  display_timezone: string;
+  attempt_limit_per_student: number;
+  identity_policy_json: Json;
+  security_settings_json: Json;
+  settings_json: Json;
+  share_instructions_html: string | null;
+  published_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudentRosterEntry = {
+  id: string;
+  owner_profile_id: string;
+  student_profile_id: string | null;
+  student_number: string;
+  display_name: string;
+  class_group: string | null;
+  email: string | null;
+  active: boolean;
+  accommodations_json: Json;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AttemptAccessToken = {
+  id: string;
+  attempt_id: string;
+  exam_session_id: string | null;
+  token_hash: string;
+  purpose: "guest_attempt" | "claim_attempt" | "resume_attempt";
+  expires_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+};
+
+export type SourceDocument = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  document_kind: "question_paper" | "markscheme" | "latex_source" | "image_bundle" | "other";
+  source_kind: "pdf" | "latex" | "json" | "image" | "text" | "mixed";
+  object_path: string | null;
+  original_file_name: string | null;
+  status: "uploaded" | "processing" | "review_required" | "approved" | "failed";
+  metadata_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SourcePage = {
+  id: string;
+  source_document_id: string;
+  page_number: number;
+  width_points: number | null;
+  height_points: number | null;
+  image_object_path: string | null;
+  text_preview: string | null;
+  metadata_json: Json;
+  created_at: string;
+};
+
+export type QuestionSourceRegion = {
+  id: string;
+  assessment_version_id: string;
+  question_node_id: string | null;
+  source_document_id: string;
+  source_page_id: string | null;
+  region_type: "question" | "subquestion" | "diagram" | "table" | "answer_area" | "markscheme" | "instructions" | "other";
+  node_key: string | null;
+  bbox_json: Json;
+  confidence: number | null;
+  status: "detected" | "approved" | "needs_review" | "ignored";
+  metadata_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RubricTemplate = {
+  id: string;
+  owner_profile_id: string;
+  name: string;
+  subject: string | null;
+  description: string | null;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type RubricTemplateItem = {
+  id: string;
+  rubric_template_id: string;
+  ordinal: number;
+  label: string;
+  description: string | null;
+  max_marks: number;
+  feedback_text: string | null;
+  mark_code: string | null;
+  created_at: string;
+};
+
+export type RubricItemAward = {
+  id: string;
+  attempt_id: string;
+  question_node_id: string;
+  rubric_criteria_id: string | null;
+  rubric_template_item_id: string | null;
+  marker_profile_id: string;
+  awarded_marks: number;
+  selected: boolean;
+  feedback_text: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InvigilationMessage = {
+  id: string;
+  exam_session_id: string;
+  attempt_id: string | null;
+  sender_profile_id: string | null;
+  sender_kind: "owner" | "student_guest" | "student_account" | "system";
+  message_kind: "private" | "broadcast" | "technical_issue" | "system";
+  body: string;
+  visible_to_student: boolean;
+  created_at: string;
+};
+
+export type LiveIntervention = {
+  id: string;
+  exam_session_id: string;
+  attempt_id: string;
+  owner_profile_id: string;
+  action_type: "extra_time" | "pause" | "resume" | "force_submit" | "technical_issue" | "identity_resolved" | "unlock_upload";
+  details_json: Json;
   created_at: string;
 };
 
@@ -948,10 +1117,75 @@ export type Database = {
       };
       attempts: {
         Row: Attempt;
-        Insert: Omit<Attempt, "created_at" | "updated_at" | "state_cache"> & {
-          state_cache?: AttemptState | null;
-        };
+        Insert: Partial<Attempt> &
+          Pick<Attempt, "assessment_id" | "assessment_version_id" | "start_at_utc" | "duration_seconds" | "end_at_utc" | "display_timezone" | "delivery_mode">;
         Update: Partial<Attempt>;
+        Relationships: [];
+      };
+      exam_sessions: {
+        Row: ExamSession;
+        Insert: Partial<ExamSession> & Pick<ExamSession, "owner_profile_id" | "assessment_id" | "assessment_version_id" | "title" | "open_at_utc" | "close_at_utc" | "start_at_utc" | "duration_seconds">;
+        Update: Partial<ExamSession>;
+        Relationships: [];
+      };
+      student_roster_entries: {
+        Row: StudentRosterEntry;
+        Insert: Partial<StudentRosterEntry> & Pick<StudentRosterEntry, "owner_profile_id" | "student_number" | "display_name">;
+        Update: Partial<StudentRosterEntry>;
+        Relationships: [];
+      };
+      attempt_access_tokens: {
+        Row: AttemptAccessToken;
+        Insert: Partial<AttemptAccessToken> & Pick<AttemptAccessToken, "attempt_id" | "token_hash" | "purpose" | "expires_at">;
+        Update: Partial<AttemptAccessToken>;
+        Relationships: [];
+      };
+      source_documents: {
+        Row: SourceDocument;
+        Insert: Partial<SourceDocument> & Pick<SourceDocument, "owner_profile_id" | "assessment_id" | "assessment_version_id" | "document_kind" | "source_kind">;
+        Update: Partial<SourceDocument>;
+        Relationships: [];
+      };
+      source_pages: {
+        Row: SourcePage;
+        Insert: Partial<SourcePage> & Pick<SourcePage, "source_document_id" | "page_number">;
+        Update: Partial<SourcePage>;
+        Relationships: [];
+      };
+      question_source_regions: {
+        Row: QuestionSourceRegion;
+        Insert: Partial<QuestionSourceRegion> & Pick<QuestionSourceRegion, "assessment_version_id" | "source_document_id">;
+        Update: Partial<QuestionSourceRegion>;
+        Relationships: [];
+      };
+      rubric_templates: {
+        Row: RubricTemplate;
+        Insert: Partial<RubricTemplate> & Pick<RubricTemplate, "owner_profile_id" | "name">;
+        Update: Partial<RubricTemplate>;
+        Relationships: [];
+      };
+      rubric_template_items: {
+        Row: RubricTemplateItem;
+        Insert: Partial<RubricTemplateItem> & Pick<RubricTemplateItem, "rubric_template_id" | "ordinal" | "label">;
+        Update: Partial<RubricTemplateItem>;
+        Relationships: [];
+      };
+      rubric_item_awards: {
+        Row: RubricItemAward;
+        Insert: Partial<RubricItemAward> & Pick<RubricItemAward, "attempt_id" | "question_node_id" | "marker_profile_id">;
+        Update: Partial<RubricItemAward>;
+        Relationships: [];
+      };
+      invigilation_messages: {
+        Row: InvigilationMessage;
+        Insert: Partial<InvigilationMessage> & Pick<InvigilationMessage, "exam_session_id" | "sender_kind" | "message_kind" | "body">;
+        Update: Partial<InvigilationMessage>;
+        Relationships: [];
+      };
+      live_interventions: {
+        Row: LiveIntervention;
+        Insert: Partial<LiveIntervention> & Pick<LiveIntervention, "exam_session_id" | "attempt_id" | "owner_profile_id" | "action_type">;
+        Update: Partial<LiveIntervention>;
         Relationships: [];
       };
       attempt_sessions: {

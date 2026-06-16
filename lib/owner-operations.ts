@@ -288,7 +288,7 @@ async function buildOperationsRows(attempts: Attempt[]): Promise<OperationsBoard
   const supabase = await createSupabaseServerClient();
   const attemptIds = attempts.map((attempt) => attempt.id);
   const assessmentIds = [...new Set(attempts.map((attempt) => attempt.assessment_id))];
-  const studentIds = [...new Set(attempts.map((attempt) => attempt.assignee_profile_id))];
+  const studentIds = [...new Set(attempts.map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id)))];
   const [
     { data: assessments, error: assessmentError },
     { data: profiles, error: profileError },
@@ -330,7 +330,7 @@ async function buildOperationsRows(attempts: Attempt[]): Promise<OperationsBoard
     return {
       attempt,
       assessment: assessmentById.get(attempt.assessment_id) ?? null,
-      student: profileById.get(attempt.assignee_profile_id) ?? null,
+      student: attempt.assignee_profile_id ? profileById.get(attempt.assignee_profile_id) ?? null : null,
       state: computeAttemptState({
         serverNowUtc: now,
         startAtUtc: attempt.start_at_utc,

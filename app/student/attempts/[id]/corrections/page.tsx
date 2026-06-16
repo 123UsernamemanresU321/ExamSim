@@ -18,6 +18,9 @@ async function createNotebook(formData: FormData) {
   const { data: attempt, error: attemptError } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attempt) return;
+  if (!attempt.assignee_profile_id) {
+    throw new Error("Correction notebooks require a linked student account.");
+  }
   const { data: notebook, error: notebookError } = await supabase
     .from("correction_notebooks")
     .insert({ attempt_id: attemptId, student_profile_id: attempt.assignee_profile_id, status: "in_progress" })
