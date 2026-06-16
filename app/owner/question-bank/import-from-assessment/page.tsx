@@ -144,7 +144,7 @@ export default async function ImportQuestionBankPage({
               ))}
             </DataList>
           ) : (
-            <EmptyState title="No root questions found" description="Run parser repair and parse review before extracting question bank items." />
+            <EmptyState title="No root questions found" description="Run parser repair and parse review before extracting question library items." />
           )}
         </Card>
       ) : null}

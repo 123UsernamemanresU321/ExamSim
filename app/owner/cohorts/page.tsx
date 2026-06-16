@@ -7,11 +7,11 @@ export default async function CohortsPage() {
   return (
     <>
       <SectionHeading
-        title="Cohorts"
-        description="Owner-managed classes for bulk assignment, queue filtering, and cross-student marking."
+        title="Groups"
+        description="Owner-managed classes and teaching groups for bulk assignment, queue filtering, and cross-student marking."
       />
       <div className="mb-6 rounded-lg border border-[var(--border)] bg-white p-4 text-sm text-[var(--muted)]">
-        {students.length} student account{students.length === 1 ? "" : "s"} available for cohort membership. Cohort assignment expands to one attempt per current member.
+        {students.length} student account{students.length === 1 ? "" : "s"} available for group membership. Group assignment expands to one attempt per current member.
       </div>
       <CohortManager cohorts={cohorts} students={students} />
     </>

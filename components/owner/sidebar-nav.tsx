@@ -45,7 +45,7 @@ type NavSection = {
 const ownerNavSections: NavSection[] = [
   {
     id: "main",
-    title: "Main",
+    title: "Dashboard",
     description: "Home and status",
     Icon: LayoutDashboard,
     items: [
@@ -53,67 +53,61 @@ const ownerNavSections: NavSection[] = [
     ],
   },
   {
-    id: "assessments",
-    title: "Assessments",
-    description: "Create, review, reuse",
+    id: "build",
+    title: "Build",
+    description: "Author, import, reuse",
     Icon: FileText,
     items: [
       { href: "/owner/assessments", label: "Assessments", Icon: FileText },
+      { href: "/owner/assessments/new", label: "Import PDF/LaTeX", Icon: FileText },
       { href: "/owner/templates", label: "Templates", Icon: BookTemplate },
-      { href: "/owner/question-bank", label: "Question Bank", Icon: BookOpen },
-      { href: "/owner/paper-generator", label: "Generator", Icon: Wand2 },
+      { href: "/owner/paper-generator", label: "Mock Generator", Icon: Wand2 },
+      { href: "/owner/question-bank", label: "Question Library", Icon: BookOpen },
     ],
   },
   {
-    id: "students",
-    title: "Students & attempts",
-    description: "People, cohorts, sittings",
-    Icon: Users,
+    id: "run",
+    title: "Run",
+    description: "Sessions and delivery",
+    Icon: Gauge,
     items: [
-      { href: "/owner/students", label: "Students", Icon: Users },
-      { href: "/owner/cohorts", label: "Cohorts", Icon: Boxes },
+      { href: "/owner/exam-sessions", label: "Exam Sessions", Icon: CalendarClock },
+      { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge },
       { href: "/owner/attempts", label: "Attempts", Icon: BarChart3 },
     ],
   },
   {
-    id: "operations",
-    title: "Operations",
-    description: "Exam day and support",
-    Icon: Gauge,
-    items: [
-      { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge },
-      { href: "/owner/exam-sessions", label: "Exam Sessions", Icon: CalendarClock },
-      { href: "/owner/support", label: "Support Console", Icon: LifeBuoy },
-    ],
-  },
-  {
-    id: "marking",
-    title: "Marking & feedback",
-    description: "Queue, release, snippets",
+    id: "mark",
+    title: "Mark",
+    description: "Marking and release",
     Icon: ListChecks,
     items: [
       { href: "/owner/marking-queue", label: "Marking Queue", Icon: ListChecks },
       { href: "/owner/feedback-releases", label: "Feedback", Icon: SendIcon },
-      { href: "/owner/comment-bank", label: "Comments", Icon: MessageSquareText },
+      { href: "/owner/comment-bank", label: "Rubrics / Feedback Library", Icon: MessageSquareText },
     ],
   },
   {
-    id: "learning",
-    title: "Learning tools",
-    description: "Topics and mistakes",
+    id: "review",
+    title: "Review",
+    description: "Performance and patterns",
     Icon: GraduationCap,
     items: [
+      { href: "/owner/analytics", label: "Analytics / Performance", Icon: BarChart3 },
       { href: "/owner/topics", label: "Topics", Icon: Tags },
-      { href: "/owner/mistakes", label: "Mistakes", Icon: AlertCircle },
+      { href: "/owner/mistakes", label: "Error Patterns", Icon: AlertCircle },
     ],
   },
   {
-    id: "system",
-    title: "System",
-    description: "Security controls",
-    Icon: ShieldCheck,
+    id: "manage",
+    title: "Manage",
+    description: "People and controls",
+    Icon: Users,
     items: [
+      { href: "/owner/students", label: "Students", Icon: Users },
+      { href: "/owner/cohorts", label: "Groups", Icon: Boxes },
       { href: "/owner/security", label: "Security", Icon: ShieldCheck },
+      { href: "/owner/support", label: "Support Console", Icon: LifeBuoy },
     ],
   },
 ];
@@ -296,5 +290,6 @@ function initials(value: string) {
 }
 
 function isRouteActive(pathname: string, href: string) {
+  if (pathname === "/owner/assessments/new") return href === "/owner/assessments/new";
   return href === "/owner" ? pathname === href : pathname === href || pathname.startsWith(href + "/");
 }

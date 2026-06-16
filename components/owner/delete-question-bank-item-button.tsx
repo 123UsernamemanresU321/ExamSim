@@ -25,19 +25,19 @@ export function DeleteQuestionBankItemButton({
 
   async function deleteQuestionBankItem() {
     setIsDeleting(true);
-    setMessage("Deleting question bank item...");
+    setMessage("Deleting question library item...");
     const supabase = createSupabaseBrowserClient();
     try {
       await invokeEdgeFunction(supabase, "delete-question-bank-item", {
         body: { question_bank_item_id: questionBankItemId },
         requiresAal2: true,
       });
-      setMessage("Question bank item deleted.");
+      setMessage("Question library item deleted.");
       setIsConfirmOpen(false);
       router.refresh();
       if (redirectTo) router.replace(redirectTo);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not delete question bank item.");
+      setMessage(error instanceof Error ? error.message : "Could not delete question library item.");
     } finally {
       setIsDeleting(false);
     }
@@ -61,8 +61,8 @@ export function DeleteQuestionBankItemButton({
       ) : null}
       <ConfirmDialog
         open={isConfirmOpen}
-        title="Delete question-bank item?"
-        description={`Delete "${label}" from the question bank. This removes reusable question-bank metadata and generated-paper references, but not the original assessment source files. This cannot be undone.`}
+        title="Delete question library item?"
+        description={`Delete "${label}" from the question library. This removes reusable question-library metadata and generated-paper references, but not the original assessment source files. This cannot be undone.`}
         confirmLabel="Delete question"
         isLoading={isDeleting}
         onCancel={() => setIsConfirmOpen(false)}

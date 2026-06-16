@@ -7,8 +7,8 @@ export default async function CommentBankPage() {
   return (
     <>
       <SectionHeading
-        title="Comment Bank"
-        description="Reusable private notes and student-facing feedback snippets for faster, more consistent marking."
+        title="Rubrics / Feedback Library"
+        description="Reusable rubrics, private notes, and student-facing feedback snippets for faster, more consistent marking."
       />
       <CommentBankManager items={items} />
     </>

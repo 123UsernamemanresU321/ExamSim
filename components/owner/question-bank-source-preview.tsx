@@ -123,7 +123,7 @@ export function QuestionBankSourcePreview({
   if (!objectPath) {
     return (
       <div className="rounded-lg border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)]">
-        No original source PDF is attached to this question bank item.
+        No original source PDF is attached to this question library item.
       </div>
     );
   }

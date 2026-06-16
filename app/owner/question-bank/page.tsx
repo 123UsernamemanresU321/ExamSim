@@ -23,7 +23,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
   return (
     <main className="space-y-6">
       <PageHeader
-        eyebrow="Question bank"
+        eyebrow="Question Library"
         title="Reusable private questions"
         description="Extract approved root questions from assessments while preserving hierarchy, source pages, topic tags, and markscheme references."
         actions={
@@ -38,7 +38,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
 
       <section className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
         <SectionHeader
-          title="Subject filters"
+          title="Library filters"
           description="Use subjects to scope extraction and paper generation."
           className="mb-3"
           actions={<Filter size={16} className="text-[var(--subtle)]" aria-hidden="true" />}
@@ -97,7 +97,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
         </DataTable>
       ) : (
         <EmptyState
-          title="No question bank items yet"
+          title="No question library items yet"
           description="Extract questions from an approved assessment after the parser tree and source-page ranges look correct."
         />
       )}

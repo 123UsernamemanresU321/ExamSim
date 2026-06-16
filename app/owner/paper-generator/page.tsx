@@ -60,9 +60,9 @@ export default async function PaperGeneratorPage() {
   return (
     <main className="space-y-6">
       <PageHeader
-        eyebrow="Custom paper generator"
-        title="Assemble papers from the question bank"
-        description="This generator does not invent questions. It selects reusable private question-bank items, then the draft goes through normal review and publish checks."
+        eyebrow="Mock Generator"
+        title="Assemble mock papers from the question library"
+        description="This generator does not invent questions. It selects reusable private question-library items, then the draft goes through normal review and publish checks."
       />
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
@@ -113,7 +113,7 @@ export default async function PaperGeneratorPage() {
               ))}
             </DataList>
           ) : (
-            <EmptyState title="No generated drafts" description="Add question bank items, then generate a paper for review." />
+            <EmptyState title="No generated drafts" description="Add question library items, then generate a mock paper for review." />
           )}
         </Card>
       </div>

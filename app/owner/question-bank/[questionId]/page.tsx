@@ -40,8 +40,8 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
     return (
       <main>
         <Card className="p-8">
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Question bank item not found</h1>
-          <ButtonLink className="mt-4" href="/owner/question-bank">Back to question bank</ButtonLink>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Question library item not found</h1>
+          <ButtonLink className="mt-4" href="/owner/question-bank">Back to question library</ButtonLink>
         </Card>
       </main>
     );
@@ -55,7 +55,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
   return (
     <main className="space-y-6">
       <ButtonLink href="/owner/question-bank" variant="ghost">
-        <ArrowLeft size={16} /> Question bank
+        <ArrowLeft size={16} /> Question library
       </ButtonLink>
       <PageHeader
         eyebrow={item.root_node_key}
@@ -154,13 +154,13 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
                 <MathRenderer html={item.markscheme_html} />
               </div>
             ) : (
-              <p className="mt-2 text-sm text-[var(--muted)]">No markscheme is attached to this question bank item.</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">No markscheme is attached to this question library item.</p>
             )}
           </Card>
           <Card className="border-[var(--danger)]/30 bg-[var(--danger-bg)]/30 p-5">
-            <h2 className="font-semibold text-[var(--danger)]">Delete from question bank</h2>
+            <h2 className="font-semibold text-[var(--danger)]">Delete from question library</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Removes this reusable question and its child tree from the question bank. It does not delete the original assessment, source PDF, markscheme, or published paper.
+              Removes this reusable question and its child tree from the question library. It does not delete the original assessment, source PDF, markscheme, or published paper.
             </p>
             <div className="mt-4">
               <DeleteQuestionBankItemButton questionBankItemId={item.id} label={item.title ?? `Question ${item.root_node_key}`} />
