@@ -125,6 +125,9 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
                   workAnnotations={workspace.workAnnotations}
                   uploadSanityChecks={workspace.uploadSanityChecks}
                   commentBank={workspace.commentBank}
+                  rubricTemplates={workspace.rubricTemplates}
+                  rubricTemplateItems={workspace.rubricTemplateItems}
+                  rubricItemAwards={workspace.rubricItemAwards}
                   markingTickets={workspace.markingTickets}
                   markingTicketMessages={workspace.markingTicketMessages}
                   showDiscussion={false}

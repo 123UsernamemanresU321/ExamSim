@@ -2,7 +2,7 @@ import { computeAttemptState } from "@/lib/attempt-state";
 import { getCurrentUserProfile } from "@/lib/auth/server";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Assessment, AssessmentVersion, Attempt, ExamSession, InvigilationMessage, Profile, StudentRosterEntry, UploadSlot } from "@/types/database";
+import type { Assessment, AssessmentVersion, Attempt, AttemptEvent, ExamSession, InvigilationMessage, Profile, StudentRosterEntry, TextResponse, UploadSlot } from "@/types/database";
 
 export type ExamSessionRow = ExamSession & {
   assessment_title: string;
@@ -23,6 +23,12 @@ export type LiveSessionAttempt = {
   studentNumber: string | null;
   state: "WAITING" | "ACTIVE" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
   uploadSlots: UploadSlot[];
+  responseCount: number;
+  currentQuestionKey: string | null;
+  lastEventAt: string | null;
+  lastEventType: string | null;
+  heartbeatGapSeconds: number | null;
+  technicalIssueCount: number;
 };
 
 export type ReconciliationCandidate = {
@@ -119,10 +125,14 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
     .order("created_at", { ascending: true });
   if (error) throw error;
   const attemptRows = (attempts ?? []) as Attempt[];
-  const [profiles, rosterEntries, uploadSlots] = await Promise.all([
+  const attemptIds = attemptRows.map((attempt) => attempt.id);
+  const [profiles, rosterEntries, uploadSlots, events, responses, issueMessages] = await Promise.all([
     loadProfiles(attemptRows.map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id))),
     loadRosterEntries(attemptRows.map((attempt) => attempt.roster_entry_id).filter((id): id is string => Boolean(id))),
-    loadUploadSlots(attemptRows.map((attempt) => attempt.id)),
+    loadUploadSlots(attemptIds),
+    loadAttemptEvents(attemptIds),
+    loadTextResponses(attemptIds),
+    loadTechnicalIssueMessages(sessionId),
   ]);
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
   const rosterById = new Map(rosterEntries.map((entry) => [entry.id, entry]));
@@ -130,10 +140,29 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
   for (const slot of uploadSlots) {
     slotsByAttempt.set(slot.attempt_id, [...(slotsByAttempt.get(slot.attempt_id) ?? []), slot]);
   }
+  const eventsByAttempt = groupByAttempt(events);
+  const responseCountByAttempt = new Map<string, number>();
+  for (const response of responses) responseCountByAttempt.set(response.attempt_id, (responseCountByAttempt.get(response.attempt_id) ?? 0) + 1);
+  const issueCountByAttempt = new Map<string, number>();
+  for (const message of issueMessages) {
+    if (!message.attempt_id) continue;
+    issueCountByAttempt.set(message.attempt_id, (issueCountByAttempt.get(message.attempt_id) ?? 0) + 1);
+  }
   const serverNowUtc = new Date().toISOString();
   return attemptRows.map((attempt) => {
     const roster = attempt.roster_entry_id ? rosterById.get(attempt.roster_entry_id) : null;
     const profile = attempt.assignee_profile_id ? profileById.get(attempt.assignee_profile_id) : null;
+    const attemptEvents = eventsByAttempt.get(attempt.id) ?? [];
+    const lastEvent = attemptEvents[attemptEvents.length - 1] ?? null;
+    const lastHeartbeat = [...attemptEvents].reverse().find((event) => /heartbeat/i.test(event.event_type));
+    const currentQuestionEvent = [...attemptEvents].reverse().find((event) => {
+      const payload = asRecord(event.payload_json);
+      return Boolean(payload.question_node_key || payload.question_node_id);
+    });
+    const currentPayload = currentQuestionEvent ? asRecord(currentQuestionEvent.payload_json) : {};
+    const heartbeatGapSeconds = lastHeartbeat?.server_received_at
+      ? Math.max(0, Math.floor((Date.parse(serverNowUtc) - Date.parse(lastHeartbeat.server_received_at)) / 1000))
+      : null;
     return {
       attempt,
       studentName: attempt.guest_student_name ?? roster?.display_name ?? profile?.display_name ?? "Guest student",
@@ -146,6 +175,16 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
         solutionsRequested: attempt.solutions_requested,
       }),
       uploadSlots: slotsByAttempt.get(attempt.id) ?? [],
+      responseCount: responseCountByAttempt.get(attempt.id) ?? 0,
+      currentQuestionKey: typeof currentPayload.question_node_key === "string"
+        ? currentPayload.question_node_key
+        : typeof currentPayload.question_node_id === "string"
+          ? currentPayload.question_node_id.slice(0, 8)
+          : null,
+      lastEventAt: lastEvent?.server_received_at ?? null,
+      lastEventType: lastEvent?.event_type ?? null,
+      heartbeatGapSeconds,
+      technicalIssueCount: issueCountByAttempt.get(attempt.id) ?? 0,
     };
   });
 }
@@ -216,6 +255,47 @@ async function loadUploadSlots(attemptIds: string[]): Promise<UploadSlot[]> {
   const { data, error } = await supabase.from("upload_slots").select("*").in("attempt_id", attemptIds);
   if (error) throw error;
   return (data ?? []) as UploadSlot[];
+}
+
+async function loadAttemptEvents(attemptIds: string[]): Promise<AttemptEvent[]> {
+  if (!attemptIds.length) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("attempt_events")
+    .select("*")
+    .in("attempt_id", attemptIds)
+    .order("server_received_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as AttemptEvent[];
+}
+
+async function loadTextResponses(attemptIds: string[]): Promise<Pick<TextResponse, "attempt_id">[]> {
+  if (!attemptIds.length) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("text_responses").select("attempt_id").in("attempt_id", attemptIds);
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function loadTechnicalIssueMessages(sessionId: string): Promise<Pick<InvigilationMessage, "attempt_id">[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("invigilation_messages")
+    .select("attempt_id")
+    .eq("exam_session_id", sessionId)
+    .eq("message_kind", "technical_issue");
+  if (error) throw error;
+  return data ?? [];
+}
+
+function groupByAttempt(events: AttemptEvent[]) {
+  const grouped = new Map<string, AttemptEvent[]>();
+  for (const event of events) grouped.set(event.attempt_id, [...(grouped.get(event.attempt_id) ?? []), event]);
+  return grouped;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 export async function requireOwnerProfileId() {

@@ -53,15 +53,20 @@ serve(async (request) => {
     const matchValue = rosterEntry?.id ?? identity.studentNumber;
     const { data: existingAttempts, error: existingError } = await admin
       .from("attempts")
-      .select("id,state_cache,created_at")
+      .select("*")
       .eq("exam_session_id", session.id)
       .eq(matchColumn, matchValue)
       .order("created_at", { ascending: false });
     if (existingError) throw existingError;
 
-    let attemptId = existingAttempts?.[0]?.id as string | undefined;
+    let attemptRow = existingAttempts?.[0] as Record<string, unknown> | undefined;
+    let attemptId = attemptRow?.id as string | undefined;
+    const accommodationPolicy = readAccommodationPolicy(rosterEntry?.accommodations_json, Number(session.duration_seconds));
     if (!attemptId) {
-      const endAt = new Date(Date.parse(session.start_at_utc) + Number(session.duration_seconds) * 1000).toISOString();
+      const endAt = new Date(Date.parse(session.start_at_utc) + (Number(session.duration_seconds) + accommodationPolicy.extraTimeSeconds) * 1000).toISOString();
+      const uploadDeadlineAtUtc = session.upload_deadline_at_utc
+        ? new Date(Date.parse(session.upload_deadline_at_utc) + (accommodationPolicy.extraTimeSeconds + accommodationPolicy.uploadExtensionSeconds) * 1000).toISOString()
+        : null;
       const { data: attempt, error: insertError } = await admin
         .from("attempts")
         .insert({
@@ -86,7 +91,7 @@ serve(async (request) => {
           start_at_utc: session.start_at_utc,
           duration_seconds: session.duration_seconds,
           end_at_utc: endAt,
-          upload_deadline_at_utc: session.upload_deadline_at_utc,
+          upload_deadline_at_utc: uploadDeadlineAtUtc,
           display_timezone: session.display_timezone,
           delivery_mode: session.mode === "seb_required" ? "seb_required" : "browser",
           solutions_requested: true,
@@ -97,13 +102,17 @@ serve(async (request) => {
           seb_config_key_hashes: [],
           seb_config_path: null,
         })
-        .select("id")
+        .select("*")
         .single();
       if (insertError) throw insertError;
       attemptId = attempt.id;
+      attemptRow = attempt;
       await admin.rpc("create_upload_slots_for_attempt", { target_attempt_id: attemptId });
+      if (!attemptId) throw new Error("Could not create guest attempt");
+      await recordRosterAccommodations(admin, attemptId, String(session.owner_profile_id), accommodationPolicy);
     }
     if (!attemptId) throw new Error("Could not create or resume attempt");
+    if (!attemptRow) throw new Error("Could not load guest attempt");
 
     const guestToken = generateGuestAccessToken();
     await admin.from("attempt_access_tokens").insert({
@@ -116,9 +125,9 @@ serve(async (request) => {
 
     const state = computeAttemptState({
       serverNowUtc: new Date().toISOString(),
-      startAtUtc: session.start_at_utc,
-      endAtUtc: new Date(Date.parse(session.start_at_utc) + Number(session.duration_seconds) * 1000).toISOString(),
-      uploadDeadlineAtUtc: session.upload_deadline_at_utc,
+      startAtUtc: String(attemptRow.start_at_utc),
+      endAtUtc: String(attemptRow.end_at_utc),
+      uploadDeadlineAtUtc: attemptRow.upload_deadline_at_utc ? String(attemptRow.upload_deadline_at_utc) : null,
       solutionsRequested: true,
     });
     const stateToken = await signStateToken({
@@ -139,9 +148,9 @@ serve(async (request) => {
       state_token: stateToken,
       state,
       countdown_target_utc: getCountdownTarget(state, {
-        start_at_utc: session.start_at_utc,
-        end_at_utc: new Date(Date.parse(session.start_at_utc) + Number(session.duration_seconds) * 1000).toISOString(),
-        upload_deadline_at_utc: session.upload_deadline_at_utc,
+        start_at_utc: String(attemptRow.start_at_utc),
+        end_at_utc: String(attemptRow.end_at_utc),
+        upload_deadline_at_utc: attemptRow.upload_deadline_at_utc ? String(attemptRow.upload_deadline_at_utc) : null,
       }),
       session_status: accessStatus,
     });
@@ -149,3 +158,67 @@ serve(async (request) => {
     return errorResponse(request, error, "join-exam-session failed");
   }
 });
+
+function readAccommodationPolicy(value: unknown, baseDurationSeconds: number) {
+  const policy = typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const extraTimeSeconds = readSeconds(policy.extra_time_seconds)
+    ?? readMinutes(policy.extra_time_minutes)
+    ?? readPercent(policy.extra_time_percent, baseDurationSeconds)
+    ?? 0;
+  const uploadExtensionSeconds = readSeconds(policy.upload_extension_seconds)
+    ?? readMinutes(policy.upload_extension_minutes)
+    ?? 0;
+  return {
+    extraTimeSeconds: Math.min(Math.max(extraTimeSeconds, 0), 4 * 60 * 60),
+    uploadExtensionSeconds: Math.min(Math.max(uploadExtensionSeconds, 0), 4 * 60 * 60),
+  };
+}
+
+function readSeconds(value: unknown) {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : null;
+}
+
+function readMinutes(value: unknown) {
+  const minutes = Number(value);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.floor(minutes * 60) : null;
+}
+
+function readPercent(value: unknown, baseDurationSeconds: number) {
+  const percent = Number(value);
+  if (!Number.isFinite(percent) || percent <= 0 || !Number.isFinite(baseDurationSeconds) || baseDurationSeconds <= 0) return null;
+  return Math.floor(baseDurationSeconds * (percent / 100));
+}
+
+async function recordRosterAccommodations(
+  admin: ReturnType<typeof getAdminClient>,
+  attemptId: string,
+  ownerProfileId: string,
+  policy: { extraTimeSeconds: number; uploadExtensionSeconds: number },
+) {
+  const rows = [];
+  if (policy.extraTimeSeconds > 0) {
+    rows.push({
+      attempt_id: attemptId,
+      created_by_profile_id: ownerProfileId,
+      accommodation_type: "extra_time",
+      extra_seconds: policy.extraTimeSeconds,
+      reason: "Applied automatically from the roster accommodation policy.",
+    });
+  }
+  if (policy.uploadExtensionSeconds > 0) {
+    rows.push({
+      attempt_id: attemptId,
+      created_by_profile_id: ownerProfileId,
+      accommodation_type: "upload_extension",
+      extra_seconds: policy.uploadExtensionSeconds,
+      reason: "Applied automatically from the roster accommodation policy.",
+    });
+  }
+  if (rows.length) {
+    const { error } = await admin.from("attempt_accommodations").insert(rows);
+    if (error) throw error;
+  }
+}

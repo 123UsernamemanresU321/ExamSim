@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, CheckCircle2, Clock3, Flag, Loader2, Send } from "lucide-react";
+import { CountdownTimer } from "@/components/countdown-timer";
 import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -79,6 +80,15 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
   }, [guestToken, attemptId]);
 
   useEffect(() => {
+    if (!guestToken || !attemptId || mode === "submitted") return;
+    const interval = window.setInterval(() => {
+      void refreshState();
+    }, mode === "lobby" ? 10_000 : 20_000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestToken, attemptId, mode]);
+
+  useEffect(() => {
     if (!guestToken || !attemptId || !state?.state_token || mode === "lobby") return;
     if (state.state === "WAITING") return;
     startTransition(async () => {
@@ -114,6 +124,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
         sessionStorage.setItem("examvault_guest_state_token", response.state_token);
         setState(response);
         if (mode === "lobby" && response.state !== "WAITING") router.replace("/exam/live");
+        if (mode === "live" && response.state === "FINISHED_REVIEW") router.replace("/exam/finalize");
       }
     } catch (stateError) {
       setError(stateError instanceof Error ? stateError.message : "Could not verify exam state.");
@@ -263,9 +274,20 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
           </div>
         </div>
         <div className="mt-6 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Current state</p>
-          <p className="mt-2 font-mono text-2xl font-semibold text-[var(--ink)]">{state?.state ?? "Checking..."}</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">Target: {state?.countdown_target_utc ?? "Not available"}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Official countdown</p>
+          {state ? (
+            <CountdownTimer
+              serverNowUtc={state.server_now_utc}
+              targetUtc={state.countdown_target_utc}
+              state={state.state}
+              onExpire={() => void refreshState()}
+            />
+          ) : (
+            <p className="mt-2 font-mono text-2xl font-semibold text-[var(--ink)]">Checking...</p>
+          )}
+          <p className="mt-3 text-sm text-[var(--muted)]">
+            The exam opens automatically when the server releases it. You do not need to refresh the page.
+          </p>
         </div>
         {error ? <p className="mt-4 text-sm text-[var(--danger)]">{error}</p> : null}
         <div className="mt-6 flex gap-3">
@@ -380,6 +402,16 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
       <aside className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Exam state</p>
         <p className="mt-2 font-mono text-lg font-semibold text-[var(--ink)]">{state?.state ?? "CHECKING"}</p>
+        {state ? (
+          <div className="mt-3 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+            <CountdownTimer
+              serverNowUtc={state.server_now_utc}
+              targetUtc={state.countdown_target_utc}
+              state={state.state}
+              onExpire={() => void refreshState()}
+            />
+          </div>
+        ) : null}
         <p className="mt-3 text-sm leading-6 text-[var(--muted)]">Autosave runs only while the server state is active. Timing remains server controlled.</p>
         {error?.includes("Guest SEB sessions are blocked") ? (
           <p className="mt-4 rounded-[4px] bg-[var(--warning-bg)] p-3 text-sm text-[var(--warning)]">

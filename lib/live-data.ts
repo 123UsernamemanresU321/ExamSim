@@ -22,6 +22,9 @@ import type {
   ParseJobArtifact,
   Profile,
   QuestionNodeRow,
+  RubricItemAward,
+  RubricTemplate,
+  RubricTemplateItem,
   SubmissionAnnotation,
   StudentCredential,
   StudentGroup,
@@ -111,6 +114,9 @@ export type AttemptReviewWorkspace = {
   sourceObjectPath: string | null;
   uploadSanityChecks: UploadSanityCheck[];
   commentBank: CommentBankItem[];
+  rubricTemplates: RubricTemplate[];
+  rubricTemplateItems: RubricTemplateItem[];
+  rubricItemAwards: RubricItemAward[];
 };
 
 function demoAssessmentSummary(): AssessmentSummary {
@@ -568,6 +574,9 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       sourceObjectPath: null,
       uploadSanityChecks: [],
       commentBank: [],
+      rubricTemplates: [],
+      rubricTemplateItems: [],
+      rubricItemAwards: [],
     };
   }
 
@@ -597,6 +606,9 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
       sourceObjectPath: null,
       uploadSanityChecks: [],
       commentBank: [],
+      rubricTemplates: [],
+      rubricTemplateItems: [],
+      rubricItemAwards: [],
     };
   }
 
@@ -614,6 +626,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     { data: markingTickets, error: ticketError },
     { data: feedbackRelease, error: feedbackError },
     { data: commentBank, error: commentBankError },
+    { data: rubricTemplates, error: rubricTemplateError },
+    { data: rubricItemAwards, error: rubricAwardError },
   ] = await Promise.all([
     supabase
       .from("question_nodes")
@@ -631,6 +645,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     supabase.from("marking_tickets").select("*").eq("attempt_id", attemptId).order("updated_at", { ascending: false }),
     supabase.from("feedback_releases").select("*").eq("attempt_id", attemptId).maybeSingle(),
     supabase.from("comment_bank_items").select("*").order("usage_count", { ascending: false }).order("updated_at", { ascending: false }),
+    supabase.from("rubric_templates").select("*").order("name", { ascending: true }),
+    supabase.from("rubric_item_awards").select("*").eq("attempt_id", attemptId).order("created_at", { ascending: true }),
   ]);
 
   if (nodeError) throw nodeError;
@@ -645,6 +661,8 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
   if (ticketError) throw ticketError;
   if (feedbackError) throw feedbackError;
   if (commentBankError) throw commentBankError;
+  if (rubricTemplateError) throw rubricTemplateError;
+  if (rubricAwardError) throw rubricAwardError;
 
   const ticketIds = (markingTickets ?? []).map((ticket) => ticket.id);
   const { data: markingTicketMessages, error: ticketMessageError } = ticketIds.length
@@ -657,6 +675,12 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     ? await supabase.from("upload_sanity_checks").select("*").in("upload_slot_id", slotIds).order("created_at", { ascending: true })
     : { data: [], error: null };
   if (sanityError) throw sanityError;
+
+  const templateIds = (rubricTemplates ?? []).map((template) => template.id);
+  const { data: rubricTemplateItems, error: rubricItemError } = templateIds.length
+    ? await supabase.from("rubric_template_items").select("*").in("rubric_template_id", templateIds).order("ordinal", { ascending: true })
+    : { data: [], error: null };
+  if (rubricItemError) throw rubricItemError;
 
   const packageResult = await loadAssessmentPackage(version ?? {}, supabase);
   const questions = questionNodes ? reconstructQuestionTree(questionNodes) : (packageResult.package?.questions ?? []);
@@ -706,6 +730,9 @@ export async function getOwnerAttemptReviewWorkspace(attemptId: string): Promise
     sourceObjectPath: version?.source_object_path ?? packageResult.package?.source.original_object_path ?? null,
     uploadSanityChecks: uploadSanityChecks ?? [],
     commentBank: commentBank ?? [],
+    rubricTemplates: rubricTemplates ?? [],
+    rubricTemplateItems: rubricTemplateItems ?? [],
+    rubricItemAwards: rubricItemAwards ?? [],
   };
 }
 export async function getStudentAttemptResultsWorkspace(attemptId: string): Promise<AttemptReviewWorkspace> {

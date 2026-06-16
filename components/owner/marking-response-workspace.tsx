@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Save, FileText, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,9 @@ import type {
   UploadSlot,
   UploadSanityCheck,
   Mark,
+  RubricItemAward,
+  RubricTemplate,
+  RubricTemplateItem,
   SubmissionAnnotation,
   WorkAnnotation,
 } from "@/types/database";
@@ -42,6 +45,9 @@ export function MarkingResponseWorkspace({
   workAnnotations = [],
   uploadSanityChecks = [],
   commentBank = [],
+  rubricTemplates = [],
+  rubricTemplateItems = [],
+  rubricItemAwards = [],
   markingTickets = [],
   markingTicketMessages = [],
   showDiscussion = true,
@@ -64,6 +70,9 @@ export function MarkingResponseWorkspace({
   workAnnotations?: WorkAnnotation[];
   uploadSanityChecks?: UploadSanityCheck[];
   commentBank?: CommentBankItem[];
+  rubricTemplates?: RubricTemplate[];
+  rubricTemplateItems?: RubricTemplateItem[];
+  rubricItemAwards?: RubricItemAward[];
   markingTickets?: MarkingTicket[];
   markingTicketMessages?: MarkingTicketMessage[];
   showDiscussion?: boolean;
@@ -129,6 +138,9 @@ export function MarkingResponseWorkspace({
           markingTickets={card.markingTickets}
           markingTicketMessages={markingTicketMessages}
           commentBank={commentBank}
+          rubricTemplates={rubricTemplates}
+          rubricTemplateItems={rubricTemplateItems}
+          rubricItemAwards={rubricItemAwards.filter((item) => item.question_node_id === card.node.id)}
           showDiscussion={showDiscussion}
           studentName={studentName}
           assessmentTitle={assessmentTitle}
@@ -270,6 +282,9 @@ function MarkingResponseCard({
   markingTickets,
   markingTicketMessages,
   commentBank,
+  rubricTemplates,
+  rubricTemplateItems,
+  rubricItemAwards,
   showDiscussion,
   studentName,
   assessmentTitle,
@@ -286,6 +301,9 @@ function MarkingResponseCard({
   markingTickets: MarkingTicket[];
   markingTicketMessages: MarkingTicketMessage[];
   commentBank: CommentBankItem[];
+  rubricTemplates: RubricTemplate[];
+  rubricTemplateItems: RubricTemplateItem[];
+  rubricItemAwards: RubricItemAward[];
   showDiscussion: boolean;
   studentName: string;
   assessmentTitle: string;
@@ -304,6 +322,14 @@ function MarkingResponseCard({
   const [isUnreadable, setIsUnreadable] = useState(annotations.some(a => a.is_unreadable));
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [selectedRubricAwardIds, setSelectedRubricAwardIds] = useState<Set<string>>(
+    () => new Set(rubricItemAwards.filter((award) => award.selected && award.rubric_template_item_id).map((award) => String(award.rubric_template_item_id))),
+  );
+  const rubricItemsForNode = useMemo(
+    () => buildRubricItemsForNode(node, rubricTemplates, rubricTemplateItems),
+    [node, rubricTemplates, rubricTemplateItems],
+  );
+  const rubricAwarded = rubricItemsForNode.reduce((sum, item) => selectedRubricAwardIds.has(item.id) ? sum + Number(item.max_marks ?? 0) : sum, 0);
 
   // Sync state when props change (e.g. after router.refresh)
   useEffect(() => {
@@ -314,9 +340,10 @@ function MarkingResponseCard({
       setStudentFeedback(existingFeedback?.body ?? "");
       setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
       setIsUnreadable(annotations.some(a => a.is_unreadable));
+      setSelectedRubricAwardIds(new Set(rubricItemAwards.filter((award) => award.selected && award.rubric_template_item_id).map((award) => String(award.rubric_template_item_id))));
     }, 0);
     return () => window.clearTimeout(id);
-  }, [mark, node, existingFeedback, annotations]);
+  }, [mark, node, existingFeedback, annotations, rubricItemAwards]);
 
   async function handleSave() {
     const usesBinaryMarking = responseModeUsesBinaryMarking(node.response_mode);
@@ -361,15 +388,24 @@ function MarkingResponseCard({
           is_unreadable: false,
         });
       }
+      const selectedRubricItems = rubricItemsForNode.filter((item) => selectedRubricAwardIds.has(item.id));
 
       await invokeEdgeFunction(supabase, "save-marking", {
         body: {
           attempt_id: attemptId,
           marks: [{
             question_node_id: node.id,
-            awarded_marks: usesBinaryMarking ? binaryAwarded ?? 0 : Number(awarded) || 0,
+            awarded_marks: usesBinaryMarking ? binaryAwarded ?? 0 : rubricItemsForNode.length ? rubricAwarded : Number(awarded) || 0,
             notes: notes,
           }],
+          rubric_awards: selectedRubricItems.map((item) => ({
+            question_node_id: node.id,
+            rubric_template_item_id: item.id,
+            awarded_marks: Number(item.max_marks ?? 0),
+            selected: true,
+            feedback_text: item.feedback_text ?? item.description ?? null,
+          })),
+          rubric_award_node_ids: rubricItemsForNode.length ? [node.id] : [],
           annotations: annotationsToSave,
         },
         requiresAal2: true,
@@ -403,8 +439,8 @@ function MarkingResponseCard({
   const maxMarks = node.marks ?? 0;
   const usesBinaryMarking = responseModeUsesBinaryMarking(node.response_mode);
   const binaryAwarded = markForBinaryDecision(binaryDecision, maxMarks);
-  const visibleAwarded = usesBinaryMarking ? binaryAwarded ?? 0 : Number(awarded) || 0;
-  const isOverLimit = !usesBinaryMarking && (Number(awarded) || 0) > maxMarks;
+  const visibleAwarded = usesBinaryMarking ? binaryAwarded ?? 0 : rubricItemsForNode.length ? rubricAwarded : Number(awarded) || 0;
+  const isOverLimit = !usesBinaryMarking && visibleAwarded > maxMarks;
   const canShowStudentWork = node.node_type === "question";
 
   return (
@@ -544,29 +580,45 @@ function MarkingResponseCard({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-5 gap-3">
-                <div className="col-span-3 relative group">
-                  <Input
-                    type="number"
-                    step={0.5}
-                    min={0}
-                    max={maxMarks}
-                    value={awarded}
-                    onChange={(e) => setAwarded(e.target.value)}
-                    className={cn(
-                      "h-16 pl-6 text-3xl font-semibold transition-colors",
-                      isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
-                    )}
+              <div className="grid gap-3">
+                {rubricItemsForNode.length ? (
+                  <RubricClickPanel
+                    items={rubricItemsForNode}
+                    selectedIds={selectedRubricAwardIds}
+                    onToggle={(item) => {
+                      setSelectedRubricAwardIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(item.id)) next.delete(item.id);
+                        else next.add(item.id);
+                        return next;
+                      });
+                    }}
                   />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-semibold text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
-                    PTS
+                ) : (
+                  <div className="grid grid-cols-5 gap-3">
+                    <div className="col-span-3 relative group">
+                      <Input
+                        type="number"
+                        step={0.5}
+                        min={0}
+                        max={maxMarks}
+                        value={awarded}
+                        onChange={(e) => setAwarded(e.target.value)}
+                        className={cn(
+                          "h-16 pl-6 text-3xl font-semibold transition-colors",
+                          isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
+                        )}
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-semibold text-lg pointer-events-none group-focus-within:text-[var(--primary)]">
+                        PTS
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div className="col-span-2 grid grid-rows-2 gap-2">
+                )}
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="secondary"
-                    className={cn("h-full text-[10px] font-bold uppercase tracking-tight transition-colors", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
                     onClick={() => setIsFlagged(!isFlagged)}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
@@ -574,7 +626,7 @@ function MarkingResponseCard({
                   </Button>
                   <Button
                     variant="secondary"
-                    className={cn("h-full text-[10px] font-bold uppercase tracking-tight transition-colors", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
+                    className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
                     onClick={() => setIsUnreadable(!isUnreadable)}
                   >
                     <Ban size={12} className="mr-1.5" />
@@ -735,6 +787,93 @@ function SubmissionPdfPreview({ objectPath, sanityCheck, onDownload }: { objectP
       ) : null}
     </div>
   );
+}
+
+function RubricClickPanel({
+  items,
+  selectedIds,
+  onToggle,
+}: {
+  items: RubricTemplateItem[];
+  selectedIds: Set<string>;
+  onToggle: (item: RubricTemplateItem) => void;
+}) {
+  const selectedMarks = items.reduce((sum, item) => selectedIds.has(item.id) ? sum + Number(item.max_marks ?? 0) : sum, 0);
+  const totalMarks = items.reduce((sum, item) => sum + Number(item.max_marks ?? 0), 0);
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--subtle)]">Rubric-click marking</p>
+          <p className="text-xs leading-5 text-[var(--muted)]">Click each awarded M/A/B/E-style point. The mark total is calculated from selected criteria.</p>
+        </div>
+        <Badge tone="accent" className="font-mono">{selectedMarks} / {totalMarks}</Badge>
+      </div>
+      <div className="grid gap-2">
+        {items.map((item) => {
+          const selected = selectedIds.has(item.id);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onToggle(item)}
+              className={cn(
+                "rounded-[4px] border p-3 text-left transition-colors",
+                selected ? "border-[var(--primary)] bg-white text-[var(--ink)] shadow-sm" : "border-[var(--border)] bg-white/60 text-[var(--muted)] hover:bg-white",
+              )}
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span>
+                  <span className="block text-sm font-semibold">
+                    {item.mark_code ? `${item.mark_code}: ` : ""}{item.label}
+                  </span>
+                  {item.description ? <span className="mt-1 block text-xs leading-5">{item.description}</span> : null}
+                  {item.feedback_text ? <span className="mt-1 block text-xs italic text-slate-500">{item.feedback_text}</span> : null}
+                </span>
+                <span className={cn(
+                  "rounded-[2px] border px-2 py-0.5 font-mono text-[11px] font-semibold",
+                  selected ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500",
+                )}>
+                  {Number(item.max_marks ?? 0)}m
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function buildRubricItemsForNode(node: QuestionNodeRow, templates: RubricTemplate[], items: RubricTemplateItem[]) {
+  if (!items.length) return [];
+  const haystack = [
+    node.node_key,
+    node.display_label,
+    node.title,
+    node.prompt_latex,
+    node.prompt_html,
+    Array.isArray(node.visual_asset_refs) ? node.visual_asset_refs.join(" ") : "",
+  ].filter(Boolean).join(" ").toLowerCase();
+  const nodeSubjectTokens = extractTokens(haystack);
+  const rankedTemplates = templates
+    .map((template) => {
+      const searchable = [template.name, template.subject, template.description, ...(template.tags ?? [])].filter(Boolean).join(" ").toLowerCase();
+      const tokens = extractTokens(searchable);
+      const overlap = [...tokens].filter((token) => nodeSubjectTokens.has(token)).length;
+      const direct = searchable.includes(String(node.node_key).toLowerCase()) || searchable.includes(String(node.display_label ?? "").toLowerCase());
+      return { template, score: direct ? overlap + 10 : overlap };
+    })
+    .sort((a, b) => b.score - a.score);
+  const selectedTemplateIds = rankedTemplates.filter((entry) => entry.score > 0).map((entry) => entry.template.id);
+  const templateIds = selectedTemplateIds.length ? selectedTemplateIds : rankedTemplates.slice(0, 1).map((entry) => entry.template.id);
+  return items
+    .filter((item) => templateIds.includes(item.rubric_template_id))
+    .sort((a, b) => a.ordinal - b.ordinal);
+}
+
+function extractTokens(value: string) {
+  return new Set(value.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length >= 3));
 }
 
 function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[]; onInsert: (text: string) => void }) {

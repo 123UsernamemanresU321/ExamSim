@@ -33,6 +33,7 @@ import type {
   QuestionBankItem,
   QuestionNodeRow,
   SubmissionReceipt,
+  TextResponse,
   TopicTag,
   UploadSanityCheck,
   UploadSlot,
@@ -300,16 +301,31 @@ export async function getSubmissionReceipt(attemptId: string) {
 
 export async function getCrossMarkWorkspace(assessmentId: string) {
   const supabase = await createSupabaseServerClient();
-  const [{ data: attempts, error: attemptError }, { data: nodes, error: nodeError }, { data: marks, error: markError }, { data: slots, error: slotError }] = await Promise.all([
+  const [{ data: attempts, error: attemptError }, { data: nodes, error: nodeError }] = await Promise.all([
     supabase.from("attempts").select("*").eq("assessment_id", assessmentId).order("created_at"),
     supabase.from("question_nodes").select("*").order("ordinal"),
-    supabase.from("marks").select("*"),
-    supabase.from("upload_slots").select("*"),
   ]);
   if (attemptError) throw attemptError;
   if (nodeError) throw nodeError;
+  const attemptIds = (attempts ?? []).map((attempt) => attempt.id);
+  const [
+    { data: marks, error: markError },
+    { data: slots, error: slotError },
+    { data: textResponses, error: textResponseError },
+  ] = attemptIds.length
+    ? await Promise.all([
+        supabase.from("marks").select("*").in("attempt_id", attemptIds),
+        supabase.from("upload_slots").select("*").in("attempt_id", attemptIds),
+        supabase.from("text_responses").select("*").in("attempt_id", attemptIds),
+      ])
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
   if (markError) throw markError;
   if (slotError) throw slotError;
+  if (textResponseError) throw textResponseError;
   const versionIds = new Set((attempts ?? []).map((attempt) => attempt.assessment_version_id));
   const profileIds = [...new Set((attempts ?? []).map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id)))];
   const { data: profiles, error: profileError } = profileIds.length
@@ -325,6 +341,7 @@ export async function getCrossMarkWorkspace(assessmentId: string) {
     questionNodes: ((nodes ?? []) as QuestionNodeRow[]).filter((node) => versionIds.has(node.assessment_version_id)),
     marks: (marks ?? []) as Mark[],
     uploadSlots: (slots ?? []) as UploadSlot[],
+    textResponses: (textResponses ?? []) as TextResponse[],
   };
 }
 

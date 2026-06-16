@@ -23,6 +23,39 @@ export async function sendSessionBroadcastAction(sessionId: string, formData: Fo
   revalidatePath(`/owner/exam-sessions/${sessionId}/live`);
 }
 
+export async function sendPrivateInvigilationMessageAction(sessionId: string, attemptId: string, formData: FormData) {
+  const ownerProfileId = await requireOwnerProfileId();
+  const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
+  if (!body) throw new Error("Message is required");
+  const supabase = await createSupabaseServerClient();
+  const { data: attempt, error: attemptError } = await supabase
+    .from("attempts")
+    .select("id")
+    .eq("id", attemptId)
+    .eq("exam_session_id", sessionId)
+    .maybeSingle();
+  if (attemptError) throw attemptError;
+  if (!attempt?.id) throw new Error("Attempt does not belong to this exam session.");
+
+  const { error } = await supabase.from("invigilation_messages").insert({
+    exam_session_id: sessionId,
+    attempt_id: attemptId,
+    sender_profile_id: ownerProfileId,
+    sender_kind: "owner",
+    message_kind: "private",
+    body,
+    visible_to_student: true,
+  });
+  if (error) throw error;
+  await supabase.rpc("audit_owner_action", {
+    action: "invigilation.private_message.sent",
+    target_table: "attempts",
+    target_id: attemptId,
+    metadata_json: { exam_session_id: sessionId },
+  });
+  revalidatePath(`/owner/exam-sessions/${sessionId}/live`);
+}
+
 export async function applyLiveInterventionAction(
   sessionId: string,
   attemptId: string,

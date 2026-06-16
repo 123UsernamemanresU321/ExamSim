@@ -108,7 +108,23 @@ async function ownerCanAccessObject(
       .limit(1)
       .maybeSingle();
     if (assetNodeError) throw assetNodeError;
-    if (!assetNode?.assessment_version_id) return false;
+    if (!assetNode?.assessment_version_id) {
+      const { data: sourcePage, error: sourcePageError } = await admin
+        .from("source_pages")
+        .select("source_document_id")
+        .eq("image_object_path", objectPath)
+        .maybeSingle();
+      if (sourcePageError) throw sourcePageError;
+      if (!sourcePage?.source_document_id) return false;
+
+      const { data: sourceDocument, error: sourceDocumentError } = await admin
+        .from("source_documents")
+        .select("owner_profile_id")
+        .eq("id", String(sourcePage.source_document_id))
+        .maybeSingle();
+      if (sourceDocumentError) throw sourceDocumentError;
+      return sourceDocument?.owner_profile_id === ownerProfileId;
+    }
 
     const { data: assetVersion, error: assetVersionError } = await admin
       .from("assessment_versions")

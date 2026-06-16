@@ -8,6 +8,8 @@ import {
   normalizeStudentNumber,
   validateGuestIdentity,
 } from "../lib/examsim/guest-access";
+import { parseExamsimLatex } from "../lib/examsim/latex-syntax";
+import { groupSimilarAnswers } from "../lib/answer-grouping";
 
 function read(path: string) {
   return readFileSync(path, "utf8");
@@ -96,6 +98,16 @@ describe("Examsim product expansion foundations", () => {
     expect(read("supabase/functions/guest-finalize-attempt/index.ts")).toContain("upsert");
   });
 
+  it("applies roster accommodations to guest attempt timing and resumed countdowns", () => {
+    const join = read("supabase/functions/join-exam-session/index.ts");
+    expect(join).toContain("readAccommodationPolicy");
+    expect(join).toContain("extra_time_seconds");
+    expect(join).toContain("upload_extension_seconds");
+    expect(join).toContain("recordRosterAccommodations");
+    expect(join).toContain("attemptRow.end_at_utc");
+    expect(join).toContain("attempt_accommodations");
+  });
+
   it("wires owner exam session management without storing plaintext codes", () => {
     expect(read("components/owner/sidebar-nav.tsx")).toContain("/owner/exam-sessions");
     expect(read("app/owner/exam-sessions/page.tsx")).toContain("ExamSessionForm");
@@ -113,10 +125,69 @@ describe("Examsim product expansion foundations", () => {
     expect(read("app/owner/assessments/[id]/page.tsx")).toContain("/latex");
     expect(read("app/owner/assessments/[id]/page.tsx")).toContain("/rubrics");
     expect(read("app/owner/assessments/[id]/authoring/page.tsx")).toContain("Visual Question Editor");
+    expect(read("app/owner/assessments/[id]/authoring/page.tsx")).toContain("SourceRegionEditor");
     expect(read("app/owner/assessments/[id]/authoring/actions.ts")).toContain("updateQuestionCardAction");
+    expect(read("app/owner/assessments/[id]/authoring/actions.ts")).toContain("splitSourceRegionAction");
+    expect(read("app/owner/assessments/[id]/authoring/actions.ts")).toContain("mergeSourceRegionsAction");
+    expect(read("components/owner/source-region-editor.tsx")).toContain("onPointerDown");
+    expect(read("components/owner/source-region-editor.tsx")).toContain("owner-sign-storage-url");
     expect(read("app/owner/assessments/[id]/compiler/page.tsx")).toContain("Manual region fallback");
-    expect(read("app/owner/assessments/[id]/latex/page.tsx")).toContain("\\\\question[6][topic=modular arithmetic]");
+    expect(read("app/owner/assessments/[id]/latex/page.tsx")).toContain("LatexImportWorkspace");
+    expect(read("components/owner/latex-import-workspace.tsx")).toContain("Live parse preview");
+    expect(read("lib/examsim/latex-syntax.ts")).toContain("parseExamsimLatex");
     expect(read("app/owner/assessments/[id]/rubrics/page.tsx")).toContain("Rubrics and Reusable Feedback");
+    expect(read("app/owner/assessments/[id]/rubrics/page.tsx")).toContain("createRubricTemplateItemAction");
+    expect(read("components/owner/marking-response-workspace.tsx")).toContain("RubricClickPanel");
+    expect(read("supabase/functions/save-marking/index.ts")).toContain("rubric_awards");
+  });
+
+  it("parses Examsim LaTeX syntax into reviewable questions and rubric points", () => {
+    const result = parseExamsimLatex(String.raw`
+\question[4][topic=algebra,type=proof]
+Show that $a_0+a_1=1$.
+\answerbox{proof}
+\markscheme{
+M1: sets up recurrence
+A1: completes proof (2 marks)
+}
+
+\question[2][topic=number theory]
+Find $n$.
+\answerbox{short}
+`);
+    expect(result.warnings).toEqual([]);
+    expect(result.questions).toHaveLength(2);
+    expect(result.questions[0]).toMatchObject({
+      nodeKey: "Q1",
+      marks: 4,
+      topic: "algebra",
+      answerType: "proof",
+      answerBoxes: ["proof"],
+    });
+    expect(result.questions[0].rubricPoints).toEqual([
+      { code: "M1", text: "sets up recurrence", marks: 1 },
+      { code: "A1", text: "completes proof", marks: 2 },
+    ]);
+    expect(result.questions[1]).toMatchObject({ nodeKey: "Q2", marks: 2, topic: "number theory" });
+  });
+
+  it("groups similar typed and numerical answers without applying marks automatically", () => {
+    const groups = groupSimilarAnswers([
+      { id: "r1", attempt_id: "a1", question_node_id: "q1", answer_text: "  1,000.0 ", response_mode: "numerical" },
+      { id: "r2", attempt_id: "a2", question_node_id: "q1", answer_text: "1000", response_mode: "numerical" },
+      { id: "r3", attempt_id: "a3", question_node_id: "q1", answer_text: "Different", response_mode: "typed_text" },
+    ]);
+    expect(groups[0]).toMatchObject({ normalized_answer: "1000", count: 2, confidence: "normalized" });
+    expect(groups.some((group) => group.label === "Different")).toBe(true);
+    expect(read("app/owner/assessments/[id]/cross-mark/page.tsx")).toContain("Deterministic grouping only");
+  });
+
+  it("keeps source page preview signing behind owner authorization", () => {
+    const signer = read("supabase/functions/owner-sign-storage-url/index.ts");
+    expect(signer).toContain("source_pages");
+    expect(signer).toContain("image_object_path");
+    expect(signer).toContain("source_documents");
+    expect(signer).toContain("owner_profile_id === ownerProfileId");
   });
 
   it("adds live invigilation controls and guest technical issue reporting", () => {

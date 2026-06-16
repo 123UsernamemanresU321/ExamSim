@@ -1,4 +1,12 @@
-import { updateQuestionCardAction } from "@/app/owner/assessments/[id]/authoring/actions";
+import {
+  createSourceRegionAction,
+  ignoreSourceRegionAction,
+  mergeSourceRegionsAction,
+  splitSourceRegionAction,
+  updateQuestionCardAction,
+  updateSourceRegionAction,
+} from "@/app/owner/assessments/[id]/authoring/actions";
+import { SourceRegionEditor } from "@/components/owner/source-region-editor";
 import { SectionHeading } from "@/components/section-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +25,28 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
         <EmptyState title="No version available" description="Upload or import a paper before editing the visual question tree." />
       ) : (
         <div className="grid gap-4">
+          {workspace.sourceDocuments.length ? (
+            <SourceRegionEditor
+              versionId={workspace.latestVersion.id}
+              sourceDocuments={workspace.sourceDocuments}
+              sourcePages={workspace.sourcePages}
+              sourceRegions={workspace.sourceRegions}
+              questionNodes={workspace.questionNodes}
+              createRegionAction={createSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
+              updateRegionAction={updateSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
+              ignoreRegionAction={ignoreSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
+              splitRegionAction={splitSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
+              mergeRegionsAction={mergeSourceRegionsAction.bind(null, id, workspace.latestVersion.id)}
+            />
+          ) : (
+            <Card>
+              <h2 className="text-base font-semibold text-[var(--ink)]">Source-region editor unavailable</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                Upload or compile a PDF/LaTeX source first. Once source document records exist, this page shows the interactive
+                draggable region editor instead of raw JSON or manual coordinate entry.
+              </p>
+            </Card>
+          )}
           {workspace.questionNodes.map((node) => (
             <Card key={node.id}>
               <form action={saveAction} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px_180px_180px_auto]">

@@ -187,6 +187,9 @@ function reviewWorkspace(questionNodes: QuestionNodeRow[]): AttemptReviewWorkspa
     sourceObjectPath: "source.pdf",
     uploadSanityChecks: [],
     commentBank: [],
+    rubricTemplates: [],
+    rubricTemplateItems: [],
+    rubricItemAwards: [],
   };
 }
 
