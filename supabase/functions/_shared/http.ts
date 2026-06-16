@@ -96,6 +96,7 @@ export function statusForError(message: string) {
   if (/rate limit|too many/i.test(message)) return 429;
   if (/already has a file|already activated|published assessment versions are immutable/i.test(message)) return 409;
   if (/not configured|misconfigured/i.test(message)) return 500;
+  if (/AI response failed backend validation|AI response was not valid JSON|AI response JSON|AI response missing normalized_package|DeepSeek did not return message content/i.test(message)) return 422;
   if (/DeepSeek|MinerU|KMS|provider|gateway|timed out/i.test(message)) return 502;
   if (/required|missing|invalid|must be|not allowed|not available|not enabled|does not match|expired|review is required|not submitted|not found/i.test(message)) return 400;
   return 500;

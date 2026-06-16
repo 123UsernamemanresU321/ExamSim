@@ -100,10 +100,24 @@ describe("security report remediation", () => {
   it("wires rate limits into activation and provider-cost endpoints", () => {
     expect(read("supabase/functions/activate-student/index.ts")).toContain("activate-student:login-code");
     expect(read("supabase/functions/activate-student/index.ts")).toContain("Invalid or expired activation details");
-    expect(read("supabase/functions/ai-parse-assessment/index.ts")).toContain("ai-parse-assessment:owner");
+    const aiParse = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(aiParse).toContain("ai-parse-assessment:owner");
+    expect(aiParse).toContain("isMissingRateLimitBoundary");
+    expect(aiParse).toContain("AI parse rate-limit database migration is not deployed");
     expect(read("supabase/functions/mineru-submit-hosted-job/index.ts")).toContain("mineru-submit-hosted-job:owner");
     expect(read("supabase/functions/mineru-poll-hosted-job/index.ts")).toContain("mineru-poll-hosted-job:owner");
     expect(statusForError("Rate limit exceeded. Try again later.")).toBe(429);
+  });
+
+  it("returns actionable AI parse errors instead of opaque 500s", () => {
+    const aiParse = read("supabase/functions/ai-parse-assessment/index.ts");
+    expect(aiParse).toContain("DeepSeek AI parse is not configured");
+    expect(aiParse).toContain("}, 503)");
+    expect(aiParse).toContain('status: "failed"');
+    expect(aiParse).toContain("error_message: safeErrorMessage");
+    expect(aiParse).toContain('.eq("status", "running")');
+    expect(statusForError("AI response failed backend validation:\n- Q6 latex prompt suspiciously short.")).toBe(422);
+    expect(statusForError("DeepSeek did not return message content")).toBe(422);
   });
 
   it("verifies MinerU worker HMAC signatures and rejects stale or invalid callbacks", async () => {

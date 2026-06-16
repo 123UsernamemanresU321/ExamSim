@@ -25,16 +25,19 @@ type StorageAdmin = {
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
+  let cleanupAdmin: any = null;
+  let parseJobId: string | null = null;
   try {
     const { user, admin } = await requireOwnerAal2(request);
+    cleanupAdmin = admin;
     const ownerProfile = await profileForAuthUser(user.id);
     const body = await readJson<Body>(request);
     if (!body.assessment_version_id) return json(request, { error: "assessment_version_id is required" }, 400);
 
     const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
-    if (!apiKey) return json(request, { error: "DEEPSEEK_API_KEY is not configured" }, 500);
+    if (!apiKey) return json(request, { error: "DeepSeek AI parse is not configured. Set DEEPSEEK_API_KEY, or use MinerU/manual parse review instead." }, 503);
     const provider = Deno.env.get("AI_PARSE_PROVIDER") || "deepseek";
-    if (provider !== "deepseek") return json(request, { error: "Only DeepSeek is configured for production AI parse" }, 500);
+    if (provider !== "deepseek") return json(request, { error: "Only DeepSeek is configured for production AI parse. Check AI_PARSE_PROVIDER." }, 503);
     const model = body.repair
       ? Deno.env.get("AI_PARSE_REPAIR_MODEL") || "deepseek-v4-pro"
       : Deno.env.get("AI_PARSE_MODEL") || "deepseek-v4-flash";
@@ -47,12 +50,19 @@ serve(async (request) => {
     if (versionError) throw versionError;
     if (version.assessments?.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
 
-    await enforceRateLimit(admin, {
-      scope: "ai-parse-assessment:owner",
-      key: ownerProfile.id,
-      limit: envInt("AI_PARSE_OWNER_HOURLY_LIMIT", 20),
-      windowSeconds: 3600,
-    });
+    const operationalWarnings: string[] = [];
+    try {
+      await enforceRateLimit(admin, {
+        scope: "ai-parse-assessment:owner",
+        key: ownerProfile.id,
+        limit: envInt("AI_PARSE_OWNER_HOURLY_LIMIT", 20),
+        windowSeconds: 3600,
+      });
+    } catch (rateLimitError) {
+      if (!isMissingRateLimitBoundary(rateLimitError)) throw rateLimitError;
+      console.warn("AI parse rate-limit boundary is not deployed; allowing request with warning.", rateLimitError);
+      operationalWarnings.push("AI parse rate-limit database migration is not deployed; owner should apply migrations before production launch.");
+    }
 
     const sourceText = await loadSourceText(admin, body, version);
     const originalSourceText = version.source_object_path && !version.source_object_path.toLowerCase().endsWith(".pdf")
@@ -82,6 +92,7 @@ serve(async (request) => {
       .select("id")
       .single();
     if (parseJobError) throw parseJobError;
+    parseJobId = parseJob.id;
 
     // Collect any image artifacts extracted from MinerU so DeepSeek can assign them to questions
     const imagePaths: string[] = [];
@@ -644,7 +655,7 @@ serve(async (request) => {
       assessmentKind: version.assessments?.assessment_kind ?? "test",
       sourceKind: version.source_kind,
       existingPackage,
-    }, parsedContent.warnings);
+    }, [...operationalWarnings, ...parsedContent.warnings]);
 
     const { data: saved, error: suggestionError } = await admin
       .from("ai_parse_suggestions")
@@ -684,9 +695,34 @@ serve(async (request) => {
     return json(request, { ok: true, suggestion: saved });
   } catch (error) {
     console.error("AI Parse error:", error);
+    if (cleanupAdmin && parseJobId) {
+      try {
+        await cleanupAdmin
+          .from("parse_jobs")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: safeErrorMessage(error),
+          })
+          .eq("id", parseJobId)
+          .eq("status", "running");
+      } catch (cleanupError) {
+        console.error("Could not mark AI parse job failed:", cleanupError);
+      }
+    }
     return errorResponse(request, error, "ai-parse-assessment failed");
   }
 });
+
+function isMissingRateLimitBoundary(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /consume_edge_rate_limit|edge_rate_limits|function .* does not exist|schema cache|could not find.*function|relation .* does not exist|404/i.test(message);
+}
+
+function safeErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "ai-parse-assessment failed");
+  return message.slice(0, 1000);
+}
 
 async function loadSourceText(admin: any, body: Body, version: any) {
   if (body.source_text?.trim()) return body.source_text;
