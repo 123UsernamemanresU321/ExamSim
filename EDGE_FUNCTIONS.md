@@ -167,12 +167,13 @@ The Edge Function defaults to MinerU's file-upload URL flow, uploads the private
 MinerU batch id on `parse_jobs`, and never exposes the MinerU token to the browser. A running job can be force-restarted
 from the owner review UI if the provider stays pending for too long. Calls are owner-rate-limited through
 `edge_rate_limits`; provider-dashboard spend caps are still required.
+The rate-limit RPC uses `pgcrypto.digest`; apply `20260616192951_fix_rate_limit_pgcrypto_search_path.sql` on hosted
+projects so the function can resolve Supabase's `extensions` schema.
 
 ## mineru-poll-hosted-job
 
 Owner AAL2 only. Polls hosted MinerU by batch id and is owner-rate-limited through `edge_rate_limits`.
-
-Owner AAL2 only. Polls hosted MinerU by batch id, downloads the completed result ZIP, uploads the ZIP and extracted
+It downloads the completed result ZIP, uploads the ZIP and extracted
 Markdown/JSON/HTML/log artifacts to private `assessment-packages`, and marks the parse job `review_required`. Provider
 errors and stale running jobs are persisted as `failed` so the owner can restart instead of seeing an endless running
 state.

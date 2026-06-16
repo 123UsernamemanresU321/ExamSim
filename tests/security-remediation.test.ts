@@ -87,14 +87,25 @@ describe("security report remediation", () => {
 
   it("adds private rate-limit and callback tables with no client RLS policies", () => {
     const migration = read("supabase/migrations/20260615152427_security_report_remediation.sql");
+    expect(migration).toContain("create extension if not exists pgcrypto with schema extensions");
     expect(migration).toContain("create table if not exists public.edge_rate_limits");
     expect(migration).toContain("alter table public.edge_rate_limits enable row level security");
     expect(migration).toContain("revoke all on table public.edge_rate_limits from anon, authenticated");
     expect(migration).toContain("create or replace function public.consume_edge_rate_limit");
+    expect(migration).toContain("set search_path = public, extensions");
+    expect(migration).toContain("digest(p_key::text, 'sha256'::text)");
     expect(migration).toContain("grant execute on function public.consume_edge_rate_limit");
     expect(migration).toContain("create table if not exists public.parse_worker_callbacks");
     expect(migration).toContain("alter table public.parse_worker_callbacks enable row level security");
     expect(migration).not.toContain("create policy");
+  });
+
+  it("ships a repair migration for hosted projects with pgcrypto outside public search path", () => {
+    const migration = read("supabase/migrations/20260616192951_fix_rate_limit_pgcrypto_search_path.sql");
+    expect(migration).toContain("create extension if not exists pgcrypto with schema extensions");
+    expect(migration).toContain("create or replace function public.consume_edge_rate_limit");
+    expect(migration).toContain("set search_path = public, extensions");
+    expect(migration).toContain("digest(p_key::text, 'sha256'::text)");
   });
 
   it("wires rate limits into activation and provider-cost endpoints", () => {
@@ -103,6 +114,7 @@ describe("security report remediation", () => {
     const aiParse = read("supabase/functions/ai-parse-assessment/index.ts");
     expect(aiParse).toContain("ai-parse-assessment:owner");
     expect(aiParse).toContain("isMissingRateLimitBoundary");
+    expect(aiParse).toContain("function digest");
     expect(aiParse).toContain("AI parse rate-limit database migration is not deployed");
     expect(read("supabase/functions/mineru-submit-hosted-job/index.ts")).toContain("mineru-submit-hosted-job:owner");
     expect(read("supabase/functions/mineru-poll-hosted-job/index.ts")).toContain("mineru-poll-hosted-job:owner");

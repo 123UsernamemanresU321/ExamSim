@@ -165,6 +165,8 @@ responses include CSP, HSTS, frame, content-type, referrer, and permissions-poli
 Student activation, AI parse suggestions, and hosted MinerU submit/poll calls use the `edge_rate_limits` table and
 `consume_edge_rate_limit` RPC as a service-role-only rate-limit boundary. Provider-side spend caps and alerting are
 still required in DeepSeek/MinerU dashboards.
+The rate-limit RPC depends on `pgcrypto`; hosted projects must apply the `fix_rate_limit_pgcrypto_search_path`
+migration so `digest(...)` resolves through Supabase's `extensions` schema.
 
 Self-hosted MinerU callbacks must use `MINERU_WORKER_HMAC_SECRET` and send `x-exam-vault-timestamp`,
 `x-exam-vault-delivery-id`, and `x-exam-vault-signature` over `timestamp.deliveryId.rawBody`. Callback delivery ids are

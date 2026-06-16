@@ -1,25 +1,6 @@
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
-create table if not exists public.edge_rate_limits (
-  id uuid primary key default gen_random_uuid(),
-  scope text not null,
-  key_hash text not null,
-  window_start timestamptz not null,
-  request_count integer not null default 0 check (request_count >= 0),
-  limit_count integer not null check (limit_count > 0),
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(scope, key_hash, window_start)
-);
-
-alter table public.edge_rate_limits enable row level security;
-revoke all on table public.edge_rate_limits from anon, authenticated;
-
-create index if not exists edge_rate_limits_expires_at_idx on public.edge_rate_limits(expires_at);
-create index if not exists edge_rate_limits_scope_window_idx on public.edge_rate_limits(scope, window_start desc);
-
 create or replace function public.consume_edge_rate_limit(
   p_scope text,
   p_key text,
@@ -84,18 +65,3 @@ $$;
 
 revoke all on function public.consume_edge_rate_limit(text, text, integer, integer) from public, anon, authenticated;
 grant execute on function public.consume_edge_rate_limit(text, text, integer, integer) to service_role;
-
-create table if not exists public.parse_worker_callbacks (
-  delivery_id text primary key,
-  parse_job_id uuid not null references public.parse_jobs(id) on delete cascade,
-  received_at timestamptz not null default now(),
-  signed_at timestamptz null,
-  signature_prefix text null,
-  status text not null check (status in ('received', 'accepted', 'ignored', 'failed')),
-  metadata_json jsonb not null default '{}'
-);
-
-alter table public.parse_worker_callbacks enable row level security;
-revoke all on table public.parse_worker_callbacks from anon, authenticated;
-
-create index if not exists parse_worker_callbacks_parse_job_idx on public.parse_worker_callbacks(parse_job_id, received_at desc);

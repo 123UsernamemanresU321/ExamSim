@@ -716,7 +716,7 @@ serve(async (request) => {
 
 function isMissingRateLimitBoundary(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
-  return /consume_edge_rate_limit|edge_rate_limits|function .* does not exist|schema cache|could not find.*function|relation .* does not exist|404/i.test(message);
+  return /consume_edge_rate_limit|edge_rate_limits|function .* does not exist|function digest|schema cache|could not find.*function|relation .* does not exist|404/i.test(message);
 }
 
 function safeErrorMessage(error: unknown) {
