@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CheckCircle2, Clock3, Flag, Loader2, Send } from "lucide-react";
+import { Bell, BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { MathRenderer } from "@/components/math-renderer";
 import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
@@ -21,6 +21,7 @@ type GuestStateResponse = {
   countdown_target_utc: string | null;
   server_now_utc: string;
   display_timezone: string;
+  invigilation_messages?: GuestInvigilationMessage[];
 };
 
 type GuestPackageResponse = {
@@ -54,6 +55,14 @@ type GuestUploadUrlResponse = {
   max_file_size_bytes: number;
 };
 
+type GuestInvigilationMessage = {
+  id: string;
+  message_kind: "broadcast" | "private" | "system";
+  sender_kind: "owner" | "student_guest" | "student_account" | "system";
+  body: string;
+  created_at: string;
+};
+
 export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finalize" | "submitted" }) {
   const router = useRouter();
   const [attemptId] = useState<string | null>(() => typeof window === "undefined" ? null : sessionStorage.getItem("examvault_guest_attempt_id"));
@@ -76,6 +85,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [flags, setFlags] = useState<Record<string, boolean>>({});
+  const [invigilationMessages, setInvigilationMessages] = useState<GuestInvigilationMessage[]>([]);
   const [technicalIssue, setTechnicalIssue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -137,6 +147,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
       if (response) {
         sessionStorage.setItem("examvault_guest_state_token", response.state_token);
         setState(response);
+        setInvigilationMessages(response.invigilation_messages ?? []);
         if (mode === "lobby" && response.state !== "WAITING") router.replace("/exam/live");
         if (mode === "live" && response.state === "FINISHED_REVIEW") router.replace("/exam/finalize");
       }
@@ -363,25 +374,43 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
           <BookOpen size={16} aria-hidden="true" />
           Questions
         </div>
-        <nav className="mt-4 grid gap-1" aria-label="Question navigation">
-          {flatQuestions.map((question) => (
-            <button
-              key={question.node_key}
-              type="button"
-              onClick={() => setSelectedKey(question.node_key)}
-              className={`flex items-center justify-between rounded-[2px] px-3 py-2 text-left text-sm ${
-                selectedKey === question.node_key ? "bg-white text-[var(--sidebar)]" : "text-slate-300 hover:bg-white/10"
-              }`}
-            >
-              <span>{question.display_label ?? question.node_key}</span>
-              {flags[question.node_key] ? <Flag size={14} aria-hidden="true" /> : null}
-            </button>
-          ))}
-        </nav>
+        {state?.state === "WAITING" ? (
+          <div className="mt-4 rounded-[4px] border border-white/10 bg-white/5 p-3 text-sm leading-6 text-slate-300">
+            <div className="flex items-center gap-2 font-semibold text-white">
+              <Lock size={15} aria-hidden="true" />
+              Question paper locked
+            </div>
+            <p className="mt-2">
+              The question list appears when the server releases the exam. No exam content is loaded before that point.
+            </p>
+          </div>
+        ) : (
+          <nav className="mt-4 grid gap-1" aria-label="Question navigation">
+            {flatQuestions.map((question) => (
+              <button
+                key={question.node_key}
+                type="button"
+                onClick={() => setSelectedKey(question.node_key)}
+                className={`flex items-center justify-between rounded-[2px] px-3 py-2 text-left text-sm ${
+                  selectedKey === question.node_key ? "bg-white text-[var(--sidebar)]" : "text-slate-300 hover:bg-white/10"
+                }`}
+              >
+                <span>{question.display_label ?? question.node_key}</span>
+                {flags[question.node_key] ? <Flag size={14} aria-hidden="true" /> : null}
+              </button>
+            ))}
+          </nav>
+        )}
       </aside>
 
       <main className="rounded-[4px] border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-card)]">
-        {!assessmentPackage || isPending ? (
+        {state?.state === "WAITING" ? (
+          <WaitingLivePanel
+            state={state}
+            messages={invigilationMessages}
+            onRefresh={() => void refreshState()}
+          />
+        ) : !assessmentPackage || isPending ? (
           <div className="grid min-h-[360px] place-items-center text-[var(--muted)]">
             <span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" size={18} /> Loading secure exam workspace...</span>
           </div>
@@ -452,6 +481,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
           </div>
         ) : null}
         <p className="mt-3 text-sm leading-6 text-[var(--muted)]">Autosave runs only while the server state is active. Timing remains server controlled.</p>
+        <InvigilationMessagesPanel messages={invigilationMessages} compact />
         {error?.includes("Guest SEB sessions are blocked") ? (
           <p className="mt-4 rounded-[4px] bg-[var(--warning-bg)] p-3 text-sm text-[var(--warning)]">
             Guest SEB sessions are blocked unless verified secure mode is configured. Ask your teacher for the authenticated secure-mode route.
@@ -486,11 +516,109 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
             Send issue report
           </Button>
         </div>
-        <Button className="mt-6 w-full" type="button" onClick={() => router.push("/exam/finalize")}>
+        <Button className="mt-6 w-full" type="button" disabled={state?.state === "WAITING"} onClick={() => router.push("/exam/finalize")}>
           Submit review
         </Button>
+        {state?.state === "WAITING" ? (
+          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Submit review unlocks after the exam has opened.</p>
+        ) : null}
       </aside>
     </div>
+  );
+}
+
+function WaitingLivePanel({
+  state,
+  messages,
+  onRefresh,
+}: {
+  state: GuestStateResponse;
+  messages: GuestInvigilationMessage[];
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="mx-auto grid min-h-[520px] max-w-3xl content-center gap-5 py-8">
+      <div className="rounded-[6px] border border-blue-100 bg-blue-50/40 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex gap-3">
+            <span className="grid size-11 shrink-0 place-items-center rounded-[4px] bg-[var(--primary)] text-white">
+              <Clock3 size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-800">Exam starts soon</p>
+              <h1 className="mt-1 text-2xl font-semibold text-[var(--ink)]">Stay on this page until the paper opens</h1>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                The blank workspace is intentional. Exam content is not loaded before the server releases it.
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="secondary" onClick={onRefresh}>Check now</Button>
+        </div>
+        <div className="mt-5 rounded-[4px] border border-[var(--border)] bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Official countdown</p>
+          <CountdownTimer
+            serverNowUtc={state.server_now_utc}
+            targetUtc={state.countdown_target_utc}
+            state={state.state}
+            onExpire={onRefresh}
+          />
+        </div>
+        <div className="mt-5 grid gap-3 text-sm leading-6 text-[var(--muted)] md:grid-cols-3">
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-3">
+            <p className="font-semibold text-[var(--ink)]">Keep the tab open</p>
+            <p className="mt-1">The page checks the official state automatically.</p>
+          </div>
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-3">
+            <p className="font-semibold text-[var(--ink)]">Prepare uploads</p>
+            <p className="mt-1">Have scanner or PDF tools ready if your teacher requires uploads.</p>
+          </div>
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-3">
+            <p className="font-semibold text-[var(--ink)]">Watch announcements</p>
+            <p className="mt-1">Teacher broadcasts appear below and in the side panel.</p>
+          </div>
+        </div>
+      </div>
+      <InvigilationMessagesPanel messages={messages} />
+    </div>
+  );
+}
+
+function InvigilationMessagesPanel({
+  messages,
+  compact = false,
+}: {
+  messages: GuestInvigilationMessage[];
+  compact?: boolean;
+}) {
+  const visibleMessages = compact ? messages.slice(0, 3) : messages;
+  return (
+    <section className={`${compact ? "mt-5" : ""} rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3`}>
+      <div className="flex items-center gap-2">
+        <Bell size={15} aria-hidden="true" className="text-[var(--primary)]" />
+        <h2 className="text-sm font-semibold text-[var(--ink)]">Teacher announcements</h2>
+      </div>
+      {visibleMessages.length ? (
+        <div className="mt-3 grid gap-2">
+          {visibleMessages.map((message) => (
+            <article key={message.id} className="rounded-[3px] border border-[var(--border)] bg-white p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-[var(--ink)]">
+                  {message.message_kind === "broadcast" ? "Broadcast" : "Direct message"}
+                </p>
+                <time className="whitespace-nowrap font-mono text-[11px] text-[var(--subtle)]" dateTime={message.created_at}>
+                  {formatShortTime(message.created_at)}
+                </time>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap leading-6 text-[var(--muted)]">{message.body}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          Broadcasts and direct messages from your teacher will appear here.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -555,4 +683,10 @@ function formatReceiptTime(value: string) {
   const date = value ? new Date(value) : null;
   if (!date || !Number.isFinite(date.getTime())) return "Recorded by server";
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatShortTime(value: string) {
+  const date = value ? new Date(value) : null;
+  if (!date || !Number.isFinite(date.getTime())) return "Just now";
+  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
