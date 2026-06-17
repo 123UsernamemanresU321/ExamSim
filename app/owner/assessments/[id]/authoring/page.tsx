@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getAssessmentAuthoringWorkspace } from "@/lib/examsim/authoring-data";
+import { inferAnswerTypeSuggestion } from "@/lib/examsim/compiler-readiness";
 
 export default async function VisualAuthoringPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -94,7 +95,9 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
               )}
 
               <div id="question-cards" className="grid gap-4">
-                {workspace.questionNodes.length ? workspace.questionNodes.map((node) => (
+                {workspace.questionNodes.length ? workspace.questionNodes.map((node) => {
+                  const answerTypeSuggestion = inferAnswerTypeSuggestion([node.prompt_html, node.prompt_latex].filter(Boolean).join(" "));
+                  return (
                   <Card key={node.id} id={`question-${node.id}`}>
                     <form action={saveAction} className="grid gap-5">
                       <input type="hidden" name="question_node_id" value={node.id} />
@@ -141,6 +144,10 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                               <option value="numerical">Numerical</option>
                             </select>
                           </label>
+                          <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
+                            <p className="font-semibold text-[var(--ink)]">Suggested answer type: {answerTypeSuggestion.responseMode}</p>
+                            <p className="mt-1">{answerTypeSuggestion.reason} Confidence {Math.round(answerTypeSuggestion.confidence * 100)}%. Teacher confirmation is required.</p>
+                          </div>
                         </div>
                       </div>
 
@@ -158,7 +165,8 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                       </div>
                     </form>
                   </Card>
-                )) : (
+                );
+                }) : (
                   <EmptyState title="No question cards yet" description="Import a PDF, compile LaTeX, upload advanced JSON, or add questions through the normal assessment creation flow." />
                 )}
               </div>

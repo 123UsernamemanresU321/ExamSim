@@ -1,4 +1,5 @@
 import { buildMarkingTree, calculateAttemptTotal, flattenMarkingTree, getSelectableMarkingGroups } from "@/lib/marking-tree";
+import { buildCompilerReviewQueue } from "@/lib/examsim/compiler-readiness";
 import { compareOrdinalPaths, detectVisualDependency, validateQuestionTree, type NormalizedQuestionHierarchyNode } from "@/lib/question-hierarchy";
 import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionNodeRow, QuestionSourceRegion, SourceDocument, UploadSlot } from "@/types/database";
 
@@ -227,6 +228,21 @@ export function computePaperHealth({
         fixHref: assessment ? `/owner/assessments/${assessment.id}/markscheme` : undefined,
       });
     }
+  }
+
+  const compilerQueue = buildCompilerReviewQueue({
+    questionNodes,
+    sourceRegions: activeSourceRegions,
+    markschemeNodes,
+  });
+  const criticalCompilerItems = compilerQueue.filter((item) => item.severity === "critical");
+  if (criticalCompilerItems.length) {
+    warnings.push({
+      code: "compiler_review_required",
+      severity: "warning",
+      message: `${criticalCompilerItems.length} critical compiler review item(s) remain: ${criticalCompilerItems.slice(0, 3).map((item) => item.label).join(", ")}.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/compiler` : undefined,
+    });
   }
 
   const normalizedTreeIssues = validateQuestionTree(markingTreeToNormalized(roots));

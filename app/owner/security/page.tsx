@@ -1,4 +1,5 @@
 import { OwnerMfaPanel, OwnerPasswordPanel } from "@/components/auth/mfa-panel";
+import { ExamsimProductionReadinessPanel } from "@/components/owner/examsim-production-readiness-panel";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
@@ -50,6 +51,9 @@ export default function OwnerSecurityPage() {
             </p>
           </div>
         </Card>
+      </div>
+      <div className="mt-5">
+        <ExamsimProductionReadinessPanel />
       </div>
     </>
   );

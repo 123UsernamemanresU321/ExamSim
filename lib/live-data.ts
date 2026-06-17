@@ -69,6 +69,7 @@ export type AssessmentSummary = {
 
 export type AttemptSummary = {
   id: string;
+  assessment_id?: string | null;
   title: string;
   paper_code: string | null;
   subject: string | null;
@@ -144,6 +145,7 @@ function demoAttemptSummaries(): AttemptSummary[] {
     const withState = attemptWithState(attempt.id);
     return {
       id: attempt.id,
+      assessment_id: sampleAssessment.id,
       title: attempt.title,
       paper_code: attempt.paper_code ?? null,
       subject: "Olympiad",
@@ -182,6 +184,7 @@ function mapAttemptSummary(
   const assessment = assessmentById.get(attempt.assessment_id);
   return {
     id: attempt.id,
+    assessment_id: attempt.assessment_id,
     title: assessment?.title ?? "Untitled assessment",
     paper_code: assessment?.paper_code ?? null,
     subject: assessment?.subject ?? null,
