@@ -24,6 +24,74 @@ async function importStudentActionsWithAdminFailure() {
   return import("@/app/owner/students/actions");
 }
 
+async function importStudentActionsWithWorkingOwnerClientAndMissingAdmin() {
+  vi.resetModules();
+  const revalidatePath = vi.fn();
+  const deletedRows: string[] = [];
+  const auditEvents: string[] = [];
+  vi.doMock("next/cache", () => ({
+    revalidatePath,
+  }));
+  vi.doMock("@/lib/examsim/session-data", () => ({
+    requireOwnerProfileId: async () => "owner-1",
+  }));
+  vi.doMock("@/lib/owner-operations", () => ({
+    asJson: (value: unknown) => value,
+  }));
+  vi.doMock("@/lib/supabase/server", () => ({
+    createSupabaseServerClient: async () => ({
+      rpc: async (name: string, payload: { action?: string }) => {
+        expect(name).toBe("audit_owner_action");
+        auditEvents.push(String(payload.action ?? ""));
+        return { error: null };
+      },
+      from: (table: string) => {
+        if (table === "student_roster_entries") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: "roster-1",
+                    owner_profile_id: "owner-1",
+                    student_number: "DP1-001",
+                    display_name: "Student One",
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+            delete: () => ({
+              eq: (column: string, value: string) => ({
+                eq: async () => {
+                  expect(column).toBe("id");
+                  deletedRows.push(value);
+                  return { error: null };
+                },
+              }),
+            }),
+          };
+        }
+        if (table === "attempts") {
+          return {
+            select: () => ({
+              eq: async () => ({ count: 0, error: null }),
+            }),
+          };
+        }
+        throw new Error(`Unexpected table ${table}`);
+      },
+    }),
+  }));
+  vi.doMock("@/lib/supabase/admin", () => ({
+    getSupabaseAdminClient: () => {
+      throw new Error("Missing Supabase admin environment variables");
+    },
+  }));
+  const actions = await import("@/app/owner/students/actions");
+  return { ...actions, deletedRows, auditEvents, revalidatePath };
+}
+
 describe("student delete server actions", () => {
   it("returns a structured failure instead of rejecting when student-account deletion cannot run", async () => {
     const { deleteStudentAccountAction } = await importStudentActionsWithAdminFailure();
@@ -39,7 +107,17 @@ describe("student delete server actions", () => {
 
     await expect(deleteRosterEntryAction("roster-1")).resolves.toMatchObject({
       ok: false,
-      message: expect.stringContaining("Roster number deletion is not available"),
+      message: expect.stringContaining("roster number could not be deleted"),
     });
+  });
+
+  it("deletes unused roster numbers without requiring Supabase admin access", async () => {
+    const { deleteRosterEntryAction, deletedRows, auditEvents, revalidatePath } =
+      await importStudentActionsWithWorkingOwnerClientAndMissingAdmin();
+
+    await expect(deleteRosterEntryAction("roster-1")).resolves.toEqual({ ok: true });
+    expect(deletedRows).toEqual(["roster-1"]);
+    expect(auditEvents).toEqual(["roster_entry.delete_requested", "roster_entry.deleted"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/owner/students");
   });
 });
