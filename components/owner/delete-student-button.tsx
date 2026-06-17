@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteRosterEntryAction, deleteStudentAccountAction } from "@/app/owner/students/actions";
+import type { StudentDeleteActionResult } from "@/app/owner/students/actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DangerMenu, DangerMenuItem } from "@/components/ui/danger-menu";
 
@@ -53,7 +54,7 @@ function DeleteStudentControl({
   title: string;
   description: string;
   confirmLabel: string;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => Promise<StudentDeleteActionResult>;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +64,13 @@ function DeleteStudentControl({
     setError(null);
     setIsDeleting(true);
     void onConfirm()
-      .then(() => setOpen(false))
+      .then((result) => {
+        if (result.ok) {
+          setOpen(false);
+          return;
+        }
+        setError(result.message);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "The delete request failed."))
       .finally(() => setIsDeleting(false));
   };

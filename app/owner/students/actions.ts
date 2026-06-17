@@ -7,6 +7,8 @@ import { asJson } from "@/lib/owner-operations";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+export type StudentDeleteActionResult = { ok: true } | { ok: false; message: string };
+
 export async function createRosterEntryAction(formData: FormData) {
   const ownerProfileId = await requireOwnerProfileId();
   const displayName = requiredString(formData, "display_name");
@@ -59,93 +61,97 @@ export async function generateRosterEntriesAction(formData: FormData) {
   revalidatePath("/owner/students");
 }
 
-export async function deleteStudentAccountAction(studentProfileId: string) {
-  const ownerProfileId = await requireOwnerProfileId();
-  const studentId = requiredId(studentProfileId, "student_profile_id");
-  const admin = getSupabaseAdminClient();
+export async function deleteStudentAccountAction(studentProfileId: string): Promise<StudentDeleteActionResult> {
+  return runDeleteAction("student_account", async () => {
+    const ownerProfileId = await requireOwnerProfileId();
+    const studentId = requiredId(studentProfileId, "student_profile_id");
+    const admin = getSupabaseAdminClient();
 
-  const { data: student, error: studentError } = await admin
-    .from("profiles")
-    .select("id,auth_user_id,app_role,display_name,owner_profile_id")
-    .eq("id", studentId)
-    .eq("app_role", "student")
-    .maybeSingle();
-  if (studentError) throw studentError;
-  if (!student) throw new Error("Student not found.");
+    const { data: student, error: studentError } = await admin
+      .from("profiles")
+      .select("id,auth_user_id,app_role,display_name,owner_profile_id")
+      .eq("id", studentId)
+      .eq("app_role", "student")
+      .maybeSingle();
+    if (studentError) throw studentError;
+    if (!student) throw new Error("Student not found.");
 
-  const ownerCanManage = student.owner_profile_id === ownerProfileId || (await hasManagedStudentLink(ownerProfileId, studentId));
-  if (!ownerCanManage) throw new Error("Student is not managed by this owner.");
+    const ownerCanManage = student.owner_profile_id === ownerProfileId || (await hasManagedStudentLink(ownerProfileId, studentId));
+    if (!ownerCanManage) throw new Error("Student is not managed by this owner.");
 
-  const attemptCount = await countAttempts("assignee_profile_id", studentId);
-  if (attemptCount > 0) {
-    await auditStudentAction("student.delete_blocked", "profiles", studentId, {
-      reason: "attempt_history_exists",
-      attempts: attemptCount,
+    const attemptCount = await countAttempts("assignee_profile_id", studentId);
+    if (attemptCount > 0) {
+      await auditStudentAction("student.delete_blocked", "profiles", studentId, {
+        reason: "attempt_history_exists",
+        attempts: attemptCount,
+        display_name: student.display_name,
+      });
+      throw new Error("This student has attempt history. Keep the account so exam records, uploads, marks, and receipts remain intact.");
+    }
+
+    await auditStudentAction("student.delete_requested", "profiles", studentId, {
       display_name: student.display_name,
     });
-    throw new Error("This student has attempt history. Keep the account so exam records, uploads, marks, and receipts remain intact.");
-  }
 
-  await auditStudentAction("student.delete_requested", "profiles", studentId, {
-    display_name: student.display_name,
+    const { error: deleteError } = await admin.auth.admin.deleteUser(student.auth_user_id);
+    if (deleteError) throw deleteError;
+
+    await auditStudentAction("student.deleted", "profiles", studentId, {
+      display_name: student.display_name,
+    });
+
+    revalidatePath("/owner/students");
+    revalidatePath("/owner/cohorts");
+    revalidatePath("/owner/analytics");
   });
-
-  const { error: deleteError } = await admin.auth.admin.deleteUser(student.auth_user_id);
-  if (deleteError) throw deleteError;
-
-  await auditStudentAction("student.deleted", "profiles", studentId, {
-    display_name: student.display_name,
-  });
-
-  revalidatePath("/owner/students");
-  revalidatePath("/owner/cohorts");
-  revalidatePath("/owner/analytics");
 }
 
-export async function deleteRosterEntryAction(rosterEntryId: string) {
-  const ownerProfileId = await requireOwnerProfileId();
-  const entryId = requiredId(rosterEntryId, "roster_entry_id");
-  const admin = getSupabaseAdminClient();
+export async function deleteRosterEntryAction(rosterEntryId: string): Promise<StudentDeleteActionResult> {
+  return runDeleteAction("roster_entry", async () => {
+    const ownerProfileId = await requireOwnerProfileId();
+    const entryId = requiredId(rosterEntryId, "roster_entry_id");
+    const admin = getSupabaseAdminClient();
 
-  const { data: entry, error: entryError } = await admin
-    .from("student_roster_entries")
-    .select("id,owner_profile_id,student_number,display_name")
-    .eq("id", entryId)
-    .maybeSingle();
-  if (entryError) throw entryError;
-  if (!entry) throw new Error("Roster entry not found.");
-  if (entry.owner_profile_id !== ownerProfileId) throw new Error("Roster entry is not managed by this owner.");
+    const { data: entry, error: entryError } = await admin
+      .from("student_roster_entries")
+      .select("id,owner_profile_id,student_number,display_name")
+      .eq("id", entryId)
+      .maybeSingle();
+    if (entryError) throw entryError;
+    if (!entry) throw new Error("Roster entry not found.");
+    if (entry.owner_profile_id !== ownerProfileId) throw new Error("Roster entry is not managed by this owner.");
 
-  const attemptCount = await countAttempts("roster_entry_id", entryId);
-  if (attemptCount > 0) {
-    await auditStudentAction("roster_entry.delete_blocked", "student_roster_entries", entryId, {
-      reason: "attempt_history_exists",
-      attempts: attemptCount,
+    const attemptCount = await countAttempts("roster_entry_id", entryId);
+    if (attemptCount > 0) {
+      await auditStudentAction("roster_entry.delete_blocked", "student_roster_entries", entryId, {
+        reason: "attempt_history_exists",
+        attempts: attemptCount,
+        student_number: entry.student_number,
+        display_name: entry.display_name,
+      });
+      throw new Error("This roster number is linked to exam attempts. Keep it so guest exam identity and receipts remain traceable.");
+    }
+
+    await auditStudentAction("roster_entry.delete_requested", "student_roster_entries", entryId, {
       student_number: entry.student_number,
       display_name: entry.display_name,
     });
-    throw new Error("This roster number is linked to exam attempts. Keep it so guest exam identity and receipts remain traceable.");
-  }
 
-  await auditStudentAction("roster_entry.delete_requested", "student_roster_entries", entryId, {
-    student_number: entry.student_number,
-    display_name: entry.display_name,
+    const { error: deleteError } = await admin
+      .from("student_roster_entries")
+      .delete()
+      .eq("id", entryId)
+      .eq("owner_profile_id", ownerProfileId);
+    if (deleteError) throw deleteError;
+
+    await auditStudentAction("roster_entry.deleted", "student_roster_entries", entryId, {
+      student_number: entry.student_number,
+      display_name: entry.display_name,
+    });
+
+    revalidatePath("/owner/students");
+    revalidatePath("/owner/exam-sessions");
   });
-
-  const { error: deleteError } = await admin
-    .from("student_roster_entries")
-    .delete()
-    .eq("id", entryId)
-    .eq("owner_profile_id", ownerProfileId);
-  if (deleteError) throw deleteError;
-
-  await auditStudentAction("roster_entry.deleted", "student_roster_entries", entryId, {
-    student_number: entry.student_number,
-    display_name: entry.display_name,
-  });
-
-  revalidatePath("/owner/students");
-  revalidatePath("/owner/exam-sessions");
 }
 
 function requiredString(formData: FormData, key: string) {
@@ -197,4 +203,33 @@ async function auditStudentAction(action: string, targetTable: string, targetId:
     metadata_json: asJson(metadata),
   });
   if (error) throw error;
+}
+
+async function runDeleteAction(kind: "student_account" | "roster_entry", operation: () => Promise<void>): Promise<StudentDeleteActionResult> {
+  try {
+    await operation();
+    return { ok: true };
+  } catch (error) {
+    console.error(`Owner ${kind} delete action failed`, error);
+    return { ok: false, message: deleteActionMessage(kind, error) };
+  }
+}
+
+function deleteActionMessage(kind: "student_account" | "roster_entry", error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (message.includes("Missing Supabase admin environment variables")) {
+    return kind === "student_account"
+      ? "Student account deletion is not configured on this deployment. Set SUPABASE_SERVICE_ROLE_KEY on the server before deleting Supabase Auth users."
+      : "Roster number deletion is not available because server admin access is not configured. Set SUPABASE_SERVICE_ROLE_KEY on the server, then try again.";
+  }
+  if (
+    message.includes("attempt history") ||
+    message.includes("not found") ||
+    message.includes("not managed by this owner")
+  ) {
+    return message;
+  }
+  return kind === "student_account"
+    ? "The student account could not be deleted. No exam records were removed."
+    : "The roster number could not be deleted. No exam records were removed.";
 }
