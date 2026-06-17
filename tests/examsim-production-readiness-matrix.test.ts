@@ -69,9 +69,13 @@ describe("Examsim production-readiness matrix", () => {
   it("surfaces the production-readiness panel in owner security", () => {
     const page = readFileSync("app/owner/security/page.tsx", "utf8");
     const panel = readFileSync("components/owner/examsim-production-readiness-panel.tsx", "utf8");
+    const providerPanel = readFileSync("components/owner/provider-readiness-dashboard.tsx", "utf8");
     expect(page).toContain("ExamsimProductionReadinessPanel");
+    expect(page).toContain("ProviderReadinessDashboard");
     expect(panel).toContain("Production readiness matrix");
     expect(panel).toContain("Smart Import / Exam Compiler");
     expect(panel).toContain("Guest SEB / Lockdown");
+    expect(providerPanel).toContain("Provider and import readiness");
+    expect(providerPanel).toContain("Import job states");
   });
 });

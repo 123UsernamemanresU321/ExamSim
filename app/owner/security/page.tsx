@@ -1,10 +1,17 @@
 import { OwnerMfaPanel, OwnerPasswordPanel } from "@/components/auth/mfa-panel";
 import { ExamsimProductionReadinessPanel } from "@/components/owner/examsim-production-readiness-panel";
+import { ProviderReadinessDashboard } from "@/components/owner/provider-readiness-dashboard";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { ImportJobLike } from "@/lib/examsim/provider-readiness";
 
-export default function OwnerSecurityPage() {
+export const dynamic = "force-dynamic";
+
+export default async function OwnerSecurityPage() {
+  const importJobs = await loadRecentImportJobs();
+
   return (
     <>
       <SectionHeading
@@ -53,8 +60,31 @@ export default function OwnerSecurityPage() {
         </Card>
       </div>
       <div className="mt-5">
+        <ProviderReadinessDashboard importJobs={importJobs} />
+      </div>
+      <div className="mt-5">
         <ExamsimProductionReadinessPanel />
       </div>
     </>
   );
+}
+
+async function loadRecentImportJobs(): Promise<ImportJobLike[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("parse_jobs")
+      .select("id, parser, status, requested_ocr, external_state, metadata_json, error_message, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    if (error) {
+      console.warn("Unable to load recent import jobs for readiness dashboard", error.message);
+      return [];
+    }
+    return data ?? [];
+  } catch (error) {
+    console.warn("Unable to initialize readiness dashboard import-job query", error);
+    return [];
+  }
 }

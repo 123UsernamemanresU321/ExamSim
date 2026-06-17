@@ -7,6 +7,8 @@ const CONTROL_SELECTOR = "input:not([type='hidden']), textarea, select";
 
 export function FormFieldHelpRuntime() {
   useEffect(() => {
+    let observer: MutationObserver | null = null;
+    let timer: number | null = null;
     const applyHelp = () => {
       for (const control of document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(CONTROL_SELECTOR)) {
         if (control.dataset.fieldHelpDisabled === "true") continue;
@@ -23,10 +25,25 @@ export function FormFieldHelpRuntime() {
       }
     };
 
-    applyHelp();
-    const observer = new MutationObserver(applyHelp);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    const start = () => {
+      timer = window.setTimeout(() => {
+        applyHelp();
+        observer = new MutationObserver(applyHelp);
+        observer.observe(document.body, { childList: true, subtree: true });
+      }, 250);
+    };
+
+    if (document.readyState === "complete") {
+      start();
+    } else {
+      window.addEventListener("load", start, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener("load", start);
+      if (timer !== null) window.clearTimeout(timer);
+      observer?.disconnect();
+    };
   }, []);
 
   return null;

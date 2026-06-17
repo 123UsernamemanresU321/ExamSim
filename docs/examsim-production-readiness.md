@@ -4,7 +4,9 @@ Last updated: 2026-06-17
 
 This document records the current production boundary for Examsim. It is intentionally strict: provider-dependent OCR, AI, lockdown, offline, and scan-mapping features must be shown as provider-gated, blocked, manual fallback, or staging-required until they are verified end to end.
 
-The owner Security page also renders this same readiness model through `ExamsimProductionReadinessPanel`.
+The owner Security page renders this same readiness model through `ExamsimProductionReadinessPanel` and the
+configuration-only `ProviderReadinessDashboard`. The dashboard does not send prompts, PDFs, or student data to external
+providers; it only reports env/config readiness, recent import-job states, and manual fallback paths.
 
 ## Production-ready V1 core
 
@@ -42,6 +44,18 @@ The owner Security page also renders this same readiness model through `ExamsimP
 - Simple whiteboard response workspace for sketch/drawing answers. Strokes are saved as normalized coordinates so they survive viewport changes; advanced graphing, geometry, CAS, and chemistry tools are not claimed unless a real provider is configured.
 - Command-term answer inference now suggests table and whiteboard workspaces for table-completion and drawing/sketching prompts. These suggestions are advisory only; teacher confirmation remains required.
 - Deterministic answer grouping treats table and whiteboard responses as manual-review structured groups instead of auto-normalizing them as plain text.
+- Owner-facing provider readiness dashboard for OCR/layout extraction, AI/semantic grouping, LaTeX syntax parsing, PDF/source-region handling, private storage, Edge Functions, email/notifications, and export readiness.
+- Existing `parse_jobs` rows are normalized into V3 import states: not configured, queued, processing, failed, low confidence, needs review, completed, and retried.
+- Hydration-safe form-field help runtime now waits until after browser load before adding tooltip attributes to inputs, preventing server/client attribute mismatches.
+
+## Owner-facing readiness evidence
+
+| Surface | Evidence | Production boundary |
+| --- | --- | --- |
+| Provider status dashboard | `components/owner/provider-readiness-dashboard.tsx`, `app/owner/security/page.tsx` | Configuration-only checks. It does not call external providers or expose server-only secrets to the browser. |
+| Import job state model | `lib/examsim/provider-readiness.ts`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs`; no new table is required for V3 status display. |
+| Compiler review queue | `lib/examsim/compiler-readiness.ts`, `app/owner/assessments/[id]/compiler/page.tsx` | Low-confidence and missing-data items stay review-required before publish. |
+| Field help hydration fix | `components/form-field-help-runtime.tsx`, `tests/student-delete-and-field-help.test.ts` | Tooltips are added client-side only after load so React hydration does not see unexpected attributes. |
 
 ## Provider-gated V2 features
 
@@ -69,6 +83,7 @@ The owner Security page also renders this same readiness model through `ExamsimP
 | --- | --- | --- |
 | Smart Import / Exam Compiler | Provider required unless DeepSeek and MinerU/OCR are configured | Manual PDF/LaTeX/JSON import, visual region repair, and owner review are production-safe. Provider-backed extraction needs staging before launch. |
 | AI/OCR Question Detection | Provider required | Do not claim automatic detection unless provider credentials exist and low-confidence review is tested. |
+| Provider Dashboard / Import Job States | Ready | Owner Security page shows env/config readiness and recent import jobs without sending test payloads to providers. |
 | Markscheme Mapping and Rubrics | Ready | Markscheme blocks and rubric points are editable; totals must still be checked during QA. |
 | AI Answer Grouping | Manual fallback without DeepSeek | Deterministic/manual grouping is safe; semantic grouping is review-required and provider-gated. |
 | Guest SEB / Lockdown | Blocked | Authenticated SEB can be used. Guest SEB remains blocked until BEK/CK/request-hash evidence can be server-verified safely. |
@@ -166,9 +181,12 @@ Operational setup outside the repo:
 This section should be updated for each release candidate. For this readiness pass, these checks passed locally:
 
 - `npm test -- tests/examsim-production-readiness-matrix.test.ts`
+- `npm test -- tests/examsim-v3-provider-readiness.test.ts tests/examsim-production-readiness-matrix.test.ts`
+- `npm test -- tests/student-delete-and-field-help.test.ts`
 - `npm test -- tests/examsim-v2-compiler-readiness.test.ts tests/examsim-v2-analytics.test.ts tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/examsim-v3-response-capabilities.test.ts tests/examsim-v2-compiler-readiness.test.ts`
 - `npm run lint`
 - `npm run typecheck`
 - `npm test`
+- `npm run e2e`
 - `npm run build`
