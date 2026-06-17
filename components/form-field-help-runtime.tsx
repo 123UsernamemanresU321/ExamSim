@@ -7,42 +7,46 @@ const CONTROL_SELECTOR = "input:not([type='hidden']), textarea, select";
 
 export function FormFieldHelpRuntime() {
   useEffect(() => {
-    let observer: MutationObserver | null = null;
-    let timer: number | null = null;
-    const applyHelp = () => {
-      for (const control of document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(CONTROL_SELECTOR)) {
-        if (control.dataset.fieldHelpDisabled === "true") continue;
-        if (control.title && control.dataset.fieldHelp) continue;
-        const help = buildFieldHelp({
-          name: control.getAttribute("name"),
-          type: control instanceof HTMLInputElement ? control.type : null,
-          placeholder: "placeholder" in control ? control.getAttribute("placeholder") : null,
-          label: findControlLabel(control),
-          tagName: control.tagName,
-        });
-        if (!control.title) control.title = help;
-        control.dataset.fieldHelp = help;
+    const applyHelp = (control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) => {
+      if (control.dataset.fieldHelpDisabled === "true") return;
+      if (control.title && control.dataset.fieldHelp) return;
+      const help = buildFieldHelp({
+        name: control.getAttribute("name"),
+        type: control instanceof HTMLInputElement ? control.type : null,
+        placeholder: "placeholder" in control ? control.getAttribute("placeholder") : null,
+        label: findControlLabel(control),
+        tagName: control.tagName,
+      });
+      if (!control.title) control.title = help;
+      control.dataset.fieldHelp = help;
+    };
+
+    const applyFromEvent = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const control = target.matches(CONTROL_SELECTOR)
+        ? target
+        : target.closest(CONTROL_SELECTOR);
+      if (
+        control instanceof HTMLInputElement
+        || control instanceof HTMLTextAreaElement
+        || control instanceof HTMLSelectElement
+      ) {
+        applyHelp(control);
       }
     };
 
-    const start = () => {
-      timer = window.setTimeout(() => {
-        applyHelp();
-        observer = new MutationObserver(applyHelp);
-        observer.observe(document.body, { childList: true, subtree: true });
-      }, 250);
-    };
-
-    if (document.readyState === "complete") {
-      start();
-    } else {
-      window.addEventListener("load", start, { once: true });
-    }
+    // Raw controls that do not use shared form components are enhanced lazily.
+    // A full document scan can mutate React-owned inputs before route segments
+    // finish hydrating, which causes title/data-field-help hydration warnings.
+    document.addEventListener("focusin", applyFromEvent, true);
+    document.addEventListener("pointerover", applyFromEvent, { capture: true, passive: true });
+    document.addEventListener("touchstart", applyFromEvent, { capture: true, passive: true });
 
     return () => {
-      window.removeEventListener("load", start);
-      if (timer !== null) window.clearTimeout(timer);
-      observer?.disconnect();
+      document.removeEventListener("focusin", applyFromEvent, true);
+      document.removeEventListener("pointerover", applyFromEvent, true);
+      document.removeEventListener("touchstart", applyFromEvent, true);
     };
   }, []);
 

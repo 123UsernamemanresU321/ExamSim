@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildImportGovernanceSummary,
+  buildImportJobAuditSummary,
+  estimateImportCostGuard,
   getImportJobState,
   getProviderReadiness,
   summarizeImportJobs,
@@ -76,5 +79,59 @@ describe("Examsim V3 provider and import readiness", () => {
     expect(summary.byState.low_confidence).toBe(1);
     expect(summary.byState.completed).toBe(1);
     expect(summary.actionRequired).toBe(2);
+  });
+
+  it("extracts progress, retry, source, pages, and cost controls from parse job metadata", () => {
+    const guard = estimateImportCostGuard({
+      ...baseJob,
+      source_object_path: "assessment-sources/owner/a.pdf",
+      metadata_json: {
+        page_count: 84,
+        pages_processed: 20,
+        retry_count: 2,
+        provider: "mineru_hosted",
+        estimated_cost_usd: 9.75,
+        owner_quota_usd: 10,
+      },
+    }, { pageWarnThreshold: 60, costWarnThresholdUsd: 8 });
+
+    expect(guard.pageCount).toBe(84);
+    expect(guard.pagesProcessed).toBe(20);
+    expect(guard.retryCount).toBe(2);
+    expect(guard.sourceLabel).toContain("a.pdf");
+    expect(guard.estimatedCostUsd).toBe(9.75);
+    expect(guard.requiresConfirmation).toBe(true);
+    expect(guard.reasons).toEqual(expect.arrayContaining(["large_page_count", "cost_threshold"]));
+  });
+
+  it("summarizes import audit coverage without exposing actor details", () => {
+    const audit = buildImportJobAuditSummary([
+      { action: "mineru_hosted.submitted", target_table: "parse_jobs", target_id: "job-1", created_at: "2026-01-01T00:00:00Z" },
+      { action: "ai_parse.proposed", target_table: "assessment_versions", target_id: "version-1", created_at: "2026-01-02T00:00:00Z" },
+      { action: "assessment.published", target_table: "assessment_versions", target_id: "version-1", created_at: "2026-01-03T00:00:00Z" },
+    ]);
+
+    expect(audit.importAuditCount).toBe(2);
+    expect(audit.latestImportAuditAt).toBe("2026-01-02T00:00:00Z");
+    expect(audit.actions).toEqual(["mineru_hosted.submitted", "ai_parse.proposed"]);
+  });
+
+  it("builds a governance summary for provider fallback and large-job confirmation", () => {
+    const summary = buildImportGovernanceSummary({
+      jobs: [
+        { ...baseJob, status: "failed", metadata_json: { page_count: 10, provider: "mineru_hosted" } },
+        { ...baseJob, id: "large", status: "queued", metadata_json: { page_count: 90, estimated_cost_usd: 12 } },
+      ],
+      auditLogs: [
+        { action: "mineru_hosted.submitted", target_table: "parse_jobs", target_id: "large", created_at: "2026-01-01T00:00:00Z" },
+      ],
+      env: { MINERU_API_KEY: "set" },
+      costPolicy: { pageWarnThreshold: 60, costWarnThresholdUsd: 8 },
+    });
+
+    expect(summary.jobsRequiringConfirmation).toBe(1);
+    expect(summary.failedOrFallbackJobs).toBe(1);
+    expect(summary.manualFallbackAvailable).toBe(true);
+    expect(summary.audit.importAuditCount).toBe(1);
   });
 });

@@ -46,6 +46,9 @@ providers; it only reports env/config readiness, recent import-job states, and m
 - Deterministic answer grouping treats table and whiteboard responses as manual-review structured groups instead of auto-normalizing them as plain text.
 - Owner-facing provider readiness dashboard for OCR/layout extraction, AI/semantic grouping, LaTeX syntax parsing, PDF/source-region handling, private storage, Edge Functions, email/notifications, and export readiness.
 - Existing `parse_jobs` rows are normalized into V3 import states: not configured, queued, processing, failed, low confidence, needs review, completed, and retried.
+- Import governance guardrails now surface provider pages processed, retry count, estimated cost, owner quota metadata, large-job confirmation warnings, and existing import audit events from `owner_audit_logs`.
+- Deployment readiness console lists core env vars, Supabase migrations, RLS, private storage, Edge Functions, provider setup, seed accounts, and security-claim checks with ready/blocked/manual-validation states.
+- Owner Export Hub provides owner-only CSV/JSON handoff exports for markbooks, roster reconciliation, groups/cohorts, assessment inventory, and analytics validation. It keeps QTI assessment-scoped through the existing Edge export and labels Moodle XML unsupported until fidelity warnings are validated.
 - Hydration-safe form-field help runtime now waits until after browser load before adding tooltip attributes to inputs, preventing server/client attribute mismatches.
 
 ## Owner-facing readiness evidence
@@ -53,7 +56,9 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Surface | Evidence | Production boundary |
 | --- | --- | --- |
 | Provider status dashboard | `components/owner/provider-readiness-dashboard.tsx`, `app/owner/security/page.tsx` | Configuration-only checks. It does not call external providers or expose server-only secrets to the browser. |
-| Import job state model | `lib/examsim/provider-readiness.ts`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs`; no new table is required for V3 status display. |
+| Import job state and governance model | `lib/examsim/provider-readiness.ts`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs` and `owner_audit_logs`; no new table is required for V3 status, quota, retry, cost, and audit display. |
+| Deployment readiness console | `components/owner/deployment-readiness-console.tsx`, `lib/examsim/deployment-readiness.ts`, `tests/examsim-v3-deployment-readiness.test.ts` | Read-only launch checklist. Live RLS/storage/migration validation still belongs in staging/provider tooling. |
+| Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `tests/examsim-v3-export-hub.test.ts` | Owner-scoped CSV/JSON handoff exports. QTI remains AAL2 Edge-scoped per assessment; Moodle XML remains visibly unsupported. |
 | Compiler review queue | `lib/examsim/compiler-readiness.ts`, `app/owner/assessments/[id]/compiler/page.tsx` | Low-confidence and missing-data items stay review-required before publish. |
 | Field help hydration fix | `components/form-field-help-runtime.tsx`, `tests/student-delete-and-field-help.test.ts` | Tooltips are added client-side only after load so React hydration does not see unexpected attributes. |
 
@@ -84,6 +89,8 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Smart Import / Exam Compiler | Provider required unless DeepSeek and MinerU/OCR are configured | Manual PDF/LaTeX/JSON import, visual region repair, and owner review are production-safe. Provider-backed extraction needs staging before launch. |
 | AI/OCR Question Detection | Provider required | Do not claim automatic detection unless provider credentials exist and low-confidence review is tested. |
 | Provider Dashboard / Import Job States | Ready | Owner Security page shows env/config readiness and recent import jobs without sending test payloads to providers. |
+| OCR Cost / Quota / Import Audit Guardrails | Ready | Recent import metadata and audit logs are surfaced for owner review. Provider spending caps must still be configured in provider dashboards. |
+| Deployment Readiness Console | Ready | Owner Security page shows env/config gates and manual validation requirements without mutating Supabase state. |
 | Markscheme Mapping and Rubrics | Ready | Markscheme blocks and rubric points are editable; totals must still be checked during QA. |
 | AI Answer Grouping | Manual fallback without DeepSeek | Deterministic/manual grouping is safe; semantic grouping is review-required and provider-gated. |
 | Guest SEB / Lockdown | Blocked | Authenticated SEB can be used. Guest SEB remains blocked until BEK/CK/request-hash evidence can be server-verified safely. |
@@ -100,9 +107,9 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Accommodations Matrix | Manual fallback | Extra time and upload extension are server-effective. Broader rest-break/tool/TTS policies need staging. |
 | Built-in Subject Tools | Manual fallback | Allowed materials, table responses, and simple whiteboard responses are safe. Advanced graphing/geometry/CAS tools must stay labelled unavailable unless integrated. |
 | Curriculum Alignment | Manual fallback | Topic tags exist. Full standard trees need seeded IB/MYP/IGCSE/Olympiad content. |
-| QTI / Moodle / XML | Manual fallback | QTI remains conservative; Moodle XML needs validation and unsupported-feature warnings. |
+| QTI / Moodle / XML | Manual fallback | Export Hub provides CSV/JSON handoffs and routes QTI to the existing assessment-scoped Edge export. Moodle XML remains unsupported with visible fidelity warnings. |
 | Version History / Rollback | Manual fallback | Published versions are protected. Rollback should create/duplicate a new draft rather than mutating live attempts. |
-| School-level Reporting | Staging required | Cohort/group reporting needs cross-workspace permission and export validation. |
+| School-level Reporting | Manual fallback / staging | Export Hub provides group/cohort CSV and analytics handoff JSON from owner-scoped data. Full school dashboards still need cross-workspace permission and export validation. |
 | Deployment Validation | Staging required | Migrations, Edge deployment, secrets, private buckets, and manual QA must pass in staging. |
 
 ## External providers and environment variables
@@ -183,8 +190,10 @@ This section should be updated for each release candidate. For this readiness pa
 - `npm test -- tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/examsim-v3-provider-readiness.test.ts tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/student-delete-and-field-help.test.ts`
+- `npm test -- tests/examsim-v3-deployment-readiness.test.ts`
 - `npm test -- tests/examsim-v2-compiler-readiness.test.ts tests/examsim-v2-analytics.test.ts tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/examsim-v3-response-capabilities.test.ts tests/examsim-v2-compiler-readiness.test.ts`
+- `npm test -- tests/examsim-v3-export-hub.test.ts tests/sidebar-navigation.test.ts tests/examsim-production-readiness-matrix.test.ts`
 - `npm run lint`
 - `npm run typecheck`
 - `npm test`

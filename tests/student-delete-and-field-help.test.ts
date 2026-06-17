@@ -39,9 +39,11 @@ describe("student deletion and field guidance", () => {
     expect(form).toContain("title={title}");
     expect(runtime).toContain("input:not([type='hidden']), textarea, select");
     expect(runtime).toContain("dataset.fieldHelp");
-    expect(runtime).toContain("MutationObserver");
-    expect(runtime).toContain("window.setTimeout");
-    expect(runtime).toContain("document.readyState");
+    expect(runtime).toContain("focusin");
+    expect(runtime).toContain("pointerover");
+    expect(runtime).toContain("touchstart");
+    expect(runtime).toContain("hydration warnings");
+    expect(runtime).not.toContain("MutationObserver");
     expect(rootLayout).toContain("FormFieldHelpRuntime");
   });
 

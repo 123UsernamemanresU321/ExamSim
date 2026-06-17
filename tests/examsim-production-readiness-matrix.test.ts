@@ -66,16 +66,34 @@ describe("Examsim production-readiness matrix", () => {
     expect(summary.ready + summary.providerReadyNeedsStaging + summary.providerRequired + summary.manualFallback + summary.blocked + summary.stagingRequired).toBe(summary.total);
   });
 
+  it("tracks Export Hub as the safe fallback for school reporting and interoperability", () => {
+    const readiness = getExamsimProductionReadiness({});
+    expect(readiness.find((item) => item.key === "school_reporting")?.status).toBe("manual_fallback");
+    expect(readiness.find((item) => item.key === "school_reporting")?.fallback).toContain("Export Hub");
+    expect(readiness.find((item) => item.key === "qti_moodle_interop")?.ownerMessage).toContain("Moodle XML is intentionally blocked");
+  });
+
   it("surfaces the production-readiness panel in owner security", () => {
     const page = readFileSync("app/owner/security/page.tsx", "utf8");
     const panel = readFileSync("components/owner/examsim-production-readiness-panel.tsx", "utf8");
     const providerPanel = readFileSync("components/owner/provider-readiness-dashboard.tsx", "utf8");
     expect(page).toContain("ExamsimProductionReadinessPanel");
     expect(page).toContain("ProviderReadinessDashboard");
+    expect(page).not.toContain(".or(");
     expect(panel).toContain("Production readiness matrix");
     expect(panel).toContain("Smart Import / Exam Compiler");
     expect(panel).toContain("Guest SEB / Lockdown");
     expect(providerPanel).toContain("Provider and import readiness");
     expect(providerPanel).toContain("Import job states");
+    expect(providerPanel).toContain("Cost, quota, and audit guardrails");
+  });
+
+  it("surfaces V3 export governance through the owner Export Hub", () => {
+    const page = readFileSync("app/owner/export-hub/page.tsx", "utf8");
+    const sidebar = readFileSync("components/owner/sidebar-nav.tsx", "utf8");
+    expect(page).toContain("Export Hub");
+    expect(page).toContain("Moodle XML is not exposed as a working export");
+    expect(page).toContain("ExportHubDownloads");
+    expect(sidebar).toContain('href: "/owner/export-hub"');
   });
 });

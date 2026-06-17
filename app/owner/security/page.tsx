@@ -1,16 +1,20 @@
 import { OwnerMfaPanel, OwnerPasswordPanel } from "@/components/auth/mfa-panel";
+import { DeploymentReadinessConsole } from "@/components/owner/deployment-readiness-console";
 import { ExamsimProductionReadinessPanel } from "@/components/owner/examsim-production-readiness-panel";
 import { ProviderReadinessDashboard } from "@/components/owner/provider-readiness-dashboard";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ImportJobLike } from "@/lib/examsim/provider-readiness";
+import type { ImportAuditLike, ImportJobLike } from "@/lib/examsim/provider-readiness";
 
 export const dynamic = "force-dynamic";
 
 export default async function OwnerSecurityPage() {
-  const importJobs = await loadRecentImportJobs();
+  const [importJobs, importAuditLogs] = await Promise.all([
+    loadRecentImportJobs(),
+    loadRecentImportAuditLogs(),
+  ]);
 
   return (
     <>
@@ -60,13 +64,45 @@ export default async function OwnerSecurityPage() {
         </Card>
       </div>
       <div className="mt-5">
-        <ProviderReadinessDashboard importJobs={importJobs} />
+        <ProviderReadinessDashboard importJobs={importJobs} importAuditLogs={importAuditLogs} />
+      </div>
+      <div className="mt-5">
+        <DeploymentReadinessConsole />
       </div>
       <div className="mt-5">
         <ExamsimProductionReadinessPanel />
       </div>
     </>
   );
+}
+
+async function loadRecentImportAuditLogs(): Promise<ImportAuditLike[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("owner_audit_logs")
+      .select("action, target_table, target_id, metadata_json, created_at")
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (error) {
+      console.warn("Unable to load import audit logs for readiness dashboard", error.message);
+      return [];
+    }
+    return (data ?? []).filter((entry) => isImportAuditAction(entry.action)).slice(0, 12);
+  } catch (error) {
+    console.warn("Unable to initialize readiness dashboard import-audit query", error);
+    return [];
+  }
+}
+
+function isImportAuditAction(action: string | null | undefined) {
+  const value = String(action ?? "");
+  return value.startsWith("mineru_")
+    || value.startsWith("ai_parse.")
+    || value === "assessment.ingested"
+    || value === "qti.imported"
+    || value.startsWith("markscheme_");
 }
 
 async function loadRecentImportJobs(): Promise<ImportJobLike[]> {

@@ -38,6 +38,7 @@ describe("owner sidebar navigation", () => {
       "/owner/feedback-releases",
       "/owner/comment-bank",
       "/owner/analytics",
+      "/owner/export-hub",
       "/owner/topics",
       "/owner/mistakes",
       "/owner/students",
@@ -62,6 +63,8 @@ describe("owner sidebar navigation", () => {
     expect(source).toContain('href: "/owner/comment-bank"');
     expect(source).toContain('label: "Error Patterns"');
     expect(source).toContain('href: "/owner/mistakes"');
+    expect(source).toContain('label: "Export Hub"');
+    expect(source).toContain('href: "/owner/export-hub"');
     expect(source).not.toContain('label: "Question Bank"');
     expect(source).not.toContain('label: "Generator"');
     expect(source).not.toContain('label: "Cohorts"');

@@ -24,6 +24,7 @@ import {
   Wand2,
   AlertCircle,
   GraduationCap,
+  FileDown,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,7 @@ const ownerNavSections: NavSection[] = [
     Icon: GraduationCap,
     items: [
       { href: "/owner/analytics", label: "Analytics / Performance", Icon: BarChart3 },
+      { href: "/owner/export-hub", label: "Export Hub", Icon: FileDown },
       { href: "/owner/topics", label: "Topics", Icon: Tags },
       { href: "/owner/mistakes", label: "Error Patterns", Icon: AlertCircle },
     ],

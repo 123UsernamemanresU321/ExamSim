@@ -38,11 +38,40 @@ export type ImportJobLike = {
   parser?: string | null;
   status?: string | null;
   requested_ocr?: boolean | null;
+  source_object_path?: string | null;
+  external_provider?: string | null;
   external_state?: string | null;
   metadata_json?: unknown;
   error_message?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+export type ImportAuditLike = {
+  action?: string | null;
+  target_table?: string | null;
+  target_id?: string | null;
+  created_at?: string | null;
+  metadata_json?: unknown;
+};
+
+export type ImportCostPolicy = {
+  pageWarnThreshold?: number;
+  costWarnThresholdUsd?: number;
+  ownerLimitUsd?: number;
+  env?: ProviderReadinessEnv;
+};
+
+export type ImportCostGuard = {
+  pageCount: number | null;
+  pagesProcessed: number | null;
+  retryCount: number;
+  provider: string;
+  sourceLabel: string;
+  estimatedCostUsd: number | null;
+  ownerQuotaUsd: number | null;
+  requiresConfirmation: boolean;
+  reasons: Array<"large_page_count" | "cost_threshold" | "owner_quota" | "provider_missing">;
 };
 
 export const V3_PROVIDER_CAPABILITY_KEYS = [
@@ -218,6 +247,79 @@ export function summarizeImportJobs(jobs: ImportJobLike[], env: ProviderReadines
   };
 }
 
+export function estimateImportCostGuard(job: ImportJobLike, policy: ImportCostPolicy = {}): ImportCostGuard {
+  const metadata = safeRecord(job.metadata_json);
+  const pageCount = firstNumber(metadata.page_count, metadata.pageCount, metadata.pages, metadata.total_pages);
+  const pagesProcessed = firstNumber(metadata.pages_processed, metadata.pagesProcessed, metadata.processed_pages);
+  const retryCount = firstNumber(metadata.retry_count, metadata.retryCount) ?? 0;
+  const estimatedCostUsd = firstNumber(metadata.estimated_cost_usd, metadata.estimatedCostUsd, metadata.cost_usd);
+  const ownerQuotaUsd = firstNumber(metadata.owner_quota_usd, metadata.ownerQuotaUsd, metadata.provider_quota_usd);
+  const provider = String(metadata.provider ?? job.parser ?? job.external_provider ?? "manual");
+  const sourceLabel = sourceLabelFor(job.source_object_path ?? String(metadata.source_object_path ?? metadata.source ?? ""));
+  const pageWarnThreshold = policy.pageWarnThreshold ?? 50;
+  const costWarnThresholdUsd = policy.costWarnThresholdUsd ?? 5;
+  const ownerLimitUsd = policy.ownerLimitUsd ?? ownerQuotaUsd;
+  const reasons: ImportCostGuard["reasons"] = [];
+
+  if (pageCount !== null && pageCount > pageWarnThreshold) reasons.push("large_page_count");
+  if (estimatedCostUsd !== null && estimatedCostUsd >= costWarnThresholdUsd) reasons.push("cost_threshold");
+  if (estimatedCostUsd !== null && ownerLimitUsd !== null && estimatedCostUsd >= ownerLimitUsd) reasons.push("owner_quota");
+  if (requiresProvider(provider) && !providerConfiguredForParser(provider, policy.env ?? {})) reasons.push("provider_missing");
+
+  return {
+    pageCount,
+    pagesProcessed,
+    retryCount,
+    provider,
+    sourceLabel,
+    estimatedCostUsd,
+    ownerQuotaUsd,
+    requiresConfirmation: reasons.length > 0,
+    reasons: Array.from(new Set(reasons)),
+  };
+}
+
+export function buildImportJobAuditSummary(auditLogs: ImportAuditLike[]) {
+  const importLogs = auditLogs
+    .filter((entry) => isImportAuditAction(entry.action));
+  const latestImportLog = [...importLogs]
+    .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+  return {
+    importAuditCount: importLogs.length,
+    latestImportAuditAt: latestImportLog[0]?.created_at ?? null,
+    actions: Array.from(new Set(importLogs.map((entry) => String(entry.action)).filter(Boolean))),
+  };
+}
+
+export function buildImportGovernanceSummary({
+  jobs,
+  auditLogs = [],
+  env = process.env,
+  costPolicy = {},
+}: {
+  jobs: ImportJobLike[];
+  auditLogs?: ImportAuditLike[];
+  env?: ProviderReadinessEnv;
+  costPolicy?: ImportCostPolicy;
+}) {
+  const jobSummary = summarizeImportJobs(jobs, env);
+  const guards = jobs.map((job) => estimateImportCostGuard(job, { ...costPolicy, env }));
+  const audit = buildImportJobAuditSummary(auditLogs);
+  return {
+    jobSummary,
+    audit,
+    jobsRequiringConfirmation: guards.filter((guard) => guard.requiresConfirmation).length,
+    failedOrFallbackJobs: jobs.filter((job) => {
+      const state = getImportJobState(job, env);
+      return state === "failed" || state === "not_configured";
+    }).length,
+    totalEstimatedCostUsd: guards.reduce((total, guard) => total + (guard.estimatedCostUsd ?? 0), 0),
+    totalPages: guards.reduce((total, guard) => total + (guard.pageCount ?? 0), 0),
+    manualFallbackAvailable: true,
+    costGuards: guards,
+  };
+}
+
 export function providerStatusTone(status: V3ProviderStatus) {
   if (status === "ready") return "success" as const;
   if (status === "blocked") return "danger" as const;
@@ -258,6 +360,15 @@ function hasLowConfidence(metadata: Record<string, unknown>) {
   return typeof confidence === "number" && confidence < 0.72;
 }
 
+function isImportAuditAction(action: string | null | undefined) {
+  const value = String(action ?? "");
+  return value.startsWith("mineru_")
+    || value.startsWith("ai_parse.")
+    || value.startsWith("assessment.ingested")
+    || value.startsWith("qti.imported")
+    || value.startsWith("markscheme_");
+}
+
 function safeRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -269,6 +380,21 @@ function numberFrom(value: unknown) {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
+}
+
+function firstNumber(...values: unknown[]) {
+  for (const value of values) {
+    const parsed = numberFrom(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function sourceLabelFor(path: string) {
+  const cleaned = path.trim();
+  if (!cleaned) return "Manual source";
+  const parts = cleaned.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? cleaned;
 }
 
 function hasEnv(env: ProviderReadinessEnv, name: string) {

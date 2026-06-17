@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import {
+  buildImportGovernanceSummary,
   getImportJobState,
   getProviderReadiness,
   importJobStateTone,
@@ -9,12 +10,20 @@ import {
   summarizeImportJobs,
   V3_IMPORT_JOB_LABELS,
   V3_IMPORT_JOB_STATES,
+  type ImportAuditLike,
   type ImportJobLike,
 } from "@/lib/examsim/provider-readiness";
 
-export function ProviderReadinessDashboard({ importJobs = [] }: { importJobs?: ImportJobLike[] }) {
+export function ProviderReadinessDashboard({
+  importJobs = [],
+  importAuditLogs = [],
+}: {
+  importJobs?: ImportJobLike[];
+  importAuditLogs?: ImportAuditLike[];
+}) {
   const providers = getProviderReadiness();
   const jobSummary = summarizeImportJobs(importJobs);
+  const governance = buildImportGovernanceSummary({ jobs: importJobs, auditLogs: importAuditLogs });
 
   return (
     <Card aria-label="V3 provider and import readiness dashboard">
@@ -31,6 +40,9 @@ export function ProviderReadinessDashboard({ importJobs = [] }: { importJobs?: I
             <Badge tone={jobSummary.actionRequired ? "warning" : "success"}>{jobSummary.actionRequired} action required</Badge>
             <Badge tone="info">{jobSummary.active} active</Badge>
             <Badge tone="success">{jobSummary.completed} completed</Badge>
+            <Badge tone={governance.jobsRequiringConfirmation ? "warning" : "neutral"}>
+              {governance.jobsRequiringConfirmation} cost check
+            </Badge>
           </div>
         </div>
       </CardHeader>
@@ -78,18 +90,54 @@ export function ProviderReadinessDashboard({ importJobs = [] }: { importJobs?: I
             </p>
           </div>
 
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-4">
+            <h3 className="text-sm font-semibold text-[var(--ink)]">Cost, quota, and audit guardrails</h3>
+            <div className="mt-3 grid gap-2 text-sm text-[var(--muted)]">
+              <p>
+                <span className="font-semibold text-[var(--ink)]">{governance.totalPages}</span> pages tracked across recent
+                imports.
+              </p>
+              <p>
+                <span className="font-semibold text-[var(--ink)]">
+                  ${governance.totalEstimatedCostUsd.toFixed(2)}
+                </span>{" "}
+                estimated provider spend from metadata.
+              </p>
+              <p>
+                <span className="font-semibold text-[var(--ink)]">{governance.audit.importAuditCount}</span> import audit event(s)
+                visible to this owner.
+              </p>
+            </div>
+            {governance.jobsRequiringConfirmation ? (
+              <p className="mt-3 rounded-[4px] border border-[rgba(146,64,14,0.2)] bg-[var(--warning-bg)] p-3 text-sm leading-6 text-[var(--warning)]">
+                Large or costly import jobs should require explicit owner confirmation before provider submission.
+              </p>
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                No recent import job exceeds the default page or cost confirmation thresholds.
+              </p>
+            )}
+          </div>
+
           <DataTable headers={["Recent import", "State"]} className="shadow-none">
             {importJobs.length ? importJobs.slice(0, 8).map((job) => {
               const state = getImportJobState(job);
+              const guard = governance.costGuards.find((candidate, index) => importJobs[index] === job);
               return (
                 <DataTableRow key={job.id ?? `${job.parser}-${job.created_at}`}>
                   <DataTableCell>
                     <p className="font-mono text-[12px] text-[var(--ink)]">{job.parser ?? "unknown"}</p>
                     <p className="mt-1 text-[12px] text-[var(--muted)]">{formatDate(job.updated_at ?? job.created_at)}</p>
+                    {guard ? (
+                      <p className="mt-1 text-[12px] text-[var(--muted)]">
+                        {guard.sourceLabel} · {guard.pageCount ?? 0} pages · retry {guard.retryCount}
+                      </p>
+                    ) : null}
                     {job.error_message ? <p className="mt-1 text-[12px] text-[var(--danger)]">{job.error_message}</p> : null}
                   </DataTableCell>
                   <DataTableCell className="whitespace-nowrap">
                     <Badge tone={importJobStateTone(state)}>{V3_IMPORT_JOB_LABELS[state]}</Badge>
+                    {guard?.requiresConfirmation ? <Badge tone="warning" className="mt-2">Review cost</Badge> : null}
                   </DataTableCell>
                 </DataTableRow>
               );
