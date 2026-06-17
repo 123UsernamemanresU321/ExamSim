@@ -10,8 +10,23 @@ import { Button } from "@/components/ui/button";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { listOwnerRosterEntries, listOwnerStudentGroups, listOwnerStudents } from "@/lib/live-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function OwnerStudentsPage() {
-  const [students, groups, rosterEntries] = await Promise.all([listOwnerStudents(), listOwnerStudentGroups(), listOwnerRosterEntries()]);
+  const [studentsResult, groupsResult, rosterResult] = await Promise.allSettled([
+    listOwnerStudents(),
+    listOwnerStudentGroups(),
+    listOwnerRosterEntries(),
+  ]);
+  const loadWarnings = [
+    dataLoadWarning(studentsResult, "student accounts"),
+    dataLoadWarning(groupsResult, "groups"),
+    dataLoadWarning(rosterResult, "roster student numbers"),
+  ].filter((warning): warning is string => Boolean(warning));
+  const students = settledValue(studentsResult, []);
+  const groups = settledValue(groupsResult, []);
+  const rosterEntries = settledValue(rosterResult, []);
+  const rosterUnavailable = rosterResult.status === "rejected";
   const duplicateNumbers = findDuplicates(rosterEntries.map((entry) => entry.student_number));
   return (
     <>
@@ -43,6 +58,19 @@ export default async function OwnerStudentsPage() {
           </div>
         </div>
       </Card>
+      {loadWarnings.length ? (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <h2 className="text-base font-semibold text-amber-950">Some student data could not be loaded</h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            The page is still available, but one or more student-management sections could not be read from Supabase. This is usually caused by a pending migration, schema-cache refresh, or a temporarily unavailable table.
+          </p>
+          <ul className="mt-3 grid gap-1 text-sm text-amber-900">
+            {loadWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="grid content-start gap-5">
@@ -56,28 +84,37 @@ export default async function OwnerStudentsPage() {
           <Card>
             <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-[var(--ink)]"><Hash size={18} /> Add roster student number</h2>
             <p className="mb-4 text-sm leading-6 text-[var(--muted)]">Use these numbers for exam-code entry. They can be assigned before students create accounts.</p>
-            <form action={createRosterEntryAction} className="grid gap-3">
-              <input name="display_name" required placeholder="Student name" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input name="student_number" required placeholder="DP1-007" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 font-mono text-sm uppercase" />
-                <input name="class_group" placeholder="DP1 / Group A" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
-              </div>
-              <input name="email" type="email" placeholder="Optional email" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
-              <Button type="submit" variant="secondary">Add roster entry</Button>
-            </form>
+            <fieldset disabled={rosterUnavailable} className="disabled:opacity-60">
+              <form action={createRosterEntryAction} className="grid gap-3">
+                <input name="display_name" required placeholder="Student name" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input name="student_number" required placeholder="DP1-007" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 font-mono text-sm uppercase" />
+                  <input name="class_group" placeholder="DP1 / Group A" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+                </div>
+                <input name="email" type="email" placeholder="Optional email" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+                <Button type="submit" variant="secondary">Add roster entry</Button>
+              </form>
+            </fieldset>
+            {rosterUnavailable ? (
+              <p className="mt-3 text-sm leading-6 text-amber-800">
+                Roster-number actions are temporarily disabled until the roster table is available.
+              </p>
+            ) : null}
           </Card>
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-[var(--ink)]">Generate Student Numbers</h2>
             <p className="mb-4 text-sm leading-6 text-[var(--muted)]">Create memorable placeholders such as DP1-001, MYP5-001, G11-001, or E001. Edit names after assigning them.</p>
-            <form action={generateRosterEntriesAction} className="grid gap-3">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <input name="prefix" required placeholder="DP1" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 font-mono text-sm uppercase" />
-                <input name="first_ordinal" type="number" min="1" defaultValue="1" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
-                <input name="count" type="number" min="1" max="200" defaultValue="25" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
-              </div>
-              <input name="class_group" placeholder="Optional class/group for all generated numbers" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
-              <Button type="submit" variant="secondary">Auto-generate roster numbers</Button>
-            </form>
+            <fieldset disabled={rosterUnavailable} className="disabled:opacity-60">
+              <form action={generateRosterEntriesAction} className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <input name="prefix" required placeholder="DP1" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 font-mono text-sm uppercase" />
+                  <input name="first_ordinal" type="number" min="1" defaultValue="1" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+                  <input name="count" type="number" min="1" max="200" defaultValue="25" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+                </div>
+                <input name="class_group" placeholder="Optional class/group for all generated numbers" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+                <Button type="submit" variant="secondary">Auto-generate roster numbers</Button>
+              </form>
+            </fieldset>
           </Card>
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-[var(--ink)]">Create group</h2>
@@ -177,4 +214,15 @@ function findDuplicates(values: string[]) {
     seen.add(value);
   }
   return [...duplicates];
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T) {
+  if (result.status === "fulfilled") return result.value;
+  return fallback;
+}
+
+function dataLoadWarning<T>(result: PromiseSettledResult<T>, label: string) {
+  if (result.status === "fulfilled") return null;
+  console.error(`Owner students ${label} loader failed`, result.reason);
+  return `Could not load ${label}.`;
 }
