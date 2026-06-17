@@ -8,6 +8,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StudentDeleteActionResult = { ok: true } | { ok: false; message: string };
+export type StudentRosterLinkActionResult = { ok: true; message: string } | { ok: false; message: string };
 type SupabaseDataClient = Pick<Awaited<ReturnType<typeof createSupabaseServerClient>>, "from">;
 
 export async function createRosterEntryAction(formData: FormData) {
@@ -161,6 +162,67 @@ export async function deleteRosterEntryAction(rosterEntryId: string): Promise<St
   });
 }
 
+export async function linkRosterEntryToStudentAccountAction(formData: FormData): Promise<StudentRosterLinkActionResult> {
+  return runRosterLinkAction(async () => {
+    const ownerProfileId = await requireOwnerProfileId();
+    const entryId = requiredId(String(formData.get("roster_entry_id") ?? ""), "roster_entry_id");
+    const requestedStudentId = String(formData.get("student_profile_id") ?? "").trim();
+    const nextStudentId = requestedStudentId || null;
+    const supabase = await createSupabaseServerClient();
+
+    const { data: entry, error: entryError } = await supabase
+      .from("student_roster_entries")
+      .select("id,owner_profile_id,student_number,display_name,student_profile_id")
+      .eq("id", entryId)
+      .maybeSingle();
+    if (entryError) throw entryError;
+    if (!entry) throw new Error("Roster entry not found.");
+    if (entry.owner_profile_id !== ownerProfileId) throw new Error("Roster entry is not managed by this owner.");
+
+    let linkedStudentName: string | null = null;
+    if (nextStudentId) {
+      const { data: student, error: studentError } = await supabase
+        .from("profiles")
+        .select("id,owner_profile_id,app_role,display_name")
+        .eq("id", nextStudentId)
+        .eq("app_role", "student")
+        .maybeSingle();
+      if (studentError) throw studentError;
+      if (!student) throw new Error("Student account not found.");
+      const ownerCanManage =
+        student.owner_profile_id === ownerProfileId || (await hasManagedStudentLink(ownerProfileId, nextStudentId));
+      if (!ownerCanManage) throw new Error("Student account is not managed by this owner.");
+      linkedStudentName = student.display_name;
+    }
+
+    const { error: updateError } = await supabase
+      .from("student_roster_entries")
+      .update({ student_profile_id: nextStudentId })
+      .eq("id", entryId)
+      .eq("owner_profile_id", ownerProfileId);
+    if (updateError) throw updateError;
+
+    await auditStudentAction(
+      nextStudentId ? "roster_entry.account_linked" : "roster_entry.account_unlinked",
+      "student_roster_entries",
+      entryId,
+      {
+        student_number: entry.student_number,
+        roster_display_name: entry.display_name,
+        previous_student_profile_id: entry.student_profile_id,
+        student_profile_id: nextStudentId,
+        student_display_name: linkedStudentName,
+      },
+    );
+
+    revalidatePath("/owner/students");
+    revalidatePath("/owner/exam-sessions");
+    return nextStudentId
+      ? `Linked ${entry.student_number} to ${linkedStudentName ?? "the selected student account"}.`
+      : `Unlinked ${entry.student_number} from its student account.`;
+  });
+}
+
 function requiredString(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
   if (!value) throw new Error(`${key} is required`);
@@ -243,4 +305,25 @@ function deleteActionMessage(kind: "student_account" | "roster_entry", error: un
   return kind === "student_account"
     ? "The student account could not be deleted. No exam records were removed."
     : "The roster number could not be deleted. No exam records were removed.";
+}
+
+async function runRosterLinkAction(operation: () => Promise<string>): Promise<StudentRosterLinkActionResult> {
+  try {
+    const message = await operation();
+    return { ok: true, message };
+  } catch (error) {
+    console.error("Owner roster-account link action failed", error);
+    return { ok: false, message: rosterLinkActionMessage(error) };
+  }
+}
+
+function rosterLinkActionMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (
+    message.includes("not found") ||
+    message.includes("not managed by this owner")
+  ) {
+    return message;
+  }
+  return "The roster number could not be linked to that student account. No exam records were changed.";
 }

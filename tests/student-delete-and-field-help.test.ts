@@ -26,6 +26,7 @@ describe("student deletion and field guidance", () => {
     expect(button).toContain("DangerMenu");
     expect(button).toContain("DeleteStudentAccountButton");
     expect(button).toContain("DeleteRosterEntryButton");
+    expect(page).toContain("LinkRosterAccountControl");
     expect(page).toContain("DeleteStudentAccountButton");
     expect(page).toContain("DeleteRosterEntryButton");
     expect(page).toContain("Actions");

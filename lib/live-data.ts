@@ -52,7 +52,7 @@ export type StudentGroupSummary = {
 
 export type StudentRosterEntrySummary = Pick<
   StudentRosterEntry,
-  "id" | "student_number" | "display_name" | "class_group" | "email" | "active" | "created_at"
+  "id" | "student_number" | "display_name" | "class_group" | "email" | "active" | "created_at" | "student_profile_id"
 >;
 
 export type AssessmentSummary = {
@@ -254,7 +254,7 @@ export async function listOwnerRosterEntries(): Promise<StudentRosterEntrySummar
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("student_roster_entries")
-    .select("id,student_number,display_name,class_group,email,active,created_at")
+    .select("id,student_number,display_name,class_group,email,active,created_at,student_profile_id")
     .order("student_number", { ascending: true });
   if (error) {
     if (isMissingRosterSchemaError(error)) return [];
@@ -270,6 +270,7 @@ function isMissingRosterSchemaError(error: unknown) {
   const mentionsRosterSchema =
     message.includes("student_roster_entries") ||
     message.includes("student_number") ||
+    message.includes("student_profile_id") ||
     message.includes("class_group") ||
     message.includes("schema cache");
 
