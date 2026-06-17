@@ -62,18 +62,25 @@ export function validateGuestIdentity(input: {
   student_name?: string | null;
   student_number?: string | null;
   class_group?: string | null;
-}): GuestIdentityValidation {
+}, options: {
+  requireStudentName?: boolean;
+  requireStudentNumber?: boolean;
+} = {}): GuestIdentityValidation {
+  const requireStudentName = options.requireStudentName !== false;
+  const requireStudentNumber = options.requireStudentNumber !== false;
   const studentName = (input.student_name ?? "").trim().replace(/\s+/g, " ");
   const studentNumber = normalizeStudentNumber(input.student_number ?? "");
   const classGroup = (input.class_group ?? "").trim().replace(/\s+/g, " ") || null;
 
-  if (studentName.length < 2 || studentName.length > 120) return { ok: false, error: "Enter your full name." };
-  if (!/^[A-Z]{1,6}\d{0,2}-?\d{1,4}$/.test(studentNumber)) {
+  if (requireStudentName && (studentName.length < 2 || studentName.length > 120)) return { ok: false, error: "Enter your full name." };
+  if (!requireStudentName && studentName.length > 120) return { ok: false, error: "Name is too long." };
+  if (requireStudentNumber && !/^[A-Z]{1,6}\d{0,2}-?\d{1,4}$/.test(studentNumber)) {
     return { ok: false, error: "Enter a valid student number." };
   }
+  if (!requireStudentNumber && studentNumber && !/^[A-Z]{1,6}\d{0,2}-?\d{1,4}$/.test(studentNumber)) return { ok: false, error: "Enter a valid student number." };
   if (classGroup && classGroup.length > 60) return { ok: false, error: "Class or group is too long." };
 
-  return { ok: true, studentName, studentNumber, classGroup };
+  return { ok: true, studentName: studentName || "Guest student", studentNumber, classGroup };
 }
 
 export function publicSessionState(session: {

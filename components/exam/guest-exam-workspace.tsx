@@ -56,6 +56,17 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
   const router = useRouter();
   const [attemptId] = useState<string | null>(() => typeof window === "undefined" ? null : sessionStorage.getItem("examvault_guest_attempt_id"));
   const [guestToken] = useState<string | null>(() => typeof window === "undefined" ? null : sessionStorage.getItem("examvault_guest_token"));
+  const [receiptIdentity] = useState(() => typeof window === "undefined" ? {
+    code: "",
+    studentName: "",
+    studentNumber: "",
+    submittedAt: "",
+  } : {
+    code: sessionStorage.getItem("examvault_guest_code") ?? "",
+    studentName: sessionStorage.getItem("examvault_guest_student_name") ?? "",
+    studentNumber: sessionStorage.getItem("examvault_guest_student_number") ?? "",
+    submittedAt: sessionStorage.getItem("examvault_guest_submitted_at") ?? "",
+  });
   const [state, setState] = useState<GuestStateResponse | null>(null);
   const [assessmentPackage, setAssessmentPackage] = useState<NormalizedAssessmentPackage | null>(null);
   const [uploadSlots, setUploadSlots] = useState<GuestUploadSlot[]>([]);
@@ -160,6 +171,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
         await invokePublicEdgeFunction("guest-finalize-attempt", {
           body: { guest_token: guestToken, attempt_id: attemptId, state_token: state?.state_token },
         });
+        sessionStorage.setItem("examvault_guest_submitted_at", new Date().toISOString());
         router.push("/exam/submitted");
       } catch (finalizeError) {
         setError(finalizeError instanceof Error ? finalizeError.message : "Could not submit this exam.");
@@ -256,6 +268,19 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
         <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
           Your exam has been finalized. Your teacher will mark and release feedback when it is ready.
         </p>
+        <dl className="mt-6 grid gap-3 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-left">
+          <ReviewRow label="Exam code" value={receiptIdentity.code || "Recorded by server"} />
+          <ReviewRow label="Student number" value={receiptIdentity.studentNumber || "Recorded by server"} />
+          <ReviewRow label="Student name" value={receiptIdentity.studentName || "Recorded by server"} />
+          <ReviewRow label="Submission time" value={formatReceiptTime(receiptIdentity.submittedAt)} />
+          <ReviewRow label="Attempt ID" value={attemptId ?? "Recorded by server"} />
+        </dl>
+        <div className="mt-5 rounded-[4px] border border-blue-100 bg-blue-50/50 p-4 text-left text-sm leading-6 text-blue-950">
+          <p className="font-semibold">Viewing marked results later</p>
+          <p className="mt-1">
+            Your teacher controls when marked papers, annotated PDFs, and feedback are released. If your teacher asks you to create or link a student account, use the same student number so your history can be matched safely.
+          </p>
+        </div>
         <Button className="mt-6" type="button" onClick={() => router.push("/exam")}>Return to exam entry</Button>
       </Card>
     );
@@ -510,4 +535,10 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
       <dd className="font-mono font-semibold text-[var(--ink)]">{value}</dd>
     </div>
   );
+}
+
+function formatReceiptTime(value: string) {
+  const date = value ? new Date(value) : null;
+  if (!date || !Number.isFinite(date.getTime())) return "Recorded by server";
+  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }

@@ -8,10 +8,10 @@ export default function ExamEntryPage() {
         <section className="self-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">Exam Vault</p>
           <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)] md:text-5xl">
-            Enter an exam using the code from your teacher.
+            Enter Exam Code
           </h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-[var(--muted)]">
-            You do not need an account to sit an exam. We will ask for your name and student number after the code is verified.
+            Use the exam code given by your teacher. After the code is verified, you will enter your student number and name so your work can be matched to the roster.
           </p>
           <div className="mt-8 grid gap-3 text-sm text-[var(--muted)] sm:grid-cols-3">
             <Info label="Server controlled" value="Exam timing" />
@@ -20,9 +20,9 @@ export default function ExamEntryPage() {
           </div>
         </section>
         <Card className="self-center">
-          <h2 className="text-xl font-semibold text-[var(--ink)]">Exam code</h2>
+          <h2 className="text-xl font-semibold text-[var(--ink)]">Enter Exam Code</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Codes are usually short and grouped, for example MODS-W7-120.
+            Use the exam code given by your teacher, for example <code className="font-mono text-[var(--ink)]">CHEM-P2-047</code>.
           </p>
           <div className="mt-6">
             <ExamCodeEntryForm />

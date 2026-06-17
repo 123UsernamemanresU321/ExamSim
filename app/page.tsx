@@ -27,6 +27,10 @@ export default async function HomePage() {
               Exam Vault is built for tutors and schools that need private assessment delivery, root-question uploads, annotation,
               release-controlled feedback, and moderation evidence without making the browser the source of truth.
             </p>
+            <div className="mt-5 max-w-2xl rounded-[4px] border border-blue-100 bg-blue-50/50 p-4 text-sm leading-6 text-blue-950">
+              <p><strong>Students:</strong> enter an exam using the exam code provided by your teacher.</p>
+              <p className="mt-1">Your teacher may also give you a student number such as <code>DP1-007</code> or <code>E001</code>. This identifies you on the roster; it is not a password.</p>
+            </div>
             <div className="mt-7 flex flex-wrap gap-3">
               {landingActions.map((action) => (
                 <ButtonLink key={action.href} href={action.href} variant={action.variant}>
@@ -84,8 +88,8 @@ function GatewayRow({ icon, title, copy }: { icon: ReactNode; title: string; cop
 function getLandingActions(isSignedIn: boolean, role: "owner" | "student" | null): Array<{ href: string; label: string; variant?: "primary" | "secondary" }> {
   if (!isSignedIn) {
     return [
-      { href: "/login", label: "Log in" },
-      { href: "/activate", label: "Activate student account", variant: "secondary" },
+      { href: "/exam", label: "Sit an Exam" },
+      { href: "/login", label: "Teacher / Owner Sign In", variant: "secondary" },
     ];
   }
   if (role === "owner") return [{ href: "/owner", label: "Go to Owner Dashboard" }];

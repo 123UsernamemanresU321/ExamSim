@@ -16,6 +16,12 @@ type ResolveExamCodeResponse = {
     paper_code?: string | null;
     start_at_utc?: string;
     display_timezone?: string;
+    identity_policy_json?: {
+      student_name?: boolean;
+      student_number?: boolean;
+      require_roster_match?: boolean;
+      allow_unregistered_guests?: boolean;
+    } | null;
   };
 };
 
@@ -42,6 +48,11 @@ export function ExamCodeEntryForm() {
           return;
         }
         setResolved(response);
+        if (response.session?.identity_policy_json) {
+          sessionStorage.setItem("examvault_guest_identity_policy", JSON.stringify(response.session.identity_policy_json));
+        } else {
+          sessionStorage.removeItem("examvault_guest_identity_policy");
+        }
         if (response.status === "not_open") {
           router.push(`/exam/not-open?code=${encodeURIComponent(normalized)}`);
         } else if (response.status === "closed") {
@@ -66,7 +77,7 @@ export function ExamCodeEntryForm() {
           <input
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            placeholder="MODS-W7-120"
+            placeholder="CHEM-P2-047"
             autoCapitalize="characters"
             autoComplete="off"
             className="min-h-12 flex-1 bg-transparent px-4 font-mono text-base uppercase tracking-[0.08em] outline-none"
@@ -74,6 +85,9 @@ export function ExamCodeEntryForm() {
           />
         </div>
       </label>
+      <p className="text-xs leading-5 text-[var(--muted)]">
+        This code opens one exam session. Your teacher may also give you a separate student number such as <code className="font-mono text-[var(--ink)]">DP1-007</code>; that number is not a password.
+      </p>
       {error ? <p className="rounded-[4px] border border-[var(--danger)]/20 bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
       {resolved?.session ? (
         <p className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm text-[var(--muted)]">

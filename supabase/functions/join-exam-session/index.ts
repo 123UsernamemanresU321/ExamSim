@@ -21,10 +21,10 @@ serve(async (request) => {
       student_name?: string;
       student_number?: string;
       class_group?: string;
+      confirm_name_mismatch?: boolean;
     }>(request);
     const code = normalizeExamCode(body.code ?? "");
-    const identity = validateGuestIdentity(body);
-    if (!code || !identity.ok) return json(request, { error: identity.ok ? "Exam code is required" : identity.error }, 400);
+    if (!code) return json(request, { error: "Exam code is required" }, 400);
 
     const admin = getAdminClient();
     const { data: session, error } = await admin
@@ -40,17 +40,40 @@ serve(async (request) => {
       return json(request, { error: "This exam is not available right now.", status: accessStatus }, 403);
     }
 
+    const identityPolicy = readIdentityPolicy(session.identity_policy_json);
+    const identity = validateGuestIdentity(body, {
+      requireStudentName: identityPolicy.requireStudentName,
+      requireStudentNumber: identityPolicy.requireStudentNumber || identityPolicy.requireRosterMatch,
+    });
+    if (!identity.ok) return json(request, { error: identity.error }, 400);
+    const effectiveStudentNumber = identity.studentNumber || `GUEST-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     const { data: rosterEntry, error: rosterError } = await admin
       .from("student_roster_entries")
       .select("id,student_profile_id,student_number,display_name,class_group,accommodations_json")
       .eq("owner_profile_id", session.owner_profile_id)
-      .eq("student_number", identity.studentNumber)
+      .eq("student_number", effectiveStudentNumber)
       .eq("active", true)
       .maybeSingle();
     if (rosterError) throw rosterError;
+    if (!rosterEntry && identityPolicy.requireRosterMatch && !identityPolicy.allowUnregisteredGuests) {
+      return json(request, {
+        error: "This student number was not found for this exam. Please check the number given by your teacher.",
+        code: "student_number_not_found",
+      }, 403);
+    }
+    const enteredName = String(body.student_name ?? "").trim();
+    const shouldCheckName = identityPolicy.requireStudentName || enteredName.length > 0;
+    const nameMismatch = Boolean(rosterEntry && shouldCheckName && !sameName(identity.studentName, String(rosterEntry.display_name ?? "")));
+    if (nameMismatch && !body.confirm_name_mismatch) {
+      return json(request, {
+        error: `The name entered does not match the roster name for ${effectiveStudentNumber}. Check your details or confirm for teacher review.`,
+        code: "student_name_mismatch",
+        roster_display_name: rosterEntry?.display_name ?? null,
+      }, 409);
+    }
 
     const matchColumn = rosterEntry?.id ? "roster_entry_id" : "guest_student_number";
-    const matchValue = rosterEntry?.id ?? identity.studentNumber;
+    const matchValue = rosterEntry?.id ?? effectiveStudentNumber;
     const { data: existingAttempts, error: existingError } = await admin
       .from("attempts")
       .select("*")
@@ -77,16 +100,19 @@ serve(async (request) => {
           exam_session_id: session.id,
           roster_entry_id: rosterEntry?.id ?? null,
           guest_student_name: identity.studentName,
-          guest_student_number: identity.studentNumber,
+          guest_student_number: effectiveStudentNumber,
           guest_class_group: identity.classGroup,
           guest_identity_json: {
             student_name: identity.studentName,
-            student_number: identity.studentNumber,
+            student_number: effectiveStudentNumber,
             class_group: identity.classGroup,
             roster_matched: Boolean(rosterEntry),
+            roster_display_name: rosterEntry?.display_name ?? null,
+            name_mismatch: nameMismatch,
+            unregistered_guest: !rosterEntry,
           },
           claim_status: rosterEntry?.student_profile_id ? "linked" : "unclaimed",
-          identity_review_status: rosterEntry ? "not_required" : "needs_review",
+          identity_review_status: rosterEntry && !nameMismatch ? "not_required" : "needs_review",
           duplicate_identity_flag: false,
           start_at_utc: session.start_at_utc,
           duration_seconds: session.duration_seconds,
@@ -153,11 +179,34 @@ serve(async (request) => {
         upload_deadline_at_utc: attemptRow.upload_deadline_at_utc ? String(attemptRow.upload_deadline_at_utc) : null,
       }),
       session_status: accessStatus,
+      roster_match: Boolean(rosterEntry),
+      identity_review_status: rosterEntry && !nameMismatch ? "not_required" : "needs_review",
     });
   } catch (error) {
     return errorResponse(request, error, "join-exam-session failed");
   }
 });
+
+function readIdentityPolicy(value: unknown) {
+  const policy = typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const allowUnregisteredGuests = policy.allow_unregistered_guests === true;
+  return {
+    allowUnregisteredGuests,
+    requireRosterMatch: policy.require_roster_match !== false,
+    requireStudentName: policy.student_name !== false,
+    requireStudentNumber: policy.student_number !== false,
+  };
+}
+
+function sameName(input: string, rosterName: string) {
+  return normalizeName(input) === normalizeName(rosterName);
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 function readAccommodationPolicy(value: unknown, baseDurationSeconds: number) {
   const policy = typeof value === "object" && value !== null && !Array.isArray(value)

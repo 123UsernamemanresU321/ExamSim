@@ -29,6 +29,7 @@ import type {
   StudentCredential,
   StudentGroup,
   StudentGroupMember,
+  StudentRosterEntry,
   TextResponse,
   UploadSlot,
   WorkAnnotation,
@@ -48,6 +49,11 @@ export type StudentGroupSummary = {
   member_count: number;
   members: { id: string; display_name: string }[];
 };
+
+export type StudentRosterEntrySummary = Pick<
+  StudentRosterEntry,
+  "id" | "student_number" | "display_name" | "class_group" | "email" | "active" | "created_at"
+>;
 
 export type AssessmentSummary = {
   id: string;
@@ -238,6 +244,17 @@ export async function listOwnerStudents(): Promise<StudentSummary[]> {
     if (isDemoModeEnabled()) return [...sampleStudents];
     throw error;
   }
+}
+
+export async function listOwnerRosterEntries(): Promise<StudentRosterEntrySummary[]> {
+  if (isDemoModeEnabled()) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("student_roster_entries")
+    .select("id,student_number,display_name,class_group,email,active,created_at")
+    .order("student_number", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as StudentRosterEntrySummary[];
 }
 
 export async function listOwnerStudentGroups(): Promise<StudentGroupSummary[]> {

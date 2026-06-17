@@ -76,6 +76,38 @@ export function ExamSessionForm({ options }: { options: SessionAssessmentOption[
             </div>
           </label>
         </div>
+        <div className="rounded-[4px] border border-blue-100 bg-blue-50/40 p-4">
+          <h3 className="text-sm font-semibold text-[var(--ink)]">Student identity policy</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Students enter the exam code first, then their roster student number and name. Student numbers identify students; they are not passwords.
+          </p>
+          <div className="mt-4 grid gap-3">
+            <label className="flex items-start gap-3 text-sm leading-6">
+              <input name="require_roster_match" type="checkbox" defaultChecked className="mt-1" />
+              <span>
+                <strong>Require roster match</strong>
+                <span className="block text-[var(--muted)]">Default on. The student number must exist in your roster for this owner account.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm leading-6">
+              <input name="allow_unregistered_guests" type="checkbox" className="mt-1" />
+              <span>
+                <strong>Allow unregistered guest students</strong>
+                <span className="block text-amber-700">Use only for open practice sessions. This may make student tracking harder.</span>
+              </span>
+            </label>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input name="require_student_number" type="checkbox" defaultChecked />
+                Require student number
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input name="require_student_name" type="checkbox" defaultChecked />
+                Require student name
+              </label>
+            </div>
+          </div>
+        </div>
         <input name="display_timezone" type="hidden" value="Africa/Johannesburg" />
         <Button type="submit">Create session</Button>
       </form>

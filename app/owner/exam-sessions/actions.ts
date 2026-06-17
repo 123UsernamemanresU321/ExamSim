@@ -55,11 +55,13 @@ export async function createExamSessionAction(formData: FormData) {
       display_timezone: String(formData.get("display_timezone") ?? "Africa/Johannesburg"),
       attempt_limit_per_student: Math.max(1, Number(formData.get("attempt_limit_per_student") ?? 1)),
       identity_policy_json: {
-        student_name: true,
-        student_number: true,
+        student_name: formData.get("require_student_name") === "on",
+        student_number: formData.get("require_student_number") === "on",
         class_group: true,
         date: true,
         roster_first: true,
+        require_roster_match: formData.get("require_roster_match") === "on",
+        allow_unregistered_guests: formData.get("allow_unregistered_guests") === "on",
       },
       published_at: new Date().toISOString(),
     })
