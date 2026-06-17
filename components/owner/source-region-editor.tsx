@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { CheckCircle2, Combine, CopyPlus, EyeOff, Layers, Move, PanelLeft, SplitSquareHorizontal, SplitSquareVertical } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import { CheckCircle2, Combine, Copy, CopyPlus, EyeOff, Layers, Move, PanelLeft, PlusCircle, SplitSquareHorizontal, SplitSquareVertical, Trash2 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { QuestionNodeRow, QuestionSourceRegion, SourceDocument, SourcePage } from "@/types/database";
@@ -30,6 +32,9 @@ type RegionDraft = {
   region_type: QuestionSourceRegion["region_type"];
   status: QuestionSourceRegion["status"];
   confidence: number | null;
+  marks: number | null;
+  response_mode: QuestionNodeRow["response_mode"] | null;
+  notes: string | null;
   bbox: Bbox;
 };
 
@@ -44,16 +49,25 @@ type Props = {
   ignoreRegionAction: RegionAction;
   splitRegionAction: RegionAction;
   mergeRegionsAction: RegionAction;
+  duplicateRegionAction: RegionAction;
+  deleteRegionAction: RegionAction;
+  deleteSourceDocumentAction: RegionAction;
+  createQuestionFromRegionAction: RegionAction;
 };
 
 type Interaction =
   | { kind: "move"; id: string; startX: number; startY: number; original: Bbox }
-  | { kind: "resize"; id: string; startX: number; startY: number; original: Bbox };
+  | { kind: "resize"; id: string; startX: number; startY: number; original: Bbox }
+  | { kind: "draw"; startX: number; startY: number; startPoint: { x: number; y: number } };
 
 const REGION_TYPES: Array<QuestionSourceRegion["region_type"]> = ["question", "subquestion", "diagram", "table", "answer_area", "markscheme", "instructions", "other"];
 const REGION_STATUSES: Array<QuestionSourceRegion["status"]> = ["detected", "needs_review", "approved", "ignored"];
+const RESPONSE_MODES: Array<QuestionNodeRow["response_mode"]> = ["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice", "numerical"];
+
+GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
 
 export function SourceRegionEditor({
+  versionId,
   sourceDocuments,
   sourcePages,
   sourceRegions,
@@ -63,8 +77,13 @@ export function SourceRegionEditor({
   ignoreRegionAction,
   splitRegionAction,
   mergeRegionsAction,
+  duplicateRegionAction,
+  deleteRegionAction,
+  deleteSourceDocumentAction,
+  createQuestionFromRegionAction,
 }: Props) {
   const [selectedDocumentId, setSelectedDocumentId] = useState(sourceDocuments[0]?.id ?? "");
+  const selectedDocument = sourceDocuments.find((document) => document.id === selectedDocumentId) ?? sourceDocuments[0] ?? null;
   const documentPages = useMemo(
     () => sourcePages.filter((page) => page.source_document_id === selectedDocumentId).sort((a, b) => a.page_number - b.page_number),
     [selectedDocumentId, sourcePages],
@@ -100,9 +119,12 @@ export function SourceRegionEditor({
   const [selectedRegionId, setSelectedRegionId] = useState(pageRegions[0]?.id ?? "");
   const selectedRegion = drafts.find((region) => region.id === selectedRegionId) ?? pageRegions[0] ?? null;
   const pageShellRef = useRef<HTMLDivElement | null>(null);
+  const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const interactionRef = useRef<Interaction | null>(null);
-  const [isPending, startTransition] = useTransition();
   const [signedPageUrls, setSignedPageUrls] = useState<Record<string, string>>({});
+  const [signedDocumentUrls, setSignedDocumentUrls] = useState<Record<string, string>>({});
+  const [pdfRenderStatus, setPdfRenderStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [drawDraft, setDrawDraft] = useState<Bbox | null>(null);
 
   useEffect(() => {
     if (!selectedPage?.image_object_path || signedPageUrls[selectedPage.id]) return;
@@ -128,6 +150,63 @@ export function SourceRegionEditor({
     };
   }, [selectedPage, signedPageUrls]);
 
+  useEffect(() => {
+    if (!selectedDocument?.object_path || signedDocumentUrls[selectedDocument.id]) return;
+    let cancelled = false;
+    const supabase = createSupabaseBrowserClient();
+    invokeEdgeFunction<{ signed_url: string }>(supabase, "owner-sign-storage-url", {
+      body: {
+        bucket: "assessment-sources",
+        object_path: selectedDocument.object_path,
+        purpose: "assessment_source",
+        expires_in_seconds: 600,
+      },
+      requiresAal2: true,
+    })
+      .then((result) => {
+        if (!cancelled && result?.signed_url) setSignedDocumentUrls((current) => ({ ...current, [selectedDocument.id]: result.signed_url }));
+      })
+      .catch(() => {
+        if (!cancelled) setSignedDocumentUrls((current) => ({ ...current, [selectedDocument.id]: "" }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDocument, signedDocumentUrls]);
+
+  const selectedDocumentUrl = selectedDocument?.id ? signedDocumentUrls[selectedDocument.id] : "";
+  const selectedPageUrl = selectedPage?.id ? signedPageUrls[selectedPage.id] : "";
+
+  useEffect(() => {
+    if (!selectedDocumentUrl || !selectedPage || selectedPageUrl || !pdfCanvasRef.current) return;
+    let cancelled = false;
+    let renderTask: { cancel?: () => void; promise?: Promise<unknown> } | null = null;
+    setPdfRenderStatus("loading");
+
+    async function renderPdfPage() {
+      const canvas = pdfCanvasRef.current;
+      if (!canvas) return;
+      const pdf = await getDocument({ url: selectedDocumentUrl }).promise;
+      const page = await pdf.getPage(selectedPageNumber);
+      const viewport = page.getViewport({ scale: 1.7 });
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not prepare PDF canvas.");
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      renderTask = page.render({ canvas, canvasContext: context, viewport }) as { cancel?: () => void; promise?: Promise<unknown> };
+      await renderTask.promise;
+      if (!cancelled) setPdfRenderStatus("ready");
+    }
+
+    renderPdfPage().catch(() => {
+      if (!cancelled) setPdfRenderStatus("error");
+    });
+    return () => {
+      cancelled = true;
+      renderTask?.cancel?.();
+    };
+  }, [selectedDocumentUrl, selectedPage, selectedPageNumber, selectedPageUrl]);
+
   const setDraftBbox = useCallback((id: string, bbox: Bbox) => {
     setDrafts((current) => current.map((region) => region.id === id ? { ...region, bbox } : region));
   }, [setDrafts]);
@@ -143,6 +222,48 @@ export function SourceRegionEditor({
     };
   }, []);
 
+  const pointerToPoint = useCallback((event: PointerEvent | React.PointerEvent) => {
+    const rect = pageShellRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
+      y: clamp((event.clientY - rect.top) / rect.height, 0, 1),
+    };
+  }, []);
+
+  const buildDrawBbox = useCallback((event: PointerEvent | React.PointerEvent, interaction: Extract<Interaction, { kind: "draw" }>) => {
+    const point = pointerToPoint(event);
+    const x = Math.min(interaction.startPoint.x, point.x);
+    const y = Math.min(interaction.startPoint.y, point.y);
+    const width = Math.max(0.01, Math.abs(point.x - interaction.startPoint.x));
+    const height = Math.max(0.01, Math.abs(point.y - interaction.startPoint.y));
+    return {
+      page: selectedPageNumber,
+      x,
+      y,
+      width: Math.min(width, 1 - x),
+      height: Math.min(height, 1 - y),
+      normalized: true,
+    } satisfies Bbox;
+  }, [pointerToPoint, selectedPageNumber]);
+
+  const beginDraw = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !selectedDocumentId) return;
+    if ((event.target as HTMLElement).closest("[data-region-box]")) return;
+    event.preventDefault();
+    const startPoint = pointerToPoint(event);
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    interactionRef.current = { kind: "draw", startX: event.clientX, startY: event.clientY, startPoint };
+    setDrawDraft({
+      page: selectedPageNumber,
+      x: startPoint.x,
+      y: startPoint.y,
+      width: 0.01,
+      height: 0.01,
+      normalized: true,
+    });
+  }, [pointerToPoint, selectedDocumentId, selectedPageNumber]);
+
   const beginInteraction = useCallback((event: React.PointerEvent, id: string, kind: "move" | "resize") => {
     const region = drafts.find((draft) => draft.id === id);
     if (!region) return;
@@ -157,6 +278,10 @@ export function SourceRegionEditor({
     const interaction = interactionRef.current;
     if (!interaction) return;
     event.preventDefault();
+    if (interaction.kind === "draw") {
+      setDrawDraft(buildDrawBbox(event, interaction));
+      return;
+    }
     const { dx, dy } = pointerToDelta(event);
     if (interaction.kind === "move") {
       const x = clamp(interaction.original.x + dx, 0, 1 - interaction.original.width);
@@ -167,19 +292,35 @@ export function SourceRegionEditor({
       const height = clamp(interaction.original.height + dy, 0.03, 1 - interaction.original.y);
       setDraftBbox(interaction.id, { ...interaction.original, width, height });
     }
-  }, [pointerToDelta, setDraftBbox]);
+  }, [buildDrawBbox, pointerToDelta, setDraftBbox]);
 
   const endInteraction = useCallback((event: React.PointerEvent) => {
-    if (!interactionRef.current) return;
+    const interaction = interactionRef.current;
+    if (!interaction) return;
     event.preventDefault();
+    if (interaction.kind === "draw") {
+      const bbox = buildDrawBbox(event, interaction);
+      setDrawDraft(null);
+      if (bbox.width >= 0.02 && bbox.height >= 0.02 && selectedDocumentId) {
+        const formData = new FormData();
+        formData.set("source_document_id", selectedDocumentId);
+        formData.set("source_page_id", selectedPage?.id ?? "");
+        formData.set("page_number", String(selectedPageNumber));
+        formData.set("x", String(bbox.x));
+        formData.set("y", String(bbox.y));
+        formData.set("width", String(bbox.width));
+        formData.set("height", String(bbox.height));
+        formData.set("region_type", "question");
+        void createRegionAction(formData);
+      }
+    }
     interactionRef.current = null;
-  }, []);
+  }, [buildDrawBbox, createRegionAction, selectedDocumentId, selectedPage?.id, selectedPageNumber]);
 
-  const selectedPageUrl = selectedPage?.id ? signedPageUrls[selectedPage.id] : "";
   const aspectRatio = `${selectedPage?.width_points ?? 595} / ${selectedPage?.height_points ?? 842}`;
 
   return (
-    <Card className="p-0">
+    <Card id="pdf-region-editor" className="p-0">
       <div className="grid min-h-[680px] lg:grid-cols-[220px_minmax(0,1fr)_320px]">
         <aside className="border-b border-[var(--border)] bg-[var(--surface-muted)] p-4 lg:border-b-0 lg:border-r">
           <CardHeader className="mb-3">
@@ -234,20 +375,41 @@ export function SourceRegionEditor({
             <input type="hidden" name="region_type" value="question" />
             <Button type="submit" variant="secondary" className="w-full"><CopyPlus size={14} /> Add region</Button>
           </form>
+          {selectedDocument ? (
+            <form
+              action={deleteSourceDocumentAction}
+              onSubmit={(event) => {
+                if (!window.confirm("Delete this source PDF and all page region boxes linked to it? This cannot be undone.")) {
+                  event.preventDefault();
+                }
+              }}
+              className="mt-3 rounded-[4px] border border-[var(--danger)]/20 bg-[var(--danger-bg)] p-3"
+            >
+              <input type="hidden" name="source_document_id" value={selectedDocument.id} />
+              <p className="text-xs leading-5 text-[var(--danger)]">
+                Delete source PDF removes its page records and region boxes. Upload another PDF first if this is a replacement.
+              </p>
+              <Button type="submit" variant="dangerSubtle" className="mt-2 w-full"><Trash2 size={14} /> Delete source PDF</Button>
+            </form>
+          ) : null}
         </aside>
 
         <section className="min-w-0 bg-slate-100 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-base font-semibold text-[var(--ink)]">Direct source-region editor</h2>
-              <p className="text-sm text-[var(--muted)]">Drag boxes on the page. Save selected region when placement is correct.</p>
+              <h2 className="text-base font-semibold text-[var(--ink)]">PDF Region Editor</h2>
+              <p className="text-sm text-[var(--muted)]">Draw, drag, resize, split, merge, and link normalized question boxes on the actual PDF page.</p>
             </div>
-            <Badge tone={lowConfidenceRegions.length ? "warning" : "success"}>{lowConfidenceRegions.length} review item{lowConfidenceRegions.length === 1 ? "" : "s"}</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="info">v{versionId.slice(0, 8)}</Badge>
+              <Badge tone={lowConfidenceRegions.length ? "warning" : "success"}>{lowConfidenceRegions.length} review item{lowConfidenceRegions.length === 1 ? "" : "s"}</Badge>
+            </div>
           </div>
           <div
             ref={pageShellRef}
             className="relative mx-auto max-h-[840px] max-w-[760px] overflow-hidden rounded-[4px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)] select-none"
             style={{ aspectRatio }}
+            onPointerDown={beginDraw}
             onPointerMove={updateInteraction}
             onPointerUp={endInteraction}
             onPointerCancel={endInteraction}
@@ -255,12 +417,28 @@ export function SourceRegionEditor({
             {selectedPageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={selectedPageUrl} alt={`Source page ${selectedPageNumber}`} draggable={false} className="absolute inset-0 h-full w-full object-contain pointer-events-none" />
+            ) : selectedDocumentUrl ? (
+              <>
+                <canvas
+                  ref={pdfCanvasRef}
+                  aria-label={`Rendered PDF source page ${selectedPageNumber}`}
+                  className="absolute inset-0 h-full w-full object-contain pointer-events-none"
+                />
+                {pdfRenderStatus === "loading" ? (
+                  <div className="absolute inset-x-0 top-0 bg-white/80 px-3 py-2 text-xs font-semibold text-[var(--muted)]">Rendering PDF page...</div>
+                ) : null}
+                {pdfRenderStatus === "error" ? (
+                  <div className="absolute inset-0 grid place-items-center bg-white/85 px-6 text-center text-sm text-[var(--danger)]">
+                    Could not render this PDF page. Region coordinates can still be saved; try reloading or replacing the source PDF.
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="absolute inset-0 grid bg-[linear-gradient(#f8fafc_1px,transparent_1px),linear-gradient(90deg,#f8fafc_1px,transparent_1px)] bg-[length:28px_28px]">
                 <div className="m-auto max-w-md px-6 text-center">
                   <Layers className="mx-auto text-slate-400" size={34} />
                   <p className="mt-3 text-sm font-semibold text-[var(--ink)]">Source page preview unavailable</p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Regions are still stored in normalized page coordinates. Add page images through the compiler pipeline for visual previews.</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Regions are still stored in normalized page coordinates. The PDF signed URL could not be loaded.</p>
                   {selectedPage?.text_preview ? <p className="mt-4 line-clamp-6 text-left text-xs leading-5 text-slate-500">{selectedPage.text_preview}</p> : null}
                 </div>
               </div>
@@ -268,6 +446,7 @@ export function SourceRegionEditor({
             {pageRegions.map((region) => (
               <button
                 key={region.id}
+                data-region-box="true"
                 type="button"
                 onClick={() => setSelectedRegionId(region.id)}
                 onPointerDown={(event) => beginInteraction(event, region.id, "move")}
@@ -293,6 +472,18 @@ export function SourceRegionEditor({
                 />
               </button>
             ))}
+            {drawDraft ? (
+              <div
+                aria-hidden="true"
+                className="absolute border-2 border-dashed border-[var(--primary)] bg-blue-500/10"
+                style={{
+                  left: `${drawDraft.x * 100}%`,
+                  top: `${drawDraft.y * 100}%`,
+                  width: `${drawDraft.width * 100}%`,
+                  height: `${drawDraft.height * 100}%`,
+                }}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -324,6 +515,19 @@ export function SourceRegionEditor({
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                    Marks
+                    <input name="marks" type="number" min="0" step="0.5" defaultValue={selectedRegion.marks ?? ""} className="rounded-[2px] border border-[var(--border)] px-2 py-2 text-sm normal-case text-[var(--ink)]" />
+                  </label>
+                  <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                    Response type
+                    <select name="response_mode" defaultValue={selectedRegion.response_mode ?? ""} className="rounded-[2px] border border-[var(--border)] bg-white px-2 py-2 text-sm normal-case text-[var(--ink)]">
+                      <option value="">Use linked question</option>
+                      {RESPONSE_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                     Type
                     <select name="region_type" defaultValue={selectedRegion.region_type} className="rounded-[2px] border border-[var(--border)] bg-white px-2 py-2 text-sm normal-case text-[var(--ink)]">
                       {REGION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
@@ -340,11 +544,28 @@ export function SourceRegionEditor({
                   Confidence
                   <input name="confidence" type="number" min="0" max="1" step="0.01" defaultValue={selectedRegion.confidence ?? 0.5} className="rounded-[2px] border border-[var(--border)] px-2 py-2 text-sm normal-case text-[var(--ink)]" />
                 </label>
+                <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Notes
+                  <textarea name="notes" defaultValue={selectedRegion.notes ?? ""} rows={3} className="rounded-[2px] border border-[var(--border)] px-2 py-2 text-sm normal-case text-[var(--ink)]" />
+                </label>
                 <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 font-mono text-[11px] text-slate-600">
                   x {selectedRegion.bbox.x.toFixed(3)} · y {selectedRegion.bbox.y.toFixed(3)} · w {selectedRegion.bbox.width.toFixed(3)} · h {selectedRegion.bbox.height.toFixed(3)}
                 </div>
-                <Button type="submit" disabled={isPending} onClick={() => startTransition(() => undefined)}><CheckCircle2 size={14} /> Save selected</Button>
+                <RegionSubmitButton />
               </form>
+
+              {!selectedRegion.question_node_id ? (
+                <form action={createQuestionFromRegionAction} className="grid gap-2 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                  <input type="hidden" name="region_id" value={selectedRegion.id} />
+                  <input type="hidden" name="node_key" value={selectedRegion.node_key ?? ""} />
+                  <p className="text-xs leading-5 text-[var(--muted)]">Create a new editable question card from this region if no matching question exists yet.</p>
+                  <Button type="submit" variant="secondary"><PlusCircle size={14} /> Create question card</Button>
+                </form>
+              ) : (
+                <a href={`#question-${selectedRegion.question_node_id}`} className="inline-flex text-xs font-semibold text-[var(--primary)] underline">
+                  Open linked question card
+                </a>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <form action={splitRegionAction}>
@@ -369,6 +590,17 @@ export function SourceRegionEditor({
                 </select>
                 <Button type="submit" variant="secondary"><Combine size={14} /> Merge regions</Button>
               </form>
+
+              <div className="grid grid-cols-2 gap-2">
+                <form action={duplicateRegionAction}>
+                  <input type="hidden" name="region_id" value={selectedRegion.id} />
+                  <Button type="submit" variant="secondary" className="w-full"><Copy size={14} /> Duplicate region</Button>
+                </form>
+                <form action={deleteRegionAction}>
+                  <input type="hidden" name="region_id" value={selectedRegion.id} />
+                  <Button type="submit" variant="dangerSubtle" className="w-full"><Trash2 size={14} /> Delete region</Button>
+                </form>
+              </div>
 
               <form action={ignoreRegionAction}>
                 <input type="hidden" name="region_id" value={selectedRegion.id} />
@@ -406,6 +638,11 @@ export function SourceRegionEditor({
 }
 
 function toDraft(region: QuestionSourceRegion): RegionDraft {
+  const metadata = safeRecord(region.metadata_json);
+  const responseMode = typeof metadata.response_mode === "string" && RESPONSE_MODES.includes(metadata.response_mode as QuestionNodeRow["response_mode"])
+    ? metadata.response_mode as QuestionNodeRow["response_mode"]
+    : null;
+  const marks = Number(metadata.marks ?? NaN);
   return {
     id: region.id,
     question_node_id: region.question_node_id,
@@ -415,6 +652,9 @@ function toDraft(region: QuestionSourceRegion): RegionDraft {
     region_type: region.region_type,
     status: region.status,
     confidence: region.confidence,
+    marks: Number.isFinite(marks) ? marks : null,
+    response_mode: responseMode,
+    notes: typeof metadata.notes === "string" ? metadata.notes : null,
     bbox: parseBbox(region.bbox_json),
   };
 }
@@ -438,4 +678,18 @@ function parseBbox(value: unknown): Bbox {
 function clamp(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+function safeRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function RegionSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      <CheckCircle2 size={14} />
+      {pending ? "Saving..." : "Save selected"}
+    </Button>
+  );
 }

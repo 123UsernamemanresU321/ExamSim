@@ -32,7 +32,9 @@ import type {
   QuestionBankChild,
   QuestionBankItem,
   QuestionNodeRow,
+  QuestionSourceRegion,
   SubmissionReceipt,
+  SourceDocument,
   TextResponse,
   TopicTag,
   UploadSanityCheck,
@@ -409,24 +411,37 @@ export async function getAssessmentHealthWorkspace(assessmentId: string) {
   if (versionError) throw versionError;
   if (checkError) throw checkError;
   const latestVersion = versions?.[0] ?? null;
-  const [{ data: questionNodes, error: nodeError }, { data: markschemeNodes, error: markschemeError }] = latestVersion
+  const [
+    { data: questionNodes, error: nodeError },
+    { data: markschemeNodes, error: markschemeError },
+    { data: sourceDocuments, error: sourceDocumentError },
+    { data: sourceRegions, error: sourceRegionError },
+  ] = latestVersion
     ? await Promise.all([
         supabase.from("question_nodes").select("*").eq("assessment_version_id", latestVersion.id).order("ordinal"),
         supabase.from("markscheme_nodes").select("*"),
+        supabase.from("source_documents").select("*").eq("assessment_version_id", latestVersion.id).order("created_at", { ascending: false }),
+        supabase.from("question_source_regions").select("*").eq("assessment_version_id", latestVersion.id).order("created_at", { ascending: false }),
       ])
-    : [{ data: [], error: null }, { data: [], error: null }];
+    : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   if (nodeError) throw nodeError;
   if (markschemeError) throw markschemeError;
+  if (sourceDocumentError) throw sourceDocumentError;
+  if (sourceRegionError) throw sourceRegionError;
   const summary = computePaperHealth({
     assessment: assessment as Assessment | null,
     version: latestVersion as AssessmentVersion | null,
     questionNodes: (questionNodes ?? []) as QuestionNodeRow[],
     markschemeNodes: (markschemeNodes ?? []) as MarkschemeNode[],
+    sourceDocuments: (sourceDocuments ?? []) as SourceDocument[],
+    sourceRegions: (sourceRegions ?? []) as QuestionSourceRegion[],
   });
   return {
     assessment: assessment as Assessment | null,
     latestVersion: latestVersion as AssessmentVersion | null,
     questionNodes: (questionNodes ?? []) as QuestionNodeRow[],
+    sourceDocuments: (sourceDocuments ?? []) as SourceDocument[],
+    sourceRegions: (sourceRegions ?? []) as QuestionSourceRegion[],
     savedChecks: (savedChecks ?? []) as AssessmentHealthCheck[],
     summary,
   };

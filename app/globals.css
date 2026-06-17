@@ -253,6 +253,12 @@ button {
   color: var(--ink);
 }
 
+input[data-field-help],
+textarea[data-field-help],
+select[data-field-help] {
+  cursor: help;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

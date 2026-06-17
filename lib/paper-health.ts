@@ -1,6 +1,6 @@
 import { buildMarkingTree, calculateAttemptTotal, flattenMarkingTree, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { compareOrdinalPaths, detectVisualDependency, validateQuestionTree, type NormalizedQuestionHierarchyNode } from "@/lib/question-hierarchy";
-import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionNodeRow, UploadSlot } from "@/types/database";
+import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionNodeRow, QuestionSourceRegion, SourceDocument, UploadSlot } from "@/types/database";
 
 export type PaperHealthStatus = "ready" | "warning" | "blocked" | "not_checked";
 
@@ -25,12 +25,16 @@ export function computePaperHealth({
   questionNodes,
   markschemeNodes = [],
   uploadSlots = [],
+  sourceDocuments = [],
+  sourceRegions = [],
 }: {
   assessment?: Pick<Assessment, "id" | "title" | "paper_code"> | null;
   version?: Pick<AssessmentVersion, "id" | "status" | "source_object_path" | "markscheme_pdf_path" | "markscheme_source_object_path"> | null;
   questionNodes: QuestionNodeRow[];
   markschemeNodes?: Pick<MarkschemeNode, "status" | "mapped_question_node_id">[];
   uploadSlots?: Pick<UploadSlot, "question_node_id">[];
+  sourceDocuments?: Pick<SourceDocument, "id" | "status" | "object_path" | "metadata_json">[];
+  sourceRegions?: Pick<QuestionSourceRegion, "id" | "question_node_id" | "source_document_id" | "source_page_id" | "region_type" | "node_key" | "bbox_json" | "confidence" | "status" | "metadata_json">[];
 }): PaperHealthSummary {
   const blockers: PaperHealthItem[] = [];
   const warnings: PaperHealthItem[] = [];
@@ -46,6 +50,7 @@ export function computePaperHealth({
   const tree = buildMarkingTree(questionNodes);
   const roots = getSelectableMarkingGroups(tree);
   const flat = flattenMarkingTree(tree);
+  const flatById = new Map(flat.map((node) => [node.id, node]));
 
   if (!assessment) {
     blockers.push({ code: "assessment_missing", severity: "blocked", message: "Assessment metadata could not be loaded." });
@@ -122,6 +127,95 @@ export function computePaperHealth({
     });
   }
 
+  const failedSourceDocuments = sourceDocuments.filter((document) => {
+    const metadata = safeRecord(document.metadata_json);
+    return document.status === "failed" || metadata.processing_status === "failed";
+  });
+  if (failedSourceDocuments.length) {
+    warnings.push({
+      code: "source_document_failed",
+      severity: "warning",
+      message: `${failedSourceDocuments.length} source document(s) failed page processing and need replacement or manual review.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
+  const activeSourceRegions = sourceRegions.filter((region) => region.status !== "ignored");
+  const questionSourceRegionLinks = new Set(activeSourceRegions.map((region) => region.question_node_id).filter(Boolean));
+  const missingQuestionSourceRegions = sourceDocuments.length
+    ? flat.filter((node) => !questionSourceRegionLinks.has(node.id) && !node.source_region_json)
+    : [];
+  if (missingQuestionSourceRegions.length) {
+    warnings.push({
+      code: "question_source_regions_missing",
+      severity: "warning",
+      message: `${missingQuestionSourceRegions.length} question node(s) do not have PDF source regions yet.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
+  const unlinkedSourceRegions = activeSourceRegions.filter((region) => !region.question_node_id && ["question", "subquestion", "answer_area"].includes(region.region_type));
+  if (unlinkedSourceRegions.length) {
+    warnings.push({
+      code: "source_region_unlinked",
+      severity: "warning",
+      message: `${unlinkedSourceRegions.length} question_source_regions box(es) are not linked to question cards.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
+  const lowConfidenceSourceRegions = activeSourceRegions.filter((region) => region.status === "detected" || region.status === "needs_review" || Number(region.confidence ?? 1) < 0.8);
+  if (lowConfidenceSourceRegions.length) {
+    warnings.push({
+      code: "source_region_low_confidence",
+      severity: "warning",
+      message: `${lowConfidenceSourceRegions.length} PDF region(s) need owner review before the source map is trustworthy.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
+  const markBearingRegionTypes = new Set(["question", "subquestion", "answer_area"]);
+  const missingMarksRegions = activeSourceRegions.filter((region) => {
+    if (!markBearingRegionTypes.has(region.region_type)) return false;
+    const linkedNode = region.question_node_id ? flatById.get(region.question_node_id) : null;
+    const metadata = safeRecord(region.metadata_json);
+    return !hasNumericValue(linkedNode?.marks) && !hasNumericValue(metadata.marks);
+  });
+  if (missingMarksRegions.length) {
+    warnings.push({
+      code: "source_region_missing_marks",
+      severity: "warning",
+      message: `${missingMarksRegions.length} question region(s) are missing marks on both the region and linked question.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
+  const missingResponseTypeRegions = activeSourceRegions.filter((region) => {
+    if (!markBearingRegionTypes.has(region.region_type)) return false;
+    const linkedNode = region.question_node_id ? flatById.get(region.question_node_id) : null;
+    const metadata = safeRecord(region.metadata_json);
+    const regionResponseMode = typeof metadata.response_mode === "string" ? metadata.response_mode : "";
+    return !regionResponseMode && (!linkedNode?.response_mode || linkedNode.response_mode === "none");
+  });
+  if (missingResponseTypeRegions.length) {
+    warnings.push({
+      code: "source_region_missing_response_type",
+      severity: "warning",
+      message: `${missingResponseTypeRegions.length} question region(s) need a response type or a linked question with one.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
+  const overlappingRegions = findOverlappingSourceRegions(activeSourceRegions);
+  if (overlappingRegions.length) {
+    warnings.push({
+      code: "source_region_overlap",
+      severity: "warning",
+      message: `${overlappingRegions.length} PDF source region overlap(s) may need split, merge, or review.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
   const markschemeRequired = Boolean(version?.markscheme_pdf_path || version?.markscheme_source_object_path || markschemeNodes.length);
   if (markschemeRequired) {
     const unmatched = markschemeNodes.filter((node) => node.status === "unmatched" || node.status === "needs_review");
@@ -147,7 +241,7 @@ export function computePaperHealth({
     : warnings.some((item) => ["marks_missing"].includes(item.code))
       ? "warning"
       : "ready";
-  checks.source = warnings.some((item) => item.code.startsWith("source") || item.code.startsWith("visual")) ? "warning" : "ready";
+  checks.source = warnings.some((item) => item.code.startsWith("source") || item.code.startsWith("visual") || item.code.startsWith("question_source_regions")) ? "warning" : "ready";
   checks.markscheme = warnings.some((item) => item.code.includes("markscheme")) ? "warning" : "ready";
   checks.delivery = version?.status === "published" ? "ready" : "warning";
   checks.marking = attemptedTotal.max > 0 ? "ready" : "warning";
@@ -209,4 +303,63 @@ function markingTreeToNormalized(nodes: ReturnType<typeof getSelectableMarkingGr
     visual_asset_refs: node.visual_asset_refs ?? null,
     children: markingTreeToNormalized(node.children),
   }));
+}
+
+function safeRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function hasNumericValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+type RegionForOverlap = Pick<QuestionSourceRegion, "id" | "source_document_id" | "source_page_id" | "region_type" | "bbox_json">;
+
+function findOverlappingSourceRegions(regions: RegionForOverlap[]) {
+  const overlaps: Array<[string, string]> = [];
+  const checkedTypes = new Set(["question", "subquestion", "answer_area"]);
+  for (let index = 0; index < regions.length; index += 1) {
+    const first = regions[index]!;
+    if (!checkedTypes.has(first.region_type)) continue;
+    const firstBbox = parseRegionBbox(first.bbox_json);
+    for (let next = index + 1; next < regions.length; next += 1) {
+      const second = regions[next]!;
+      if (!checkedTypes.has(second.region_type)) continue;
+      if (first.source_document_id !== second.source_document_id) continue;
+      if ((first.source_page_id ?? "") !== (second.source_page_id ?? "")) continue;
+      const secondBbox = parseRegionBbox(second.bbox_json);
+      if (firstBbox.page !== secondBbox.page) continue;
+      if (bboxOverlap(firstBbox, secondBbox) > 0.01) overlaps.push([first.id, second.id]);
+    }
+  }
+  return overlaps;
+}
+
+function parseRegionBbox(value: unknown) {
+  const source = safeRecord(value);
+  const x = clampUnit(Number(source.x ?? 0));
+  const y = clampUnit(Number(source.y ?? 0));
+  const width = Math.max(0, Math.min(1 - x, Number(source.width ?? 0)));
+  const height = Math.max(0, Math.min(1 - y, Number(source.height ?? 0)));
+  return {
+    page: Math.max(1, Math.floor(Number(source.page ?? 1) || 1)),
+    x,
+    y,
+    width,
+    height,
+  };
+}
+
+function bboxOverlap(
+  first: ReturnType<typeof parseRegionBbox>,
+  second: ReturnType<typeof parseRegionBbox>,
+) {
+  const xOverlap = Math.max(0, Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x));
+  const yOverlap = Math.max(0, Math.min(first.y + first.height, second.y + second.height) - Math.max(first.y, second.y));
+  return xOverlap * yOverlap;
+}
+
+function clampUnit(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
 }

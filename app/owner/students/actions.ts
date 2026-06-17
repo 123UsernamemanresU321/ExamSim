@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { buildStudentNumber, normalizeStudentNumber } from "@/lib/examsim/guest-access";
 import { requireOwnerProfileId } from "@/lib/examsim/session-data";
+import { asJson } from "@/lib/owner-operations";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function createRosterEntryAction(formData: FormData) {
@@ -57,6 +59,95 @@ export async function generateRosterEntriesAction(formData: FormData) {
   revalidatePath("/owner/students");
 }
 
+export async function deleteStudentAccountAction(studentProfileId: string) {
+  const ownerProfileId = await requireOwnerProfileId();
+  const studentId = requiredId(studentProfileId, "student_profile_id");
+  const admin = getSupabaseAdminClient();
+
+  const { data: student, error: studentError } = await admin
+    .from("profiles")
+    .select("id,auth_user_id,app_role,display_name,owner_profile_id")
+    .eq("id", studentId)
+    .eq("app_role", "student")
+    .maybeSingle();
+  if (studentError) throw studentError;
+  if (!student) throw new Error("Student not found.");
+
+  const ownerCanManage = student.owner_profile_id === ownerProfileId || (await hasManagedStudentLink(ownerProfileId, studentId));
+  if (!ownerCanManage) throw new Error("Student is not managed by this owner.");
+
+  const attemptCount = await countAttempts("assignee_profile_id", studentId);
+  if (attemptCount > 0) {
+    await auditStudentAction("student.delete_blocked", "profiles", studentId, {
+      reason: "attempt_history_exists",
+      attempts: attemptCount,
+      display_name: student.display_name,
+    });
+    throw new Error("This student has attempt history. Keep the account so exam records, uploads, marks, and receipts remain intact.");
+  }
+
+  await auditStudentAction("student.delete_requested", "profiles", studentId, {
+    display_name: student.display_name,
+  });
+
+  const { error: deleteError } = await admin.auth.admin.deleteUser(student.auth_user_id);
+  if (deleteError) throw deleteError;
+
+  await auditStudentAction("student.deleted", "profiles", studentId, {
+    display_name: student.display_name,
+  });
+
+  revalidatePath("/owner/students");
+  revalidatePath("/owner/cohorts");
+  revalidatePath("/owner/analytics");
+}
+
+export async function deleteRosterEntryAction(rosterEntryId: string) {
+  const ownerProfileId = await requireOwnerProfileId();
+  const entryId = requiredId(rosterEntryId, "roster_entry_id");
+  const admin = getSupabaseAdminClient();
+
+  const { data: entry, error: entryError } = await admin
+    .from("student_roster_entries")
+    .select("id,owner_profile_id,student_number,display_name")
+    .eq("id", entryId)
+    .maybeSingle();
+  if (entryError) throw entryError;
+  if (!entry) throw new Error("Roster entry not found.");
+  if (entry.owner_profile_id !== ownerProfileId) throw new Error("Roster entry is not managed by this owner.");
+
+  const attemptCount = await countAttempts("roster_entry_id", entryId);
+  if (attemptCount > 0) {
+    await auditStudentAction("roster_entry.delete_blocked", "student_roster_entries", entryId, {
+      reason: "attempt_history_exists",
+      attempts: attemptCount,
+      student_number: entry.student_number,
+      display_name: entry.display_name,
+    });
+    throw new Error("This roster number is linked to exam attempts. Keep it so guest exam identity and receipts remain traceable.");
+  }
+
+  await auditStudentAction("roster_entry.delete_requested", "student_roster_entries", entryId, {
+    student_number: entry.student_number,
+    display_name: entry.display_name,
+  });
+
+  const { error: deleteError } = await admin
+    .from("student_roster_entries")
+    .delete()
+    .eq("id", entryId)
+    .eq("owner_profile_id", ownerProfileId);
+  if (deleteError) throw deleteError;
+
+  await auditStudentAction("roster_entry.deleted", "student_roster_entries", entryId, {
+    student_number: entry.student_number,
+    display_name: entry.display_name,
+  });
+
+  revalidatePath("/owner/students");
+  revalidatePath("/owner/exam-sessions");
+}
+
 function requiredString(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
   if (!value) throw new Error(`${key} is required`);
@@ -66,4 +157,44 @@ function requiredString(formData: FormData, key: string) {
 function clampInteger(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function requiredId(value: string, key: string) {
+  const id = String(value ?? "").trim();
+  if (!id) throw new Error(`${key} is required`);
+  return id;
+}
+
+async function hasManagedStudentLink(ownerProfileId: string, studentProfileId: string) {
+  const admin = getSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("owner_student_links")
+    .select("id")
+    .eq("owner_profile_id", ownerProfileId)
+    .eq("student_profile_id", studentProfileId)
+    .eq("link_type", "managed_student")
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+async function countAttempts(column: "assignee_profile_id" | "roster_entry_id", value: string) {
+  const admin = getSupabaseAdminClient();
+  const { count, error } = await admin
+    .from("attempts")
+    .select("id", { count: "exact", head: true })
+    .eq(column, value);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function auditStudentAction(action: string, targetTable: string, targetId: string, metadata: Record<string, unknown>) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("audit_owner_action", {
+    action,
+    target_table: targetTable,
+    target_id: targetId,
+    metadata_json: asJson(metadata),
+  });
+  if (error) throw error;
 }

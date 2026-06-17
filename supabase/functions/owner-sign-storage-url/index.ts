@@ -58,6 +58,14 @@ async function ownerCanAccessObject(
   }
 
   if (bucket === "assessment-sources" && purpose === "assessment_source") {
+    const { data: sourceDocument, error: sourceDocumentError } = await admin
+      .from("source_documents")
+      .select("owner_profile_id")
+      .eq("object_path", objectPath)
+      .maybeSingle();
+    if (sourceDocumentError) throw sourceDocumentError;
+    if (sourceDocument?.owner_profile_id) return sourceDocument?.owner_profile_id === ownerProfileId;
+
     const { data: sourceVersion, error: sourceVersionError } = await admin
       .from("assessment_versions")
       .select("assessment_id")

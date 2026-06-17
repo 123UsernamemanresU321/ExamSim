@@ -2,6 +2,7 @@ import { ClipboardList, Hash, Info } from "lucide-react";
 import { createRosterEntryAction, generateRosterEntriesAction } from "@/app/owner/students/actions";
 import { CreateStudentGroupForm } from "@/components/owner/create-student-group-form";
 import { CreateStudentForm } from "@/components/owner/create-student-form";
+import { DeleteRosterEntryButton, DeleteStudentAccountButton } from "@/components/owner/delete-student-button";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +105,7 @@ export default async function OwnerStudentsPage() {
             {rosterEntries.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No roster student numbers yet. Add one manually or auto-generate placeholders.</p>
             ) : (
-              <DataTable headers={["Student number", "Student", "Class/group", "Status"]} className="shadow-none">
+              <DataTable headers={["Student number", "Student", "Class/group", "Status", "Actions"]} className="shadow-none">
                 {rosterEntries.map((entry) => (
                   <DataTableRow key={entry.id}>
                     <DataTableCell className="font-mono text-xs font-semibold text-[var(--ink)]">{entry.student_number}</DataTableCell>
@@ -114,6 +115,9 @@ export default async function OwnerStudentsPage() {
                     </DataTableCell>
                     <DataTableCell className="text-[var(--muted)]">{entry.class_group ?? "No group"}</DataTableCell>
                     <DataTableCell><Badge tone={entry.active ? "success" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Badge></DataTableCell>
+                    <DataTableCell className="text-right">
+                      <DeleteRosterEntryButton rosterEntryId={entry.id} studentNumber={entry.student_number} />
+                    </DataTableCell>
                   </DataTableRow>
                 ))}
               </DataTable>
@@ -141,7 +145,7 @@ export default async function OwnerStudentsPage() {
             {students.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No students yet.</p>
             ) : (
-              <DataTable headers={["Student", "Login code", "Status"]} className="shadow-none">
+              <DataTable headers={["Student", "Login code", "Status", "Actions"]} className="shadow-none">
                 {students.map((student) => (
                   <DataTableRow key={student.id}>
                     <DataTableCell className="font-semibold text-[var(--ink)]">{student.display_name}</DataTableCell>
@@ -150,6 +154,9 @@ export default async function OwnerStudentsPage() {
                       <Badge tone={student.activated_at ? "success" : "warning"}>
                       {student.activated_at ? "Activated" : "Pending"}
                       </Badge>
+                    </DataTableCell>
+                    <DataTableCell className="text-right">
+                      <DeleteStudentAccountButton studentId={student.id} studentName={student.display_name} />
                     </DataTableCell>
                   </DataTableRow>
                 ))}

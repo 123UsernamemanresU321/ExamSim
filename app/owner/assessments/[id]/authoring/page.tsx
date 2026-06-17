@@ -1,11 +1,16 @@
 import {
+  createQuestionFromRegionAction,
   createSourceRegionAction,
+  deleteSourceDocumentAction,
+  deleteSourceRegionAction,
+  duplicateSourceRegionAction,
   ignoreSourceRegionAction,
   mergeSourceRegionsAction,
   splitSourceRegionAction,
   updateQuestionCardAction,
   updateSourceRegionAction,
 } from "@/app/owner/assessments/[id]/authoring/actions";
+import { PdfSourceUploadPanel } from "@/components/owner/pdf-source-upload-panel";
 import { SourceRegionEditor } from "@/components/owner/source-region-editor";
 import { SectionHeading } from "@/components/section-heading";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -35,7 +40,12 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                   JSON is reserved for advanced import/export, and manual questions can be edited without a linked source document.
                 </p>
               </div>
-              <StatusBadge status={hasSourceDocuments ? "source linked" : "manual mode"} tone={hasSourceDocuments ? "success" : "info"} />
+              <div className="flex flex-wrap items-center gap-2">
+                {hasSourceDocuments ? <ButtonLink href="#pdf-region-editor" variant="secondary">Open PDF Region Editor</ButtonLink> : null}
+                <ButtonLink href="#question-cards" variant="secondary">Build Manually</ButtonLink>
+                <ButtonLink href={`/owner/assessments/${id}/review`} variant="secondary">Advanced JSON Import</ButtonLink>
+                <StatusBadge status={hasSourceDocuments ? "source linked" : "manual mode"} tone={hasSourceDocuments ? "success" : "info"} />
+              </div>
             </div>
           </Card>
 
@@ -74,12 +84,16 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                   ignoreRegionAction={ignoreSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
                   splitRegionAction={splitSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
                   mergeRegionsAction={mergeSourceRegionsAction.bind(null, id, workspace.latestVersion.id)}
+                  duplicateRegionAction={duplicateSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
+                  deleteRegionAction={deleteSourceRegionAction.bind(null, id, workspace.latestVersion.id)}
+                  deleteSourceDocumentAction={deleteSourceDocumentAction.bind(null, id, workspace.latestVersion.id)}
+                  createQuestionFromRegionAction={createQuestionFromRegionAction.bind(null, id, workspace.latestVersion.id)}
                 />
               ) : (
-                <NoSourceDocumentState assessmentId={id} />
+                <NoSourceDocumentState assessmentId={id} versionId={workspace.latestVersion.id} />
               )}
 
-              <div className="grid gap-4">
+              <div id="question-cards" className="grid gap-4">
                 {workspace.questionNodes.length ? workspace.questionNodes.map((node) => (
                   <Card key={node.id} id={`question-${node.id}`}>
                     <form action={saveAction} className="grid gap-5">
@@ -132,15 +146,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
 
                       <div className="grid gap-4 border-t border-[var(--border)] pt-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                         {hasSourceDocuments ? (
-                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-                            Source page / region
-                            <span className="flex flex-wrap items-center gap-2">
-                              <input name="source_page_start" type="number" min="1" defaultValue={node.source_page_start ?? ""} className="w-24 rounded-[2px] border border-[var(--border)] px-2 py-2 text-sm normal-case text-[var(--ink)]" aria-label="Source page start" />
-                              <span className="text-xs normal-case text-[var(--muted)]">to</span>
-                              <input name="source_page_end" type="number" min="1" defaultValue={node.source_page_end ?? ""} className="w-24 rounded-[2px] border border-[var(--border)] px-2 py-2 text-sm normal-case text-[var(--ink)]" aria-label="Source page end" />
-                              <span className="text-xs normal-case text-[var(--muted)]">Question boxes can be adjusted in the PDF Region Editor above.</span>
-                            </span>
-                          </label>
+                          <SourceAnchorSummary nodeId={node.id} sourceRegions={workspace.sourceRegions} />
                         ) : (
                           <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-sm leading-6 text-[var(--muted)]">
                             No source document is linked, so source page fields are hidden. This question can still be edited and marked manually.
@@ -162,6 +168,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
               <Card>
                 <h2 className="text-sm font-semibold text-[var(--ink)]">Source workflow</h2>
                 <div className="mt-4 grid gap-3">
+                  {hasSourceDocuments ? <PdfSourceUploadPanel assessmentId={id} versionId={workspace.latestVersion.id} compact /> : null}
                   <WorkflowLink href={`/owner/assessments/${id}/compiler`} title="PDF Region Editor" copy="Upload or process a PDF, review source pages, and draw question boxes." />
                   <WorkflowLink href={`/owner/assessments/${id}/latex`} title="LaTeX Compiler" copy="Use Examsim syntax with split editor and validation preview." />
                   <WorkflowLink href={`/owner/assessments/${id}/review`} title="Advanced JSON Import" copy="Review normalized JSON and parser warnings. Intended for power users and debugging." />
@@ -188,16 +195,21 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
   );
 }
 
-function NoSourceDocumentState({ assessmentId }: { assessmentId: string }) {
+function NoSourceDocumentState({ assessmentId, versionId }: { assessmentId: string; versionId: string }) {
   return (
     <Card>
       <h2 className="text-base font-semibold text-[var(--ink)]">No source document linked yet</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-        This assessment can still be authored manually, but diagrams, tables, and PDF page anchors need a source file. Choose the workflow that matches your source.
+        Upload a PDF, draw boxes around each question, then link those boxes to editable question cards. You can still build manually if you do not have a source file.
       </p>
-      <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <ButtonLink href={`/owner/assessments/${assessmentId}/compiler`} variant="secondary" className="justify-start">Import PDF</ButtonLink>
+      <div className="mt-5">
+        <h3 className="mb-2 text-sm font-semibold text-[var(--ink)]">Import PDF: Upload PDF Source</h3>
+        <PdfSourceUploadPanel assessmentId={assessmentId} versionId={versionId} />
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <ButtonLink href={`/owner/assessments/${assessmentId}/compiler`} variant="secondary" className="justify-start">Open PDF Region Editor</ButtonLink>
         <ButtonLink href={`/owner/assessments/${assessmentId}/latex`} variant="secondary" className="justify-start">Import LaTeX</ButtonLink>
+        <ButtonLink href="#question-cards" variant="secondary" className="justify-start">Build Manually</ButtonLink>
         <ButtonLink href={`/owner/assessments/${assessmentId}/review`} variant="secondary" className="justify-start">Advanced JSON Import</ButtonLink>
       </div>
       <div className="mt-4 grid gap-2 text-xs leading-5 text-[var(--muted)]">
@@ -206,6 +218,32 @@ function NoSourceDocumentState({ assessmentId }: { assessmentId: string }) {
         <p><strong className="text-[var(--ink)]">JSON:</strong> import or debug normalized packages only when you need an advanced escape hatch.</p>
       </div>
     </Card>
+  );
+}
+
+function SourceAnchorSummary({
+  nodeId,
+  sourceRegions,
+}: {
+  nodeId: string;
+  sourceRegions: Array<{ id: string; question_node_id: string | null; node_key: string | null; status: string; confidence: number | null; bbox_json: unknown }>;
+}) {
+  const linked = sourceRegions.filter((region) => region.question_node_id === nodeId && region.status !== "ignored");
+  return (
+    <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-sm leading-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">Source anchor</p>
+      {linked.length ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {linked.map((region) => (
+            <a key={region.id} href="#pdf-region-editor" className="rounded-[2px] border border-[var(--border)] bg-white px-2 py-1 text-xs font-semibold text-[var(--ink)]">
+              Jump to PDF region {region.node_key ? `(${region.node_key})` : ""}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-[var(--muted)]">No source region linked yet. Use the PDF Region Editor above, then save the selected region.</p>
+      )}
+    </div>
   );
 }
 
