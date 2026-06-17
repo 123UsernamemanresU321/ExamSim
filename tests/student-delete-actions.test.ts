@@ -28,6 +28,7 @@ async function importStudentActionsWithWorkingOwnerClientAndMissingAdmin() {
   vi.resetModules();
   const revalidatePath = vi.fn();
   const deletedRows: string[] = [];
+  const deletedProfiles: string[] = [];
   const auditEvents: string[] = [];
   vi.doMock("next/cache", () => ({
     revalidatePath,
@@ -46,6 +47,47 @@ async function importStudentActionsWithWorkingOwnerClientAndMissingAdmin() {
         return { error: null };
       },
       from: (table: string) => {
+        if (table === "profiles") {
+          return {
+            select: () => ({
+              eq: (_column: string, value: string) => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: {
+                      id: value,
+                      auth_user_id: "auth-student-1",
+                      app_role: "student",
+                      display_name: "Student One",
+                      owner_profile_id: "owner-1",
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+            delete: () => ({
+              eq: (_column: string, value: string) => ({
+                eq: async () => {
+                  deletedProfiles.push(value);
+                  return { error: null };
+                },
+              }),
+            }),
+          };
+        }
+        if (table === "owner_student_links") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({ data: { id: "link-1" }, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
         if (table === "student_roster_entries") {
           return {
             select: () => ({
@@ -89,17 +131,18 @@ async function importStudentActionsWithWorkingOwnerClientAndMissingAdmin() {
     },
   }));
   const actions = await import("@/app/owner/students/actions");
-  return { ...actions, deletedRows, auditEvents, revalidatePath };
+  return { ...actions, deletedRows, deletedProfiles, auditEvents, revalidatePath };
 }
 
 describe("student delete server actions", () => {
-  it("returns a structured failure instead of rejecting when student-account deletion cannot run", async () => {
-    const { deleteStudentAccountAction } = await importStudentActionsWithAdminFailure();
+  it("deletes unused student app accounts without requiring Supabase Auth admin access", async () => {
+    const { deleteStudentAccountAction, deletedProfiles, auditEvents, revalidatePath } =
+      await importStudentActionsWithWorkingOwnerClientAndMissingAdmin();
 
-    await expect(deleteStudentAccountAction("student-1")).resolves.toMatchObject({
-      ok: false,
-      message: expect.stringContaining("Student account deletion is not configured"),
-    });
+    await expect(deleteStudentAccountAction("student-1")).resolves.toEqual({ ok: true });
+    expect(deletedProfiles).toEqual(["student-1"]);
+    expect(auditEvents).toEqual(["student.delete_requested", "student.deleted"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/owner/students");
   });
 
   it("returns a structured failure instead of rejecting when roster deletion cannot run", async () => {

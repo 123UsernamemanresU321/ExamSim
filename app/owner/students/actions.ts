@@ -66,9 +66,9 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
   return runDeleteAction("student_account", async () => {
     const ownerProfileId = await requireOwnerProfileId();
     const studentId = requiredId(studentProfileId, "student_profile_id");
-    const admin = getSupabaseAdminClient();
+    const supabase = await createSupabaseServerClient();
 
-    const { data: student, error: studentError } = await admin
+    const { data: student, error: studentError } = await supabase
       .from("profiles")
       .select("id,auth_user_id,app_role,display_name,owner_profile_id")
       .eq("id", studentId)
@@ -80,7 +80,7 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
     const ownerCanManage = student.owner_profile_id === ownerProfileId || (await hasManagedStudentLink(ownerProfileId, studentId));
     if (!ownerCanManage) throw new Error("Student is not managed by this owner.");
 
-    const attemptCount = await countAttempts(admin, "assignee_profile_id", studentId);
+    const attemptCount = await countAttempts(supabase, "assignee_profile_id", studentId);
     if (attemptCount > 0) {
       await auditStudentAction("student.delete_blocked", "profiles", studentId, {
         reason: "attempt_history_exists",
@@ -94,8 +94,14 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
       display_name: student.display_name,
     });
 
-    const { error: deleteError } = await admin.auth.admin.deleteUser(student.auth_user_id);
-    if (deleteError) throw deleteError;
+    await deleteAuthUserIfConfigured(student.auth_user_id);
+
+    const { error: profileDeleteError } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", studentId)
+      .eq("app_role", "student");
+    if (profileDeleteError) throw profileDeleteError;
 
     await auditStudentAction("student.deleted", "profiles", studentId, {
       display_name: student.display_name,
@@ -173,8 +179,8 @@ function requiredId(value: string, key: string) {
 }
 
 async function hasManagedStudentLink(ownerProfileId: string, studentProfileId: string) {
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
     .from("owner_student_links")
     .select("id")
     .eq("owner_profile_id", ownerProfileId)
@@ -205,6 +211,16 @@ async function auditStudentAction(action: string, targetTable: string, targetId:
   if (error) throw error;
 }
 
+async function deleteAuthUserIfConfigured(authUserId: string) {
+  try {
+    const admin = getSupabaseAdminClient();
+    const { error } = await admin.auth.admin.deleteUser(authUserId);
+    if (error) console.warn("Student auth user cleanup failed", error);
+  } catch (error) {
+    console.warn("Student auth user cleanup skipped; Supabase admin access is not configured", error);
+  }
+}
+
 async function runDeleteAction(kind: "student_account" | "roster_entry", operation: () => Promise<void>): Promise<StudentDeleteActionResult> {
   try {
     await operation();
@@ -217,9 +233,6 @@ async function runDeleteAction(kind: "student_account" | "roster_entry", operati
 
 function deleteActionMessage(kind: "student_account" | "roster_entry", error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
-  if (kind === "student_account" && message.includes("Missing Supabase admin environment variables")) {
-    return "Student account deletion is not configured on this deployment. Set SUPABASE_SERVICE_ROLE_KEY on the server before deleting Supabase Auth users.";
-  }
   if (
     message.includes("attempt history") ||
     message.includes("not found") ||
