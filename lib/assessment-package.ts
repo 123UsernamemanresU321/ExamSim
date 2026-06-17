@@ -16,18 +16,6 @@ const choiceSchema = z.object({
   content_html: z.string().min(1),
 });
 
-const interactionSchema = z.object({
-  kind: z.enum(["choice", "short_text", "extended_text", "numerical"]),
-  max_choices: z.number().int().positive().optional(),
-  shuffle: z.boolean().optional(),
-  choices: z.array(choiceSchema).optional(),
-  min_value: z.number().optional(),
-  max_value: z.number().optional(),
-  step: z.number().positive().optional(),
-  tolerance: z.number().nonnegative().optional(),
-  unit: z.string().optional(),
-});
-
 const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   z.union([
     z.string(),
@@ -38,6 +26,41 @@ const jsonSchema: z.ZodType<Json> = z.lazy(() =>
     z.record(z.string(), jsonSchema),
   ]),
 );
+
+const interactionSchema = z.object({
+  kind: z.enum(["choice", "short_text", "extended_text", "numerical", "whiteboard", "table"]),
+  max_choices: z.number().int().positive().optional(),
+  shuffle: z.boolean().optional(),
+  choices: z.array(choiceSchema).optional(),
+  min_value: z.number().optional(),
+  max_value: z.number().optional(),
+  step: z.number().positive().optional(),
+  tolerance: z.number().nonnegative().optional(),
+  unit: z.string().optional(),
+  tools: z.array(z.string()).optional(),
+  submit_scratchpad: z.boolean().optional(),
+  provider_status: z.enum(["manual", "provider", "unavailable"]).optional(),
+  columns: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        label: z.string().min(1),
+        locked: z.boolean().optional(),
+        answer: z.boolean().optional(),
+        unit: z.string().optional(),
+      }),
+    )
+    .optional(),
+  rows: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        label: z.string().optional(),
+        cells: z.record(z.string(), jsonSchema).optional(),
+      }),
+    )
+    .optional(),
+});
 
 const questionNodeBaseSchema = z.object({
   node_id: z.string().min(1),

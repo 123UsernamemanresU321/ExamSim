@@ -6,7 +6,8 @@ import { MathRenderer } from "@/components/math-renderer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ResponseTextArea } from "@/components/response-text-area";
-import { ChoiceResponseControl, NumericalResponseControl } from "@/components/structured-response-control";
+import { ChoiceResponseControl, NumericalResponseControl, TableResponseControl, WhiteboardResponseControl } from "@/components/structured-response-control";
+import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { uploadStudentPdfForQuestion, type StudentUploadCompletion } from "@/lib/student-upload-client";
@@ -64,6 +65,7 @@ function QuestionBlock({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createSupabaseBrowserClient();
+  const responseCapability = resolveResponseCapability(node);
 
   async function toggleFlag() {
     if (!attemptId || !stateToken || readonly) return;
@@ -107,7 +109,7 @@ function QuestionBlock({
     }
   }
 
-  const hasInputs = node.response_mode !== "none";
+  const hasInputs = responseCapability.kind !== "none";
   const uploadSlot = uploadSlots.find((slot) => slot.question_node_id === node.node_id);
   const showRootUploadControl = depth === 0 && Boolean(uploadSlot) && !readonly;
   const uploadIsLocked = uploadSlot?.status === "uploaded" || uploadSlot?.status === "blank_placeholder" || Boolean(uploadSlot?.locked_at);
@@ -133,8 +135,8 @@ function QuestionBlock({
           ) : null}
         </div>
         {hasInputs && (
-          <Badge tone={node.response_mode.includes("upload") ? "warning" : "neutral"}>
-            {node.response_mode.replaceAll("_", " ")}
+          <Badge tone={responseCapability.kind.includes("upload") ? "warning" : "neutral"}>
+            {responseCapability.label}
           </Badge>
         )}
       </div>
@@ -153,7 +155,7 @@ function QuestionBlock({
 
       {(hasInputs || showRootUploadControl) && (
         <>
-          {(node.response_mode === "typed_text" || node.response_mode === "typed_or_upload") && attemptId && stateToken ? (
+          {(responseCapability.kind === "typed_text" || responseCapability.kind === "typed_or_upload") && attemptId && stateToken ? (
             <div className="mt-5 grid gap-2 text-sm font-semibold text-[var(--ink)]">
               Typed response
               <ResponseTextArea 
@@ -166,7 +168,7 @@ function QuestionBlock({
               />
             </div>
           ) : null}
-          {node.response_mode === "multiple_choice" && attemptId && stateToken ? (
+          {responseCapability.kind === "multiple_choice" && attemptId && stateToken ? (
             <ChoiceResponseControl
               attemptId={attemptId}
               questionNode={node}
@@ -175,8 +177,26 @@ function QuestionBlock({
               readonly={readonly}
             />
           ) : null}
-          {node.response_mode === "numerical" && attemptId && stateToken ? (
+          {responseCapability.kind === "numerical" && attemptId && stateToken ? (
             <NumericalResponseControl
+              attemptId={attemptId}
+              questionNode={node}
+              stateToken={stateToken}
+              initialValue={initialValue}
+              readonly={readonly}
+            />
+          ) : null}
+          {responseCapability.kind === "table" && attemptId && stateToken ? (
+            <TableResponseControl
+              attemptId={attemptId}
+              questionNode={node}
+              stateToken={stateToken}
+              initialValue={initialValue}
+              readonly={readonly}
+            />
+          ) : null}
+          {responseCapability.kind === "whiteboard" && attemptId && stateToken ? (
+            <WhiteboardResponseControl
               attemptId={attemptId}
               questionNode={node}
               stateToken={stateToken}

@@ -24,6 +24,7 @@ export type CompilerProviderStatus = {
 
 export type AnswerTypeSuggestion = {
   responseMode: QuestionNodeRow["response_mode"];
+  capabilityKind?: "standard" | "table" | "whiteboard";
   confidence: number;
   reason: string;
 };
@@ -111,7 +112,12 @@ export function inferAnswerTypeSuggestion(prompt: string | null | undefined): An
     return { responseMode: "multiple_choice", confidence: 0.78, reason: "Choice command term detected." };
   }
   if (/\b(draw|sketch|label|construct)\b/.test(text)) {
-    return { responseMode: "upload_pdf", confidence: 0.76, reason: "Drawing or diagram command term detected." };
+    return {
+      responseMode: "typed_text",
+      capabilityKind: "whiteboard",
+      confidence: 0.76,
+      reason: "Drawing or diagram command term detected; use a whiteboard workspace or PDF upload if handwriting is required.",
+    };
   }
   if (/\b(prove|show that|derive|hence show|justify)\b/.test(text)) {
     return { responseMode: "typed_or_upload", confidence: 0.82, reason: "Proof or working-heavy command term detected." };
@@ -120,7 +126,7 @@ export function inferAnswerTypeSuggestion(prompt: string | null | undefined): An
     return { responseMode: "typed_or_upload", confidence: 0.76, reason: "Calculation command term detected." };
   }
   if (/\b(complete (the )?table|fill in (the )?table|table below)\b/.test(text)) {
-    return { responseMode: "typed_text", confidence: 0.62, reason: "Table completion detected; current V2 fallback is typed text or upload." };
+    return { responseMode: "typed_text", capabilityKind: "table", confidence: 0.72, reason: "Table completion detected; use a structured table workspace if the cells are known." };
   }
   if (/\b(state|define|name|identify|write down|give)\b/.test(text)) {
     return { responseMode: "typed_text", confidence: 0.74, reason: "Short-answer command term detected." };

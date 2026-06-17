@@ -59,7 +59,10 @@ describe("Examsim V2 compiler readiness", () => {
     expect(inferAnswerTypeSuggestion("State the oxidation number of iron.").responseMode).toBe("typed_text");
     expect(inferAnswerTypeSuggestion("Calculate the momentum and show your working.").responseMode).toBe("typed_or_upload");
     expect(inferAnswerTypeSuggestion("Prove that n squared is odd.").responseMode).toBe("typed_or_upload");
-    expect(inferAnswerTypeSuggestion("Draw and label the ray diagram.").responseMode).toBe("upload_pdf");
+    expect(inferAnswerTypeSuggestion("Draw and label the ray diagram.")).toMatchObject({
+      responseMode: "typed_text",
+      capabilityKind: "whiteboard",
+    });
     expect(inferAnswerTypeSuggestion("Complete the table below.").responseMode).toBe("typed_text");
     expect(inferAnswerTypeSuggestion("Choose the correct option.").responseMode).toBe("multiple_choice");
     expect(inferAnswerTypeSuggestion("Explain why the graph is concave.").responseMode).toBe("typed_text");

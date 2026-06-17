@@ -36,6 +36,13 @@ The owner Security page also renders this same readiness model through `ExamsimP
   - low-score support flags.
 - Live roster foundations for current question, typed response count, upload progress, heartbeat gaps, technical issues, broadcasts, private replies, extra time, pause/resume, and force-submit controls.
 
+## Production-safe V3 additions
+
+- Table response workspace for questions configured through the Visual Question Editor. Student answers are stored as structured JSON in the existing `text_responses` path and remain server/state-token mediated.
+- Simple whiteboard response workspace for sketch/drawing answers. Strokes are saved as normalized coordinates so they survive viewport changes; advanced graphing, geometry, CAS, and chemistry tools are not claimed unless a real provider is configured.
+- Command-term answer inference now suggests table and whiteboard workspaces for table-completion and drawing/sketching prompts. These suggestions are advisory only; teacher confirmation remains required.
+- Deterministic answer grouping treats table and whiteboard responses as manual-review structured groups instead of auto-normalizing them as plain text.
+
 ## Provider-gated V2 features
 
 - Provider-backed Smart Import / Exam Compiler needs `DEEPSEEK_API_KEY` plus `MINERU_API_KEY` or `MINERU_WORKER_HMAC_SECRET`.
@@ -76,7 +83,7 @@ The owner Security page also renders this same readiness model through `ExamsimP
 | Student Account Claim Flow | Staging required | Claim/reconciliation paths must be tested with duplicate and mismatched identities. |
 | Source PDF Health | Ready | Integrated into publish/health checks. |
 | Accommodations Matrix | Manual fallback | Extra time and upload extension are server-effective. Broader rest-break/tool/TTS policies need staging. |
-| Built-in Subject Tools | Manual fallback | Allowed materials and basic tools are safe; advanced graphing/geometry/CAS tools must stay labelled unavailable unless integrated. |
+| Built-in Subject Tools | Manual fallback | Allowed materials, table responses, and simple whiteboard responses are safe. Advanced graphing/geometry/CAS tools must stay labelled unavailable unless integrated. |
 | Curriculum Alignment | Manual fallback | Topic tags exist. Full standard trees need seeded IB/MYP/IGCSE/Olympiad content. |
 | QTI / Moodle / XML | Manual fallback | QTI remains conservative; Moodle XML needs validation and unsupported-feature warnings. |
 | Version History / Rollback | Manual fallback | Published versions are protected. Rollback should create/duplicate a new draft rather than mutating live attempts. |
@@ -113,6 +120,7 @@ Operational setup outside the repo:
 - Automated Paper Mode scan-to-student/question matching is not production-complete without OCR/barcode staging.
 - Full offline submission is not claimed. Browser apps cannot safely retain selected local upload files after a process restart without user re-selection.
 - Advanced STEM OCR, handwriting OCR, chemistry extraction, diagrams, and tables depend on external OCR provider quality and confidence review.
+- Advanced graphing, geometry, CAS, and chemistry sketch tools are not production-ready; the current whiteboard is a simple manual drawing response, not a symbolic math or geometry engine.
 - School-level dashboards and analytics require staging data to verify aggregation, exports, and cross-workspace isolation.
 - Curriculum standard trees need owner-approved seed data before they should be treated as official.
 
@@ -159,6 +167,7 @@ This section should be updated for each release candidate. For this readiness pa
 
 - `npm test -- tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/examsim-v2-compiler-readiness.test.ts tests/examsim-v2-analytics.test.ts tests/examsim-production-readiness-matrix.test.ts`
+- `npm test -- tests/examsim-v3-response-capabilities.test.ts tests/examsim-v2-compiler-readiness.test.ts`
 - `npm run lint`
 - `npm run typecheck`
 - `npm test`

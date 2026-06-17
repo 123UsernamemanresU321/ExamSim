@@ -48,6 +48,14 @@ export function normalizeAnswer(answerText: string | null | undefined, responseM
   const parsed = parseStoredResponseValue(answerText);
   if (parsed.kind === "numerical") return normalizeNumeric(parsed.value);
   if (parsed.kind === "multiple_choice") return parsed.choiceIds.map((choice: string) => choice.trim().toUpperCase()).sort().join(",");
+  if (parsed.kind === "table") {
+    return Object.entries(parsed.cells)
+      .filter(([, value]) => value.trim().length > 0)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}:${value.trim().toLowerCase()}`)
+      .join("|");
+  }
+  if (parsed.kind === "whiteboard") return parsed.strokes.length ? `whiteboard:${parsed.strokes.length}-strokes` : "";
   const raw = parsed.text ?? String(answerText);
   if (responseMode === "numerical") return normalizeNumeric(raw);
   return raw
@@ -74,11 +82,17 @@ function readableAnswer(answerText: string | null | undefined, responseMode?: st
     ? parsed.value
     : parsed.kind === "multiple_choice"
       ? parsed.choiceIds.join(", ")
+      : parsed.kind === "table"
+        ? `Table response (${Object.values(parsed.cells).filter((value) => value.trim().length > 0).length} filled cells)`
+        : parsed.kind === "whiteboard"
+          ? `Whiteboard response (${parsed.strokes.length} strokes)`
       : parsed.text;
   return responseMode === "numerical" ? normalizeNumeric(raw) : raw.trim().slice(0, 120) || "Blank or unreadable";
 }
 
 function confidenceFor(answerText: string | null | undefined, normalized: string, responseMode?: string | null): AnswerGroup["confidence"] {
+  const parsed = parseStoredResponseValue(answerText);
+  if (parsed.kind === "table" || parsed.kind === "whiteboard") return "manual_review";
   if (responseMode === "numerical") return "normalized";
   const raw = String(answerText ?? "").trim();
   return raw === normalized ? "exact" : "normalized";

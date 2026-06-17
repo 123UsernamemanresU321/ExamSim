@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getAssessmentAuthoringWorkspace } from "@/lib/examsim/authoring-data";
 import { inferAnswerTypeSuggestion } from "@/lib/examsim/compiler-readiness";
+import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
 
 export default async function VisualAuthoringPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -97,6 +98,10 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
               <div id="question-cards" className="grid gap-4">
                 {workspace.questionNodes.length ? workspace.questionNodes.map((node) => {
                   const answerTypeSuggestion = inferAnswerTypeSuggestion([node.prompt_html, node.prompt_latex].filter(Boolean).join(" "));
+                  const responseCapability = resolveResponseCapability(node);
+                  const responseCapabilityValue = responseCapability.kind === "whiteboard" || responseCapability.kind === "table"
+                    ? responseCapability.kind
+                    : "standard";
                   return (
                   <Card key={node.id} id={`question-${node.id}`}>
                     <form action={saveAction} className="grid gap-5">
@@ -116,7 +121,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <StatusBadge status={node.mark_mode ?? "manual"} />
-                          <StatusBadge status={node.response_mode ?? "none"} />
+                          <StatusBadge status={responseCapability.label} />
                         </div>
                       </div>
 
@@ -146,8 +151,22 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                           </label>
                           <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
                             <p className="font-semibold text-[var(--ink)]">Suggested answer type: {answerTypeSuggestion.responseMode}</p>
+                            {answerTypeSuggestion.capabilityKind && answerTypeSuggestion.capabilityKind !== "standard" ? (
+                              <p className="mt-1 font-semibold text-[var(--ink)]">Suggested workspace: {answerTypeSuggestion.capabilityKind}</p>
+                            ) : null}
                             <p className="mt-1">{answerTypeSuggestion.reason} Confidence {Math.round(answerTypeSuggestion.confidence * 100)}%. Teacher confirmation is required.</p>
                           </div>
+                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                            Response workspace
+                            <select name="response_capability" defaultValue={responseCapabilityValue} className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm normal-case text-[var(--ink)]">
+                              <option value="standard">Standard input</option>
+                              <option value="table">Table response</option>
+                              <option value="whiteboard">Whiteboard response</option>
+                            </select>
+                            <span className="normal-case tracking-normal text-[var(--muted)]">
+                              Use table or whiteboard only when the exam needs structured cells or a drawing canvas. Advanced graphing and geometry remain unavailable unless a real tool provider is configured.
+                            </span>
+                          </label>
                         </div>
                       </div>
 

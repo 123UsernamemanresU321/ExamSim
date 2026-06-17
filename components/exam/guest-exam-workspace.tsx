@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { BookOpen, CheckCircle2, Clock3, Flag, Loader2, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { MathRenderer } from "@/components/math-renderer";
+import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
@@ -120,6 +122,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
 
   const flatQuestions = useMemo(() => flattenQuestions(assessmentPackage?.questions ?? []), [assessmentPackage]);
   const selectedQuestion = flatQuestions.find((question) => question.node_key === selectedKey) ?? flatQuestions[0] ?? null;
+  const selectedCapability = selectedQuestion ? resolveResponseCapability(selectedQuestion) : null;
   const selectedUploadSlot = selectedQuestion
     ? uploadSlots.find((slot) => slot.question_node_id === selectedQuestion.node_id) ?? null
     : null;
@@ -395,7 +398,18 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
               </Button>
             </div>
             <MathRenderer className="mt-6" html={selectedQuestion.prompt?.html} latex={selectedQuestion.prompt?.latex} />
-            {selectedQuestion.response_mode !== "upload_pdf" && selectedQuestion.response_mode !== "none" ? (
+            {selectedCapability?.kind === "table" ? (
+              <TableResponseInput
+                interaction={selectedQuestion.interaction}
+                initialValue={answers[selectedQuestion.node_key] ?? ""}
+                onSerializedChange={(serialized) => saveAnswer(selectedQuestion, serialized)}
+              />
+            ) : selectedCapability?.kind === "whiteboard" ? (
+              <WhiteboardResponseInput
+                initialValue={answers[selectedQuestion.node_key] ?? ""}
+                onSerializedChange={(serialized) => saveAnswer(selectedQuestion, serialized)}
+              />
+            ) : selectedQuestion.response_mode !== "upload_pdf" && selectedQuestion.response_mode !== "none" ? (
               <label className="mt-6 grid gap-2 text-sm font-semibold text-[var(--ink)]">
                 Answer
                 <textarea

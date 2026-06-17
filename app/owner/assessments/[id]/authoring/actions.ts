@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { PDFDocument } from "pdf-lib";
+import { buildDefaultInteractionForCapability } from "@/lib/examsim/response-capabilities";
 import { requireOwnerProfileId } from "@/lib/examsim/session-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-policy";
@@ -180,6 +181,7 @@ export async function deleteSourceDocumentAction(assessmentId: string, versionId
 export async function updateQuestionCardAction(assessmentId: string, formData: FormData) {
   const questionNodeId = String(formData.get("question_node_id") ?? "");
   const responseMode = String(formData.get("response_mode") ?? "none");
+  const responseCapability = readResponseCapability(formData.get("response_capability"));
   const marksRaw = String(formData.get("marks") ?? "");
   const title = String(formData.get("title") ?? "").trim() || null;
   const sourcePageStart = Number(formData.get("source_page_start") ?? 0) || null;
@@ -189,15 +191,35 @@ export async function updateQuestionCardAction(assessmentId: string, formData: F
     throw new Error("Invalid response mode");
   }
   const supabase = await createSupabaseServerClient();
+  const { data: existingNode, error: existingNodeError } = await supabase
+    .from("question_nodes")
+    .select("interaction_json")
+    .eq("id", questionNodeId)
+    .maybeSingle();
+  if (existingNodeError) throw existingNodeError;
+  const canonicalResponseMode: ResponseMode = responseCapability === "whiteboard" || responseCapability === "table" ? "typed_text" : responseMode;
+  const updatePayload: {
+    title: string | null;
+    marks: number | null;
+    response_mode: ResponseMode;
+    source_page_start: number | null;
+    source_page_end: number | null;
+    interaction_json?: ReturnType<typeof buildDefaultInteractionForCapability>;
+  } = {
+    title,
+    marks: marksRaw === "" ? null : Number(marksRaw),
+    response_mode: canonicalResponseMode,
+    source_page_start: sourcePageStart,
+    source_page_end: sourcePageEnd,
+  };
+  if (responseCapability === "whiteboard" || responseCapability === "table") {
+    updatePayload.interaction_json = buildDefaultInteractionForCapability(responseCapability);
+  } else if (isV3Interaction(existingNode?.interaction_json)) {
+    updatePayload.interaction_json = null;
+  }
   const { error } = await supabase
     .from("question_nodes")
-    .update({
-      title,
-      marks: marksRaw === "" ? null : Number(marksRaw),
-      response_mode: responseMode,
-      source_page_start: sourcePageStart,
-      source_page_end: sourcePageEnd,
-    })
+    .update(updatePayload)
     .eq("id", questionNodeId);
   if (error) throw error;
   revalidatePath(`/owner/assessments/${assessmentId}/authoring`);
@@ -595,6 +617,17 @@ function readRegionMetadata(formData: FormData) {
     response_mode: isResponseMode(responseMode) ? responseMode : null,
     notes: notes || null,
   };
+}
+
+function readResponseCapability(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "standard");
+  return raw === "whiteboard" || raw === "table" ? raw : "standard";
+}
+
+function isV3Interaction(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const kind = (value as { kind?: unknown }).kind;
+  return kind === "whiteboard" || kind === "table";
 }
 
 function readNormalizedBbox(formData: FormData) {

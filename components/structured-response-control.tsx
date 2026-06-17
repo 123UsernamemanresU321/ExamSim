@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckSquare, Hash, Square } from "lucide-react";
 import { MathRenderer } from "@/components/math-renderer";
+import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
 import { Badge } from "@/components/ui/badge";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
@@ -235,6 +236,114 @@ export function NumericalResponseControl({
       </label>
       <SaveStatusBadge status={status} />
     </div>
+  );
+}
+
+export function TableResponseControl({
+  attemptId,
+  questionNode,
+  stateToken,
+  initialValue,
+  readonly = false,
+}: StructuredControlProps) {
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const lastSavedValue = useRef(initialValue);
+  const timerRef = useRef<number | null>(null);
+  const supabase = createSupabaseBrowserClient();
+
+  async function saveNow(serialized: string) {
+    if (serialized === lastSavedValue.current) return;
+    setStatus("saving");
+    try {
+      await invokeEdgeFunction(supabase, "save-text-response", {
+        body: {
+          attempt_id: attemptId,
+          question_node_id: questionNode.node_id,
+          question_node_key: questionNode.node_key,
+          answer_text: serialized,
+          state_token: stateToken,
+        },
+      });
+      lastSavedValue.current = serialized;
+      setStatus("saved");
+    } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Table autosave failed:", error);
+      }
+      setStatus("error");
+    }
+  }
+
+  function handleSerializedChange(serialized: string) {
+    setStatus("idle");
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      void saveNow(serialized);
+    }, 700);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  return (
+    <>
+      <TableResponseInput
+        interaction={questionNode.interaction}
+        initialValue={initialValue}
+        readonly={readonly}
+        onSerializedChange={handleSerializedChange}
+      />
+      <SaveStatusBadge status={status} />
+    </>
+  );
+}
+
+export function WhiteboardResponseControl({
+  attemptId,
+  questionNode,
+  stateToken,
+  initialValue,
+  readonly = false,
+}: StructuredControlProps) {
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const lastSavedValue = useRef(initialValue);
+  const supabase = createSupabaseBrowserClient();
+
+  async function handleSerializedChange(serialized: string) {
+    if (serialized === lastSavedValue.current) return;
+    setStatus("saving");
+    try {
+      await invokeEdgeFunction(supabase, "save-text-response", {
+        body: {
+          attempt_id: attemptId,
+          question_node_id: questionNode.node_id,
+          question_node_key: questionNode.node_key,
+          answer_text: serialized,
+          state_token: stateToken,
+        },
+      });
+      lastSavedValue.current = serialized;
+      setStatus("saved");
+    } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Whiteboard autosave failed:", error);
+      }
+      setStatus("error");
+    }
+  }
+
+  return (
+    <>
+      <WhiteboardResponseInput
+        initialValue={initialValue}
+        readonly={readonly}
+        onSerializedChange={(serialized) => void handleSerializedChange(serialized)}
+      />
+      <SaveStatusBadge status={status} />
+    </>
   );
 }
 
