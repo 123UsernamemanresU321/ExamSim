@@ -256,8 +256,24 @@ export async function listOwnerRosterEntries(): Promise<StudentRosterEntrySummar
     .from("student_roster_entries")
     .select("id,student_number,display_name,class_group,email,active,created_at")
     .order("student_number", { ascending: true });
-  if (error) throw error;
+  if (error) {
+    if (isMissingRosterSchemaError(error)) return [];
+    throw error;
+  }
   return (data ?? []) as StudentRosterEntrySummary[];
+}
+
+function isMissingRosterSchemaError(error: unknown) {
+  const candidate = error as { code?: unknown; message?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code : "";
+  const message = typeof candidate.message === "string" ? candidate.message.toLowerCase() : "";
+  const mentionsRosterSchema =
+    message.includes("student_roster_entries") ||
+    message.includes("student_number") ||
+    message.includes("class_group") ||
+    message.includes("schema cache");
+
+  return mentionsRosterSchema && ["42P01", "42703", "PGRST204", "PGRST205"].includes(code);
 }
 
 export async function listOwnerStudentGroups(): Promise<StudentGroupSummary[]> {
