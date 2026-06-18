@@ -1,6 +1,7 @@
 import { OwnerMfaPanel, OwnerPasswordPanel } from "@/components/auth/mfa-panel";
 import { DeploymentReadinessConsole } from "@/components/owner/deployment-readiness-console";
 import { ExamsimProductionReadinessPanel } from "@/components/owner/examsim-production-readiness-panel";
+import { InstitutionRoleMatrixPanel } from "@/components/owner/institution-role-matrix-panel";
 import { ProviderReadinessDashboard } from "@/components/owner/provider-readiness-dashboard";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
@@ -68,6 +69,9 @@ export default async function OwnerSecurityPage() {
       </div>
       <div className="mt-5">
         <DeploymentReadinessConsole />
+      </div>
+      <div className="mt-5">
+        <InstitutionRoleMatrixPanel />
       </div>
       <div className="mt-5">
         <ExamsimProductionReadinessPanel />

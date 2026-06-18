@@ -68,6 +68,19 @@ export type OwnerStudentLink = {
   created_at: string;
 };
 
+export type InstitutionMembership = {
+  id: string;
+  owner_profile_id: string;
+  member_profile_id: string;
+  role: "owner_admin" | "teacher" | "marker" | "reviewer" | "invigilator" | "read_only";
+  status: "active" | "invited" | "disabled";
+  display_label: string | null;
+  permissions_json: Json;
+  created_by_profile_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type StudentCredential = {
   id: string;
   student_profile_id: string;
@@ -1089,6 +1102,12 @@ export type Database = {
         Row: OwnerStudentLink;
         Insert: Partial<OwnerStudentLink> & Pick<OwnerStudentLink, "owner_profile_id" | "student_profile_id" | "link_type">;
         Update: Partial<OwnerStudentLink>;
+        Relationships: [];
+      };
+      institution_memberships: {
+        Row: InstitutionMembership;
+        Insert: Partial<InstitutionMembership> & Pick<InstitutionMembership, "owner_profile_id" | "member_profile_id" | "role">;
+        Update: Partial<InstitutionMembership>;
         Relationships: [];
       };
       student_credentials: {

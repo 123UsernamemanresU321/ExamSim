@@ -1,6 +1,6 @@
 # Examsim Production Readiness
 
-Last updated: 2026-06-17
+Last updated: 2026-06-18
 
 This document records the current production boundary for Examsim. It is intentionally strict: provider-dependent OCR, AI, lockdown, offline, and scan-mapping features must be shown as provider-gated, blocked, manual fallback, or staging-required until they are verified end to end.
 
@@ -48,6 +48,8 @@ providers; it only reports env/config readiness, recent import-job states, and m
 - Existing `parse_jobs` rows are normalized into V3 import states: not configured, queued, processing, failed, low confidence, needs review, completed, and retried.
 - Import governance guardrails now surface provider pages processed, retry count, estimated cost, owner quota metadata, large-job confirmation warnings, and existing import audit events from `owner_audit_logs`.
 - Deployment readiness console lists core env vars, Supabase migrations, RLS, private storage, Edge Functions, provider setup, seed accounts, and security-claim checks with ready/blocked/manual-validation states.
+- Institution role matrix foundation adds owner/admin, teacher, marker, reviewer, invigilator, and read-only viewer permissions, plus an RLS-protected `institution_memberships` table and owner Security page matrix. This is staging-required until every sensitive route has adopted the server helper.
+- Guest exam typed/table/whiteboard answers now keep an attempt-token-bound local browser backup so refresh recovery can restore drafts before the normal Edge autosave resumes. This is not a claim of full offline file submission.
 - Owner Export Hub provides owner-only CSV/JSON handoff exports for markbooks, roster reconciliation, groups/cohorts, assessment inventory, and analytics validation. It keeps QTI assessment-scoped through the existing Edge export and labels Moodle XML unsupported until fidelity warnings are validated.
 - Hydration-safe form-field help runtime now waits until after browser load before adding tooltip attributes to inputs, preventing server/client attribute mismatches.
 
@@ -58,6 +60,7 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Provider status dashboard | `components/owner/provider-readiness-dashboard.tsx`, `app/owner/security/page.tsx` | Configuration-only checks. It does not call external providers or expose server-only secrets to the browser. |
 | Import job state and governance model | `lib/examsim/provider-readiness.ts`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs` and `owner_audit_logs`; no new table is required for V3 status, quota, retry, cost, and audit display. |
 | Deployment readiness console | `components/owner/deployment-readiness-console.tsx`, `lib/examsim/deployment-readiness.ts`, `tests/examsim-v3-deployment-readiness.test.ts` | Read-only launch checklist. Live RLS/storage/migration validation still belongs in staging/provider tooling. |
+| Institution role matrix | `lib/examsim/institution-role-matrix.ts`, `lib/examsim/institution-roles.ts`, `components/owner/institution-role-matrix-panel.tsx`, `supabase/migrations/20260618140348_institution_role_matrix.sql`, `tests/examsim-v3-institution-roles.test.ts` | Owner-scoped collaboration membership and server permission helper. Full route-by-route role rollout still requires staging with real collaborator accounts. |
 | Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `tests/examsim-v3-export-hub.test.ts` | Owner-scoped CSV/JSON handoff exports. QTI remains AAL2 Edge-scoped per assessment; Moodle XML remains visibly unsupported. |
 | Compiler review queue | `lib/examsim/compiler-readiness.ts`, `app/owner/assessments/[id]/compiler/page.tsx` | Low-confidence and missing-data items stay review-required before publish. |
 | Field help hydration fix | `components/form-field-help-runtime.tsx`, `tests/student-delete-and-field-help.test.ts` | Tooltips are added client-side only after load so React hydration does not see unexpected attributes. |
@@ -74,7 +77,7 @@ providers; it only reports env/config readiness, recent import-job states, and m
 
 - Guest SEB lockdown. Authenticated SEB can be used; no-login guest SEB remains blocked until server-verifiable evidence exists.
 - Full Paper Mode automatic scan-to-student/question mapping.
-- Full institution role matrix across owner/admin, teacher, marker, reviewer, invigilator, and read-only viewer.
+- Full route-by-route institution role rollout across all authoring, publishing, marking, moderation, invigilation, export, analytics, and security actions. The role matrix and membership table exist, but every sensitive route must be staged with real collaborator accounts before this is production-ready.
 - True offline-first file submission after browser/process termination.
 - Advanced graphing, geometry, CAS, chemistry sketch, and STEM-specific in-exam tools.
 - Official seeded standard trees for every curriculum.
@@ -96,10 +99,11 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Guest SEB / Lockdown | Blocked | Authenticated SEB can be used. Guest SEB remains blocked until BEK/CK/request-hash evidence can be server-verified safely. |
 | Paper Mode | Manual fallback | Printable/scan workflows need OCR/barcode staging for reliable auto-mapping; manual scan attachment and correction are the safe path. |
 | STEM / Handwriting / Table OCR | Provider required | Needs Mathpix, MinerU, or equivalent OCR provider plus confidence review. Manual transcription remains the fallback. |
-| Collaborative Grading Roles | Manual fallback / staging | Owner-led marker assignment and review flags are available; institution-grade role separation needs real-account staging. |
+| Collaborative Grading Roles | Staging required | Owner-led marker assignment and review flags are available; anonymous/double-marking workflows need real-account staging. |
+| Institution Role Matrix | Staging required | `institution_memberships` RLS, role permissions, server helper, and owner-facing matrix exist. Every sensitive route must adopt and stage the helper before institution roles are production-ready. |
 | Live Invigilation | Staging required | Operationally useful surfaces exist; classroom-scale subscriptions, filters, and interventions need synthetic load QA. |
 | Guest Upload Recovery | Ready | Upload signing, retries, byte verification, and idempotent finalization are server-enforced. |
-| Offline Resilience | Manual fallback | Typed autosave/retry and recovery states exist. Full offline file submission after browser/process termination is not claimed. |
+| Offline Resilience | Manual fallback | Server autosave/retry plus attempt-token-bound local typed/table/whiteboard draft recovery exist. Full offline file submission after browser/process termination is not claimed. |
 | Teacher Analytics | V2 ready, staging recommended | Analytics now use real stored attempts, marks, question nodes, topic links, and rubric awards; school-scale exports still need staging. |
 | Question Library / Mock Generator | Staging required | Extraction and generation require health-check review before generated exams are published. |
 | Student Account Claim Flow | Staging required | Claim/reconciliation paths must be tested with duplicate and mismatched identities. |

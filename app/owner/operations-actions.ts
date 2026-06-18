@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAppRole } from "@/lib/auth/server";
+import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
+import type { InstitutionPermission } from "@/lib/examsim/institution-role-matrix";
 import { asJson, safeJsonObject, type SavedViewScope } from "@/lib/owner-operations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -60,6 +62,7 @@ export async function runOwnerBulkOperation(formData: FormData) {
   const operationTypeRaw = String(formData.get("operation_type") ?? "");
   if (!BULK_OPERATION_TYPES.has(operationTypeRaw)) throw new Error("Unsupported bulk operation.");
   const operationType = operationTypeRaw as BulkOperationType;
+  await requireInstitutionPermission(permissionForBulkOperation(operationType), profile?.id ?? undefined);
   const targetIds = formData.getAll("target_ids").map(String).filter(Boolean);
   if (!targetIds.length) throw new Error("Select at least one target.");
   const request = {
@@ -100,6 +103,7 @@ export async function runOwnerBulkOperation(formData: FormData) {
 
 export async function assignMarker(formData: FormData) {
   const profile = await requireAppRole("owner", "/owner/marking-queue");
+  await requireInstitutionPermission("marking", profile?.id ?? undefined);
   const attemptId = String(formData.get("attempt_id") ?? "");
   const markerProfileId = String(formData.get("marker_profile_id") ?? "").trim() || profile?.id || "";
   const questionNodeId = String(formData.get("question_node_id") ?? "") || null;
@@ -129,7 +133,8 @@ export async function assignMarker(formData: FormData) {
 }
 
 export async function updateMarkerAssignmentStatus(assignmentId: string, status: "assigned" | "in_progress" | "completed" | "released") {
-  await requireAppRole("owner", "/owner/marking-queue");
+  const profile = await requireAppRole("owner", "/owner/marking-queue");
+  await requireInstitutionPermission("marking", profile?.id ?? undefined);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("marker_assignments")
@@ -259,4 +264,13 @@ function revalidateOwnerScope(scope: SavedViewScope) {
     support_console: "/owner/support",
   };
   revalidatePath(paths[scope]);
+}
+
+function permissionForBulkOperation(operationType: BulkOperationType): InstitutionPermission {
+  if (operationType === "export_receipts") return "exports";
+  if (operationType === "release_feedback" || operationType === "assign_marker") return "moderation";
+  if (operationType === "grant_upload_extension" || operationType === "mark_incident_reviewed" || operationType === "queue_recovery_review") {
+    return "invigilation";
+  }
+  return "readiness_security";
 }

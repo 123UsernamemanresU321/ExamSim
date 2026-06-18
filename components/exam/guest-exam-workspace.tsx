@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
@@ -9,6 +9,12 @@ import { TableResponseInput, WhiteboardResponseInput } from "@/components/respon
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { NormalizedAssessmentPackage } from "@/lib/assessment-package";
+import {
+  buildGuestResponseBackupKey,
+  createGuestResponseBackup,
+  parseGuestResponseBackup,
+  shouldRestoreGuestResponseBackup,
+} from "@/lib/examsim/guest-response-recovery";
 import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
@@ -87,8 +93,15 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [invigilationMessages, setInvigilationMessages] = useState<GuestInvigilationMessage[]>([]);
   const [technicalIssue, setTechnicalIssue] = useState("");
+  const [responseBackupKey, setResponseBackupKey] = useState<string | null>(null);
+  const [responseBackupBinding, setResponseBackupBinding] = useState<string | null>(null);
+  const [responseBackupReady, setResponseBackupReady] = useState(false);
+  const [responseBackupNotice, setResponseBackupNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const loadedResponseBackup = useRef(false);
+  const pendingRecoveredAnswerKeys = useRef<Set<string>>(new Set());
+  const recoverySyncRunning = useRef(false);
 
   useEffect(() => {
     if (!guestToken || !attemptId) {
@@ -110,6 +123,57 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestToken, attemptId, mode]);
+
+  useEffect(() => {
+    if (!guestToken || !attemptId || loadedResponseBackup.current) return;
+    loadedResponseBackup.current = true;
+    let cancelled = false;
+    deriveGuestTokenBinding(guestToken)
+      .then((tokenBinding) => {
+        if (cancelled) return;
+        const backupKey = buildGuestResponseBackupKey(attemptId, tokenBinding);
+        const backup = parseGuestResponseBackup(window.localStorage.getItem(backupKey), attemptId, tokenBinding);
+        setResponseBackupKey(backupKey);
+        setResponseBackupBinding(tokenBinding);
+        if (shouldRestoreGuestResponseBackup(backup, answers)) {
+          const restoredAnswers = backup?.answers ?? {};
+          pendingRecoveredAnswerKeys.current = new Set(
+            Object.entries(restoredAnswers)
+              .filter(([, answer]) => answer.trim().length > 0)
+              .map(([key]) => key),
+          );
+          setAnswers(restoredAnswers);
+          setResponseBackupNotice(`Recovered local answer drafts from ${formatShortTime(backup?.savedAt ?? "")}. Autosave will resync while the exam is active.`);
+        }
+        setResponseBackupReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResponseBackupNotice("Local answer recovery is unavailable in this browser. Server autosave still runs while the exam is active.");
+          setResponseBackupReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Backup restore intentionally runs once per guest attempt token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId, guestToken]);
+
+  useEffect(() => {
+    if (!responseBackupReady || !responseBackupKey || !responseBackupBinding || !attemptId || mode === "submitted") return;
+    if (!Object.values(answers).some((answer) => answer.trim().length > 0)) return;
+    try {
+      const backup = createGuestResponseBackup({
+        attemptId,
+        tokenBinding: responseBackupBinding,
+        answers,
+      });
+      window.localStorage.setItem(responseBackupKey, JSON.stringify(backup));
+    } catch {
+      setResponseBackupNotice("Local answer recovery could not be updated. Server autosave still runs while the exam is active.");
+    }
+  }, [answers, attemptId, mode, responseBackupBinding, responseBackupKey, responseBackupReady]);
 
   useEffect(() => {
     if (!guestToken || !attemptId || !state?.state_token || mode === "lobby") return;
@@ -137,6 +201,32 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     ? uploadSlots.find((slot) => slot.question_node_id === selectedQuestion.node_id) ?? null
     : null;
   const missingRequiredUploads = uploadSlots.filter((slot) => slot.required && !isUploadSlotSatisfied(slot));
+
+  useEffect(() => {
+    if (!guestToken || !attemptId || !state?.state_token || state.state !== "ACTIVE" || recoverySyncRunning.current) return;
+    if (!pendingRecoveredAnswerKeys.current.size) return;
+    const questionsToSync = flatQuestions.filter((question) => pendingRecoveredAnswerKeys.current.has(question.node_key));
+    if (!questionsToSync.length) return;
+
+    recoverySyncRunning.current = true;
+    flushGuestAnswerSaves({
+      guestToken,
+      attemptId,
+      stateToken: state.state_token,
+      answers,
+      questions: questionsToSync,
+    })
+      .then(() => {
+        for (const question of questionsToSync) pendingRecoveredAnswerKeys.current.delete(question.node_key);
+        setResponseBackupNotice("Recovered answer drafts were synced to the server. Continue as normal; final submission still uses server state.");
+      })
+      .catch((syncError) => {
+        setResponseBackupNotice(syncError instanceof Error ? syncError.message : "Recovered drafts could not be synced yet. Keep this page open and try again while the exam is active.");
+      })
+      .finally(() => {
+        recoverySyncRunning.current = false;
+      });
+  }, [answers, attemptId, flatQuestions, guestToken, state?.state, state?.state_token]);
 
   async function refreshState() {
     if (!guestToken || !attemptId) return;
@@ -182,10 +272,24 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     if (!guestToken || !attemptId) return;
     startTransition(async () => {
       try {
+        if (state?.state === "ACTIVE") {
+          const answerQuestions = flatQuestions.filter((question) => (answers[question.node_key] ?? "").trim().length > 0);
+          await flushGuestAnswerSaves({
+            guestToken,
+            attemptId,
+            stateToken: state.state_token,
+            answers,
+            questions: answerQuestions,
+          });
+          pendingRecoveredAnswerKeys.current.clear();
+        } else if (pendingRecoveredAnswerKeys.current.size) {
+          throw new Error("Recovered local drafts could not be synced because the writing window has closed. Ask your teacher before finalizing.");
+        }
         await invokePublicEdgeFunction("guest-finalize-attempt", {
           body: { guest_token: guestToken, attempt_id: attemptId, state_token: state?.state_token },
         });
         sessionStorage.setItem("examvault_guest_submitted_at", new Date().toISOString());
+        if (responseBackupKey) window.localStorage.removeItem(responseBackupKey);
         router.push("/exam/submitted");
       } catch (finalizeError) {
         setError(finalizeError instanceof Error ? finalizeError.message : "Could not submit this exam.");
@@ -481,6 +585,15 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
           </div>
         ) : null}
         <p className="mt-3 text-sm leading-6 text-[var(--muted)]">Autosave runs only while the server state is active. Timing remains server controlled.</p>
+        {responseBackupNotice ? (
+          <p className="mt-4 rounded-[4px] border border-blue-100 bg-blue-50/60 p-3 text-sm leading-6 text-blue-950">
+            {responseBackupNotice}
+          </p>
+        ) : responseBackupReady && responseBackupKey ? (
+          <p className="mt-4 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
+            Local typed-response recovery is active for this attempt. It is only a browser backup; final submission still uses the server.
+          </p>
+        ) : null}
         <InvigilationMessagesPanel messages={invigilationMessages} compact />
         {error?.includes("Guest SEB sessions are blocked") ? (
           <p className="mt-4 rounded-[4px] bg-[var(--warning-bg)] p-3 text-sm text-[var(--warning)]">
@@ -689,4 +802,45 @@ function formatShortTime(value: string) {
   const date = value ? new Date(value) : null;
   if (!date || !Number.isFinite(date.getTime())) return "Just now";
   return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+async function flushGuestAnswerSaves({
+  guestToken,
+  attemptId,
+  stateToken,
+  answers,
+  questions,
+}: {
+  guestToken: string;
+  attemptId: string;
+  stateToken: string;
+  answers: Record<string, string>;
+  questions: QuestionNode[];
+}) {
+  await Promise.all(
+    questions.map((question) => invokePublicEdgeFunction("guest-save-response", {
+      body: {
+        guest_token: guestToken,
+        attempt_id: attemptId,
+        state_token: stateToken,
+        question_node_id: question.node_id,
+        question_node_key: question.node_key,
+        answer_text: answers[question.node_key] ?? "",
+      },
+    })),
+  );
+}
+
+async function deriveGuestTokenBinding(token: string) {
+  if (window.crypto?.subtle) {
+    const data = new TextEncoder().encode(token);
+    const digest = await window.crypto.subtle.digest("SHA-256", data);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  let hash = 5381;
+  for (let index = 0; index < token.length; index += 1) {
+    hash = (hash * 33) ^ token.charCodeAt(index);
+  }
+  return `fallback-${token.length}-${hash >>> 0}`;
 }

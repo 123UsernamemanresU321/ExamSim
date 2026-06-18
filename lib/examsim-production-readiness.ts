@@ -7,6 +7,7 @@ export type ExamsimProductionFeatureKey =
   | "paper_mode"
   | "stem_handwriting_ocr"
   | "collaborative_grading"
+  | "institution_role_matrix"
   | "live_invigilation"
   | "guest_upload_recovery"
   | "offline_resilience"
@@ -53,6 +54,7 @@ export const EXAMSIM_PRODUCTION_FEATURE_KEYS = [
   "paper_mode",
   "stem_handwriting_ocr",
   "collaborative_grading",
+  "institution_role_matrix",
   "live_invigilation",
   "guest_upload_recovery",
   "offline_resilience",
@@ -150,12 +152,22 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "collaborative_grading",
       title: "Anonymous and Collaborative Grading",
-      status: "manual_fallback",
-      ownerMessage: "Marker assignment and review surfaces exist, but institution-grade role separation needs staging with real owner/marker/reviewer accounts.",
+      status: "staging_required",
+      ownerMessage: "Marker assignment and review surfaces exist, and V3 role permissions now have a server-side matrix. Full anonymous grading still needs real marker/reviewer staging.",
       productionPath: "Assign marking work, hide student identity where configured, flag review conflicts, and audit grading decisions.",
-      fallback: "Owner-led marking and review flags remain safe until full institution roles are validated.",
+      fallback: "Owner-led marking and review flags remain safe until anonymous/double-marking workflows are validated.",
       requiredEnvVars: [],
       qaChecklist: ["Assign a marker", "Hide student name", "Review a flagged mark", "Confirm students see released data only"],
+    },
+    {
+      key: "institution_role_matrix",
+      title: "Institution Role Matrix",
+      status: "staging_required",
+      ownerMessage: "Owner/admin, teacher, marker, reviewer, invigilator, and read-only roles now have an owner-scoped permission matrix and RLS-protected membership table.",
+      productionPath: "Create institution memberships, enforce server permission checks on sensitive owner actions, then stage each role with real accounts.",
+      fallback: "Owner-only route guards remain the safest default until every sensitive flow has adopted the permission helper.",
+      requiredEnvVars: [],
+      qaChecklist: ["Create teacher account", "Create marker account", "Verify denied publish/export/security access", "Verify owner-only membership management"],
     },
     {
       key: "live_invigilation",
@@ -181,11 +193,11 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "offline_resilience",
       title: "Offline / Recovery Resilience",
       status: "manual_fallback",
-      ownerMessage: "Autosave/retry and recovery states exist, but the browser cannot securely retain selected upload files after process termination.",
-      productionPath: "Recover typed responses through server autosaves and local in-browser backup when feasible.",
+      ownerMessage: "Server autosave/retry, recovery states, and attempt-token-bound local typed-response backup exist, but selected upload files cannot be retained after browser/process termination.",
+      productionPath: "Recover typed/table/whiteboard responses through server autosaves and a local in-browser backup for the same guest attempt.",
       fallback: "Show honest recovery instructions and require file re-selection after browser/process restart.",
       requiredEnvVars: [],
-      qaChecklist: ["Refresh during exam", "Reconnect after offline", "Retry finalization", "Verify no false offline-submission claim"],
+      qaChecklist: ["Refresh during exam", "Recover local typed draft", "Reconnect after offline", "Verify no false offline-submission claim"],
     },
     {
       key: "teacher_analytics",

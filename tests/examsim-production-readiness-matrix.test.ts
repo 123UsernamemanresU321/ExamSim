@@ -15,6 +15,7 @@ const EXPECTED_FEATURE_KEYS = [
   "paper_mode",
   "stem_handwriting_ocr",
   "collaborative_grading",
+  "institution_role_matrix",
   "live_invigilation",
   "guest_upload_recovery",
   "offline_resilience",
@@ -68,6 +69,8 @@ describe("Examsim production-readiness matrix", () => {
 
   it("tracks Export Hub as the safe fallback for school reporting and interoperability", () => {
     const readiness = getExamsimProductionReadiness({});
+    expect(readiness.find((item) => item.key === "institution_role_matrix")?.status).toBe("staging_required");
+    expect(readiness.find((item) => item.key === "institution_role_matrix")?.ownerMessage).toContain("RLS-protected membership table");
     expect(readiness.find((item) => item.key === "school_reporting")?.status).toBe("manual_fallback");
     expect(readiness.find((item) => item.key === "school_reporting")?.fallback).toContain("Export Hub");
     expect(readiness.find((item) => item.key === "qti_moodle_interop")?.ownerMessage).toContain("Moodle XML is intentionally blocked");
@@ -76,13 +79,16 @@ describe("Examsim production-readiness matrix", () => {
   it("surfaces the production-readiness panel in owner security", () => {
     const page = readFileSync("app/owner/security/page.tsx", "utf8");
     const panel = readFileSync("components/owner/examsim-production-readiness-panel.tsx", "utf8");
+    const rolePanel = readFileSync("components/owner/institution-role-matrix-panel.tsx", "utf8");
     const providerPanel = readFileSync("components/owner/provider-readiness-dashboard.tsx", "utf8");
     expect(page).toContain("ExamsimProductionReadinessPanel");
     expect(page).toContain("ProviderReadinessDashboard");
+    expect(page).toContain("InstitutionRoleMatrixPanel");
     expect(page).not.toContain(".or(");
     expect(panel).toContain("Production readiness matrix");
     expect(panel).toContain("Smart Import / Exam Compiler");
     expect(panel).toContain("Guest SEB / Lockdown");
+    expect(rolePanel).toContain("Institution role matrix");
     expect(providerPanel).toContain("Provider and import readiness");
     expect(providerPanel).toContain("Import job states");
     expect(providerPanel).toContain("Cost, quota, and audit guardrails");
