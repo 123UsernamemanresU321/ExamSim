@@ -7,7 +7,6 @@ coverage
 .env.local
 .env*.local
 .owner-bootstrap.local.txt
-.staging-test-accounts.local.txt
 playwright-report
 test-results
 *.tsbuildinfo
