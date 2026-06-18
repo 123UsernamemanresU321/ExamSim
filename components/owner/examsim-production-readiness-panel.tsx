@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import {
+  buildReleaseCandidateReadiness,
   getExamsimProductionReadiness,
   summarizeExamsimProductionReadiness,
   type ExamsimProductionReadinessItem,
@@ -51,6 +52,7 @@ function ReadinessDetail({ item }: { item: ExamsimProductionReadinessItem }) {
 export function ExamsimProductionReadinessPanel() {
   const readiness = getExamsimProductionReadiness();
   const summary = summarizeExamsimProductionReadiness(readiness);
+  const releaseCandidate = buildReleaseCandidateReadiness(readiness);
 
   return (
     <Card className="content-start" aria-label="Production readiness matrix for Smart Import / Exam Compiler and Guest SEB / Lockdown">
@@ -68,6 +70,30 @@ export function ExamsimProductionReadinessPanel() {
           <Badge tone="info">{summary.manualFallback} fallback</Badge>
           <Badge tone="danger">{summary.blocked} blocked</Badge>
         </div>
+      </div>
+
+      <div className="mt-5 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--ink)]">Release candidate readiness</h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted)]">{releaseCandidate.ownerMessage}</p>
+          </div>
+          <Badge tone={releaseCandidate.readyForFullV3 ? "success" : "warning"}>
+            {releaseCandidate.readyForFullV3 ? "Full V3 ready" : `${releaseCandidate.remainingItems.length} remaining`}
+          </Badge>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge tone={releaseCandidate.blockingCount ? "danger" : "success"}>{releaseCandidate.blockingCount} blocked</Badge>
+          <Badge tone={releaseCandidate.providerGatedCount ? "warning" : "success"}>{releaseCandidate.providerGatedCount} provider-gated</Badge>
+          <Badge tone={releaseCandidate.stagingRequiredCount ? "warning" : "success"}>{releaseCandidate.stagingRequiredCount} staging</Badge>
+          <Badge tone={releaseCandidate.manualFallbackCount ? "info" : "success"}>{releaseCandidate.manualFallbackCount} fallback</Badge>
+        </div>
+        {releaseCandidate.remainingItems.length ? (
+          <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+            Next unresolved areas: {releaseCandidate.remainingItems.slice(0, 5).map((item) => item.title).join(", ")}
+            {releaseCandidate.remainingItems.length > 5 ? ", ..." : ""}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-5">

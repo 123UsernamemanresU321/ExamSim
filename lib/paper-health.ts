@@ -18,6 +18,14 @@ export type PaperHealthSummary = {
   blockers: PaperHealthItem[];
   warnings: PaperHealthItem[];
   checks: Record<string, PaperHealthStatus>;
+  scoreBreakdown: Record<string, PaperHealthScoreCategory>;
+};
+
+export type PaperHealthScoreCategory = {
+  weight: number;
+  status: PaperHealthStatus;
+  deducted: number;
+  issueCodes: string[];
 };
 
 export function computePaperHealth({
@@ -165,6 +173,16 @@ export function computePaperHealth({
     });
   }
 
+  const unlinkedSupportingSourceRegions = activeSourceRegions.filter((region) => !region.question_node_id && ["diagram", "table", "instructions"].includes(region.region_type));
+  if (unlinkedSupportingSourceRegions.length) {
+    warnings.push({
+      code: "source_support_region_unlinked",
+      severity: "warning",
+      message: `${unlinkedSupportingSourceRegions.length} diagram, table, or instruction source region(s) are not linked to a question card.`,
+      fixHref: assessment ? `/owner/assessments/${assessment.id}/authoring#pdf-region-editor` : undefined,
+    });
+  }
+
   const lowConfidenceSourceRegions = activeSourceRegions.filter((region) => region.status === "detected" || region.status === "needs_review" || Number(region.confidence ?? 1) < 0.8);
   if (lowConfidenceSourceRegions.length) {
     warnings.push({
@@ -252,6 +270,10 @@ export function computePaperHealth({
     else warnings.push(item);
   }
 
+  const uniqueBlockers = uniqueItems(blockers);
+  const uniqueWarnings = uniqueItems(warnings).filter((warning) => !uniqueBlockers.some((blocker) => blocker.code === warning.code && blocker.message === warning.message));
+  const scoreBreakdown = buildScoreBreakdown(uniqueBlockers, uniqueWarnings, version?.status);
+
   checks.structure = blockers.some((item) => ["no_root_questions", "duplicate_node_key", "invalid_order", "non_root_upload_slot", "orphan_parent"].includes(item.code))
     ? "blocked"
     : warnings.some((item) => ["marks_missing"].includes(item.code))
@@ -262,12 +284,10 @@ export function computePaperHealth({
   checks.delivery = version?.status === "published" ? "ready" : "warning";
   checks.marking = attemptedTotal.max > 0 ? "ready" : "warning";
 
-  const uniqueBlockers = uniqueItems(blockers);
-  const uniqueWarnings = uniqueItems(warnings).filter((warning) => !uniqueBlockers.some((blocker) => blocker.code === warning.code && blocker.message === warning.message));
-  const score = Math.max(0, Math.min(100, 100 - uniqueBlockers.length * 25 - uniqueWarnings.length * 8));
+  const score = Math.max(0, Math.min(100, Object.values(scoreBreakdown).reduce((total, category) => total + (category.weight - category.deducted), 0)));
   const status: PaperHealthStatus = uniqueBlockers.length ? "blocked" : uniqueWarnings.length ? "warning" : "ready";
 
-  return { status, score, blockers: uniqueBlockers, warnings: uniqueWarnings, checks };
+  return { status, score, blockers: uniqueBlockers, warnings: uniqueWarnings, checks, scoreBreakdown };
 }
 
 function duplicateValues(values: string[]) {
@@ -288,6 +308,66 @@ function uniqueItems(items: PaperHealthItem[]) {
     seen.add(key);
     return true;
   });
+}
+
+function buildScoreBreakdown(blockers: PaperHealthItem[], warnings: PaperHealthItem[], versionStatus?: string | null): Record<string, PaperHealthScoreCategory> {
+  const weights = {
+    structure: 22,
+    source: 22,
+    markscheme: 14,
+    delivery: 14,
+    marking: 16,
+    security: 12,
+  } satisfies Record<string, number>;
+
+  const byCategory = Object.fromEntries(
+    Object.entries(weights).map(([category, weight]) => [
+      category,
+      {
+        weight,
+        status: "ready" as PaperHealthStatus,
+        deducted: 0,
+        issueCodes: [] as string[],
+      },
+    ]),
+  ) as Record<string, PaperHealthScoreCategory>;
+
+  for (const item of blockers) {
+    const category = categoryForIssue(item.code);
+    byCategory[category]!.status = "blocked";
+    byCategory[category]!.issueCodes.push(item.code);
+  }
+
+  for (const item of warnings) {
+    const category = categoryForIssue(item.code);
+    if (byCategory[category]!.status !== "blocked") byCategory[category]!.status = "warning";
+    byCategory[category]!.issueCodes.push(item.code);
+  }
+
+  if (versionStatus !== "published") {
+    byCategory.delivery.status = byCategory.delivery.status === "blocked" ? "blocked" : "warning";
+    byCategory.delivery.issueCodes.push("version_not_published");
+  }
+
+  for (const category of Object.values(byCategory)) {
+    category.issueCodes = Array.from(new Set(category.issueCodes));
+    if (category.status === "blocked") {
+      category.deducted = category.weight;
+    } else if (category.status === "warning") {
+      category.deducted = Math.min(category.weight, Math.max(4, category.issueCodes.length * Math.ceil(category.weight / 5)));
+    }
+  }
+
+  return byCategory;
+}
+
+function categoryForIssue(code: string) {
+  if (code.startsWith("source") || code.startsWith("visual") || code.startsWith("question_source_regions")) return "source";
+  if (code.includes("markscheme") || code.includes("rubric")) return "markscheme";
+  if (code.includes("delivery") || code.includes("publish") || code.includes("package")) return "delivery";
+  if (code.includes("mark") || code.includes("response_type") || code.includes("upload_slot")) return "marking";
+  if (code.includes("security") || code.includes("seb") || code.includes("rls") || code.includes("storage")) return "security";
+  return "structure";
 }
 
 function markingTreeToNormalized(nodes: ReturnType<typeof getSelectableMarkingGroups>): NormalizedQuestionHierarchyNode[] {

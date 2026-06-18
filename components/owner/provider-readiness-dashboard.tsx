@@ -3,6 +3,8 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import {
   buildImportGovernanceSummary,
+  buildSmartImportSampleQaPack,
+  evaluateBatchPdfImportPlan,
   getImportJobState,
   getProviderReadiness,
   importJobStateTone,
@@ -24,6 +26,8 @@ export function ProviderReadinessDashboard({
   const providers = getProviderReadiness();
   const jobSummary = summarizeImportJobs(importJobs);
   const governance = buildImportGovernanceSummary({ jobs: importJobs, auditLogs: importAuditLogs });
+  const smartImportQa = buildSmartImportSampleQaPack();
+  const batchPdfPlan = evaluateBatchPdfImportPlan([]);
 
   return (
     <Card aria-label="V3 provider and import readiness dashboard">
@@ -119,6 +123,67 @@ export function ProviderReadinessDashboard({
             )}
           </div>
 
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--ink)]">Smart Import sample QA</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  Staging fixture coverage for PDF regions, LaTeX structure, and markscheme-to-rubric mapping.
+                </p>
+              </div>
+              <Badge tone={smartImportQa.providerBackedReady ? "success" : "warning"}>
+                {smartImportQa.summary.passed}/{smartImportQa.totalFixtures} passed
+              </Badge>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {smartImportQa.items.map((item) => (
+                <div key={item.fixture.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-[var(--ink)]">{item.fixture.title}</p>
+                    <Badge tone={sampleQaTone(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                  <p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{item.ownerMessage}</p>
+                  {item.missingChecks.length ? (
+                    <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
+                      Pending checks: {item.missingChecks.map((check) => check.replaceAll("_", " ")).join(", ")}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[4px] border border-[var(--border)] bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--ink)]">Batch PDF import readiness</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  Preflight rules for duplicate PDFs, file size, markscheme grouping, provider setup, and large-batch
+                  confirmation before OCR submission.
+                </p>
+              </div>
+              <Badge tone={batchPdfPlan.canSubmitToProvider ? "success" : "info"}>{batchPdfPlan.acceptedPdfCount} PDFs</Badge>
+            </div>
+            <div className="mt-3 grid gap-2 text-sm text-[var(--muted)]">
+              <p>
+                <span className="font-semibold text-[var(--ink)]">Manual fallback:</span>{" "}
+                {batchPdfPlan.manualFallbackAvailable ? "available" : "unavailable"}
+              </p>
+              <p>
+                <span className="font-semibold text-[var(--ink)]">Source grouping:</span>{" "}
+                {batchPdfPlan.grouping.sourcePdfNames.length || batchPdfPlan.grouping.markschemeNames.length
+                  ? `${batchPdfPlan.grouping.sourcePdfNames.length} paper, ${batchPdfPlan.grouping.markschemeNames.length} markscheme`
+                  : "waiting for selected PDFs"}
+              </p>
+              <p>
+                <span className="font-semibold text-[var(--ink)]">Guardrails:</span>{" "}
+                {batchPdfPlan.issueCodes.length
+                  ? batchPdfPlan.issueCodes.map((issue) => issue.replaceAll("_", " ")).join(", ")
+                  : "ready for selected files"}
+              </p>
+            </div>
+          </div>
+
           <DataTable headers={["Recent import", "State"]} className="shadow-none">
             {importJobs.length ? importJobs.slice(0, 8).map((job) => {
               const state = getImportJobState(job);
@@ -155,6 +220,13 @@ export function ProviderReadinessDashboard({
       </div>
     </Card>
   );
+}
+
+function sampleQaTone(status: ReturnType<typeof buildSmartImportSampleQaPack>["items"][number]["status"]) {
+  if (status === "passed") return "success" as const;
+  if (status === "failed") return "danger" as const;
+  if (status === "needs_review" || status === "provider_required") return "warning" as const;
+  return "neutral" as const;
 }
 
 function formatDate(value: string | null | undefined) {

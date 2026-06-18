@@ -8,12 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
+import { buildRubricItemsForNode } from "@/lib/examsim/rubric-readiness";
 import { formatStoredResponse } from "@/lib/response-values";
 import { WorkAnnotationStudio } from "@/components/owner/work-annotation-studio";
 import {
   binaryMarkDecisionFromAwarded,
   markForBinaryDecision,
   responseModeUsesBinaryMarking,
+  validateMarkTotalWithinMax,
   type BinaryMarkDecision,
 } from "@/lib/marking-scoring";
 import type { MarkingTreeNode } from "@/lib/marking-tree";
@@ -389,13 +391,19 @@ function MarkingResponseCard({
         });
       }
       const selectedRubricItems = rubricItemsForNode.filter((item) => selectedRubricAwardIds.has(item.id));
+      const finalAwardedMarks = usesBinaryMarking ? binaryAwarded ?? 0 : rubricItemsForNode.length ? rubricAwarded : Number(awarded) || 0;
+      const totalError = validateMarkTotalWithinMax(finalAwardedMarks, node.marks ?? 0);
+      if (totalError) {
+        alert(totalError);
+        return;
+      }
 
       await invokeEdgeFunction(supabase, "save-marking", {
         body: {
           attempt_id: attemptId,
           marks: [{
             question_node_id: node.id,
-            awarded_marks: usesBinaryMarking ? binaryAwarded ?? 0 : rubricItemsForNode.length ? rubricAwarded : Number(awarded) || 0,
+            awarded_marks: finalAwardedMarks,
             notes: notes,
           }],
           rubric_awards: selectedRubricItems.map((item) => ({
@@ -843,37 +851,6 @@ function RubricClickPanel({
       </div>
     </div>
   );
-}
-
-function buildRubricItemsForNode(node: QuestionNodeRow, templates: RubricTemplate[], items: RubricTemplateItem[]) {
-  if (!items.length) return [];
-  const haystack = [
-    node.node_key,
-    node.display_label,
-    node.title,
-    node.prompt_latex,
-    node.prompt_html,
-    Array.isArray(node.visual_asset_refs) ? node.visual_asset_refs.join(" ") : "",
-  ].filter(Boolean).join(" ").toLowerCase();
-  const nodeSubjectTokens = extractTokens(haystack);
-  const rankedTemplates = templates
-    .map((template) => {
-      const searchable = [template.name, template.subject, template.description, ...(template.tags ?? [])].filter(Boolean).join(" ").toLowerCase();
-      const tokens = extractTokens(searchable);
-      const overlap = [...tokens].filter((token) => nodeSubjectTokens.has(token)).length;
-      const direct = searchable.includes(String(node.node_key).toLowerCase()) || searchable.includes(String(node.display_label ?? "").toLowerCase());
-      return { template, score: direct ? overlap + 10 : overlap };
-    })
-    .sort((a, b) => b.score - a.score);
-  const selectedTemplateIds = rankedTemplates.filter((entry) => entry.score > 0).map((entry) => entry.template.id);
-  const templateIds = selectedTemplateIds.length ? selectedTemplateIds : rankedTemplates.slice(0, 1).map((entry) => entry.template.id);
-  return items
-    .filter((item) => templateIds.includes(item.rubric_template_id))
-    .sort((a, b) => a.ordinal - b.ordinal);
-}
-
-function extractTokens(value: string) {
-  return new Set(value.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length >= 3));
 }
 
 function CommentBankQuickInsert({ items, onInsert }: { items: CommentBankItem[]; onInsert: (text: string) => void }) {

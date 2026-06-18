@@ -6,21 +6,44 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { IconButton } from "@/components/ui/icon-button";
 import { OwnerCommandPalette } from "@/components/owner/owner-command-palette";
 import { OwnerMobileNav, SidebarNav } from "./sidebar-nav";
+import {
+  INSTITUTION_PERMISSION_KEYS,
+  INSTITUTION_ROLE_LABELS,
+  type InstitutionPermission,
+  type InstitutionRole,
+} from "@/lib/examsim/institution-role-matrix";
 
-export function OwnerShell({ children, displayName = "Admin User" }: { children: React.ReactNode; displayName?: string }) {
+export function OwnerShell({
+  children,
+  displayName = "Admin User",
+  institutionRole = "owner_admin",
+  institutionPermissions = INSTITUTION_PERMISSION_KEYS,
+}: {
+  children: React.ReactNode;
+  displayName?: string;
+  institutionRole?: InstitutionRole;
+  institutionPermissions?: readonly InstitutionPermission[];
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const roleLabel = INSTITUTION_ROLE_LABELS[institutionRole] ?? "Institution member";
 
   return (
     <div 
       className="app-shell-grid"
       style={{ "--sidebar-width": isCollapsed ? "64px" : "260px" } as React.CSSProperties}
     >
-      <SidebarNav isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} displayName={displayName} />
+      <SidebarNav
+        isCollapsed={isCollapsed}
+        onToggle={() => setIsCollapsed(!isCollapsed)}
+        displayName={displayName}
+        roleLabel={roleLabel}
+        permissions={institutionPermissions}
+      />
       <div className="min-w-0">
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-[var(--border)] bg-white px-4 md:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="md:hidden">
-              <OwnerMobileNav />
+              <OwnerMobileNav permissions={institutionPermissions} />
             </div>
             <IconButton className="hidden md:inline-flex" onClick={() => setIsCollapsed(!isCollapsed)} aria-label="Toggle owner navigation">
               <Menu size={16} aria-hidden="true" />

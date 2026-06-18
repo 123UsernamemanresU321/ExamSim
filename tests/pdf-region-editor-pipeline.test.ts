@@ -57,12 +57,17 @@ describe("PDF visual question region editor pipeline", () => {
 
   it("adds health warnings for missing and unreviewed PDF source regions", () => {
     const health = read("lib/paper-health.ts");
+    const page = read("app/owner/assessments/[id]/health/page.tsx");
     expect(health).toContain("question_source_regions");
     expect(health).toContain("source_region_unlinked");
+    expect(health).toContain("source_support_region_unlinked");
     expect(health).toContain("source_region_low_confidence");
     expect(health).toContain("source_region_missing_marks");
     expect(health).toContain("source_region_missing_response_type");
     expect(health).toContain("source_region_overlap");
     expect(health).toContain("source_document_failed");
+    expect(health).toContain("scoreBreakdown");
+    expect(page).toContain("Score breakdown");
+    expect(page).toContain("summary.scoreBreakdown");
   });
 });

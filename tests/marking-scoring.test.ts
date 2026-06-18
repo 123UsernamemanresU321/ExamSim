@@ -3,6 +3,7 @@ import {
   binaryMarkDecisionFromAwarded,
   markForBinaryDecision,
   responseModeUsesBinaryMarking,
+  validateMarkTotalWithinMax,
 } from "@/lib/marking-scoring";
 
 describe("structured marking scoring", () => {
@@ -25,5 +26,12 @@ describe("structured marking scoring", () => {
     expect(binaryMarkDecisionFromAwarded(3, 3)).toBe("correct");
     expect(binaryMarkDecisionFromAwarded(0, 3)).toBe("incorrect");
     expect(binaryMarkDecisionFromAwarded(1.5, 3)).toBe("unmarked");
+  });
+
+  it("rejects rubric or manual totals above the question maximum", () => {
+    expect(validateMarkTotalWithinMax(3, 4)).toBeNull();
+    expect(validateMarkTotalWithinMax(4, 4)).toBeNull();
+    expect(validateMarkTotalWithinMax(-0.5, 4)).toMatch(/zero or greater/);
+    expect(validateMarkTotalWithinMax(4.5, 4)).toMatch(/cannot exceed the question maximum/);
   });
 });

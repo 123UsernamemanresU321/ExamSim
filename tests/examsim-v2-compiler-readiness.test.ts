@@ -127,4 +127,47 @@ describe("Examsim V2 compiler readiness", () => {
       expect.arrayContaining(["compiler_review_required", "source_region_missing_marks", "source_region_missing_response_type", "unmatched_markscheme"]),
     );
   });
+
+  it("builds a V3 weighted source coverage score with supporting-region review warnings", () => {
+    const health = computePaperHealth({
+      assessment: { id: "assessment-1", title: "Mock", paper_code: "M1" },
+      version: { id: "version-1", status: "draft", source_object_path: "source.pdf", markscheme_pdf_path: null, markscheme_source_object_path: null },
+      questionNodes: [{ ...baseQuestion, response_mode: "typed_or_upload" }],
+      sourceDocuments: [{ id: "source-1", status: "approved", object_path: "source.pdf", metadata_json: { processing_status: "pages_ready" } }],
+      sourceRegions: [
+        { ...baseRegion, id: "region-q", question_node_id: "node-1", confidence: 0.93, status: "approved", region_type: "question" },
+        {
+          ...baseRegion,
+          id: "region-diagram",
+          question_node_id: null,
+          node_key: null,
+          confidence: 0.71,
+          status: "needs_review",
+          region_type: "diagram",
+          metadata_json: { confidence: 0.71 },
+        },
+        {
+          ...baseRegion,
+          id: "region-table",
+          question_node_id: null,
+          node_key: null,
+          confidence: 0.88,
+          status: "approved",
+          region_type: "table",
+          metadata_json: {},
+        },
+      ],
+    });
+
+    expect(health.warnings.map((item) => item.code)).toEqual(
+      expect.arrayContaining(["source_support_region_unlinked", "source_region_low_confidence"]),
+    );
+    expect(health.scoreBreakdown.source.status).toBe("warning");
+    expect(health.scoreBreakdown.source.issueCodes).toEqual(
+      expect.arrayContaining(["source_support_region_unlinked", "source_region_low_confidence"]),
+    );
+    expect(health.scoreBreakdown.source.deducted).toBeGreaterThan(0);
+    expect(health.score).toBeLessThan(100);
+    expect(health.score).toBeGreaterThanOrEqual(0);
+  });
 });

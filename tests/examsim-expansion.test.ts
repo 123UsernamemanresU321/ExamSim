@@ -175,9 +175,14 @@ Find $n$.
     const groups = groupSimilarAnswers([
       { id: "r1", attempt_id: "a1", question_node_id: "q1", answer_text: "  1,000.0 ", response_mode: "numerical" },
       { id: "r2", attempt_id: "a2", question_node_id: "q1", answer_text: "1000", response_mode: "numerical" },
+      { id: "r4", attempt_id: "a4", question_node_id: "q1", answer_text: "1000.0000004 metres", response_mode: "numerical" },
+      { id: "r5", attempt_id: "a5", question_node_id: "q1", answer_text: "1000 m", response_mode: "numerical" },
+      { id: "r6", attempt_id: "a6", question_node_id: "q1", answer_text: "", response_mode: "numerical" },
       { id: "r3", attempt_id: "a3", question_node_id: "q1", answer_text: "Different", response_mode: "typed_text" },
     ]);
     expect(groups[0]).toMatchObject({ normalized_answer: "1000", count: 2, confidence: "normalized" });
+    expect(groups.find((group) => group.normalized_answer === "1000 m")).toMatchObject({ count: 2, confidence: "normalized" });
+    expect(groups.find((group) => group.normalized_answer === "")).toMatchObject({ label: "Blank or unreadable", confidence: "manual_review" });
     expect(groups.some((group) => group.label === "Different")).toBe(true);
     expect(read("app/owner/assessments/[id]/cross-mark/page.tsx")).toContain("Deterministic grouping only");
   });

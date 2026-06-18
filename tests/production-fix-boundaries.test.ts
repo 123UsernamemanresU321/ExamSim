@@ -329,10 +329,11 @@ describe("marking workspace structured scoring", () => {
 
   it("rejects partial structured marks in the save-marking Edge Function", () => {
     const source = read("supabase/functions/save-marking/index.ts");
-    expect(source).toContain("validateStructuredMarkRows");
+    expect(source).toContain("validateMarkRowsAgainstQuestionMaximum");
     expect(source).toContain('"multiple_choice"');
     expect(source).toContain('"numerical"');
     expect(source).toContain("must be marked correct or incorrect");
+    expect(source).toContain("Awarded marks cannot exceed the question maximum");
   });
 
   it("uses a recursive marking tree instead of flat question node pages", () => {

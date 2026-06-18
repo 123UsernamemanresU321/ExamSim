@@ -1,10 +1,14 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildImportGovernanceSummary,
   buildImportJobAuditSummary,
+  buildSmartImportSampleQaPack,
+  evaluateBatchPdfImportPlan,
   estimateImportCostGuard,
   getImportJobState,
   getProviderReadiness,
+  SMART_IMPORT_SAMPLE_QA_FIXTURES,
   summarizeImportJobs,
   V3_PROVIDER_CAPABILITY_KEYS,
 } from "@/lib/examsim/provider-readiness";
@@ -133,5 +137,77 @@ describe("Examsim V3 provider and import readiness", () => {
     expect(summary.failedOrFallbackJobs).toBe(1);
     expect(summary.manualFallbackAvailable).toBe(true);
     expect(summary.audit.importAuditCount).toBe(1);
+  });
+
+  it("defines a Smart Import sample-paper QA pack without claiming provider success by default", () => {
+    expect(SMART_IMPORT_SAMPLE_QA_FIXTURES.map((fixture) => fixture.kind)).toEqual(["pdf", "latex", "markscheme"]);
+    expect(SMART_IMPORT_SAMPLE_QA_FIXTURES.flatMap((fixture) => fixture.expectedChecks)).toEqual(expect.arrayContaining([
+      "source_pages",
+      "question_regions",
+      "marks",
+      "rubric_mapping",
+      "manual_fallback",
+    ]));
+
+    const pack = buildSmartImportSampleQaPack([], {});
+    expect(pack.totalFixtures).toBe(3);
+    expect(pack.providerBackedReady).toBe(false);
+    expect(pack.manualFallbackAvailable).toBe(true);
+    expect(pack.summary.providerRequired).toBeGreaterThan(0);
+    expect(pack.summary.passed).toBe(0);
+    expect(pack.items.every((item) => item.status !== "passed")).toBe(true);
+  });
+
+  it("summarizes Smart Import sample QA results only when reviewed fixture records exist", () => {
+    const pack = buildSmartImportSampleQaPack([
+      {
+        fixture_id: "sample-pdf-regions",
+        status: "passed",
+        provider: "mineru_hosted",
+        checks: ["source_pages", "question_regions", "marks", "manual_fallback"],
+        confidence: 0.91,
+        reviewed_at: "2026-06-18T10:00:00Z",
+      },
+      {
+        fixture_id: "sample-markscheme-rubrics",
+        status: "needs_review",
+        provider: "deepseek_ai",
+        checks: ["rubric_mapping"],
+        confidence: 0.62,
+      },
+    ], { MINERU_API_KEY: "set", DEEPSEEK_API_KEY: "set" });
+
+    expect(pack.providerBackedReady).toBe(false);
+    expect(pack.summary.passed).toBe(1);
+    expect(pack.summary.needsReview).toBe(1);
+    expect(pack.items.find((item) => item.fixture.id === "sample-pdf-regions")?.status).toBe("passed");
+    expect(pack.items.find((item) => item.fixture.id === "sample-markscheme-rubrics")?.status).toBe("needs_review");
+  });
+
+  it("plans batch PDF imports with duplicate, size, type, provider, and confirmation guardrails", () => {
+    const plan = evaluateBatchPdfImportPlan([
+      { name: "Week 8 Paper.pdf", sizeBytes: 11 * 1024 * 1024, contentType: "application/pdf" },
+      { name: "week 8 paper.pdf", sizeBytes: 1_000_000, contentType: "application/pdf" },
+      { name: "Week 8 Markscheme.pdf", sizeBytes: 1_000_000, contentType: "application/pdf" },
+      { name: "notes.html", sizeBytes: 12_000, contentType: "text/html" },
+    ], { env: {}, pageEstimatePerPdf: 20, pageWarnThreshold: 50 });
+
+    expect(plan.totalFiles).toBe(4);
+    expect(plan.acceptedPdfCount).toBe(3);
+    expect(plan.duplicateNames).toEqual(["week 8 paper.pdf"]);
+    expect(plan.issueCodes).toEqual(expect.arrayContaining(["duplicate_file_name", "file_too_large", "unsupported_file_type", "ocr_provider_missing", "large_batch_confirmation"]));
+    expect(plan.requiresOwnerConfirmation).toBe(true);
+    expect(plan.canSubmitToProvider).toBe(false);
+    expect(plan.manualFallbackAvailable).toBe(true);
+    expect(plan.grouping.sourcePdfNames).toEqual(expect.arrayContaining(["Week 8 Paper.pdf", "week 8 paper.pdf"]));
+    expect(plan.grouping.markschemeNames).toEqual(["Week 8 Markscheme.pdf"]);
+  });
+
+  it("surfaces Smart Import QA and batch import readiness in the owner provider dashboard", () => {
+    const dashboard = readFileSync("components/owner/provider-readiness-dashboard.tsx", "utf8");
+    expect(dashboard).toContain("buildSmartImportSampleQaPack");
+    expect(dashboard).toContain("evaluateBatchPdfImportPlan");
+    expect(dashboard).toContain("Smart Import sample QA");
+    expect(dashboard).toContain("Batch PDF import readiness");
   });
 });

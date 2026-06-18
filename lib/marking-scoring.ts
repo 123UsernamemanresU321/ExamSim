@@ -19,3 +19,12 @@ export function binaryMarkDecisionFromAwarded(
   if (awardedMarks === 0) return "incorrect";
   return awardedMarks === Number(maxMarks ?? 0) ? "correct" : "unmarked";
 }
+
+export function validateMarkTotalWithinMax(awardedMarks: number, maxMarks: number | null | undefined) {
+  const awarded = Number(awardedMarks);
+  const maximum = Number(maxMarks ?? 0);
+  if (!Number.isFinite(awarded) || awarded < 0) return "Awarded marks must be zero or greater.";
+  if (!Number.isFinite(maximum) || maximum < 0) return "Question maximum marks must be zero or greater.";
+  if (awarded > maximum) return "Awarded marks cannot exceed the question maximum.";
+  return null;
+}

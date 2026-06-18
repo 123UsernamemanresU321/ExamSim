@@ -58,8 +58,9 @@ serve(async (request) => {
     });
     const rubricRows = markRows.filter((row) => row.rubric_criteria_id);
     const genericRows = markRows.filter((row) => !row.rubric_criteria_id);
-    await validateStructuredMarkRows(admin, attempt.assessment_version_id, genericRows);
+    await validateMarkRowsAgainstQuestionMaximum(admin, attempt.assessment_version_id, genericRows);
     const rubricAwardRows = await buildRubricAwardRows(admin, attempt.assessment_version_id, attempt.id, ownerProfile.id, body.rubric_awards ?? []);
+    await validateRubricAwardTotals(admin, attempt.assessment_version_id, rubricAwardRows);
     const explicitRubricAwardNodeIds = await validateRubricAwardNodeIds(
       admin,
       attempt.assessment_version_id,
@@ -152,7 +153,7 @@ serve(async (request) => {
   }
 });
 
-async function validateStructuredMarkRows(
+async function validateMarkRowsAgainstQuestionMaximum(
   admin: any,
   assessmentVersionId: string,
   markRows: { question_node_id: string | null; awarded_marks: number }[],
@@ -188,12 +189,41 @@ async function validateStructuredMarkRows(
     if (parentIdsWithChildren.has(row.question_node_id)) {
       throw new Error("Parent question marks are derived from child question marks");
     }
+    const maxMarks = Number(node.marks ?? 0);
+    if (row.awarded_marks > maxMarks) {
+      throw new Error("Awarded marks cannot exceed the question maximum");
+    }
     if (node.response_mode !== "multiple_choice" && node.response_mode !== "numerical") continue;
 
-    const maxMarks = Number(node.marks ?? 0);
     if (row.awarded_marks !== 0 && row.awarded_marks !== maxMarks) {
       throw new Error("Numerical and multiple-choice questions must be marked correct or incorrect");
     }
+  }
+}
+
+async function validateRubricAwardTotals(
+  admin: any,
+  assessmentVersionId: string,
+  rubricAwardRows: { question_node_id: string; awarded_marks: number; selected?: boolean }[],
+) {
+  const selectedRows = rubricAwardRows.filter((row) => row.selected !== false);
+  const questionNodeIds = [...new Set(selectedRows.map((row) => row.question_node_id).filter(Boolean))];
+  if (!questionNodeIds.length) return;
+  const { data, error } = await admin
+    .from("question_nodes")
+    .select("id,marks")
+    .eq("assessment_version_id", assessmentVersionId)
+    .in("id", questionNodeIds);
+  if (error) throw error;
+  const maxMarksByNodeId = new Map((data ?? []).map((node: { id: string; marks?: number | null }) => [node.id, Number(node.marks ?? 0)]));
+  const totals = new Map<string, number>();
+  for (const row of selectedRows) {
+    totals.set(row.question_node_id, (totals.get(row.question_node_id) ?? 0) + Number(row.awarded_marks ?? 0));
+  }
+  for (const [questionNodeId, total] of totals) {
+    const maxMarks = maxMarksByNodeId.get(questionNodeId);
+    if (maxMarks === undefined) throw new Error("Question node not found for rubric award");
+    if (total > maxMarks) throw new Error("Rubric awards cannot exceed the question maximum");
   }
 }
 

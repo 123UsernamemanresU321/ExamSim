@@ -45,6 +45,16 @@ export type ExamsimProductionReadinessItem = {
   qaChecklist: string[];
 };
 
+export type ExamsimReleaseCandidateReadiness = {
+  readyForFullV3: boolean;
+  ownerMessage: string;
+  blockingCount: number;
+  providerGatedCount: number;
+  stagingRequiredCount: number;
+  manualFallbackCount: number;
+  remainingItems: ExamsimProductionReadinessItem[];
+};
+
 export const EXAMSIM_PRODUCTION_FEATURE_KEYS = [
   "smart_import_compiler",
   "ocr_question_detection",
@@ -82,12 +92,12 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       title: "Smart Import / Exam Compiler",
       status: hasDeepSeek && hasMineru ? "ready" : "provider_required",
       ownerMessage: hasDeepSeek && hasMineru
-        ? "Provider-backed Smart Import can run through the configured DeepSeek and MinerU/OCR paths, with owner review still required before publishing."
-        : "Smart Import has a manual PDF/LaTeX/JSON fallback, but provider-backed OCR and AI extraction require configured DeepSeek and MinerU credentials.",
-      productionPath: "Upload PDF or LaTeX, create source pages, repair regions, generate question cards, review health, then publish.",
-      fallback: "Teachers can upload PDFs, draw regions manually, edit question cards, and use deterministic LaTeX parsing without AI/OCR.",
+        ? "Provider-backed Smart Import can run through the configured DeepSeek and MinerU/OCR paths, with owner review, sample-paper QA, and batch-import preflight still required before publishing."
+        : "Smart Import has a manual PDF/LaTeX/JSON fallback plus sample QA and batch-PDF guardrails, but provider-backed OCR and AI extraction require configured DeepSeek and MinerU credentials.",
+      productionPath: "Upload PDF or LaTeX, run batch/source preflight, create source pages, repair regions, generate question cards, review sample QA and health, then publish.",
+      fallback: "Teachers can upload PDFs, draw regions manually, edit question cards, run batch duplicate/size checks, and use deterministic LaTeX parsing without AI/OCR.",
       requiredEnvVars: ["DEEPSEEK_API_KEY", "MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET"],
-      qaChecklist: ["Import a PDF", "Review low-confidence regions", "Publish only after health check warnings are handled"],
+      qaChecklist: ["Import a PDF", "Review sample-paper QA fixtures", "Check batch duplicate/size/provider guardrails", "Review low-confidence regions", "Publish only after health check warnings are handled"],
     },
     {
       key: "ocr_question_detection",
@@ -103,21 +113,21 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "markscheme_rubrics",
       title: "Markscheme Mapping and Rubric Drafting",
       status: "ready",
-      ownerMessage: "Markscheme mapping, rubric templates, rubric items, reusable feedback, and per-rubric awards are available with owner review boundaries.",
-      productionPath: "Map markscheme blocks to question nodes, convert mark codes into editable rubric points, mark with rubric clicks, then release feedback.",
+      ownerMessage: "Markscheme mapping, rubric templates, rubric items, reusable feedback, per-rubric awards, owner-facing total warnings, and Edge-enforced question maximums are available with owner review boundaries.",
+      productionPath: "Map markscheme blocks to question nodes, convert mark codes into editable rubric points, review rubric total warnings, mark with rubric clicks, then release feedback.",
       fallback: "Manual rubric authoring remains available if automatic markscheme parsing is low confidence.",
       requiredEnvVars: [],
-      qaChecklist: ["Map a markscheme section", "Award rubric items", "Confirm totals match question marks"],
+      qaChecklist: ["Map a markscheme section", "Review rubric readiness warnings", "Award rubric items", "Confirm Edge rejects totals above question marks"],
     },
     {
       key: "ai_answer_grouping",
       title: "AI Answer Grouping",
       status: hasDeepSeek ? "provider_ready_needs_staging" : "manual_fallback",
-      ownerMessage: "Deterministic/manual grouping is safe today; semantic grouping should be treated as provider-backed and review-required.",
-      productionPath: "Group typed, numeric, and short text answers; teacher reviews groups before marks are applied.",
+      ownerMessage: "Deterministic/manual grouping is safe today, including typed normalization, blank manual-review buckets, table/whiteboard manual-review groups, and numeric unit/tolerance grouping; semantic grouping remains provider-backed and review-required.",
+      productionPath: "Group typed, numeric, table, whiteboard, and short text answers; teacher reviews groups before marks are applied.",
       fallback: "Manual and deterministic grouping are used when semantic AI grouping is not configured.",
       requiredEnvVars: ["DEEPSEEK_API_KEY"],
-      qaChecklist: ["Create groups", "Review group membership", "Audit group marking decisions"],
+      qaChecklist: ["Create typed groups", "Verify numeric unit/tolerance grouping", "Review manual table/whiteboard buckets", "Audit group marking decisions"],
     },
     {
       key: "guest_seb_lockdown",
@@ -163,9 +173,9 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "institution_role_matrix",
       title: "Institution Role Matrix",
       status: "staging_required",
-      ownerMessage: "Owner/admin, teacher, marker, reviewer, invigilator, and read-only roles now have an owner-scoped permission matrix and RLS-protected membership table.",
-      productionPath: "Create institution memberships, enforce server permission checks on sensitive owner actions, then stage each role with real accounts.",
-      fallback: "Owner-only route guards remain the safest default until every sensitive flow has adopted the permission helper.",
+      ownerMessage: "Owner/admin, teacher, marker, reviewer, invigilator, and read-only roles now have an owner-scoped permission matrix, RLS-protected membership table, and role-aware owner navigation.",
+      productionPath: "Create institution memberships, enforce server permission checks on sensitive owner actions, filter routes/navigation by permission, then stage each role with real accounts.",
+      fallback: "Owner-only top-level route guards remain the safest default until every data loader and sensitive flow is workspace-context aware.",
       requiredEnvVars: [],
       qaChecklist: ["Create teacher account", "Create marker account", "Verify denied publish/export/security access", "Verify owner-only membership management"],
     },
@@ -233,11 +243,11 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "source_pdf_health",
       title: "Source PDF Health and Coverage",
       status: "ready",
-      ownerMessage: "Health checks now cover missing source regions, unlinked boxes, overlapping boxes, low confidence, missing marks/response types, and failed PDF processing.",
-      productionPath: "Run health before publish; block critical errors and require warning acknowledgement.",
+      ownerMessage: "Health checks now cover missing source regions, unlinked question and supporting boxes, overlapping boxes, low confidence, missing marks/response types, failed PDF processing, and weighted readiness scoring.",
+      productionPath: "Run health before publish; review the weighted score breakdown, block critical errors, and require warning acknowledgement.",
       fallback: "Teachers can manually repair source regions and question cards in the visual editor.",
       requiredEnvVars: [],
-      qaChecklist: ["Check unlinked regions", "Check missing marks", "Check overlap warning", "Acknowledge non-critical warnings"],
+      qaChecklist: ["Check unlinked question regions", "Check unlinked diagram/table/instruction regions", "Check missing marks", "Check overlap warning", "Review score breakdown", "Acknowledge non-critical warnings"],
     },
     {
       key: "accommodations_matrix",
@@ -323,6 +333,27 @@ export function summarizeExamsimProductionReadiness(items: ExamsimProductionRead
     manualFallback: countStatus(items, "manual_fallback"),
     blocked: countStatus(items, "blocked"),
     stagingRequired: countStatus(items, "staging_required"),
+  };
+}
+
+export function buildReleaseCandidateReadiness(items: ExamsimProductionReadinessItem[]): ExamsimReleaseCandidateReadiness {
+  const remainingItems = items.filter((item) => item.status !== "ready");
+  const blockingCount = countStatus(items, "blocked");
+  const providerGatedCount = countStatus(items, "provider_required") + countStatus(items, "provider_ready_needs_staging");
+  const stagingRequiredCount = countStatus(items, "staging_required") + countStatus(items, "provider_ready_needs_staging");
+  const manualFallbackCount = countStatus(items, "manual_fallback");
+  const readyForFullV3 = remainingItems.length === 0;
+
+  return {
+    readyForFullV3,
+    ownerMessage: readyForFullV3
+      ? "Full V3 is ready for release-candidate validation."
+      : "Full V3 is not ready. Resolve blocked, provider-gated, staging-required, and manual-fallback items before making a production-ready V3 claim.",
+    blockingCount,
+    providerGatedCount,
+    stagingRequiredCount,
+    manualFallbackCount,
+    remainingItems,
   };
 }
 

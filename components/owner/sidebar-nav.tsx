@@ -28,11 +28,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { filterOwnerNavigationSections } from "@/lib/examsim/institution-route-access";
+import { INSTITUTION_PERMISSION_KEYS, type InstitutionPermission } from "@/lib/examsim/institution-role-matrix";
 
 type NavItem = {
   href: string;
   label: string;
   Icon: LucideIcon;
+  requiredPermission: InstitutionPermission;
 };
 
 type NavSection = {
@@ -43,14 +46,14 @@ type NavSection = {
   items: NavItem[];
 };
 
-const ownerNavSections: NavSection[] = [
+export const ownerNavSections: NavSection[] = [
   {
     id: "main",
     title: "Dashboard",
     description: "Home and status",
     Icon: LayoutDashboard,
     items: [
-      { href: "/owner", label: "Dashboard", Icon: LayoutDashboard },
+      { href: "/owner", label: "Dashboard", Icon: LayoutDashboard, requiredPermission: "student_data" },
     ],
   },
   {
@@ -59,11 +62,11 @@ const ownerNavSections: NavSection[] = [
     description: "Author, import, reuse",
     Icon: FileText,
     items: [
-      { href: "/owner/assessments", label: "Assessments", Icon: FileText },
-      { href: "/owner/assessments/new", label: "Import PDF/LaTeX", Icon: FileText },
-      { href: "/owner/templates", label: "Templates", Icon: BookTemplate },
-      { href: "/owner/paper-generator", label: "Mock Generator", Icon: Wand2 },
-      { href: "/owner/question-bank", label: "Question Library", Icon: BookOpen },
+      { href: "/owner/assessments", label: "Assessments", Icon: FileText, requiredPermission: "assessment_authoring" },
+      { href: "/owner/assessments/new", label: "Import PDF/LaTeX", Icon: FileText, requiredPermission: "assessment_authoring" },
+      { href: "/owner/templates", label: "Templates", Icon: BookTemplate, requiredPermission: "assessment_authoring" },
+      { href: "/owner/paper-generator", label: "Mock Generator", Icon: Wand2, requiredPermission: "assessment_authoring" },
+      { href: "/owner/question-bank", label: "Question Library", Icon: BookOpen, requiredPermission: "assessment_authoring" },
     ],
   },
   {
@@ -72,9 +75,9 @@ const ownerNavSections: NavSection[] = [
     description: "Sessions and delivery",
     Icon: Gauge,
     items: [
-      { href: "/owner/exam-sessions", label: "Exam Sessions", Icon: CalendarClock },
-      { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge },
-      { href: "/owner/attempts", label: "Attempts", Icon: BarChart3 },
+      { href: "/owner/exam-sessions", label: "Exam Sessions", Icon: CalendarClock, requiredPermission: "session_publishing" },
+      { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge, requiredPermission: "invigilation" },
+      { href: "/owner/attempts", label: "Attempts", Icon: BarChart3, requiredPermission: "student_data" },
     ],
   },
   {
@@ -83,9 +86,9 @@ const ownerNavSections: NavSection[] = [
     description: "Marking and release",
     Icon: ListChecks,
     items: [
-      { href: "/owner/marking-queue", label: "Marking Queue", Icon: ListChecks },
-      { href: "/owner/feedback-releases", label: "Feedback", Icon: SendIcon },
-      { href: "/owner/comment-bank", label: "Rubrics / Feedback Library", Icon: MessageSquareText },
+      { href: "/owner/marking-queue", label: "Marking Queue", Icon: ListChecks, requiredPermission: "marking" },
+      { href: "/owner/feedback-releases", label: "Feedback", Icon: SendIcon, requiredPermission: "marking" },
+      { href: "/owner/comment-bank", label: "Rubrics / Feedback Library", Icon: MessageSquareText, requiredPermission: "marking" },
     ],
   },
   {
@@ -94,10 +97,10 @@ const ownerNavSections: NavSection[] = [
     description: "Performance and patterns",
     Icon: GraduationCap,
     items: [
-      { href: "/owner/analytics", label: "Analytics / Performance", Icon: BarChart3 },
-      { href: "/owner/export-hub", label: "Export Hub", Icon: FileDown },
-      { href: "/owner/topics", label: "Topics", Icon: Tags },
-      { href: "/owner/mistakes", label: "Error Patterns", Icon: AlertCircle },
+      { href: "/owner/analytics", label: "Analytics / Performance", Icon: BarChart3, requiredPermission: "analytics" },
+      { href: "/owner/export-hub", label: "Export Hub", Icon: FileDown, requiredPermission: "exports" },
+      { href: "/owner/topics", label: "Topics", Icon: Tags, requiredPermission: "analytics" },
+      { href: "/owner/mistakes", label: "Error Patterns", Icon: AlertCircle, requiredPermission: "analytics" },
     ],
   },
   {
@@ -106,19 +109,31 @@ const ownerNavSections: NavSection[] = [
     description: "People and controls",
     Icon: Users,
     items: [
-      { href: "/owner/students", label: "Students", Icon: Users },
-      { href: "/owner/cohorts", label: "Groups", Icon: Boxes },
-      { href: "/owner/security", label: "Security", Icon: ShieldCheck },
-      { href: "/owner/support", label: "Support Console", Icon: LifeBuoy },
+      { href: "/owner/students", label: "Students", Icon: Users, requiredPermission: "student_data" },
+      { href: "/owner/cohorts", label: "Groups", Icon: Boxes, requiredPermission: "student_data" },
+      { href: "/owner/security", label: "Security", Icon: ShieldCheck, requiredPermission: "readiness_security" },
+      { href: "/owner/support", label: "Support Console", Icon: LifeBuoy, requiredPermission: "student_data" },
     ],
   },
 ];
 
-export function SidebarNav({ isCollapsed, displayName = "Admin User" }: { isCollapsed: boolean; onToggle: () => void; displayName?: string }) {
+export function SidebarNav({
+  isCollapsed,
+  displayName = "Admin User",
+  roleLabel = "System Administrator",
+  permissions = INSTITUTION_PERMISSION_KEYS,
+}: {
+  isCollapsed: boolean;
+  onToggle: () => void;
+  displayName?: string;
+  roleLabel?: string;
+  permissions?: readonly InstitutionPermission[];
+}) {
   const pathname = usePathname();
+  const visibleNavSections = useMemo(() => filterOwnerNavigationSections(ownerNavSections, permissions), [permissions]);
   const activeSectionId = useMemo(() => {
-    return ownerNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)))?.id ?? "main";
-  }, [pathname]);
+    return visibleNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)))?.id ?? "main";
+  }, [pathname, visibleNavSections]);
   const [manualExpandedSections, setManualExpandedSections] = useState<Set<string>>(() => new Set());
   const expandedSections = useMemo(() => new Set(["main", activeSectionId, ...manualExpandedSections]), [activeSectionId, manualExpandedSections]);
 
@@ -154,7 +169,7 @@ export function SidebarNav({ isCollapsed, displayName = "Admin User" }: { isColl
 
       <nav className={cn("flex-1 text-xs font-semibold", isCollapsed ? "grid content-start gap-2 px-2 py-4" : "space-y-1 overflow-y-auto px-3 py-4")}>
         {isCollapsed ? (
-          ownerNavSections.map((section) => (
+          visibleNavSections.map((section) => (
             <div key={section.id} className="grid gap-1 border-b border-[rgba(226,232,240,0.1)] pb-2 last:border-b-0" aria-label={section.title}>
               {section.items.map(({ href, label, Icon }) => {
                 const isActive = isRouteActive(pathname, href);
@@ -176,7 +191,7 @@ export function SidebarNav({ isCollapsed, displayName = "Admin User" }: { isColl
             </div>
           ))
         ) : (
-          ownerNavSections.map((section) => {
+          visibleNavSections.map((section) => {
             const isExpanded = expandedSections.has(section.id);
             const sectionActive = section.id === activeSectionId;
             const SectionIcon = section.Icon;
@@ -233,7 +248,7 @@ export function SidebarNav({ isCollapsed, displayName = "Admin User" }: { isColl
             <span className="grid size-8 place-items-center rounded-full bg-[#565e74] text-xs font-semibold text-white">{initials(displayName)}</span>
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold tracking-[0.02em] text-white">{displayName}</p>
-              <p className="truncate text-[11px] text-[var(--sidebar-muted)]">System Administrator</p>
+              <p className="truncate text-[11px] text-[var(--sidebar-muted)]">{roleLabel}</p>
             </div>
           </div>
         </div>
@@ -242,9 +257,10 @@ export function SidebarNav({ isCollapsed, displayName = "Admin User" }: { isColl
   );
 }
 
-export function OwnerMobileNav() {
+export function OwnerMobileNav({ permissions = INSTITUTION_PERMISSION_KEYS }: { permissions?: readonly InstitutionPermission[] }) {
   const pathname = usePathname();
-  const activeSection = ownerNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)));
+  const visibleNavSections = useMemo(() => filterOwnerNavigationSections(ownerNavSections, permissions), [permissions]);
+  const activeSection = visibleNavSections.find((section) => section.items.some((item) => isRouteActive(pathname, item.href)));
   const activeItem = activeSection?.items.find((item) => isRouteActive(pathname, item.href));
 
   return (
@@ -254,7 +270,7 @@ export function OwnerMobileNav() {
         <ChevronDown size={16} aria-hidden="true" />
       </summary>
       <nav className="grid gap-3 border-t border-[var(--border)] p-3 text-sm" aria-label="Owner mobile navigation">
-        {ownerNavSections.map((section) => (
+        {visibleNavSections.map((section) => (
           <section key={section.id}>
             <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">{section.title}</p>
             <div className="grid gap-1">

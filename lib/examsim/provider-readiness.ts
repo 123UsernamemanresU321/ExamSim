@@ -74,6 +74,82 @@ export type ImportCostGuard = {
   reasons: Array<"large_page_count" | "cost_threshold" | "owner_quota" | "provider_missing">;
 };
 
+export type SmartImportSampleKind = "pdf" | "latex" | "markscheme";
+
+export type SmartImportSampleCheck =
+  | "source_pages"
+  | "question_regions"
+  | "question_text"
+  | "marks"
+  | "answer_types"
+  | "rubric_mapping"
+  | "manual_fallback";
+
+export type SmartImportSampleQaStatus =
+  | "passed"
+  | "failed"
+  | "needs_review"
+  | "provider_required"
+  | "not_run";
+
+export type SmartImportSampleFixture = {
+  id: string;
+  title: string;
+  kind: SmartImportSampleKind;
+  sourceLabel: string;
+  requiredProviders: Array<"mineru" | "deepseek" | "latex">;
+  expectedChecks: SmartImportSampleCheck[];
+};
+
+export type SmartImportSampleQaResult = {
+  fixture_id?: string | null;
+  status?: SmartImportSampleQaStatus | string | null;
+  provider?: string | null;
+  checks?: string[] | null;
+  confidence?: number | null;
+  reviewed_at?: string | null;
+  error_message?: string | null;
+};
+
+export type SmartImportSampleQaItem = {
+  fixture: SmartImportSampleFixture;
+  status: SmartImportSampleQaStatus;
+  provider: string;
+  confidence: number | null;
+  reviewedAt: string | null;
+  missingChecks: SmartImportSampleCheck[];
+  ownerMessage: string;
+};
+
+export type BatchImportFileLike = {
+  name: string;
+  sizeBytes: number;
+  contentType?: string | null;
+};
+
+export type BatchPdfImportIssueCode =
+  | "duplicate_file_name"
+  | "file_too_large"
+  | "unsupported_file_type"
+  | "ocr_provider_missing"
+  | "large_batch_confirmation";
+
+export type BatchPdfImportPlan = {
+  totalFiles: number;
+  acceptedPdfCount: number;
+  rejectedFileCount: number;
+  duplicateNames: string[];
+  estimatedPages: number;
+  issueCodes: BatchPdfImportIssueCode[];
+  requiresOwnerConfirmation: boolean;
+  canSubmitToProvider: boolean;
+  manualFallbackAvailable: boolean;
+  grouping: {
+    sourcePdfNames: string[];
+    markschemeNames: string[];
+  };
+};
+
 export const V3_PROVIDER_CAPABILITY_KEYS = [
   "ocr_layout",
   "ai_semantic",
@@ -106,6 +182,33 @@ export const V3_IMPORT_JOB_LABELS: Record<V3ImportJobState, string> = {
   completed: "Completed",
   retried: "Retried",
 };
+
+export const SMART_IMPORT_SAMPLE_QA_FIXTURES = [
+  {
+    id: "sample-pdf-regions",
+    title: "PDF source regions",
+    kind: "pdf",
+    sourceLabel: "Sample question paper PDF",
+    requiredProviders: ["mineru"],
+    expectedChecks: ["source_pages", "question_regions", "question_text", "marks", "answer_types", "manual_fallback"],
+  },
+  {
+    id: "sample-latex-structure",
+    title: "LaTeX structure import",
+    kind: "latex",
+    sourceLabel: "Sample Examsim LaTeX source",
+    requiredProviders: ["latex"],
+    expectedChecks: ["question_text", "marks", "answer_types", "manual_fallback"],
+  },
+  {
+    id: "sample-markscheme-rubrics",
+    title: "Markscheme to rubrics",
+    kind: "markscheme",
+    sourceLabel: "Sample markscheme PDF/text",
+    requiredProviders: ["deepseek"],
+    expectedChecks: ["rubric_mapping", "marks", "manual_fallback"],
+  },
+] as const satisfies readonly SmartImportSampleFixture[];
 
 export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V3ProviderReadinessItem[] {
   const hasDeepSeek = hasEnv(env, "DEEPSEEK_API_KEY");
@@ -320,6 +423,99 @@ export function buildImportGovernanceSummary({
   };
 }
 
+export function buildSmartImportSampleQaPack(
+  results: SmartImportSampleQaResult[] = [],
+  env: ProviderReadinessEnv = process.env,
+) {
+  const resultByFixture = new Map(results.map((result) => [String(result.fixture_id ?? ""), result]));
+  const items = SMART_IMPORT_SAMPLE_QA_FIXTURES.map((fixture): SmartImportSampleQaItem => {
+    const result = resultByFixture.get(fixture.id);
+    const providerConfigured = fixture.requiredProviders.every((provider) => providerConfiguredForFixture(provider, env));
+    const normalizedStatus = normalizeSampleQaStatus(result?.status);
+    const status: SmartImportSampleQaStatus = result
+      ? normalizedStatus
+      : providerConfigured
+        ? "not_run"
+        : "provider_required";
+    const completedChecks = new Set((result?.checks ?? []).map(String));
+    const missingChecks = fixture.expectedChecks.filter((check) => check !== "manual_fallback" && !completedChecks.has(check));
+
+    return {
+      fixture,
+      status,
+      provider: String(result?.provider ?? (fixture.requiredProviders.join(" + ") || "manual")),
+      confidence: typeof result?.confidence === "number" && Number.isFinite(result.confidence) ? result.confidence : null,
+      reviewedAt: result?.reviewed_at ?? null,
+      missingChecks,
+      ownerMessage: messageForSampleQaStatus(status, fixture),
+    };
+  });
+
+  const summary = {
+    passed: items.filter((item) => item.status === "passed").length,
+    failed: items.filter((item) => item.status === "failed").length,
+    needsReview: items.filter((item) => item.status === "needs_review").length,
+    providerRequired: items.filter((item) => item.status === "provider_required").length,
+    notRun: items.filter((item) => item.status === "not_run").length,
+  };
+
+  return {
+    totalFixtures: items.length,
+    providerBackedReady: summary.passed === items.length,
+    manualFallbackAvailable: true,
+    summary,
+    items,
+  };
+}
+
+export function evaluateBatchPdfImportPlan(
+  files: BatchImportFileLike[],
+  {
+    env = process.env,
+    maxFileSizeBytes = 10 * 1024 * 1024,
+    pageEstimatePerPdf = 12,
+    pageWarnThreshold = 60,
+  }: {
+    env?: ProviderReadinessEnv;
+    maxFileSizeBytes?: number;
+    pageEstimatePerPdf?: number;
+    pageWarnThreshold?: number;
+  } = {},
+): BatchPdfImportPlan {
+  const duplicateNames = findDuplicateNames(files.map((file) => file.name));
+  const acceptedPdfs = files.filter(isPdfLike);
+  const markschemeNames = acceptedPdfs.filter((file) => isMarkschemeFileName(file.name)).map((file) => file.name);
+  const sourcePdfNames = acceptedPdfs.filter((file) => !isMarkschemeFileName(file.name)).map((file) => file.name);
+  const issueCodes = new Set<BatchPdfImportIssueCode>();
+
+  if (duplicateNames.length) issueCodes.add("duplicate_file_name");
+  if (files.some((file) => file.sizeBytes > maxFileSizeBytes)) issueCodes.add("file_too_large");
+  if (files.some((file) => !isPdfLike(file))) issueCodes.add("unsupported_file_type");
+  if (!providerConfiguredForFixture("mineru", env)) issueCodes.add("ocr_provider_missing");
+
+  const estimatedPages = acceptedPdfs.length * pageEstimatePerPdf;
+  if (estimatedPages > pageWarnThreshold) issueCodes.add("large_batch_confirmation");
+
+  return {
+    totalFiles: files.length,
+    acceptedPdfCount: acceptedPdfs.length,
+    rejectedFileCount: files.length - acceptedPdfs.length,
+    duplicateNames,
+    estimatedPages,
+    issueCodes: Array.from(issueCodes),
+    requiresOwnerConfirmation: issueCodes.has("duplicate_file_name") || issueCodes.has("file_too_large") || issueCodes.has("large_batch_confirmation"),
+    canSubmitToProvider: acceptedPdfs.length > 0
+      && !issueCodes.has("ocr_provider_missing")
+      && !issueCodes.has("unsupported_file_type")
+      && !issueCodes.has("file_too_large"),
+    manualFallbackAvailable: true,
+    grouping: {
+      sourcePdfNames,
+      markschemeNames,
+    },
+  };
+}
+
 export function providerStatusTone(status: V3ProviderStatus) {
   if (status === "ready") return "success" as const;
   if (status === "blocked") return "danger" as const;
@@ -343,6 +539,12 @@ function providerConfiguredForParser(parser: string, env: ProviderReadinessEnv) 
   return true;
 }
 
+function providerConfiguredForFixture(provider: "mineru" | "deepseek" | "latex", env: ProviderReadinessEnv) {
+  if (provider === "mineru") return hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET");
+  if (provider === "deepseek") return hasEnv(env, "DEEPSEEK_API_KEY");
+  return true;
+}
+
 function requiresProvider(parser: string) {
   return parser === "mineru" || parser === "mineru_hosted" || parser === "deepseek_ai";
 }
@@ -358,6 +560,43 @@ function hasLowConfidence(metadata: Record<string, unknown>) {
     .map(numberFrom)
     .find((value) => typeof value === "number");
   return typeof confidence === "number" && confidence < 0.72;
+}
+
+function normalizeSampleQaStatus(status: SmartImportSampleQaResult["status"]): SmartImportSampleQaStatus {
+  if (status === "passed" || status === "failed" || status === "needs_review" || status === "provider_required" || status === "not_run") return status;
+  return "needs_review";
+}
+
+function messageForSampleQaStatus(status: SmartImportSampleQaStatus, fixture: SmartImportSampleFixture) {
+  if (status === "passed") return `${fixture.title} passed the reviewed staging fixture.`;
+  if (status === "failed") return `${fixture.title} failed staging QA and must use manual fallback or provider repair.`;
+  if (status === "needs_review") return `${fixture.title} has provider output that still needs owner review.`;
+  if (status === "provider_required") return `${fixture.title} needs provider setup before automated QA can run.`;
+  return `${fixture.title} has no reviewed staging result yet.`;
+}
+
+function findDuplicateNames(names: string[]) {
+  const counts = new Map<string, number>();
+  for (const name of names) {
+    const normalized = normalizeFileName(name);
+    counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([name]) => name);
+}
+
+function normalizeFileName(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isPdfLike(file: BatchImportFileLike) {
+  return file.contentType === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+function isMarkschemeFileName(name: string) {
+  const normalized = normalizeFileName(name).replace(/[-_]/g, " ");
+  return normalized.includes("markscheme") || normalized.includes("mark scheme") || /\bms\b/.test(normalized);
 }
 
 function isImportAuditAction(action: string | null | undefined) {

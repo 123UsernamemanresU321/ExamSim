@@ -56,6 +56,35 @@ export default async function AssessmentHealthPage({ params }: { params: Promise
         </div>
       </Card>
 
+      <Card className="p-6">
+        <SectionHeader
+          title="Score breakdown"
+          description="Weighted readiness categories explain how source coverage, delivery state, marking setup, and security assumptions affect the 0-100 health score."
+        />
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Object.entries(summary.scoreBreakdown).map(([label, category]) => (
+            <div key={label} className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle)]">{label}</p>
+                  <p className="mt-2 font-mono text-sm text-[var(--ink)]">
+                    {Math.max(0, category.weight - category.deducted)}/{category.weight}
+                  </p>
+                </div>
+                <StatusPill status={category.status} compact />
+              </div>
+              {category.issueCodes.length ? (
+                <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                  {category.issueCodes.map((code) => code.replaceAll("_", " ")).join(", ")}
+                </p>
+              ) : (
+                <p className="mt-3 text-xs leading-5 text-[var(--muted)]">No issues in this category.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <IssueList title="Blockers" icon={<FileWarning size={18} />} issues={summary.blockers} empty="No blocking issues were found." />
         <IssueList title="Warnings" icon={<AlertTriangle size={18} />} issues={summary.warnings} empty="No warnings were found." />

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  buildReleaseCandidateReadiness,
   EXAMSIM_PRODUCTION_FEATURE_KEYS,
   getExamsimProductionReadiness,
   summarizeExamsimProductionReadiness,
@@ -67,6 +68,16 @@ describe("Examsim production-readiness matrix", () => {
     expect(summary.ready + summary.providerReadyNeedsStaging + summary.providerRequired + summary.manualFallback + summary.blocked + summary.stagingRequired).toBe(summary.total);
   });
 
+  it("builds a release-candidate readiness summary without overclaiming full V3", () => {
+    const candidate = buildReleaseCandidateReadiness(getExamsimProductionReadiness({}));
+    expect(candidate.readyForFullV3).toBe(false);
+    expect(candidate.blockingCount).toBeGreaterThan(0);
+    expect(candidate.providerGatedCount).toBeGreaterThan(0);
+    expect(candidate.stagingRequiredCount).toBeGreaterThan(0);
+    expect(candidate.remainingItems.map((item) => item.key)).toContain("guest_seb_lockdown");
+    expect(candidate.ownerMessage).toContain("Full V3 is not ready");
+  });
+
   it("tracks Export Hub as the safe fallback for school reporting and interoperability", () => {
     const readiness = getExamsimProductionReadiness({});
     expect(readiness.find((item) => item.key === "institution_role_matrix")?.status).toBe("staging_required");
@@ -86,6 +97,8 @@ describe("Examsim production-readiness matrix", () => {
     expect(page).toContain("InstitutionRoleMatrixPanel");
     expect(page).not.toContain(".or(");
     expect(panel).toContain("Production readiness matrix");
+    expect(panel).toContain("Release candidate readiness");
+    expect(panel).toContain("buildReleaseCandidateReadiness");
     expect(panel).toContain("Smart Import / Exam Compiler");
     expect(panel).toContain("Guest SEB / Lockdown");
     expect(rolePanel).toContain("Institution role matrix");

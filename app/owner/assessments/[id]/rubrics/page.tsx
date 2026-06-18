@@ -1,16 +1,60 @@
 import { createRubricTemplateAction, createRubricTemplateItemAction } from "@/app/owner/assessments/[id]/authoring/actions";
 import { SectionHeading } from "@/components/section-heading";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { getAssessmentAuthoringWorkspace } from "@/lib/examsim/authoring-data";
+import { buildRubricReadinessWarnings, summarizeRubricTemplateTotals } from "@/lib/examsim/rubric-readiness";
 
 export default async function RubricTemplatesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const workspace = await getAssessmentAuthoringWorkspace(id);
+  const templateTotals = summarizeRubricTemplateTotals(workspace.rubricTemplates, workspace.rubricTemplateItems);
+  const templateTotalById = new Map(templateTotals.map((summary) => [summary.templateId, summary]));
+  const readinessWarnings = buildRubricReadinessWarnings(workspace.questionNodes, workspace.rubricTemplates, workspace.rubricTemplateItems);
   return (
     <>
       <SectionHeading title="Rubrics and Reusable Feedback" description="Build reusable rubric templates and M1/A1/B1-style point banks for marking." />
+      <Card className="mb-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--ink)]">Rubric readiness</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+              Total point value is checked against matched question maximums before marking. Over-limit point banks are blocked
+              during marking and should be corrected before release.
+            </p>
+          </div>
+          <Badge tone={readinessWarnings.length ? "warning" : "success"}>
+            {readinessWarnings.length ? `${readinessWarnings.length} warning${readinessWarnings.length === 1 ? "" : "s"}` : "ready"}
+          </Badge>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {workspace.rubricTemplates.length ? workspace.rubricTemplates.map((template) => {
+            const total = templateTotalById.get(template.id);
+            return (
+              <div key={template.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+                <p className="text-xs font-semibold text-[var(--ink)]">{template.name}</p>
+                <p className="mt-1 font-mono text-xs text-[var(--muted)]">
+                  Total point value: {total?.totalMarks ?? 0}m across {total?.itemCount ?? 0} item{total?.itemCount === 1 ? "" : "s"}
+                </p>
+              </div>
+            );
+          }) : (
+            <p className="text-sm text-[var(--muted)]">No rubric templates yet. Create a template, then add M/A/B/E-style points.</p>
+          )}
+        </div>
+        {readinessWarnings.length ? (
+          <div className="mt-4 grid gap-2">
+            {readinessWarnings.map((warning) => (
+              <div key={`${warning.questionNodeId}-${warning.templateId}`} className="rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                <span className="font-semibold">{warning.questionLabel}</span>{" "}
+                has a rubric total above the question maximum: {warning.rubricTotal}m rubric value vs {warning.questionMarks}m available.
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </Card>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <DataTable headers={["Template", "Subject", "Point bank", "Updated"]}>
           {workspace.rubricTemplates.map((template) => (

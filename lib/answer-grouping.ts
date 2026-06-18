@@ -70,9 +70,49 @@ export function normalizeAnswer(answerText: string | null | undefined, responseM
 
 function normalizeNumeric(value: string) {
   const cleaned = value.trim().replace(/,/g, "");
+  const withUnit = cleaned.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)\s*([a-zA-Zµ°/%][a-zA-Zµ°/%^0-9-]*)?$/i);
+  if (withUnit) {
+    const parsed = Number(withUnit[1]);
+    if (Number.isFinite(parsed)) {
+      const normalizedNumber = normalizeNumericValue(parsed);
+      const unit = normalizeUnit(withUnit[2] ?? "");
+      return unit ? `${normalizedNumber} ${unit}` : normalizedNumber;
+    }
+  }
   const parsed = Number(cleaned);
   if (!Number.isFinite(parsed)) return cleaned.toLowerCase().replace(/\s+/g, " ");
-  return String(Number(parsed.toPrecision(12)));
+  return normalizeNumericValue(parsed);
+}
+
+function normalizeNumericValue(value: number) {
+  const rounded = Math.round(value * 1_000_000) / 1_000_000;
+  return String(Number(rounded.toPrecision(12)));
+}
+
+function normalizeUnit(unit: string) {
+  const normalized = unit.trim().toLowerCase();
+  if (!normalized) return "";
+  const aliases: Record<string, string> = {
+    metre: "m",
+    metres: "m",
+    meter: "m",
+    meters: "m",
+    centimetre: "cm",
+    centimetres: "cm",
+    centimeter: "cm",
+    centimeters: "cm",
+    kilometre: "km",
+    kilometres: "km",
+    kilometer: "km",
+    kilometers: "km",
+    gram: "g",
+    grams: "g",
+    kilogram: "kg",
+    kilograms: "kg",
+    second: "s",
+    seconds: "s",
+  };
+  return aliases[normalized] ?? normalized;
 }
 
 function readableAnswer(answerText: string | null | undefined, responseMode?: string | null) {

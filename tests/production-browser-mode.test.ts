@@ -64,6 +64,14 @@ describe("marking and feedback helpers", () => {
     expect(validateAwardedMark(-1, 3)).toMatch(/zero or greater/);
     expect(validateAwardedMark(4, 3)).toMatch(/cannot exceed/);
   });
+
+  it("rejects over-limit manual and rubric totals inside the marking Edge boundary", () => {
+    const edge = read("supabase/functions/save-marking/index.ts");
+    expect(edge).toContain("validateMarkRowsAgainstQuestionMaximum");
+    expect(edge).toContain("validateRubricAwardTotals");
+    expect(edge).toContain("Awarded marks cannot exceed the question maximum");
+    expect(edge).toContain("Rubric awards cannot exceed the question maximum");
+  });
 });
 
 describe("MinerU parse job helpers", () => {

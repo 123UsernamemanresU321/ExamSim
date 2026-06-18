@@ -26,10 +26,10 @@ providers; it only reports env/config readiness, recent import-job states, and m
 - Visual PDF region editor with drawn, draggable, resizable, split, merge, duplicate, delete, normalized-coordinate regions and question-card linking.
 - Smart Compiler review surface with Faithful Mode / Smart Mode explanation, provider status, missing-env messaging, and low-confidence review queue.
 - Editable answer-type suggestions from command terms. Suggestions are advisory only; teacher-selected response mode remains canonical.
-- Source PDF health checks for missing source regions, unlinked regions, overlapping boxes, low-confidence unreviewed regions, missing marks/response types, unresolved markscheme mappings, and compiler review items.
+- Source PDF health checks for missing source regions, unlinked question regions, unlinked supporting diagram/table/instruction regions, overlapping boxes, low-confidence unreviewed regions, missing marks/response types, unresolved markscheme mappings, failed PDF processing, compiler review items, and a weighted 0-100 score breakdown.
 - LaTeX split editor and deterministic Examsim syntax parsing for questions, answer boxes, and markscheme blocks.
-- Markscheme mapping, rubric templates, rubric point authoring, rubric-click marking, and per-rubric-item awards.
-- Deterministic/manual answer grouping as a review aid. Marks are never applied automatically without teacher review.
+- Markscheme mapping, rubric templates, rubric point authoring, rubric-click marking, per-rubric-item awards, rubric setup total warnings, and Edge-enforced question maximums.
+- Deterministic/manual answer grouping as a review aid, including typed normalization, numeric tolerance/unit grouping, blank manual-review buckets, and manual-review table/whiteboard buckets. Marks are never applied automatically without teacher review.
 - Owner analytics snapshot from real stored attempts, marks, question nodes, topic links, and rubric awards:
   - score distribution;
   - weakest questions;
@@ -47,8 +47,10 @@ providers; it only reports env/config readiness, recent import-job states, and m
 - Owner-facing provider readiness dashboard for OCR/layout extraction, AI/semantic grouping, LaTeX syntax parsing, PDF/source-region handling, private storage, Edge Functions, email/notifications, and export readiness.
 - Existing `parse_jobs` rows are normalized into V3 import states: not configured, queued, processing, failed, low confidence, needs review, completed, and retried.
 - Import governance guardrails now surface provider pages processed, retry count, estimated cost, owner quota metadata, large-job confirmation warnings, and existing import audit events from `owner_audit_logs`.
+- Smart Import sample-paper QA fixtures now track PDF source regions, LaTeX structure, and markscheme-to-rubric mapping without claiming provider success when credentials or reviewed staging results are absent.
+- Batch PDF import preflight now models duplicate filenames, unsupported file types, file-size limits, markscheme grouping, large-batch confirmation, provider availability, and manual fallback before any OCR/provider submission.
 - Deployment readiness console lists core env vars, Supabase migrations, RLS, private storage, Edge Functions, provider setup, seed accounts, and security-claim checks with ready/blocked/manual-validation states.
-- Institution role matrix foundation adds owner/admin, teacher, marker, reviewer, invigilator, and read-only viewer permissions, plus an RLS-protected `institution_memberships` table and owner Security page matrix. This is staging-required until every sensitive route has adopted the server helper.
+- Institution role matrix foundation adds owner/admin, teacher, marker, reviewer, invigilator, and read-only viewer permissions, an RLS-protected `institution_memberships` table, owner Security page matrix, and role-aware owner sidebar/mobile navigation. This is staging-required until every sensitive data loader and route is validated with real collaborator accounts.
 - Guest exam typed/table/whiteboard answers now keep an attempt-token-bound local browser backup so refresh recovery can restore drafts before the normal Edge autosave resumes. This is not a claim of full offline file submission.
 - Owner Export Hub provides owner-only CSV/JSON handoff exports for markbooks, roster reconciliation, groups/cohorts, assessment inventory, and analytics validation. It keeps QTI assessment-scoped through the existing Edge export and labels Moodle XML unsupported until fidelity warnings are validated.
 - Hydration-safe form-field help runtime now waits until after browser load before adding tooltip attributes to inputs, preventing server/client attribute mismatches.
@@ -58,12 +60,19 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Surface | Evidence | Production boundary |
 | --- | --- | --- |
 | Provider status dashboard | `components/owner/provider-readiness-dashboard.tsx`, `app/owner/security/page.tsx` | Configuration-only checks. It does not call external providers or expose server-only secrets to the browser. |
-| Import job state and governance model | `lib/examsim/provider-readiness.ts`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs` and `owner_audit_logs`; no new table is required for V3 status, quota, retry, cost, and audit display. |
+| Import job state, sample QA, and governance model | `lib/examsim/provider-readiness.ts`, `components/owner/provider-readiness-dashboard.tsx`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs` and `owner_audit_logs`; no new table is required for V3 status, sample QA fixture display, batch PDF preflight, quota, retry, cost, and audit display. |
 | Deployment readiness console | `components/owner/deployment-readiness-console.tsx`, `lib/examsim/deployment-readiness.ts`, `tests/examsim-v3-deployment-readiness.test.ts` | Read-only launch checklist. Live RLS/storage/migration validation still belongs in staging/provider tooling. |
-| Institution role matrix | `lib/examsim/institution-role-matrix.ts`, `lib/examsim/institution-roles.ts`, `components/owner/institution-role-matrix-panel.tsx`, `supabase/migrations/20260618140348_institution_role_matrix.sql`, `tests/examsim-v3-institution-roles.test.ts` | Owner-scoped collaboration membership and server permission helper. Full route-by-route role rollout still requires staging with real collaborator accounts. |
+| Institution role matrix | `lib/examsim/institution-role-matrix.ts`, `lib/examsim/institution-roles.ts`, `lib/examsim/institution-route-access.ts`, `components/owner/institution-role-matrix-panel.tsx`, `components/owner/sidebar-nav.tsx`, `supabase/migrations/20260618140348_institution_role_matrix.sql`, `tests/examsim-v3-institution-roles.test.ts`, `tests/examsim-v3-route-permissions.test.ts` | Owner-scoped collaboration membership, server permission helper, and role-aware owner navigation. Full route/data-loader rollout still requires staging with real collaborator accounts. |
+| Release-candidate readiness | `lib/examsim-production-readiness.ts`, `components/owner/examsim-production-readiness-panel.tsx`, `tests/examsim-production-readiness-matrix.test.ts` | Explicitly states whether full V3 can be claimed. Current status remains not full V3 ready while blocked, provider-gated, staging-required, and manual-fallback items remain. |
 | Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `tests/examsim-v3-export-hub.test.ts` | Owner-scoped CSV/JSON handoff exports. QTI remains AAL2 Edge-scoped per assessment; Moodle XML remains visibly unsupported. |
 | Compiler review queue | `lib/examsim/compiler-readiness.ts`, `app/owner/assessments/[id]/compiler/page.tsx` | Low-confidence and missing-data items stay review-required before publish. |
+| Source coverage score | `lib/paper-health.ts`, `app/owner/assessments/[id]/health/page.tsx`, `tests/examsim-v2-compiler-readiness.test.ts`, `tests/pdf-region-editor-pipeline.test.ts` | Weighted health score and category breakdown for structure, source, markscheme, delivery, marking, and security. It flags unlinked question and supporting regions without touching Storage or publish logic. |
+| Rubric total validator | `lib/examsim/rubric-readiness.ts`, `app/owner/assessments/[id]/rubrics/page.tsx`, `components/owner/marking-response-workspace.tsx`, `supabase/functions/save-marking/index.ts`, `tests/rubric-readiness.test.ts`, `tests/marking-scoring.test.ts`, `tests/production-browser-mode.test.ts` | Owners see point-bank totals and question-maximum warnings before marking; the Edge save boundary rejects manual and summed rubric totals above the question maximum. |
 | Field help hydration fix | `components/form-field-help-runtime.tsx`, `tests/student-delete-and-field-help.test.ts` | Tooltips are added client-side only after load so React hydration does not see unexpected attributes. |
+
+## Release-candidate readiness
+
+The owner Security page now includes a `Release candidate readiness` summary derived from the same production-readiness matrix. It must read as **not full V3 ready** until all remaining features leave blocked, provider-gated, staging-required, or manual-fallback status. In the current codebase, the main blockers remain guest SEB lockdown, provider-backed OCR/AI validation, full route/data-loader role rollout, Paper Mode auto-mapping, full accommodations/rest-break timing, school dashboards, curriculum standard trees, Moodle XML/QTI fidelity, version rollback/diff UX, and true offline file submission after browser/process restart.
 
 ## Provider-gated V2 features
 
@@ -77,7 +86,7 @@ providers; it only reports env/config readiness, recent import-job states, and m
 
 - Guest SEB lockdown. Authenticated SEB can be used; no-login guest SEB remains blocked until server-verifiable evidence exists.
 - Full Paper Mode automatic scan-to-student/question mapping.
-- Full route-by-route institution role rollout across all authoring, publishing, marking, moderation, invigilation, export, analytics, and security actions. The role matrix and membership table exist, but every sensitive route must be staged with real collaborator accounts before this is production-ready.
+- Full route-by-route institution role rollout across all authoring, publishing, marking, moderation, invigilation, export, analytics, and security data loaders. The role matrix, membership table, and navigation permission map exist, but every sensitive route must be staged with real collaborator accounts before this is production-ready.
 - True offline-first file submission after browser/process termination.
 - Advanced graphing, geometry, CAS, chemistry sketch, and STEM-specific in-exam tools.
 - Official seeded standard trees for every curriculum.
@@ -89,25 +98,25 @@ providers; it only reports env/config readiness, recent import-job states, and m
 
 | Area | Current status | Production boundary |
 | --- | --- | --- |
-| Smart Import / Exam Compiler | Provider required unless DeepSeek and MinerU/OCR are configured | Manual PDF/LaTeX/JSON import, visual region repair, and owner review are production-safe. Provider-backed extraction needs staging before launch. |
+| Smart Import / Exam Compiler | Provider required unless DeepSeek and MinerU/OCR are configured | Manual PDF/LaTeX/JSON import, visual region repair, batch PDF preflight, sample-paper QA display, and owner review are production-safe. Provider-backed extraction needs staging before launch. |
 | AI/OCR Question Detection | Provider required | Do not claim automatic detection unless provider credentials exist and low-confidence review is tested. |
 | Provider Dashboard / Import Job States | Ready | Owner Security page shows env/config readiness and recent import jobs without sending test payloads to providers. |
-| OCR Cost / Quota / Import Audit Guardrails | Ready | Recent import metadata and audit logs are surfaced for owner review. Provider spending caps must still be configured in provider dashboards. |
+| OCR Cost / Quota / Import Audit Guardrails | Ready | Recent import metadata, sample QA status, batch import preflight, and audit logs are surfaced for owner review. Provider spending caps must still be configured in provider dashboards. |
 | Deployment Readiness Console | Ready | Owner Security page shows env/config gates and manual validation requirements without mutating Supabase state. |
-| Markscheme Mapping and Rubrics | Ready | Markscheme blocks and rubric points are editable; totals must still be checked during QA. |
-| AI Answer Grouping | Manual fallback without DeepSeek | Deterministic/manual grouping is safe; semantic grouping is review-required and provider-gated. |
+| Markscheme Mapping and Rubrics | Ready | Markscheme blocks and rubric points are editable; setup warnings show point-bank drift and `save-marking` rejects manual or summed rubric totals above the question maximum. |
+| AI Answer Grouping | Manual fallback without DeepSeek | Deterministic/manual grouping covers typed normalization, numeric tolerance/unit grouping, blank buckets, table/manual-review, and whiteboard/manual-review responses. Semantic grouping is review-required and provider-gated. |
 | Guest SEB / Lockdown | Blocked | Authenticated SEB can be used. Guest SEB remains blocked until BEK/CK/request-hash evidence can be server-verified safely. |
 | Paper Mode | Manual fallback | Printable/scan workflows need OCR/barcode staging for reliable auto-mapping; manual scan attachment and correction are the safe path. |
 | STEM / Handwriting / Table OCR | Provider required | Needs Mathpix, MinerU, or equivalent OCR provider plus confidence review. Manual transcription remains the fallback. |
 | Collaborative Grading Roles | Staging required | Owner-led marker assignment and review flags are available; anonymous/double-marking workflows need real-account staging. |
-| Institution Role Matrix | Staging required | `institution_memberships` RLS, role permissions, server helper, and owner-facing matrix exist. Every sensitive route must adopt and stage the helper before institution roles are production-ready. |
+| Institution Role Matrix | Staging required | `institution_memberships` RLS, role permissions, server helper, owner-facing matrix, and route-aware navigation exist. Every sensitive data loader must adopt and stage the helper before institution roles are production-ready. |
 | Live Invigilation | Staging required | Operationally useful surfaces exist; classroom-scale subscriptions, filters, and interventions need synthetic load QA. |
 | Guest Upload Recovery | Ready | Upload signing, retries, byte verification, and idempotent finalization are server-enforced. |
 | Offline Resilience | Manual fallback | Server autosave/retry plus attempt-token-bound local typed/table/whiteboard draft recovery exist. Full offline file submission after browser/process termination is not claimed. |
 | Teacher Analytics | V2 ready, staging recommended | Analytics now use real stored attempts, marks, question nodes, topic links, and rubric awards; school-scale exports still need staging. |
 | Question Library / Mock Generator | Staging required | Extraction and generation require health-check review before generated exams are published. |
 | Student Account Claim Flow | Staging required | Claim/reconciliation paths must be tested with duplicate and mismatched identities. |
-| Source PDF Health | Ready | Integrated into publish/health checks. |
+| Source PDF Health | Ready | Integrated into publish/health checks with weighted score breakdown and supporting-region warnings for diagrams, tables, and instructions. |
 | Accommodations Matrix | Manual fallback | Extra time and upload extension are server-effective. Broader rest-break/tool/TTS policies need staging. |
 | Built-in Subject Tools | Manual fallback | Allowed materials, table responses, and simple whiteboard responses are safe. Advanced graphing/geometry/CAS tools must stay labelled unavailable unless integrated. |
 | Curriculum Alignment | Manual fallback | Topic tags exist. Full standard trees need seeded IB/MYP/IGCSE/Olympiad content. |
@@ -177,10 +186,14 @@ Operational setup outside the repo:
 ## QA checklist
 
 - PDF import without providers shows honest manual fallback.
+- Batch PDF import identifies duplicate files, unsupported file types, large batches, and missing OCR provider setup before submission.
+- Smart Import sample-paper QA fixtures are visible without marking provider-backed extraction as passed by default.
 - PDF import with providers produces review-required suggestions, not auto-published questions.
 - Low-confidence parser/OCR items appear in owner review.
+- Health score breakdown identifies source coverage loss from unlinked question, diagram, table, and instruction regions.
 - Markscheme instructions/cover pages are not mapped to Q1.
-- Rubric-click awards recalculate question and attempt totals.
+- Rubric-click awards recalculate question and attempt totals, and over-limit manual/rubric totals are rejected before saving.
+- Deterministic answer grouping combines equivalent numeric answers with canonical units and leaves blanks/table/whiteboard groups for manual review.
 - Guest upload confirmation rejects missing, empty, oversized, and non-PDF files.
 - Extra time changes server-computed attempt state and student timer.
 - Force-submit, pause/resume, and extra-time interventions write audit events.
@@ -196,8 +209,12 @@ This section should be updated for each release candidate. For this readiness pa
 - `npm test -- tests/student-delete-and-field-help.test.ts`
 - `npm test -- tests/examsim-v3-deployment-readiness.test.ts`
 - `npm test -- tests/examsim-v2-compiler-readiness.test.ts tests/examsim-v2-analytics.test.ts tests/examsim-production-readiness-matrix.test.ts`
+- `npm test -- tests/examsim-v2-compiler-readiness.test.ts tests/pdf-region-editor-pipeline.test.ts`
+- `npm test -- tests/rubric-readiness.test.ts tests/marking-scoring.test.ts tests/production-browser-mode.test.ts`
+- `npm test -- tests/examsim-expansion.test.ts`
 - `npm test -- tests/examsim-v3-response-capabilities.test.ts tests/examsim-v2-compiler-readiness.test.ts`
 - `npm test -- tests/examsim-v3-export-hub.test.ts tests/sidebar-navigation.test.ts tests/examsim-production-readiness-matrix.test.ts`
+- `npm test -- tests/examsim-v3-route-permissions.test.ts`
 - `npm run lint`
 - `npm run typecheck`
 - `npm test`
