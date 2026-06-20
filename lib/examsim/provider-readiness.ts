@@ -8,7 +8,7 @@ export type V3ProviderCapabilityKey =
   | "email_notifications"
   | "export_pipeline";
 
-export type V3ProviderStatus = "ready" | "provider_required" | "manual_fallback" | "staging_required" | "blocked";
+export type V3ProviderStatus = "ready" | "provider_required" | "manual_fallback" | "live_validation_required" | "blocked";
 
 export type V3ImportJobState =
   | "not_configured"
@@ -213,21 +213,24 @@ export const SMART_IMPORT_SAMPLE_QA_FIXTURES = [
 export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V3ProviderReadinessItem[] {
   const hasDeepSeek = hasEnv(env, "DEEPSEEK_API_KEY");
   const hasMineru = hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET");
+  const hasSimpleTex = hasEnv(env, "SIMPLETEX_APP_ID") && hasEnv(env, "SIMPLETEX_APP_SECRET");
+  const hasOcrProvider = hasMineru || hasSimpleTex;
   const hasSupabase = hasEnv(env, "NEXT_PUBLIC_SUPABASE_URL") && hasEnv(env, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const hasMail = hasEnv(env, "RESEND_API_KEY") || hasEnv(env, "POSTMARK_SERVER_TOKEN") || hasEnv(env, "SENDGRID_API_KEY");
 
   return [
     {
       key: "ocr_layout",
-      title: "OCR and layout extraction",
-      status: hasMineru ? "ready" : "provider_required",
+      title: "OCR and source extraction",
+      status: hasOcrProvider ? "ready" : "provider_required",
       ownerMessage: hasMineru
-        ? "MinerU/OCR credentials are present. Layout extraction can be submitted through server-side Edge Functions and still requires teacher review."
+        ? "MinerU credentials are present for layout extraction. Provider output remains review-required."
+        : hasSimpleTex
+          ? "SimpleTeX APP credentials are present for server-side page, formula, table, and handwriting OCR. Region boxes remain teacher-reviewed and manually editable."
         : "Provider-backed OCR is not configured. Teachers should use the manual PDF region editor instead of expecting automatic detection.",
-      requiredEnvVars: ["MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET"],
+      requiredEnvVars: ["SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, or MINERU_API_KEY / MINERU_WORKER_HMAC_SECRET"],
       fallback: "Manual PDF upload, page review, normalized region drawing, and source-anchor linking.",
       safeProbe: "Configuration-only check; no PDF is sent to an external provider from this dashboard.",
-      setupReference: "Set MinerU hosted credentials or a signed worker secret in Supabase Edge secrets.",
+      setupReference: "Set SimpleTeX APP credentials or MinerU credentials in Supabase Edge secrets. Never expose them as NEXT_PUBLIC variables.",
     },
     {
       key: "ai_semantic",
@@ -248,8 +251,8 @@ export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V
       ownerMessage: "The deterministic Examsim LaTeX syntax parser is available without an external provider; rendered PDF compilation remains environment-dependent.",
       requiredEnvVars: [],
       fallback: "Split editor, parse warnings, manual question-card correction, and Advanced JSON Review for power users.",
-      safeProbe: "Local syntax support check only; production PDF compilation should be verified in staging.",
-      setupReference: "Use Examsim syntax and run staging checks with the configured build/runtime image.",
+      safeProbe: "Local syntax support check only; production PDF compilation should be verified on the actual website.",
+      setupReference: "Use Examsim syntax and run live checks with the configured build/runtime image.",
     },
     {
       key: "pdf_rendering",
@@ -266,7 +269,7 @@ export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V
       title: "Private storage and signed files",
       status: hasSupabase ? "ready" : "provider_required",
       ownerMessage: hasSupabase
-        ? "Supabase client configuration is present. Private bucket access must still be validated in staging."
+        ? "Supabase client configuration is present. Private bucket access must still be validated on the actual website."
         : "Supabase URL/anon configuration is missing, so private storage and signed-file flows cannot run in this environment.",
       requiredEnvVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
       fallback: "Block high-stakes exam delivery until private bucket signing is verified.",
@@ -276,36 +279,34 @@ export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V
     {
       key: "edge_functions",
       title: "Edge function security boundary",
-      status: hasSupabase ? "staging_required" : "provider_required",
+      status: hasSupabase ? "live_validation_required" : "provider_required",
       ownerMessage: hasSupabase
         ? "Edge Function configuration is present, but deploy-time checks and signed workflow tests must pass before launch."
         : "Supabase configuration is missing, so Edge-mediated guest tokens, uploads, parsing, and finalization cannot be validated.",
       requiredEnvVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "ATTEMPT_STATE_TOKEN_SECRET"],
-      fallback: "Do not run guest exam delivery until Edge Functions are deployed and staging-tested.",
+      fallback: "Do not run guest exam delivery until Edge Functions are deployed and live-tested with synthetic records.",
       safeProbe: "Configuration-only check; sensitive Edge workflows are not called from the dashboard.",
       setupReference: "Deploy Edge Functions and run the synthetic guest/authenticated QA workflow.",
     },
     {
       key: "email_notifications",
-      title: "Email and notification provider",
-      status: hasMail ? "staging_required" : "manual_fallback",
-      ownerMessage: hasMail
-        ? "A mail provider key appears configured; low-volume staging sends and suppression handling still need validation."
-        : "No mail provider is configured. Owners can still copy exam instructions and student numbers manually.",
-      requiredEnvVars: ["Optional RESEND_API_KEY, POSTMARK_SERVER_TOKEN, or SENDGRID_API_KEY"],
+      title: "Exam instruction distribution",
+      status: "ready",
+      ownerMessage: "No email provider is required. Owners can distribute exam codes, student numbers, and instructions manually or through copyable in-app blocks.",
+      requiredEnvVars: [],
       fallback: "Copyable instruction blocks, in-app notifications, and manual distribution packs.",
-      safeProbe: "Configuration-only check; no email is sent.",
-      setupReference: "Configure provider spending/sending limits and verified domains before production emails.",
+      safeProbe: "Configuration-only check; no email is sent or required.",
+      setupReference: "Use the owner distribution pack and copy blocks for live exams.",
     },
     {
       key: "export_pipeline",
       title: "Exports and reports",
-      status: "staging_required",
+      status: "live_validation_required",
       ownerMessage: "JSON, CSV, and PDF-style report surfaces exist, but every export type should be verified with representative marked attempts before launch.",
       requiredEnvVars: [],
       fallback: "Use CSV/JSON exports with fidelity warnings for unsupported Moodle/QTI features.",
       safeProbe: "Feature inventory check only; no report is generated by this dashboard.",
-      setupReference: "Validate markbook, student report, QTI, and Moodle/XML fidelity in staging.",
+      setupReference: "Validate markbook, student report, QTI, and Moodle/XML fidelity on the actual website with synthetic marked attempts.",
     },
   ];
 }
@@ -491,7 +492,7 @@ export function evaluateBatchPdfImportPlan(
   if (duplicateNames.length) issueCodes.add("duplicate_file_name");
   if (files.some((file) => file.sizeBytes > maxFileSizeBytes)) issueCodes.add("file_too_large");
   if (files.some((file) => !isPdfLike(file))) issueCodes.add("unsupported_file_type");
-  if (!providerConfiguredForFixture("mineru", env)) issueCodes.add("ocr_provider_missing");
+  if (!providerConfiguredForFixture("mineru", env) && !simpleTexConfigured(env)) issueCodes.add("ocr_provider_missing");
 
   const estimatedPages = acceptedPdfs.length * pageEstimatePerPdf;
   if (estimatedPages > pageWarnThreshold) issueCodes.add("large_batch_confirmation");
@@ -519,7 +520,7 @@ export function evaluateBatchPdfImportPlan(
 export function providerStatusTone(status: V3ProviderStatus) {
   if (status === "ready") return "success" as const;
   if (status === "blocked") return "danger" as const;
-  if (status === "provider_required" || status === "staging_required") return "warning" as const;
+  if (status === "provider_required" || status === "live_validation_required") return "warning" as const;
   return "info" as const;
 }
 
@@ -536,6 +537,7 @@ function providerConfiguredForParser(parser: string, env: ProviderReadinessEnv) 
     return hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET");
   }
   if (parser === "deepseek_ai") return hasEnv(env, "DEEPSEEK_API_KEY");
+  if (parser === "simpletex" || parser === "simpletex_ocr") return simpleTexConfigured(env);
   return true;
 }
 
@@ -546,7 +548,11 @@ function providerConfiguredForFixture(provider: "mineru" | "deepseek" | "latex",
 }
 
 function requiresProvider(parser: string) {
-  return parser === "mineru" || parser === "mineru_hosted" || parser === "deepseek_ai";
+  return parser === "mineru" || parser === "mineru_hosted" || parser === "deepseek_ai" || parser === "simpletex" || parser === "simpletex_ocr";
+}
+
+function simpleTexConfigured(env: ProviderReadinessEnv) {
+  return hasEnv(env, "SIMPLETEX_APP_ID") && hasEnv(env, "SIMPLETEX_APP_SECRET");
 }
 
 function hasLowConfidence(metadata: Record<string, unknown>) {
@@ -568,11 +574,11 @@ function normalizeSampleQaStatus(status: SmartImportSampleQaResult["status"]): S
 }
 
 function messageForSampleQaStatus(status: SmartImportSampleQaStatus, fixture: SmartImportSampleFixture) {
-  if (status === "passed") return `${fixture.title} passed the reviewed staging fixture.`;
-  if (status === "failed") return `${fixture.title} failed staging QA and must use manual fallback or provider repair.`;
+  if (status === "passed") return `${fixture.title} passed the reviewed live validation fixture.`;
+  if (status === "failed") return `${fixture.title} failed live validation QA and must use manual fallback or provider repair.`;
   if (status === "needs_review") return `${fixture.title} has provider output that still needs owner review.`;
   if (status === "provider_required") return `${fixture.title} needs provider setup before automated QA can run.`;
-  return `${fixture.title} has no reviewed staging result yet.`;
+  return `${fixture.title} has no reviewed live validation result yet.`;
 }
 
 function findDuplicateNames(names: string[]) {

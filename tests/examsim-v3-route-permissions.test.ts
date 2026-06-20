@@ -15,7 +15,7 @@ describe("Examsim V3 owner route permissions", () => {
     expect(requiredPermissionForOwnerPath("/owner/marking-queue")).toBe("marking");
     expect(requiredPermissionForOwnerPath("/owner/feedback-releases")).toBe("marking");
     expect(requiredPermissionForOwnerPath("/owner/exam-sessions")).toBe("session_publishing");
-    expect(requiredPermissionForOwnerPath("/owner/students")).toBe("student_data");
+    expect(requiredPermissionForOwnerPath("/owner/students")).toBe("student_management");
     expect(requiredPermissionForOwnerPath("/owner/analytics")).toBe("analytics");
     expect(requiredPermissionForOwnerPath("/owner/assessments/new")).toBe("assessment_authoring");
   });
@@ -72,5 +72,34 @@ describe("Examsim V3 owner route permissions", () => {
     expect(sidebar).toContain("permissions?:");
     expect(shell).toContain("institutionPermissions");
     expect(shell).toContain("<OwnerMobileNav permissions={institutionPermissions}");
+  });
+
+  it("enforces workflow permissions in server layouts rather than only hiding navigation", () => {
+    const ownerLayout = readFileSync("app/owner/layout.tsx", "utf8");
+    expect(ownerLayout).toContain("requireInstitutionContext");
+    expect(ownerLayout).not.toContain('requireAppRole("owner"');
+
+    const routeLayouts: Array<[string, InstitutionPermission]> = [
+      ["app/owner/assessments/layout.tsx", "assessment_authoring"],
+      ["app/owner/exam-sessions/layout.tsx", "session_publishing"],
+      ["app/owner/marking-queue/layout.tsx", "marking"],
+      ["app/owner/operations/layout.tsx", "invigilation"],
+      ["app/owner/analytics/layout.tsx", "analytics"],
+      ["app/owner/students/layout.tsx", "student_management"],
+      ["app/owner/export-hub/layout.tsx", "exports"],
+      ["app/owner/security/layout.tsx", "readiness_security"],
+    ];
+    for (const [file, permission] of routeLayouts) {
+      expect(readFileSync(file, "utf8")).toContain(`InstitutionPermissionLayout permission="${permission}"`);
+    }
+  });
+
+  it("keeps the owner-admin demo context local-only for E2E workflows", () => {
+    const roles = readFileSync("lib/examsim/institution-roles.ts", "utf8");
+    const runtime = readFileSync("lib/runtime.ts", "utf8");
+    expect(roles).toContain("isDemoModeEnabled()");
+    expect(roles).toContain('profileId: "demo_owner"');
+    expect(roles).toContain('role: "owner_admin"');
+    expect(runtime).toContain('process.env.NODE_ENV !== "production"');
   });
 });

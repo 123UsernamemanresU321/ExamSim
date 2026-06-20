@@ -1,4 +1,5 @@
 import { computeAttemptState } from "@/lib/attempt-state";
+import type { AttemptState } from "@/lib/constants";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
@@ -30,7 +31,7 @@ export type OperationsBoardRow = {
   attempt: Attempt;
   assessment: Pick<Assessment, "id" | "title" | "paper_code" | "subject"> | null;
   student: Pick<Profile, "id" | "display_name"> | null;
-  state: "WAITING" | "ACTIVE" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
+  state: AttemptState;
   uploadSummary: {
     total: number;
     uploaded: number;
@@ -336,6 +337,7 @@ async function buildOperationsRows(attempts: Attempt[]): Promise<OperationsBoard
         startAtUtc: attempt.start_at_utc,
         endAtUtc: attempt.end_at_utc,
         uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
+        pausedAtUtc: attempt.paused_at,
         solutionsRequested: attempt.solutions_requested,
       }),
       uploadSummary: {

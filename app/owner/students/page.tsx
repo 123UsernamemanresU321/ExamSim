@@ -4,6 +4,7 @@ import { CreateStudentGroupForm } from "@/components/owner/create-student-group-
 import { CreateStudentForm } from "@/components/owner/create-student-form";
 import { DeleteRosterEntryButton, DeleteStudentAccountButton } from "@/components/owner/delete-student-button";
 import { LinkRosterAccountControl } from "@/components/owner/link-roster-account-control";
+import { RosterAccommodationsControl } from "@/components/owner/roster-accommodations-control";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -143,7 +144,7 @@ export default async function OwnerStudentsPage() {
             {rosterEntries.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No roster student numbers yet. Add one manually or auto-generate placeholders.</p>
             ) : (
-              <DataTable headers={["Student number", "Student", "Linked account", "Class/group", "Status", "Actions"]} className="shadow-none">
+              <DataTable headers={["Student number", "Student", "Linked account", "Class/group", "Accommodations", "Status", "Actions"]} className="shadow-none">
                 {rosterEntries.map((entry) => (
                   <DataTableRow key={entry.id}>
                     <DataTableCell className="font-mono text-xs font-semibold text-[var(--ink)]">{entry.student_number}</DataTableCell>
@@ -159,6 +160,7 @@ export default async function OwnerStudentsPage() {
                       />
                     </DataTableCell>
                     <DataTableCell className="text-[var(--muted)]">{entry.class_group ?? "No group"}</DataTableCell>
+                    <DataTableCell><RosterAccommodationsControl rosterEntryId={entry.id} value={entry.accommodations_json} /></DataTableCell>
                     <DataTableCell><Badge tone={entry.active ? "success" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Badge></DataTableCell>
                     <DataTableCell className="text-right">
                       <DeleteRosterEntryButton rosterEntryId={entry.id} studentNumber={entry.student_number} />

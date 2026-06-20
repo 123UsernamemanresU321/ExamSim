@@ -28,6 +28,11 @@ export type Attempt = {
   guest_identity_json?: Json;
   claim_status?: "not_required" | "unclaimed" | "pending" | "linked" | "rejected";
   claim_code_hash?: string | null;
+  claim_code_expires_at?: string | null;
+  claim_code_used_at?: string | null;
+  claim_requested_by_profile_id?: string | null;
+  claim_reviewed_at?: string | null;
+  claim_reviewed_by_profile_id?: string | null;
   duplicate_identity_flag?: boolean;
   identity_review_status?: "not_required" | "needs_review" | "resolved" | "rejected";
   paused_at?: string | null;
@@ -77,6 +82,49 @@ export type InstitutionMembership = {
   display_label: string | null;
   permissions_json: Json;
   created_by_profile_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssessmentGradingPolicy = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  anonymous_grading: boolean;
+  double_marking: boolean;
+  moderation_required: boolean;
+  identity_reveal_requires_reason: boolean;
+  double_mark_delta_threshold: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarkingSubmission = {
+  id: string;
+  owner_profile_id: string;
+  attempt_id: string;
+  marker_profile_id: string;
+  marking_round: "primary" | "secondary" | "adjudication";
+  status: "submitted" | "superseded" | "approved" | "rejected";
+  total_awarded_marks: number;
+  marks_snapshot_json: Json;
+  rubric_awards_snapshot_json: Json;
+  submitted_at: string;
+  updated_at: string;
+};
+
+export type MarkingReview = {
+  id: string;
+  owner_profile_id: string;
+  attempt_id: string;
+  primary_submission_id: string;
+  secondary_submission_id: string | null;
+  reviewer_profile_id: string | null;
+  status: "pending" | "needs_secondary" | "needs_adjudication" | "approved" | "rejected";
+  mark_delta: number | null;
+  reviewer_comment: string | null;
+  final_submission_id: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -442,6 +490,56 @@ export type Mark = {
   updated_at: string;
 };
 
+export type AnswerGroupingRun = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  question_node_id: string;
+  created_by_profile_id: string;
+  provider: "deterministic" | "semantic";
+  status: "draft" | "reviewed" | "applied" | "cancelled";
+  response_count: number;
+  applied_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnswerGroupRow = {
+  id: string;
+  owner_profile_id: string;
+  run_id: string;
+  ordinal: number;
+  label: string;
+  normalized_answer: string;
+  confidence: "exact" | "normalized" | "semantic" | "manual_review";
+  approved: boolean;
+  suggested_awarded_marks: number | null;
+  feedback_text: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnswerGroupMember = {
+  id: string;
+  owner_profile_id: string;
+  run_id: string;
+  group_id: string;
+  text_response_id: string;
+  attempt_id: string;
+  original_normalized_answer: string;
+  created_at: string;
+};
+
+export type AnswerGroupAuditEvent = {
+  id: string;
+  owner_profile_id: string;
+  run_id: string;
+  actor_profile_id: string;
+  event_type: "created" | "member_moved" | "group_split" | "groups_merged" | "group_approved" | "group_reopened" | "run_reviewed" | "marks_applied" | "cancelled";
+  payload_json: Json;
+  created_at: string;
+};
+
 export type SubmissionAnnotation = {
   id: string;
   attempt_id: string;
@@ -587,6 +685,21 @@ export type AttemptAccommodation = {
   extra_seconds: number | null;
   reason: string;
   applied_at: string;
+};
+
+export type AttemptPauseInterval = {
+  id: string;
+  attempt_id: string;
+  exam_session_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  applied_seconds: number | null;
+  maximum_seconds: number;
+  reason: string;
+  owner_profile_id: string;
+  created_by_profile_id: string;
+  ended_by_profile_id: string | null;
+  created_at: string;
 };
 
 export type TopicTag = {
@@ -1110,6 +1223,24 @@ export type Database = {
         Update: Partial<InstitutionMembership>;
         Relationships: [];
       };
+      assessment_grading_policies: {
+        Row: AssessmentGradingPolicy;
+        Insert: Partial<AssessmentGradingPolicy> & Pick<AssessmentGradingPolicy, "owner_profile_id" | "assessment_id">;
+        Update: Partial<AssessmentGradingPolicy>;
+        Relationships: [];
+      };
+      marking_submissions: {
+        Row: MarkingSubmission;
+        Insert: Partial<MarkingSubmission> & Pick<MarkingSubmission, "owner_profile_id" | "attempt_id" | "marker_profile_id" | "marking_round" | "total_awarded_marks">;
+        Update: Partial<MarkingSubmission>;
+        Relationships: [];
+      };
+      marking_reviews: {
+        Row: MarkingReview;
+        Insert: Partial<MarkingReview> & Pick<MarkingReview, "owner_profile_id" | "attempt_id" | "primary_submission_id">;
+        Update: Partial<MarkingReview>;
+        Relationships: [];
+      };
       student_credentials: {
         Row: StudentCredential;
         Insert: Partial<StudentCredential> & Pick<StudentCredential, "student_profile_id" | "login_code" | "activation_code_hash">;
@@ -1286,6 +1417,30 @@ export type Database = {
         Update: Partial<Mark>;
         Relationships: [];
       };
+      answer_grouping_runs: {
+        Row: AnswerGroupingRun;
+        Insert: Partial<AnswerGroupingRun> & Pick<AnswerGroupingRun, "owner_profile_id" | "assessment_id" | "question_node_id" | "created_by_profile_id">;
+        Update: Partial<AnswerGroupingRun>;
+        Relationships: [];
+      };
+      answer_groups: {
+        Row: AnswerGroupRow;
+        Insert: Partial<AnswerGroupRow> & Pick<AnswerGroupRow, "owner_profile_id" | "run_id" | "label">;
+        Update: Partial<AnswerGroupRow>;
+        Relationships: [];
+      };
+      answer_group_members: {
+        Row: AnswerGroupMember;
+        Insert: Partial<AnswerGroupMember> & Pick<AnswerGroupMember, "owner_profile_id" | "run_id" | "group_id" | "text_response_id" | "attempt_id">;
+        Update: Partial<AnswerGroupMember>;
+        Relationships: [];
+      };
+      answer_group_audit_events: {
+        Row: AnswerGroupAuditEvent;
+        Insert: Partial<AnswerGroupAuditEvent> & Pick<AnswerGroupAuditEvent, "owner_profile_id" | "run_id" | "actor_profile_id" | "event_type">;
+        Update: Partial<AnswerGroupAuditEvent>;
+        Relationships: [];
+      };
       submission_annotations: {
         Row: SubmissionAnnotation;
         Insert: Partial<SubmissionAnnotation> & Pick<SubmissionAnnotation, "attempt_id" | "owner_profile_id" | "annotation_type" | "body">;
@@ -1344,6 +1499,12 @@ export type Database = {
         Row: AttemptAccommodation;
         Insert: Partial<AttemptAccommodation> & Pick<AttemptAccommodation, "attempt_id" | "created_by_profile_id" | "accommodation_type" | "reason">;
         Update: Partial<AttemptAccommodation>;
+        Relationships: [];
+      };
+      attempt_pause_intervals: {
+        Row: AttemptPauseInterval;
+        Insert: Partial<AttemptPauseInterval> & Pick<AttemptPauseInterval, "attempt_id" | "reason" | "created_by_profile_id">;
+        Update: Partial<AttemptPauseInterval>;
         Relationships: [];
       };
       topic_tags: {
@@ -1594,6 +1755,79 @@ export type Database = {
       audit_owner_action: {
         Args: { action: string; target_table?: string | null; target_id?: string | null; metadata_json?: Json };
         Returns: string;
+      };
+      audit_institution_action: {
+        Args: {
+          p_owner_profile_id: string;
+          p_action: string;
+          p_target_table?: string | null;
+          p_target_id?: string | null;
+          p_metadata_json?: Json;
+        };
+        Returns: string;
+      };
+      has_institution_permission: {
+        Args: { target_owner_profile_id: string; required_permission: string };
+        Returns: boolean;
+      };
+      institution_link_guest_attempt: {
+        Args: { p_owner_profile_id: string; p_exam_session_id: string; p_attempt_id: string; p_roster_entry_id: string };
+        Returns: undefined;
+      };
+      institution_resolve_guest_identity: {
+        Args: { p_owner_profile_id: string; p_exam_session_id: string; p_attempt_id: string };
+        Returns: undefined;
+      };
+      institution_review_attempt_claim: {
+        Args: { p_owner_profile_id: string; p_exam_session_id: string; p_attempt_id: string; p_decision: "approve" | "reject" };
+        Returns: undefined;
+      };
+      institution_start_attempt_rest_break: {
+        Args: { p_owner_profile_id: string; p_attempt_id: string; p_exam_session_id: string; p_reason: string; p_maximum_seconds?: number };
+        Returns: Array<{ pause_interval_id: string; started_at: string }>;
+      };
+      institution_resume_attempt_rest_break: {
+        Args: { p_owner_profile_id: string; p_attempt_id: string; p_exam_session_id: string };
+        Returns: Array<{ pause_interval_id: string; applied_seconds: number; new_end_at_utc: string; new_upload_deadline_at_utc: string | null }>;
+      };
+      institution_apply_timing_intervention: {
+        Args: { p_owner_profile_id: string; p_attempt_id: string; p_exam_session_id: string; p_action: "extra_time" | "force_submit"; p_extra_seconds?: number | null };
+        Returns: Json;
+      };
+      reconcile_marking_review: {
+        Args: { p_owner_profile_id: string; p_attempt_id: string };
+        Returns: string;
+      };
+      submit_marking_snapshot: {
+        Args: { p_owner_profile_id: string; p_attempt_id: string };
+        Returns: Array<{ submission_id: string; marking_round: "primary" | "secondary"; total_awarded_marks: number }>;
+      };
+      review_marking_submission: {
+        Args: {
+          p_owner_profile_id: string;
+          p_review_id: string;
+          p_decision: "approved" | "rejected";
+          p_final_submission_id?: string | null;
+          p_reviewer_comment?: string | null;
+        };
+        Returns: undefined;
+      };
+      apply_answer_grouping_run: {
+        Args: { p_run_id: string; p_actor_profile_id: string };
+        Returns: number;
+      };
+      start_attempt_rest_break: {
+        Args: { p_attempt_id: string; p_exam_session_id: string; p_reason: string; p_maximum_seconds?: number };
+        Returns: Array<{ pause_interval_id: string; started_at: string }>;
+      };
+      resume_attempt_rest_break: {
+        Args: { p_attempt_id: string; p_exam_session_id: string };
+        Returns: Array<{
+          pause_interval_id: string;
+          applied_seconds: number;
+          new_end_at_utc: string;
+          new_upload_deadline_at_utc: string | null;
+        }>;
       };
     };
     Enums: Record<string, never>;

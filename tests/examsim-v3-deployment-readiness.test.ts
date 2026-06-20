@@ -32,6 +32,16 @@ describe("Examsim V3 deployment readiness", () => {
     expect(checklist.find((item) => item.key === "env_core")?.status).toBe("ready");
   });
 
+  it("recognizes SimpleTeX as the configured OCR provider", () => {
+    const checklist = buildDeploymentReadinessChecklist({
+      SIMPLETEX_APP_ID: "app-id",
+      SIMPLETEX_APP_SECRET: "app-secret",
+    });
+    const provider = checklist.find((item) => item.key === "provider_status");
+    expect(provider?.status).toBe("manual_validation");
+    expect(provider?.requiredEnvVars.join(" ")).toContain("SIMPLETEX_APP_ID");
+  });
+
   it("summarizes blocked and manual validation items for the owner console", () => {
     const summary = summarizeDeploymentReadiness(buildDeploymentReadinessChecklist({}));
     expect(summary.total).toBe(8);

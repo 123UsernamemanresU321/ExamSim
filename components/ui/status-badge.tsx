@@ -41,6 +41,7 @@ function statusTone(status: string | null | undefined): BadgeTone {
 
 function attemptStateTone(state: string): BadgeTone {
   if (state === "ACTIVE") return "success";
+  if (state === "PAUSED") return "warning";
   if (state === "UPLOAD_ONLY") return "warning";
   if (state === "FINISHED_REVIEW") return "neutral";
   if (state === "WAITING") return "info";

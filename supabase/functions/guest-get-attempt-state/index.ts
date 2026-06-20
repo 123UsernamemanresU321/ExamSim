@@ -4,6 +4,7 @@ import { verifyGuestAttemptToken } from "../_shared/examsim-guest.ts";
 import { handleOptions, json, readJson, errorResponse } from "../_shared/http.ts";
 import { signStateToken } from "../_shared/state-token.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
+import { loadAttemptAccommodationPolicy } from "../_shared/accommodations.ts";
 
 type StudentVisibleMessage = {
   id: string;
@@ -25,6 +26,7 @@ serve(async (request) => {
       startAtUtc: String(attempt.start_at_utc),
       endAtUtc: String(attempt.end_at_utc),
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc ? String(attempt.upload_deadline_at_utc) : null,
+      pausedAtUtc: attempt.paused_at ? String(attempt.paused_at) : null,
       solutionsRequested: Boolean(attempt.solutions_requested),
     });
     const stateToken = await signStateToken({
@@ -40,6 +42,7 @@ serve(async (request) => {
     const invigilationMessages = attempt.exam_session_id
       ? await loadStudentVisibleMessages(String(attempt.exam_session_id), String(attempt.id))
       : [];
+    const accommodationPolicy = await loadAttemptAccommodationPolicy(getAdminClient(), attempt);
     return json(request, {
       attempt_id: attempt.id,
       state,
@@ -52,6 +55,7 @@ serve(async (request) => {
       }),
       state_token: stateToken,
       invigilation_messages: invigilationMessages,
+      accommodation_policy: accommodationPolicy,
     });
   } catch (error) {
     return errorResponse(request, error, "guest-get-attempt-state failed");

@@ -11,20 +11,20 @@ import {
 
 const statusLabels: Record<ExamsimProductionStatus, string> = {
   ready: "Ready",
-  provider_ready_needs_staging: "Provider ready",
+  provider_ready_needs_live_validation: "Provider ready",
   provider_required: "Provider required",
   manual_fallback: "Manual fallback",
   blocked: "Blocked",
-  staging_required: "Staging required",
+  live_validation_required: "Live validation required",
 };
 
 const statusTones: Record<ExamsimProductionStatus, "success" | "warning" | "danger" | "info" | "neutral"> = {
   ready: "success",
-  provider_ready_needs_staging: "warning",
+  provider_ready_needs_live_validation: "warning",
   provider_required: "warning",
   manual_fallback: "info",
   blocked: "danger",
-  staging_required: "warning",
+  live_validation_required: "warning",
 };
 
 function ReadinessStatusBadge({ status }: { status: ExamsimProductionStatus }) {
@@ -60,13 +60,14 @@ export function ExamsimProductionReadinessPanel() {
         <div>
           <h2 className="text-lg font-semibold">Production readiness matrix</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Tracks every Examsim product-spec capability as ready, provider-gated, blocked, or requiring staging. The app
-            should not overclaim OCR, SEB, offline, or automation features that are not fully verified.
+            Tracks every Examsim product-spec capability as ready, provider-gated, blocked, or requiring live validation
+            on the actual website. The app should not overclaim OCR, SEB, offline, or automation features that are not
+            fully verified.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge tone="success">{summary.ready} ready</Badge>
-          <Badge tone="warning">{summary.providerRequired + summary.providerReadyNeedsStaging} provider-gated</Badge>
+          <Badge tone="warning">{summary.providerRequired + summary.providerReadyNeedsLiveValidation} provider-gated</Badge>
           <Badge tone="info">{summary.manualFallback} fallback</Badge>
           <Badge tone="danger">{summary.blocked} blocked</Badge>
         </div>
@@ -85,7 +86,9 @@ export function ExamsimProductionReadinessPanel() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge tone={releaseCandidate.blockingCount ? "danger" : "success"}>{releaseCandidate.blockingCount} blocked</Badge>
           <Badge tone={releaseCandidate.providerGatedCount ? "warning" : "success"}>{releaseCandidate.providerGatedCount} provider-gated</Badge>
-          <Badge tone={releaseCandidate.stagingRequiredCount ? "warning" : "success"}>{releaseCandidate.stagingRequiredCount} staging</Badge>
+          <Badge tone={releaseCandidate.liveValidationRequiredCount ? "warning" : "success"}>
+            {releaseCandidate.liveValidationRequiredCount} live validation
+          </Badge>
           <Badge tone={releaseCandidate.manualFallbackCount ? "info" : "success"}>{releaseCandidate.manualFallbackCount} fallback</Badge>
         </div>
         {releaseCandidate.remainingItems.length ? (

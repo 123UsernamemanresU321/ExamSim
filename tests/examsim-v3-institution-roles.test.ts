@@ -17,6 +17,15 @@ function readInstitutionRoleMigration() {
   return migration.source;
 }
 
+function readInstitutionPermissionRolloutMigration() {
+  const migrationsDir = "supabase/migrations";
+  const migration = readdirSync(migrationsDir)
+    .map((file) => ({ file, source: readFileSync(join(migrationsDir, file), "utf8") }))
+    .find((entry) => entry.source.includes("has_institution_permission"));
+  if (!migration) throw new Error("institution permission rollout migration not found");
+  return migration.source;
+}
+
 describe("Examsim V3 institution role matrix", () => {
   it("defines the V3 roles with least-privilege permissions", () => {
     expect(INSTITUTION_ROLE_KEYS).toEqual([
@@ -29,6 +38,7 @@ describe("Examsim V3 institution role matrix", () => {
     ]);
     expect(INSTITUTION_PERMISSION_KEYS).toContain("assessment_authoring");
     expect(INSTITUTION_PERMISSION_KEYS).toContain("readiness_security");
+    expect(INSTITUTION_PERMISSION_KEYS).toContain("student_management");
 
     expect(roleHasInstitutionPermission("owner_admin", "readiness_security")).toBe(true);
     expect(roleHasInstitutionPermission("teacher", "session_publishing")).toBe(true);
@@ -39,6 +49,8 @@ describe("Examsim V3 institution role matrix", () => {
     expect(roleHasInstitutionPermission("invigilator", "invigilation")).toBe(true);
     expect(roleHasInstitutionPermission("invigilator", "exports")).toBe(false);
     expect(roleHasInstitutionPermission("read_only", "student_data")).toBe(true);
+    expect(roleHasInstitutionPermission("read_only", "student_management")).toBe(false);
+    expect(roleHasInstitutionPermission("teacher", "student_management")).toBe(true);
     expect(roleHasInstitutionPermission("read_only", "marking")).toBe(false);
   });
 
@@ -67,6 +79,25 @@ describe("Examsim V3 institution role matrix", () => {
     expect(panel).toContain("Institution role matrix");
     expect(panel).toContain("roleHasInstitutionPermission");
     expect(readiness).toContain('"institution_role_matrix"');
+    expect(page).toContain("InstitutionMembershipManager");
+    const actions = readFileSync("app/owner/security/actions.ts", "utf8");
+    expect(actions).toContain("getAuthenticatorAssuranceLevel");
+    expect(actions).toContain("institution_memberships");
+    expect(actions).toContain("auditInstitutionAction");
+  });
+
+  it("enforces collaborator permissions in RLS without granting anonymous or blanket access", () => {
+    const migration = readInstitutionPermissionRolloutMigration();
+    expect(migration).toContain("create or replace function public.has_institution_permission");
+    expect(migration).toContain("set search_path = ''");
+    expect(migration).toContain("institution_assessment_authoring");
+    expect(migration).toContain("institution_attempt_read");
+    expect(migration).toContain("institution_marking_awards");
+    expect(migration).toContain("institution_invigilation_messages");
+    expect(migration).toContain("institution_roster_manage");
+    expect(migration).toContain("institution_export_manage");
+    expect(migration).not.toMatch(/to\s+anon/i);
+    expect(migration).not.toMatch(/using\s*\(\s*true\s*\)/i);
   });
 
   it("requires server-side institution permissions on sensitive owner actions", () => {
@@ -79,5 +110,23 @@ describe("Examsim V3 institution role matrix", () => {
     expect(operationActions).toContain('return "exports"');
     expect(operationActions).toContain('operationType === "release_feedback" || operationType === "assign_marker"');
     expect(operationActions).toContain('return "invigilation"');
+  });
+
+  it("keeps service-role Edge handlers behind explicit institution ownership checks", () => {
+    const auth = readFileSync("supabase/functions/_shared/auth.ts", "utf8");
+    expect(auth).toContain("requireInstitutionAal2");
+    expect(auth).toContain("requireMarkerAssignment");
+    expect(auth).toContain("Multiple institution contexts found");
+    const expectations: Array<[string, string]> = [
+      ["simpletex-ocr-source-page", "assessment_authoring"],
+      ["ai-parse-assessment", "assessment_authoring"],
+      ["save-marking", "marking"],
+      ["release-feedback", "moderation"],
+    ];
+    for (const [functionName, permission] of expectations) {
+      const source = readFileSync(`supabase/functions/${functionName}/index.ts`, "utf8");
+      expect(source).toContain(`requireInstitutionAal2(request, "${permission}")`);
+      expect(source).toContain("assertInstitutionOwner");
+    }
   });
 });

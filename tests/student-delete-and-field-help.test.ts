@@ -14,7 +14,8 @@ describe("student deletion and field guidance", () => {
     expect(actions).toContain("getSupabaseAdminClient");
     expect(actions).toContain('from("attempts")');
     expect(actions).toContain("auth.admin.deleteUser");
-    expect(actions).toContain("audit_owner_action");
+    expect(actions).toContain("auditInstitutionAction");
+    expect(actions).toContain('requireInstitutionPermission("student_management")');
     expect(actions).toContain("student.delete_blocked");
     expect(actions).toContain("roster_entry.delete_blocked");
   });

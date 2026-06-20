@@ -25,11 +25,11 @@ export type ExamsimProductionFeatureKey =
 
 export type ExamsimProductionStatus =
   | "ready"
-  | "provider_ready_needs_staging"
+  | "provider_ready_needs_live_validation"
   | "provider_required"
   | "manual_fallback"
   | "blocked"
-  | "staging_required";
+  | "live_validation_required";
 
 export type ExamsimReadinessEnv = Partial<Record<string, string | undefined>>;
 
@@ -50,7 +50,7 @@ export type ExamsimReleaseCandidateReadiness = {
   ownerMessage: string;
   blockingCount: number;
   providerGatedCount: number;
-  stagingRequiredCount: number;
+  liveValidationRequiredCount: number;
   manualFallbackCount: number;
   remainingItems: ExamsimProductionReadinessItem[];
 };
@@ -84,6 +84,8 @@ export const EXAMSIM_PRODUCTION_FEATURE_KEYS = [
 export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process.env) {
   const hasDeepSeek = hasEnv(env, "DEEPSEEK_API_KEY");
   const hasMineru = hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET");
+  const hasSimpleTex = hasEnv(env, "SIMPLETEX_APP_ID") && hasEnv(env, "SIMPLETEX_APP_SECRET");
+  const hasOcrProvider = hasMineru || hasSimpleTex;
   const hasMathpix = hasEnv(env, "MATHPIX_API_KEY");
 
   const items: ExamsimProductionReadinessItem[] = [
@@ -102,11 +104,11 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "ocr_question_detection",
       title: "AI/OCR Question Detection",
-      status: hasDeepSeek && hasMineru ? "provider_ready_needs_staging" : "provider_required",
-      ownerMessage: "Question detection is provider-backed when OCR/AI credentials exist; otherwise the product must show manual region editing rather than claiming automatic extraction.",
-      productionPath: "MinerU/OCR extracts layout and text; DeepSeek/parser repair converts suggestions into a reviewed question tree.",
+      status: hasOcrProvider ? "provider_ready_needs_live_validation" : "provider_required",
+      ownerMessage: "Question and source extraction is provider-backed when MinerU or SimpleTeX credentials exist; all OCR output remains review-required and region boxes stay manually editable.",
+      productionPath: "MinerU can extract layout; SimpleTeX can extract page/formula/table/handwriting content; deterministic repair and teacher review produce the question tree.",
       fallback: "Manual PDF Region Editor remains the production-safe workflow when providers are missing or low confidence.",
-      requiredEnvVars: ["DEEPSEEK_API_KEY", "MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET"],
+      requiredEnvVars: ["SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, or MINERU_API_KEY / MINERU_WORKER_HMAC_SECRET", "Optional DEEPSEEK_API_KEY for semantic repair"],
       qaChecklist: ["Verify provider failure state", "Verify low-confidence queue", "Verify manual correction before publish"],
     },
     {
@@ -122,7 +124,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "ai_answer_grouping",
       title: "AI Answer Grouping",
-      status: hasDeepSeek ? "provider_ready_needs_staging" : "manual_fallback",
+      status: hasDeepSeek ? "provider_ready_needs_live_validation" : "manual_fallback",
       ownerMessage: "Deterministic/manual grouping is safe today, including typed normalization, blank manual-review buckets, table/whiteboard manual-review groups, and numeric unit/tolerance grouping; semantic grouping remains provider-backed and review-required.",
       productionPath: "Group typed, numeric, table, whiteboard, and short text answers; teacher reviews groups before marks are applied.",
       fallback: "Manual and deterministic grouping are used when semantic AI grouping is not configured.",
@@ -143,7 +145,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "paper_mode",
       title: "Paper Mode",
       status: "manual_fallback",
-      ownerMessage: "Paper Mode has a safe manual print/scan/upload/mark path, but automated scan-to-student/question mapping still requires OCR/barcode staging.",
+      ownerMessage: "Paper Mode has a safe manual print/scan/upload/mark path, but automated scan-to-student/question mapping still requires live OCR/barcode validation.",
       productionPath: "Generate printable papers, collect scans, attach scans to attempts, manually repair mappings, and mark digitally.",
       fallback: "Manual scan upload and correction remains the supported production-safe workflow.",
       requiredEnvVars: ["Optional OCR/barcode provider credentials"],
@@ -152,18 +154,18 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "stem_handwriting_ocr",
       title: "Handwriting / STEM / Table / Diagram OCR",
-      status: hasMathpix || hasMineru ? "provider_ready_needs_staging" : "provider_required",
+      status: hasMathpix || hasOcrProvider ? "provider_ready_needs_live_validation" : "provider_required",
       ownerMessage: "Advanced STEM OCR requires a capable provider; the app must keep manual transcription and region editing as the fallback.",
       productionPath: "Provider extracts handwriting, equations, tables, chemistry, and diagrams into review-required suggestions.",
       fallback: "Manual transcription, source-page preview, and teacher-edited question cards remain available.",
-      requiredEnvVars: ["MATHPIX_API_KEY or MINERU_API_KEY"],
+      requiredEnvVars: ["SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, MATHPIX_API_KEY, or MINERU_API_KEY"],
       qaChecklist: ["Test equations", "Test handwritten proof", "Test table extraction", "Review provider confidence"],
     },
     {
       key: "collaborative_grading",
       title: "Anonymous and Collaborative Grading",
-      status: "staging_required",
-      ownerMessage: "Marker assignment and review surfaces exist, and V3 role permissions now have a server-side matrix. Full anonymous grading still needs real marker/reviewer staging.",
+      status: "live_validation_required",
+      ownerMessage: "Marker assignment and review surfaces exist, and V3 role permissions now have a server-side matrix. Full anonymous grading still needs real marker/reviewer validation on the actual website.",
       productionPath: "Assign marking work, hide student identity where configured, flag review conflicts, and audit grading decisions.",
       fallback: "Owner-led marking and review flags remain safe until anonymous/double-marking workflows are validated.",
       requiredEnvVars: [],
@@ -172,9 +174,9 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "institution_role_matrix",
       title: "Institution Role Matrix",
-      status: "staging_required",
+      status: "live_validation_required",
       ownerMessage: "Owner/admin, teacher, marker, reviewer, invigilator, and read-only roles now have an owner-scoped permission matrix, RLS-protected membership table, and role-aware owner navigation.",
-      productionPath: "Create institution memberships, enforce server permission checks on sensitive owner actions, filter routes/navigation by permission, then stage each role with real accounts.",
+      productionPath: "Create institution memberships, enforce server permission checks on sensitive owner actions, filter routes/navigation by permission, then validate each role with real accounts on the actual website.",
       fallback: "Owner-only top-level route guards remain the safest default until every data loader and sensitive flow is workspace-context aware.",
       requiredEnvVars: [],
       qaChecklist: ["Create teacher account", "Create marker account", "Verify denied publish/export/security access", "Verify owner-only membership management"],
@@ -182,7 +184,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "live_invigilation",
       title: "Live Invigilation Dashboard",
-      status: "staging_required",
+      status: "live_validation_required",
       ownerMessage: "Live roster, messages, interventions, uploads, heartbeat gaps, and technical issues exist; classroom-scale behavior must be validated with synthetic sessions.",
       productionPath: "Monitor current question, progress, upload status, disconnects, messages, extra time, pause/resume, and force-submit logs.",
       fallback: "Attempt reports and recovery center preserve evidence if live subscriptions are interrupted.",
@@ -213,7 +215,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "teacher_analytics",
       title: "Teacher Analytics",
       status: "ready",
-      ownerMessage: "Teacher analytics now summarize real stored attempts, marks, question nodes, topic links, and rubric awards; school-scale exports still need staging validation.",
+      ownerMessage: "Teacher analytics now summarize real stored attempts, marks, question nodes, topic links, and rubric awards; school-scale exports still need live validation with synthetic records.",
       productionPath: "Show score distribution, weakest questions, topic weaknesses, rubric loss, and low-score support flags from stored marking data.",
       fallback: "Owner can still review marking queue, attempts, results, and exports if a dataset is too sparse for meaningful analytics.",
       requiredEnvVars: [],
@@ -222,7 +224,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "question_bank_generator",
       title: "Question Bank and Mock Generator",
-      status: "staging_required",
+      status: "live_validation_required",
       ownerMessage: "Question library, extraction, subject filters, source previews, and mock generator exist; generated papers still need health-check validation before publish.",
       productionPath: "Extract approved root questions, preserve source references, filter by topic/marks/difficulty, generate draft, review, publish code.",
       fallback: "Manual assessment creation remains available if generator criteria cannot satisfy a paper exactly.",
@@ -232,7 +234,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "student_claim_flow",
       title: "Student Account Claim Flow",
-      status: "staging_required",
+      status: "live_validation_required",
       ownerMessage: "Guest identity and reconciliation flows exist; self-claim must be tested with one-time release/claim codes and ambiguous identity cases.",
       productionPath: "Student claims released attempt through secure code; owner reconciles mismatches and duplicate student numbers.",
       fallback: "Owner reconciliation remains the safe path for ambiguous or duplicate identities.",
@@ -253,7 +255,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "accommodations_matrix",
       title: "Accommodations Matrix",
       status: "manual_fallback",
-      ownerMessage: "Extra time and upload extension affect server-computed attempt state; broader rest-break/tool/TTS accommodations require policy setup and staging.",
+      ownerMessage: "Extra time and upload extension affect server-computed attempt state; broader rest-break/tool/TTS accommodations require policy setup and live validation.",
       productionPath: "Apply per-student/session timing, access, font, tools, materials, and audit history.",
       fallback: "Extra time and upload extensions are the production-safe interventions until the full matrix is validated.",
       requiredEnvVars: [],
@@ -312,10 +314,10 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "deployment_validation",
       title: "Deployment Validation",
-      status: "staging_required",
-      ownerMessage: "The repo can pass static checks locally, but production launch still requires migrations, Edge deployment, env vars, private buckets, and synthetic workflow QA.",
-      productionPath: "Run migrations, deploy Edge Functions, set secrets, confirm buckets private, run end-to-end staging workflow.",
-      fallback: "Do not launch high-stakes exams until the staging checklist passes.",
+      status: "live_validation_required",
+      ownerMessage: "The repo can pass static checks locally, but the actual website still needs migrations, Edge deployment, env vars, private buckets, and synthetic workflow QA verified live.",
+      productionPath: "Run migrations, deploy Edge Functions, set secrets, confirm buckets private, then run the end-to-end workflow on the actual website with synthetic test records.",
+      fallback: "Do not launch high-stakes exams until the live validation checklist passes.",
       requiredEnvVars: ["APP_ALLOWED_ORIGINS", "ATTEMPT_STATE_TOKEN_SECRET", "MINERU_WORKER_HMAC_SECRET"],
       qaChecklist: ["Run lint/typecheck/test/build", "Deploy Edge Functions", "Apply migrations", "Run synthetic guest and authenticated flows"],
     },
@@ -328,19 +330,19 @@ export function summarizeExamsimProductionReadiness(items: ExamsimProductionRead
   return {
     total: items.length,
     ready: countStatus(items, "ready"),
-    providerReadyNeedsStaging: countStatus(items, "provider_ready_needs_staging"),
+    providerReadyNeedsLiveValidation: countStatus(items, "provider_ready_needs_live_validation"),
     providerRequired: countStatus(items, "provider_required"),
     manualFallback: countStatus(items, "manual_fallback"),
     blocked: countStatus(items, "blocked"),
-    stagingRequired: countStatus(items, "staging_required"),
+    liveValidationRequired: countStatus(items, "live_validation_required"),
   };
 }
 
 export function buildReleaseCandidateReadiness(items: ExamsimProductionReadinessItem[]): ExamsimReleaseCandidateReadiness {
   const remainingItems = items.filter((item) => item.status !== "ready");
   const blockingCount = countStatus(items, "blocked");
-  const providerGatedCount = countStatus(items, "provider_required") + countStatus(items, "provider_ready_needs_staging");
-  const stagingRequiredCount = countStatus(items, "staging_required") + countStatus(items, "provider_ready_needs_staging");
+  const providerGatedCount = countStatus(items, "provider_required") + countStatus(items, "provider_ready_needs_live_validation");
+  const liveValidationRequiredCount = countStatus(items, "live_validation_required") + countStatus(items, "provider_ready_needs_live_validation");
   const manualFallbackCount = countStatus(items, "manual_fallback");
   const readyForFullV3 = remainingItems.length === 0;
 
@@ -348,10 +350,10 @@ export function buildReleaseCandidateReadiness(items: ExamsimProductionReadiness
     readyForFullV3,
     ownerMessage: readyForFullV3
       ? "Full V3 is ready for release-candidate validation."
-      : "Full V3 is not ready. Resolve blocked, provider-gated, staging-required, and manual-fallback items before making a production-ready V3 claim.",
+      : "Full V3 is not ready. Resolve blocked, provider-gated, live-validation-required, and manual-fallback items before making a production-ready V3 claim.",
     blockingCount,
     providerGatedCount,
-    stagingRequiredCount,
+    liveValidationRequiredCount,
     manualFallbackCount,
     remainingItems,
   };

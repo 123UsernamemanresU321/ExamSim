@@ -27,6 +27,16 @@ describe("computeAttemptState", () => {
     ).toBe("ACTIVE");
   });
 
+  it("returns PAUSED during a server-recorded rest break", () => {
+    expect(
+      computeAttemptState({
+        ...base,
+        serverNowUtc: "2026-05-05T07:30:00.000Z",
+        pausedAtUtc: "2026-05-05T07:25:00.000Z",
+      }),
+    ).toBe("PAUSED");
+  });
+
   it("returns UPLOAD_ONLY after writing time when solutions are requested", () => {
     expect(
       computeAttemptState({
@@ -60,6 +70,7 @@ describe("getCountdownTarget", () => {
   it("maps states to the next server-controlled boundary", () => {
     expect(getCountdownTarget("WAITING", base)).toBe(base.startAtUtc);
     expect(getCountdownTarget("ACTIVE", base)).toBe(base.endAtUtc);
+    expect(getCountdownTarget("PAUSED", base)).toBeNull();
     expect(getCountdownTarget("UPLOAD_ONLY", base)).toBe(base.uploadDeadlineAtUtc);
     expect(getCountdownTarget("FINISHED_REVIEW", base)).toBeNull();
   });

@@ -28,7 +28,8 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
     && hasEnv(env, "NEXT_PUBLIC_SUPABASE_URL")
     && hasEnv(env, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
   const hasAiProvider = hasEnv(env, "DEEPSEEK_API_KEY");
-  const hasOcrProvider = hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET");
+  const hasSimpleTex = hasEnv(env, "SIMPLETEX_APP_ID") && hasEnv(env, "SIMPLETEX_APP_SECRET");
+  const hasOcrProvider = hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET") || hasSimpleTex;
 
   return [
     {
@@ -46,18 +47,18 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
       key: "supabase_migrations",
       title: "Supabase migrations",
       status: "manual_validation",
-      ownerMessage: "Migration status must be validated in staging before launch; this page does not mutate database history.",
-      evidence: "Run `supabase migration list` and apply migrations in staging.",
-      nextAction: "Confirm all local migrations are applied to staging and production with no failed statements.",
+      ownerMessage: "Migration status must be validated against the actual Supabase project before launch; this page does not mutate database history.",
+      evidence: "Run `supabase migration list` for the live project and confirm deployed schema state.",
+      nextAction: "Confirm all local migrations are applied to the actual Supabase project with no failed statements.",
       requiredEnvVars: [],
     },
     {
       key: "rls_policies",
       title: "RLS and exposed API policy review",
       status: "manual_validation",
-      ownerMessage: "Owner/student/guest data boundaries require staging RLS checks with synthetic users.",
+      ownerMessage: "Owner/student/guest data boundaries require live RLS checks with synthetic users.",
       evidence: "Repo rules require no broad student access to assessment_versions or question_nodes.",
-      nextAction: "Run owner, student A/B, guest, and unauthenticated access tests against staging.",
+      nextAction: "Run owner, student A/B, guest, and unauthenticated access tests against the actual website.",
       requiredEnvVars: [],
     },
     {
@@ -65,7 +66,7 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
       title: "Private storage buckets",
       status: "manual_validation",
       ownerMessage: "Assessment sources, packages, answers, and marking packets must remain private and signed.",
-      evidence: "Storage must be checked in Supabase dashboard or staging scripts.",
+      evidence: "Storage must be checked in the Supabase dashboard or live validation scripts.",
       nextAction: "Verify assessment-sources, assessment-packages, answer-uploads, and marking-packets are not public.",
       requiredEnvVars: [],
     },
@@ -80,22 +81,24 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
     },
     {
       key: "provider_status",
-      title: "OCR, AI, and email providers",
-      status: hasAiProvider && hasOcrProvider ? "manual_validation" : "provider_gated",
-      ownerMessage: hasAiProvider && hasOcrProvider
-        ? "AI/OCR provider keys are present; sample-paper and spend-limit validation is still required."
-        : "Provider-backed OCR/AI must stay gated. Manual PDF, LaTeX, and deterministic workflows remain available.",
+      title: "OCR and AI providers",
+      status: hasOcrProvider ? "manual_validation" : "provider_gated",
+      ownerMessage: hasOcrProvider
+        ? hasAiProvider
+          ? "OCR and semantic provider keys are present; sample-paper and spend-limit validation is still required."
+          : "OCR provider keys are present. Semantic assistance remains optional and deterministic/manual grouping stays available."
+        : "Provider-backed OCR must stay gated. Manual PDF, LaTeX, and deterministic workflows remain available.",
       evidence: "Provider config is detected by env names only, never by exposing values.",
-      nextAction: "Set provider keys server-side, configure spend caps, and run sample-paper QA before advertising automated import.",
-      requiredEnvVars: ["DEEPSEEK_API_KEY", "MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET"],
+      nextAction: "Set OCR provider keys server-side, configure provider limits, and run sample-paper QA before advertising automated import.",
+      requiredEnvVars: ["SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, or MINERU_API_KEY / MINERU_WORKER_HMAC_SECRET", "Optional DEEPSEEK_API_KEY"],
     },
     {
       key: "seed_accounts",
       title: "Seed accounts and QA fixtures",
       status: "manual_validation",
       ownerMessage: "Launch QA needs synthetic owner, student, guest, marked attempt, and upload fixtures.",
-      evidence: "E2E tests cover demo mode; staging must cover real Supabase data.",
-      nextAction: "Create staging-only seed accounts and sample exams; never seed real student data into public demos.",
+      evidence: "E2E tests cover demo mode; the actual website must be checked with synthetic live records.",
+      nextAction: "Create clearly named test accounts and sample exams on the actual website; do not use real student data for destructive checks.",
       requiredEnvVars: [],
     },
     {

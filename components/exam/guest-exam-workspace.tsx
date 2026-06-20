@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
+import { AccommodationSummary } from "@/components/exam/accommodation-summary";
 import { MathRenderer } from "@/components/math-renderer";
 import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
 import { Button } from "@/components/ui/button";
@@ -16,18 +17,20 @@ import {
   shouldRestoreGuestResponseBackup,
 } from "@/lib/examsim/guest-response-recovery";
 import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
+import { DEFAULT_STUDENT_ACCOMMODATIONS, type StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
 
 type GuestStateResponse = {
   attempt_id: string;
-  state: "WAITING" | "ACTIVE" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
+  state: "WAITING" | "ACTIVE" | "PAUSED" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
   state_token: string;
   countdown_target_utc: string | null;
   server_now_utc: string;
   display_timezone: string;
   invigilation_messages?: GuestInvigilationMessage[];
+  accommodation_policy?: StudentAccommodationPolicy;
 };
 
 type GuestPackageResponse = {
@@ -177,7 +180,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
 
   useEffect(() => {
     if (!guestToken || !attemptId || !state?.state_token || mode === "lobby") return;
-    if (state.state === "WAITING") return;
+    if (state.state === "WAITING" || state.state === "PAUSED") return;
     startTransition(async () => {
       try {
         const response = await invokePublicEdgeFunction<GuestPackageResponse>("guest-get-attempt-package", {
@@ -471,8 +474,15 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     );
   }
 
+  const accommodationPolicy = state?.accommodation_policy ?? DEFAULT_STUDENT_ACCOMMODATIONS;
+
   return (
-    <div className="grid min-h-[calc(100vh-32px)] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
+    <div
+      className="grid min-h-[calc(100vh-32px)] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]"
+      data-exam-font-scale={accommodationPolicy.font_scale_percent}
+      data-exam-readable-font={accommodationPolicy.dyslexia_font}
+      data-exam-contrast={accommodationPolicy.contrast_mode}
+    >
       <aside className="rounded-[4px] border border-white/10 bg-[var(--sidebar)] p-4 text-white">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <BookOpen size={16} aria-hidden="true" />
@@ -514,6 +524,8 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
             messages={invigilationMessages}
             onRefresh={() => void refreshState()}
           />
+        ) : state?.state === "PAUSED" ? (
+          <RestBreakPanel messages={invigilationMessages} onRefresh={() => void refreshState()} />
         ) : !assessmentPackage || isPending ? (
           <div className="grid min-h-[360px] place-items-center text-[var(--muted)]">
             <span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" size={18} /> Loading secure exam workspace...</span>
@@ -572,6 +584,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
       </main>
 
       <aside className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
+        <AccommodationSummary policy={accommodationPolicy} />
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Exam state</p>
         <p className="mt-2 font-mono text-lg font-semibold text-[var(--ink)]">{state?.state ?? "CHECKING"}</p>
         {state ? (
@@ -629,13 +642,42 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
             Send issue report
           </Button>
         </div>
-        <Button className="mt-6 w-full" type="button" disabled={state?.state === "WAITING"} onClick={() => router.push("/exam/finalize")}>
+        <Button className="mt-6 w-full" type="button" disabled={state?.state === "WAITING" || state?.state === "PAUSED"} onClick={() => router.push("/exam/finalize")}>
           Submit review
         </Button>
-        {state?.state === "WAITING" ? (
-          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Submit review unlocks after the exam has opened.</p>
+        {state?.state === "WAITING" || state?.state === "PAUSED" ? (
+          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+            {state.state === "PAUSED" ? "Submission is locked during an approved rest break." : "Submit review unlocks after the exam has opened."}
+          </p>
         ) : null}
       </aside>
+    </div>
+  );
+}
+
+function RestBreakPanel({
+  messages,
+  onRefresh,
+}: {
+  messages: GuestInvigilationMessage[];
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="mx-auto grid min-h-[520px] max-w-3xl content-center gap-5 py-8">
+      <div className="rounded-[6px] border border-[#e6c577] bg-[var(--warning-bg)] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#76530d]">Approved rest break</p>
+            <h1 className="mt-1 text-2xl font-semibold text-[var(--ink)]">Your exam timer is paused</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f4510]">
+              Answer editing, uploads, and submission are temporarily locked. The server extends your official writing
+              and upload deadlines when the invigilator resumes the attempt.
+            </p>
+          </div>
+          <Button type="button" variant="secondary" onClick={onRefresh}>Check status</Button>
+        </div>
+      </div>
+      <InvigilationMessagesPanel messages={messages} />
     </div>
   );
 }

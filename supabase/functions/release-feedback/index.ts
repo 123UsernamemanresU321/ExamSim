@@ -1,13 +1,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const context = await requireInstitutionAal2(request, "moderation");
+    const { user, admin, profile: ownerProfile, ownerProfileId } = context;
     const body = await readJson<{
       attempt_id: string;
       summary_text?: string;
@@ -22,10 +22,29 @@ serve(async (request) => {
 
     const [{ data: marks, error: marksError }, { data: attempt, error: attemptError }] = await Promise.all([
       admin.from("marks").select("awarded_marks").eq("attempt_id", body.attempt_id),
-      admin.from("attempts").select("assessment_version_id").eq("id", body.attempt_id).single(),
+      admin.from("attempts").select("assessment_id,assessment_version_id,assessments!inner(owner_profile_id)").eq("id", body.attempt_id).single(),
     ]);
     if (marksError) throw marksError;
     if (attemptError) throw attemptError;
+    assertInstitutionOwner((attempt.assessments as { owner_profile_id?: string } | null)?.owner_profile_id, ownerProfileId);
+
+    const { data: gradingPolicy, error: policyError } = await admin
+      .from("assessment_grading_policies")
+      .select("double_marking,moderation_required")
+      .eq("assessment_id", attempt.assessment_id)
+      .maybeSingle();
+    if (policyError) throw policyError;
+    if (gradingPolicy?.double_marking || gradingPolicy?.moderation_required) {
+      const { data: review, error: reviewError } = await admin
+        .from("marking_reviews")
+        .select("status,final_submission_id")
+        .eq("attempt_id", body.attempt_id)
+        .maybeSingle();
+      if (reviewError) throw reviewError;
+      if (!review || review.status !== "approved" || !review.final_submission_id) {
+        throw new Error("Required marking moderation is not approved");
+      }
+    }
 
     // Fetch question nodes to get the total available marks
     const { data: nodes, error: nodesError } = await admin
@@ -70,7 +89,7 @@ serve(async (request) => {
       .update({ state_cache: "FINISHED_REVIEW" })
       .eq("id", body.attempt_id);
 
-    await auditOwnerAction(ownerProfile.id, user.id, "feedback.released", "attempts", body.attempt_id, {
+    await auditOwnerAction(ownerProfileId, user.id, "feedback.released", "attempts", body.attempt_id, {
       total_awarded_marks: totalAwarded,
       total_available_marks: totalAvailable,
     });

@@ -1,5 +1,11 @@
 import { notFound } from "next/navigation";
-import { linkGuestAttemptToRosterAction, markGuestIdentityResolvedAction } from "@/app/owner/exam-sessions/[id]/reconcile/actions";
+import {
+  approveAttemptClaimAction,
+  linkGuestAttemptToRosterAction,
+  markGuestIdentityResolvedAction,
+  rejectAttemptClaimAction,
+} from "@/app/owner/exam-sessions/[id]/reconcile/actions";
+import { AttemptClaimCodeManager } from "@/components/owner/attempt-claim-code-manager";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,7 +33,21 @@ export default async function ReconcileGuestAttemptsPage({ params }: { params: P
                   <p className="font-semibold text-[var(--ink)]">Roster suggestion</p>
                   <p className="mt-1 text-[var(--muted)]">{candidate.matchedRosterEntry?.display_name ?? "No exact roster match"}</p>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="grid content-start gap-2">
+                  {candidate.requestedProfile ? (
+                    <div className="rounded-[4px] border border-[#e6c577] bg-[var(--warning-bg)] p-3 text-xs text-[#5f4510]">
+                      <p className="font-semibold">Claim requested by {candidate.requestedProfile.display_name}</p>
+                      <p className="mt-1">Approve only after checking the student number and roster identity.</p>
+                      <div className="mt-3 flex gap-2">
+                        <form action={approveAttemptClaimAction.bind(null, id, candidate.attempt.id)}>
+                          <Button type="submit">Approve claim</Button>
+                        </form>
+                        <form action={rejectAttemptClaimAction.bind(null, id, candidate.attempt.id)}>
+                          <Button type="submit" variant="dangerSubtle">Reject</Button>
+                        </form>
+                      </div>
+                    </div>
+                  ) : null}
                   {candidate.matchedRosterEntry ? (
                     <form action={linkGuestAttemptToRosterAction.bind(null, id)}>
                       <input type="hidden" name="attempt_id" value={candidate.attempt.id} />
@@ -38,6 +58,7 @@ export default async function ReconcileGuestAttemptsPage({ params }: { params: P
                   <form action={markGuestIdentityResolvedAction.bind(null, id, candidate.attempt.id)}>
                     <Button type="submit" variant="secondary">Mark reviewed</Button>
                   </form>
+                  {!candidate.requestedProfile ? <AttemptClaimCodeManager attemptId={candidate.attempt.id} /> : null}
                 </div>
               </div>
             </Card>

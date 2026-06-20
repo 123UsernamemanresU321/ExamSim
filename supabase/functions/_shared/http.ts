@@ -15,8 +15,12 @@ const baseCorsHeaders = {
 
 function configuredAllowedOrigins() {
   const env = (globalThis as { Deno?: { env?: { get(name: string): string | undefined } } }).Deno?.env?.get("APP_ALLOWED_ORIGINS");
-  const configured = env?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? [];
+  const configured = env?.split(",").map(normalizeOrigin).filter(Boolean) ?? [];
   return configured.length ? configured : DEFAULT_ALLOWED_ORIGINS;
+}
+
+function normalizeOrigin(value: string) {
+  return value.trim().replace(/\/+$/, "");
 }
 
 export function isCorsOriginAllowed(request: Request) {

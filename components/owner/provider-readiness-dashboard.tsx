@@ -128,7 +128,7 @@ export function ProviderReadinessDashboard({
               <div>
                 <h3 className="text-sm font-semibold text-[var(--ink)]">Smart Import sample QA</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  Staging fixture coverage for PDF regions, LaTeX structure, and markscheme-to-rubric mapping.
+                  Live validation fixture coverage for PDF regions, LaTeX structure, and markscheme-to-rubric mapping.
                 </p>
               </div>
               <Badge tone={smartImportQa.providerBackedReady ? "success" : "warning"}>

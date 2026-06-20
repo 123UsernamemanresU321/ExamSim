@@ -53,6 +53,17 @@ describe("Examsim V3 provider and import readiness", () => {
     expect(readiness.find((item) => item.key === "storage_private_files")?.status).toBe("ready");
   });
 
+  it("recognizes SimpleTeX APP credentials as a production OCR path", () => {
+    const readiness = getProviderReadiness({
+      SIMPLETEX_APP_ID: "app-id",
+      SIMPLETEX_APP_SECRET: "server-secret",
+    });
+    const ocr = readiness.find((item) => item.key === "ocr_layout");
+    expect(ocr?.status).toBe("ready");
+    expect(ocr?.ownerMessage).toContain("SimpleTeX");
+    expect(ocr?.requiredEnvVars.join(" ")).toContain("SIMPLETEX_APP_ID");
+  });
+
   it("normalizes existing parse job states into the V3 import job language", () => {
     const env = { MINERU_API_KEY: "set" };
     expect(getImportJobState({ ...baseJob, status: "queued" }, env)).toBe("queued");
@@ -209,5 +220,22 @@ describe("Examsim V3 provider and import readiness", () => {
     expect(dashboard).toContain("evaluateBatchPdfImportPlan");
     expect(dashboard).toContain("Smart Import sample QA");
     expect(dashboard).toContain("Batch PDF import readiness");
+  });
+
+  it("keeps SimpleTeX server-side, rate-limited, private-source scoped, and review-required", () => {
+    const edge = readFileSync("supabase/functions/simpletex-ocr-source-page/index.ts", "utf8");
+    expect(edge).toContain("SIMPLETEX_APP_ID");
+    expect(edge).toContain("SIMPLETEX_APP_SECRET");
+    expect(edge).toContain('requireInstitutionAal2(request, "assessment_authoring")');
+    expect(edge).toContain("assertInstitutionOwner");
+    expect(edge).toContain("enforceRateLimit");
+    expect(edge).toContain('status: "needs_review"');
+    expect(edge).toContain('.from("source_pages")');
+    expect(edge).toContain("source_documents!inner(id,owner_profile_id)");
+    expect(edge).not.toContain("NEXT_PUBLIC_SIMPLETEX");
+    const editor = readFileSync("components/owner/source-region-editor.tsx", "utf8");
+    expect(editor).toContain('"simpletex-ocr-source-page"');
+    expect(editor).toContain("Run SimpleTeX OCR");
+    expect(editor).toContain("Needs teacher review");
   });
 });

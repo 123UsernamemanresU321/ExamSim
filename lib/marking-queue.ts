@@ -2,6 +2,7 @@ import type { AttemptState } from "@/lib/constants";
 
 export type MarkingQueueRow = {
   attempt_id: string;
+  assessment_id?: string;
   assessment_title: string;
   paper_code: string | null;
   student_name: string;

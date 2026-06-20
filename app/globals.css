@@ -259,6 +259,28 @@ select[data-field-help] {
   cursor: help;
 }
 
+[data-exam-font-scale="125"] {
+  font-size: 125%;
+}
+
+[data-exam-font-scale="150"] {
+  font-size: 150%;
+}
+
+[data-exam-readable-font="true"] {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+[data-exam-contrast="high"] {
+  --background: #ffffff;
+  --surface-muted: #f2f2f2;
+  --border: #111111;
+  --ink: #000000;
+  --muted: #222222;
+  --subtle: #333333;
+  --primary: #0047b3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -74,6 +74,22 @@ describe("security report remediation", () => {
     expect(read("supabase/functions/_shared/http.ts")).not.toContain('"Access-Control-Allow-Origin": "*"');
   });
 
+  it("normalizes a trailing slash in the configured CORS origin", () => {
+    const runtime = globalThis as typeof globalThis & { Deno?: { env: { get(name: string): string | undefined } } };
+    const previous = runtime.Deno;
+    runtime.Deno = { env: { get: (name) => name === "APP_ALLOWED_ORIGINS" ? "https://examvault.tutor-mcp.com/" : undefined } };
+    try {
+      const request = new Request("https://edge.example.test", {
+        headers: { origin: "https://examvault.tutor-mcp.com" },
+      });
+      expect(isCorsOriginAllowed(request)).toBe(true);
+      expect(corsHeadersFor(request)["Access-Control-Allow-Origin"]).toBe("https://examvault.tutor-mcp.com");
+    } finally {
+      if (previous === undefined) delete runtime.Deno;
+      else runtime.Deno = previous;
+    }
+  });
+
   it("adds production browser security headers and private authenticated cache rules", () => {
     const source = read("next.config.ts");
     expect(source).toContain("Content-Security-Policy");
@@ -106,6 +122,36 @@ describe("security report remediation", () => {
     expect(migration).toContain("create or replace function public.consume_edge_rate_limit");
     expect(migration).toContain("set search_path = public, extensions");
     expect(migration).toContain("digest(p_key::text, 'sha256'::text)");
+  });
+
+  it("hardens privileged database functions reported by the production advisor", () => {
+    const file = readFileSync("supabase/migrations/20260620075424_v3_security_advisor_hardening.sql", "utf8");
+    expect(file).toContain("alter function public.current_profile_id() set search_path = pg_catalog");
+    expect(file).toContain("alter function public.audit_owner_action(text, text, uuid, jsonb) set search_path = pg_catalog");
+    expect(file).toContain("revoke all on function public.create_upload_slots_for_attempt(uuid) from public, anon, authenticated");
+    expect(file).toContain("grant execute on function public.create_upload_slots_for_attempt(uuid) to service_role");
+    expect(file).toContain("revoke all on function public.generate_moderation_summary(uuid) from public, anon, authenticated");
+    expect(file).toContain("grant execute on function public.generate_moderation_summary(uuid) to service_role");
+    expect(file).toContain("grant execute on function public.audit_owner_action(text, text, uuid, jsonb) to authenticated, service_role");
+    expect(file).not.toMatch(/grant execute[^;]+to anon/i);
+  });
+
+  it("removes direct anon grants added by hosted project function defaults", () => {
+    const file = read("supabase/migrations/20260620083947_fix_marking_snapshot_output_ambiguity.sql");
+    for (const signature of [
+      "has_institution_permission(uuid, text)",
+      "owner_profile_id_for_attempt(uuid)",
+      "audit_institution_action(uuid, text, text, uuid, jsonb)",
+      "institution_link_guest_attempt(uuid, uuid, uuid, uuid)",
+      "institution_resolve_guest_identity(uuid, uuid, uuid)",
+      "institution_review_attempt_claim(uuid, uuid, uuid, text)",
+      "institution_start_attempt_rest_break(uuid, uuid, uuid, text, integer)",
+      "institution_resume_attempt_rest_break(uuid, uuid, uuid)",
+      "institution_apply_timing_intervention(uuid, uuid, uuid, text, integer)",
+      "reconcile_marking_review(uuid, uuid)",
+    ]) {
+      expect(file).toContain(`revoke all on function public.${signature} from public, anon`);
+    }
   });
 
   it("wires rate limits into activation and provider-cost endpoints", () => {

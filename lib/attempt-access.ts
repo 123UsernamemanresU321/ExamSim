@@ -1,7 +1,7 @@
 import type { AttemptState } from "@/lib/constants";
 
 export function canReleaseAttemptPackage(state: AttemptState) {
-  return state !== "WAITING";
+  return state !== "WAITING" && state !== "PAUSED";
 }
 
 export function canIssueUploadSlotUrl({
@@ -11,7 +11,7 @@ export function canIssueUploadSlotUrl({
   state: AttemptState;
   uploadsDuringActive: boolean;
 }) {
-  if (state === "FINISHED_REVIEW" || state === "WAITING") return false;
+  if (state === "FINISHED_REVIEW" || state === "WAITING" || state === "PAUSED") return false;
   if (state === "ACTIVE") return uploadsDuringActive;
   return state === "UPLOAD_ONLY";
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import { CheckCircle2, Combine, Copy, CopyPlus, EyeOff, Layers, Move, PanelLeft, PlusCircle, SplitSquareHorizontal, SplitSquareVertical, Trash2 } from "lucide-react";
+import { CheckCircle2, Combine, Copy, CopyPlus, EyeOff, Layers, Move, PanelLeft, PlusCircle, ScanText, SplitSquareHorizontal, SplitSquareVertical, Trash2 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import type { QuestionNodeRow, QuestionSourceRegion, SourceDocument, SourcePage } from "@/types/database";
@@ -59,6 +59,14 @@ type Interaction =
   | { kind: "move"; id: string; startX: number; startY: number; original: Bbox }
   | { kind: "resize"; id: string; startX: number; startY: number; original: Bbox }
   | { kind: "draw"; startX: number; startY: number; startPoint: { x: number; y: number } };
+
+type SimpleTexOcrResult = {
+  status: "needs_review";
+  confidence: number | null;
+  extracted_text: string | null;
+  extracted_latex: string | null;
+  provider_request_id: string | null;
+};
 
 const REGION_TYPES: Array<QuestionSourceRegion["region_type"]> = ["question", "subquestion", "diagram", "table", "answer_area", "markscheme", "instructions", "other"];
 const REGION_STATUSES: Array<QuestionSourceRegion["status"]> = ["detected", "needs_review", "approved", "ignored"];
@@ -125,6 +133,34 @@ export function SourceRegionEditor({
   const [signedDocumentUrls, setSignedDocumentUrls] = useState<Record<string, string>>({});
   const [pdfRenderStatus, setPdfRenderStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [drawDraft, setDrawDraft] = useState<Bbox | null>(null);
+  const [ocrMode, setOcrMode] = useState<"document" | "general" | "formula" | "formula_fast">("document");
+  const [ocrResult, setOcrResult] = useState<SimpleTexOcrResult | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrRunning, setOcrRunning] = useState(false);
+
+  async function runSimpleTexOcr() {
+    if (!selectedPage?.id || !selectedPage.image_object_path) return;
+    setOcrError(null);
+    setOcrResult(null);
+    setOcrRunning(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const response = await invokeEdgeFunction<{ result: SimpleTexOcrResult }>(supabase, "simpletex-ocr-source-page", {
+        body: {
+          source_page_id: selectedPage.id,
+          source_region_id: selectedRegion?.id ?? null,
+          mode: ocrMode,
+        },
+        requiresAal2: true,
+      });
+      if (!response?.result) throw new Error("SimpleTeX returned no review result.");
+      setOcrResult(response.result);
+    } catch (error) {
+      setOcrError(error instanceof Error ? error.message : "SimpleTeX OCR could not run.");
+    } finally {
+      setOcrRunning(false);
+    }
+  }
 
   useEffect(() => {
     if (!selectedPage?.image_object_path || signedPageUrls[selectedPage.id]) return;
@@ -553,6 +589,64 @@ export function SourceRegionEditor({
                 </div>
                 <RegionSubmitButton />
               </form>
+
+              <section className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                <div className="flex items-start gap-2">
+                  <ScanText className="mt-0.5 shrink-0 text-[var(--primary)]" size={16} aria-hidden="true" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-[var(--ink)]">SimpleTeX OCR</h3>
+                    <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                      Recognize the private rendered page and store a review-required suggestion. OCR never changes the
+                      question or publishes content automatically.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <select
+                    value={ocrMode}
+                    onChange={(event) => setOcrMode(event.target.value as typeof ocrMode)}
+                    className="rounded-[2px] border border-[var(--border)] bg-white px-2 py-2 text-sm text-[var(--ink)]"
+                    aria-label="SimpleTeX recognition mode"
+                  >
+                    <option value="document">Document page</option>
+                    <option value="general">General text / table</option>
+                    <option value="formula">Formula</option>
+                    <option value="formula_fast">Formula (fast)</option>
+                  </select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    isLoading={ocrRunning}
+                    disabled={!selectedPage?.image_object_path}
+                    onClick={() => void runSimpleTexOcr()}
+                  >
+                    <ScanText size={14} aria-hidden="true" /> Run SimpleTeX OCR
+                  </Button>
+                </div>
+                {!selectedPage?.image_object_path ? (
+                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                    No private rendered page image exists yet. Continue with manual region editing or render this source
+                    page through the compiler before OCR.
+                  </p>
+                ) : null}
+                {ocrError ? <p className="mt-2 text-xs leading-5 text-[var(--danger)]">{ocrError}</p> : null}
+                {ocrResult ? (
+                  <div className="mt-3 rounded-[4px] border border-[#e6c577] bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-[#76530d]">Needs teacher review</p>
+                      <Badge tone={ocrResult.confidence !== null && ocrResult.confidence >= 0.8 ? "success" : "warning"}>
+                        {ocrResult.confidence === null ? "confidence unavailable" : `${Math.round(ocrResult.confidence * 100)}%`}
+                      </Badge>
+                    </div>
+                    {ocrResult.extracted_latex ? (
+                      <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-[3px] bg-[var(--surface-muted)] p-2 text-xs text-[var(--ink)]">{ocrResult.extracted_latex}</pre>
+                    ) : null}
+                    {ocrResult.extracted_text ? (
+                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-[3px] bg-[var(--surface-muted)] p-2 text-xs text-[var(--ink)]">{ocrResult.extracted_text}</pre>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
 
               {!selectedRegion.question_node_id ? (
                 <form action={createQuestionFromRegionAction} className="grid gap-2 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">

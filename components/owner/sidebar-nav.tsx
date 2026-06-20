@@ -109,8 +109,8 @@ export const ownerNavSections: NavSection[] = [
     description: "People and controls",
     Icon: Users,
     items: [
-      { href: "/owner/students", label: "Students", Icon: Users, requiredPermission: "student_data" },
-      { href: "/owner/cohorts", label: "Groups", Icon: Boxes, requiredPermission: "student_data" },
+      { href: "/owner/students", label: "Students", Icon: Users, requiredPermission: "student_management" },
+      { href: "/owner/cohorts", label: "Groups", Icon: Boxes, requiredPermission: "student_management" },
       { href: "/owner/security", label: "Security", Icon: ShieldCheck, requiredPermission: "readiness_security" },
       { href: "/owner/support", label: "Support Console", Icon: LifeBuoy, requiredPermission: "student_data" },
     ],

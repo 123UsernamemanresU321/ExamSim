@@ -44,6 +44,7 @@ export default async function MarkingQueuePage({ searchParams }: { searchParams:
         title="Marking queue"
         description="Triage scripts by marking progress, upload status, moderation signals, incidents, and feedback release state."
       />
+      <div><ButtonLink href="/owner/marking-queue/moderation" variant="secondary">Open moderation queue</ButtonLink></div>
       <SavedViewsToolbar scope="marking_queue" views={views} basePath="/owner/marking-queue" currentFilters={{ section: sectionFilter }} />
       <form className="flex flex-wrap gap-2 rounded-[4px] border border-[var(--border)] bg-white p-3">
         <select name="section" defaultValue={sectionFilter} className="h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">

@@ -5,8 +5,11 @@ async function importStudentActionsWithAdminFailure() {
   vi.doMock("next/cache", () => ({
     revalidatePath: vi.fn(),
   }));
-  vi.doMock("@/lib/examsim/session-data", () => ({
-    requireOwnerProfileId: async () => "owner-1",
+  vi.doMock("@/lib/examsim/institution-roles", () => ({
+    requireInstitutionPermission: async () => ({ ownerProfileId: "owner-1", profileId: "owner-1", role: "owner_admin", permissions: ["student_management"] }),
+  }));
+  vi.doMock("@/lib/examsim/institution-audit", () => ({
+    auditInstitutionAction: async () => undefined,
   }));
   vi.doMock("@/lib/owner-operations", () => ({
     asJson: (value: unknown) => value,
@@ -33,19 +36,19 @@ async function importStudentActionsWithWorkingOwnerClientAndMissingAdmin() {
   vi.doMock("next/cache", () => ({
     revalidatePath,
   }));
-  vi.doMock("@/lib/examsim/session-data", () => ({
-    requireOwnerProfileId: async () => "owner-1",
+  vi.doMock("@/lib/examsim/institution-roles", () => ({
+    requireInstitutionPermission: async () => ({ ownerProfileId: "owner-1", profileId: "owner-1", role: "owner_admin", permissions: ["student_management"] }),
+  }));
+  vi.doMock("@/lib/examsim/institution-audit", () => ({
+    auditInstitutionAction: async ({ action }: { action: string }) => {
+      auditEvents.push(action);
+    },
   }));
   vi.doMock("@/lib/owner-operations", () => ({
     asJson: (value: unknown) => value,
   }));
   vi.doMock("@/lib/supabase/server", () => ({
     createSupabaseServerClient: async () => ({
-      rpc: async (name: string, payload: { action?: string }) => {
-        expect(name).toBe("audit_owner_action");
-        auditEvents.push(String(payload.action ?? ""));
-        return { error: null };
-      },
       from: (table: string) => {
         if (table === "profiles") {
           return {

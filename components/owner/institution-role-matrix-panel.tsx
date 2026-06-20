@@ -20,7 +20,7 @@ export function InstitutionRoleMatrixPanel() {
             Students never receive direct access to owner-only assessment, marking, export, or readiness data.
           </p>
         </div>
-        <Badge tone="warning">Route-by-route staging required</Badge>
+        <Badge tone="warning">Route-by-route live validation required</Badge>
       </div>
 
       <div className="mt-5">
@@ -57,7 +57,8 @@ export function InstitutionRoleMatrixPanel() {
       <p className="mt-4 text-xs leading-5 text-[var(--muted)]">
         Membership rows live in <span className="font-mono text-[var(--ink)]">institution_memberships</span> with
         owner-only management RLS and member self-read RLS. The matrix is intentionally conservative until every
-        sensitive route has been staged with real teacher, marker, reviewer, invigilator, and read-only accounts.
+        sensitive route has been validated on the actual website with teacher, marker, reviewer, invigilator, and
+        read-only test accounts.
       </p>
     </Card>
   );

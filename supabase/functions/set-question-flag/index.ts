@@ -40,6 +40,7 @@ serve(async (request) => {
       startAtUtc: attempt.start_at_utc,
       endAtUtc: attempt.end_at_utc,
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
+      pausedAtUtc: attempt.paused_at,
       solutionsRequested: attempt.solutions_requested,
     });
     if (state !== "ACTIVE") return json({ error: "Question flags can only be changed while writing is active", state }, 403);

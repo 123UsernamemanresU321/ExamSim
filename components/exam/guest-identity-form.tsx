@@ -12,7 +12,7 @@ type JoinExamSessionResponse = {
   attempt_id: string;
   guest_token: string;
   state_token: string;
-  state: "WAITING" | "ACTIVE" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
+  state: "WAITING" | "ACTIVE" | "PAUSED" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
   session_status: "lobby" | "live";
   countdown_target_utc: string | null;
   roster_match?: boolean;

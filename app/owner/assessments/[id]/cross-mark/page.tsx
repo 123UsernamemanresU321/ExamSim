@@ -1,8 +1,8 @@
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { groupSimilarAnswers } from "@/lib/answer-grouping";
+import { AnswerGroupingReviewPanel } from "@/components/owner/answer-grouping-review-panel";
+import { getLatestAnswerGroupingReview } from "@/lib/examsim/answer-grouping-data";
 import { buildMarkingTree, flattenMarkingTree, getMarkableLeafNodes, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { getCrossMarkWorkspace } from "@/lib/usability-data";
 
@@ -21,19 +21,11 @@ export default async function CrossMarkPage({ params }: { params: Promise<{ id: 
         slot: workspace.uploadSlots.find((slot) => slot.attempt_id === attempt.id && slot.question_node_id === firstRoot?.id) ?? null,
       }))
     : [];
-  const answerGroups = firstLeaf
-    ? groupSimilarAnswers(
-        workspace.textResponses
-          .filter((response) => response.question_node_id === firstLeaf.id)
-          .map((response) => ({
-            id: response.id,
-            question_node_id: response.question_node_id,
-            attempt_id: response.attempt_id,
-            answer_text: response.answer_text,
-            response_mode: firstLeaf.response_mode,
-          })),
-      )
-    : [];
+  const answerGroupingReview = firstLeaf ? await getLatestAnswerGroupingReview(id, firstLeaf.id) : null;
+  const memberLabels = Object.fromEntries(workspace.attempts.map((attempt) => [
+    attempt.id,
+    attempt.profiles?.display_name ?? `Script ${attempt.id.slice(0, 8)}`,
+  ]));
 
   return (
     <>
@@ -71,25 +63,17 @@ export default async function CrossMarkPage({ params }: { params: Promise<{ id: 
           </div>
         </Card>
         <Card>
-          <h2 className="text-lg font-semibold">Answer groups</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Deterministic grouping only. Review each group before applying marks; no AI decision is applied automatically.
-          </p>
-          <div className="mt-4 grid gap-2">
-            {answerGroups.length ? answerGroups.slice(0, 8).map((group) => (
-              <div key={group.key} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--ink)]">{group.label}</p>
-                  <Badge tone={group.confidence === "manual_review" ? "warning" : "neutral"}>{group.count}</Badge>
-                </div>
-                <p className="mt-1 text-xs text-[var(--muted)]">{group.confidence.replaceAll("_", " ")} match · {group.response_ids.length} responses</p>
-              </div>
-            )) : (
-              <p className="rounded-[4px] border border-dashed border-[var(--border)] p-3 text-sm text-[var(--muted)]">
-                No typed or numerical answers available for this selected target.
-              </p>
-            )}
-          </div>
+          {firstLeaf ? (
+            <AnswerGroupingReviewPanel
+              assessmentId={id}
+              questionNodeId={firstLeaf.id}
+              questionMaximum={firstLeaf.marks}
+              review={answerGroupingReview}
+              memberLabels={memberLabels}
+            />
+          ) : (
+            <p className="text-sm text-[var(--muted)]">Select a markable question before creating answer groups.</p>
+          )}
           <div className="mt-6 border-t border-[var(--border)] pt-5">
             <h2 className="text-lg font-semibold">Shortcuts</h2>
           <ul className="mt-3 grid gap-2 text-sm text-[var(--muted)]">

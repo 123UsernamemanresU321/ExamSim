@@ -2,6 +2,7 @@ import { OwnerMfaPanel, OwnerPasswordPanel } from "@/components/auth/mfa-panel";
 import { DeploymentReadinessConsole } from "@/components/owner/deployment-readiness-console";
 import { ExamsimProductionReadinessPanel } from "@/components/owner/examsim-production-readiness-panel";
 import { InstitutionRoleMatrixPanel } from "@/components/owner/institution-role-matrix-panel";
+import { InstitutionMembershipManager } from "@/components/owner/institution-membership-manager";
 import { ProviderReadinessDashboard } from "@/components/owner/provider-readiness-dashboard";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
@@ -12,9 +13,10 @@ import type { ImportAuditLike, ImportJobLike } from "@/lib/examsim/provider-read
 export const dynamic = "force-dynamic";
 
 export default async function OwnerSecurityPage() {
-  const [importJobs, importAuditLogs] = await Promise.all([
+  const [importJobs, importAuditLogs, membershipData] = await Promise.all([
     loadRecentImportJobs(),
     loadRecentImportAuditLogs(),
+    loadInstitutionMembershipData(),
   ]);
 
   return (
@@ -74,10 +76,27 @@ export default async function OwnerSecurityPage() {
         <InstitutionRoleMatrixPanel />
       </div>
       <div className="mt-5">
+        <InstitutionMembershipManager memberships={membershipData.memberships} accounts={membershipData.accounts} />
+      </div>
+      <div className="mt-5">
         <ExamsimProductionReadinessPanel />
       </div>
     </>
   );
+}
+
+async function loadInstitutionMembershipData() {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: memberships, error: membershipError }, { data: accounts, error: accountError }] = await Promise.all([
+    supabase.from("institution_memberships").select("id,member_profile_id,role,status,display_label,updated_at").order("updated_at", { ascending: false }),
+    supabase.from("profiles").select("id,display_name,app_role").order("display_name"),
+  ]);
+  if (membershipError) throw membershipError;
+  if (accountError) throw accountError;
+  return {
+    memberships: (memberships ?? []) as Array<{ id: string; member_profile_id: string; role: "owner_admin" | "teacher" | "marker" | "reviewer" | "invigilator" | "read_only"; status: "active" | "invited" | "disabled"; display_label: string | null; updated_at: string }>,
+    accounts: accounts ?? [],
+  };
 }
 
 async function loadRecentImportAuditLogs(): Promise<ImportAuditLike[]> {

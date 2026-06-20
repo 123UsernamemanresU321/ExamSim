@@ -2,12 +2,15 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-button";
 import { QtiExportButton } from "@/components/owner/qti-export-button";
+import { GradingPolicyPanel } from "@/components/owner/grading-policy-panel";
 import { SectionHeading } from "@/components/section-heading";
 import { getAssessmentWorkspace } from "@/lib/live-data";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { AssessmentGradingPolicy } from "@/types/database";
 
 export default async function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const workspace = await getAssessmentWorkspace(id);
+  const [workspace, gradingPolicy] = await Promise.all([getAssessmentWorkspace(id), loadGradingPolicy(id)]);
   if (!workspace) {
     return <SectionHeading title="Assessment not found" description={`No assessment exists for ${id}.`} />;
   }
@@ -18,6 +21,7 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
         description={`Assessment ${id} · ${workspace.assessment.paper_code ?? "No paper code"}`}
       />
       <div className="grid gap-4 md:grid-cols-3">
+        <GradingPolicyPanel assessmentId={id} policy={gradingPolicy} />
         <Card>
           <h2 className="text-lg font-semibold">Draft review</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">Review deterministic parse output before publish.</p>
@@ -110,4 +114,11 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
       </div>
     </>
   );
+}
+
+async function loadGradingPolicy(assessmentId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("assessment_grading_policies").select("*").eq("assessment_id", assessmentId).maybeSingle();
+  if (error) throw error;
+  return data as AssessmentGradingPolicy | null;
 }

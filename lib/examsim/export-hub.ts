@@ -135,7 +135,7 @@ export function buildExportHubCatalog(dataset: ExportHubDataset): ExportHubItem[
       rowCount: dataset.attempts.length,
       filename: "examsim-analytics-handoff.json",
       description: "Compact real-data handoff for downstream BI validation and school/cohort reporting.",
-      warnings: ["This is a handoff extract, not a replacement for staging warehouse validation."],
+      warnings: ["This is a handoff extract, not a replacement for live validation against owner-scoped synthetic records."],
     },
     {
       key: "qti_zip",
@@ -250,7 +250,7 @@ export function buildAnalyticsHandoffJson(dataset: ExportHubDataset, generatedAt
     })),
     warnings: [
       "Released student-facing analytics must still be filtered by feedback release state before student display.",
-      "School/cohort reporting should be validated in staging for cross-workspace isolation before launch.",
+      "School/cohort reporting should be validated on the actual website with synthetic records for cross-workspace isolation before launch.",
     ],
   });
 }

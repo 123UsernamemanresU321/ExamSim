@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2, requireMarkerAssignment } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
@@ -31,17 +31,19 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const context = await requireInstitutionAal2(request, "marking");
+    const { user, admin, profile: ownerProfile, ownerProfileId } = context;
     const body = await readJson<Body>(request);
     if (!body.attempt_id) return json({ error: "attempt_id is required" }, 400);
 
     const { data: attempt, error: attemptError } = await admin
       .from("attempts")
-      .select("id,assessment_version_id")
+      .select("id,assessment_version_id,assessments!inner(owner_profile_id)")
       .eq("id", body.attempt_id)
       .single();
     if (attemptError) throw attemptError;
+    assertInstitutionOwner((attempt.assessments as { owner_profile_id?: string } | null)?.owner_profile_id, ownerProfileId);
+    await requireMarkerAssignment(admin, context, attempt.id);
 
     const markRows = (body.marks ?? []).map((mark) => {
       if (!Number.isFinite(mark.awarded_marks) || mark.awarded_marks < 0) {
@@ -116,7 +118,7 @@ serve(async (request) => {
       .map((annotation) => ({
         attempt_id: attempt.id,
         question_node_id: annotation.question_node_id ?? null,
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         annotation_type: annotation.annotation_type,
         body: annotation.body.trim(),
         anchor_json: annotation.anchor_json ?? {},
@@ -141,7 +143,7 @@ serve(async (request) => {
       if (annotationError) throw annotationError;
     }
 
-    await auditOwnerAction(ownerProfile.id, user.id, "marking.saved", "attempts", attempt.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "marking.saved", "attempts", attempt.id, {
       mark_count: markRows.length,
       rubric_award_count: rubricAwardRows.length,
       annotation_count: annotationRows.length,

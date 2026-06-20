@@ -8,12 +8,13 @@ function read(path: string) {
 describe("Examsim limitation fixes", () => {
   it("mutates attempt timing for valid live extra-time interventions", () => {
     const source = read("app/owner/exam-sessions/[id]/live/actions.ts");
+    const migration = read("supabase/migrations/20260619000400_v3_institution_permission_rollout.sql");
     expect(source).toContain("validateExtraTimeSeconds");
-    expect(source).toContain("computeAttemptState");
-    expect(source).toContain("FINISHED_REVIEW");
-    expect(source).toContain("end_at_utc");
-    expect(source).toContain("upload_deadline_at_utc");
-    expect(source).toContain("audit_owner_action");
+    expect(source).toContain("institution_apply_timing_intervention");
+    expect(source).toContain("auditInstitutionAction");
+    expect(migration).toContain("Finalized attempts cannot receive interventions");
+    expect(migration).toContain("end_at_utc = end_at_utc + make_interval");
+    expect(migration).toContain("upload_deadline_at_utc = case");
     expect(source).toContain("extra_seconds");
     expect(source).toContain("Extra time must be between");
   });

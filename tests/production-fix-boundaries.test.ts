@@ -74,7 +74,8 @@ describe("Edge state and content release boundaries", () => {
   it("denies package release while waiting and returns server-issued asset urls when released", () => {
     const source = read("supabase/functions/get-attempt-package/index.ts");
     expect(source).toContain('state === "WAITING"');
-    expect(source).toContain("Content not available yet");
+    expect(source).toContain('state === "PAUSED"');
+    expect(source).toContain("Content not available in the current state");
     expect(source).toContain("asset_urls: assetUrls");
     expect(source).toContain('admin.storage.from("assessment-packages").createSignedUrl');
   });

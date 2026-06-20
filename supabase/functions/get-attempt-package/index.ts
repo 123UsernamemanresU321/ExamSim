@@ -36,9 +36,10 @@ serve(async (request) => {
       startAtUtc: attempt.start_at_utc,
       endAtUtc: attempt.end_at_utc,
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
+      pausedAtUtc: attempt.paused_at,
       solutionsRequested: attempt.solutions_requested,
     });
-    if (state === "WAITING") return json({ error: "Content not available yet", state }, 403);
+    if (state === "WAITING" || state === "PAUSED") return json({ error: "Content not available in the current state", state }, 403);
     let sebVerified = attempt.delivery_mode === "browser";
 
     if (attempt.delivery_mode === "seb_required") {

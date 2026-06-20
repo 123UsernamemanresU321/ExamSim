@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAppRole } from "@/lib/auth/server";
+import { auditInstitutionAction } from "@/lib/examsim/institution-audit";
 import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
 import type { InstitutionPermission } from "@/lib/examsim/institution-role-matrix";
 import { asJson, safeJsonObject, type SavedViewScope } from "@/lib/owner-operations";
@@ -58,11 +59,10 @@ export async function deleteOwnerSavedView(scope: SavedViewScope, viewId: string
 }
 
 export async function runOwnerBulkOperation(formData: FormData) {
-  const profile = await requireAppRole("owner", "/owner/operations");
   const operationTypeRaw = String(formData.get("operation_type") ?? "");
   if (!BULK_OPERATION_TYPES.has(operationTypeRaw)) throw new Error("Unsupported bulk operation.");
   const operationType = operationTypeRaw as BulkOperationType;
-  await requireInstitutionPermission(permissionForBulkOperation(operationType), profile?.id ?? undefined);
+  const context = await requireInstitutionPermission(permissionForBulkOperation(operationType));
   const targetIds = formData.getAll("target_ids").map(String).filter(Boolean);
   if (!targetIds.length) throw new Error("Select at least one target.");
   const request = {
@@ -73,7 +73,7 @@ export async function runOwnerBulkOperation(formData: FormData) {
   const { data: operation, error: opError } = await supabase
     .from("owner_bulk_operations")
     .insert({
-      owner_profile_id: profile?.id ?? "",
+      owner_profile_id: context.ownerProfileId,
       operation_type: operationType,
       target_kind: "attempt",
       target_ids: targetIds,
@@ -84,7 +84,7 @@ export async function runOwnerBulkOperation(formData: FormData) {
     .single();
   if (opError) throw opError;
 
-  const result = await executeBulkOperation(operationType, targetIds, request, profile?.id ?? "");
+  const result = await executeBulkOperation(operationType, targetIds, request, context.ownerProfileId);
   const status = result.failed > 0 && result.completed > 0 ? "partial" : result.failed > 0 ? "failed" : "completed";
   const { error: updateError } = await supabase
     .from("owner_bulk_operations")
@@ -95,17 +95,22 @@ export async function runOwnerBulkOperation(formData: FormData) {
     })
     .eq("id", operation.id);
   if (updateError) throw updateError;
-  await audit("owner_bulk_operation.run", "owner_bulk_operations", operation.id, { operation_type: operationType, target_ids: targetIds, status });
+  await auditInstitutionAction({
+    ownerProfileId: context.ownerProfileId,
+    action: "owner_bulk_operation.run",
+    targetTable: "owner_bulk_operations",
+    targetId: operation.id,
+    metadata: { operation_type: operationType, target_ids: targetIds, status },
+  });
   revalidatePath("/owner/operations");
   revalidatePath("/owner/marking-queue");
   revalidatePath("/owner/support");
 }
 
 export async function assignMarker(formData: FormData) {
-  const profile = await requireAppRole("owner", "/owner/marking-queue");
-  await requireInstitutionPermission("marking", profile?.id ?? undefined);
+  const context = await requireInstitutionPermission("moderation");
   const attemptId = String(formData.get("attempt_id") ?? "");
-  const markerProfileId = String(formData.get("marker_profile_id") ?? "").trim() || profile?.id || "";
+  const markerProfileId = String(formData.get("marker_profile_id") ?? "").trim() || context.profileId;
   const questionNodeId = String(formData.get("question_node_id") ?? "") || null;
   const assignmentScope = questionNodeId ? String(formData.get("assignment_scope") ?? "root_question") : "attempt";
   if (!attemptId || !markerProfileId) throw new Error("attempt_id and marker_profile_id are required.");
@@ -117,8 +122,21 @@ export async function assignMarker(formData: FormData) {
     .maybeSingle();
   if (attemptError) throw attemptError;
   if (!attempt) throw new Error("Attempt not found.");
+  if (markerProfileId !== context.ownerProfileId) {
+    const { data: markerMembership, error: membershipError } = await supabase
+      .from("institution_memberships")
+      .select("id,role,status")
+      .eq("owner_profile_id", context.ownerProfileId)
+      .eq("member_profile_id", markerProfileId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (membershipError) throw membershipError;
+    if (!markerMembership || !["owner_admin", "teacher", "marker", "reviewer"].includes(markerMembership.role)) {
+      throw new Error("The selected profile is not an active marker for this institution.");
+    }
+  }
   const { error } = await supabase.from("marker_assignments").insert({
-    owner_profile_id: profile?.id ?? "",
+    owner_profile_id: context.ownerProfileId,
     assessment_id: attempt.assessment_id,
     attempt_id: attemptId,
     question_node_id: questionNodeId,
@@ -127,21 +145,33 @@ export async function assignMarker(formData: FormData) {
     status: "assigned",
   });
   if (error) throw error;
-  await audit("marker_assignment.create", "marker_assignments", attemptId, { assignment_scope: assignmentScope, marker_profile_id: markerProfileId });
+  await auditInstitutionAction({
+    ownerProfileId: context.ownerProfileId,
+    action: "marker_assignment.create",
+    targetTable: "marker_assignments",
+    targetId: attemptId,
+    metadata: { assignment_scope: assignmentScope, marker_profile_id: markerProfileId },
+  });
   revalidatePath("/owner/marking-queue");
   revalidatePath("/owner/operations");
 }
 
 export async function updateMarkerAssignmentStatus(assignmentId: string, status: "assigned" | "in_progress" | "completed" | "released") {
-  const profile = await requireAppRole("owner", "/owner/marking-queue");
-  await requireInstitutionPermission("marking", profile?.id ?? undefined);
+  const context = await requireInstitutionPermission("marking");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("marker_assignments")
     .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", assignmentId);
+    .eq("id", assignmentId)
+    .eq("owner_profile_id", context.ownerProfileId);
   if (error) throw error;
-  await audit("marker_assignment.status", "marker_assignments", assignmentId, { status });
+  await auditInstitutionAction({
+    ownerProfileId: context.ownerProfileId,
+    action: "marker_assignment.status",
+    targetTable: "marker_assignments",
+    targetId: assignmentId,
+    metadata: { status },
+  });
   revalidatePath("/owner/marking-queue");
 }
 

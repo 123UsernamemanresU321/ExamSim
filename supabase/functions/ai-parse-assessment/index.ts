@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { parseAiJsonObject } from "../_shared/ai-json.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
@@ -28,9 +28,9 @@ serve(async (request) => {
   let cleanupAdmin: any = null;
   let parseJobId: string | null = null;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
+    const context = await requireInstitutionAal2(request, "assessment_authoring");
+    const { user, admin, ownerProfileId } = context;
     cleanupAdmin = admin;
-    const ownerProfile = await profileForAuthUser(user.id);
     const body = await readJson<Body>(request);
     if (!body.assessment_version_id) return json(request, { error: "assessment_version_id is required" }, 400);
 
@@ -48,13 +48,13 @@ serve(async (request) => {
       .eq("id", body.assessment_version_id)
       .single();
     if (versionError) throw versionError;
-    if (version.assessments?.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
+    assertInstitutionOwner(version.assessments?.owner_profile_id, ownerProfileId);
 
     const operationalWarnings: string[] = [];
     try {
       await enforceRateLimit(admin, {
         scope: "ai-parse-assessment:owner",
-        key: ownerProfile.id,
+        key: ownerProfileId,
         limit: envInt("AI_PARSE_OWNER_HOURLY_LIMIT", 20),
         windowSeconds: 3600,
       });
@@ -83,7 +83,7 @@ serve(async (request) => {
       .from("parse_jobs")
       .insert({
         assessment_version_id: body.assessment_version_id,
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         source_object_path: body.artifact_object_path ?? version.source_object_path ?? "owner-pasted-source",
         parser: "deepseek_ai",
         status: "running",
@@ -662,7 +662,7 @@ serve(async (request) => {
       .insert({
         assessment_version_id: body.assessment_version_id,
         parse_job_id: parseJob.id,
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         provider,
         model,
         source_kind: body.source_kind,
@@ -685,7 +685,7 @@ serve(async (request) => {
       })
       .eq("id", parseJob.id);
 
-    await auditOwnerAction(ownerProfile.id, user.id, "ai_parse.proposed", "assessment_versions", body.assessment_version_id, {
+    await auditOwnerAction(ownerProfileId, user.id, "ai_parse.proposed", "assessment_versions", body.assessment_version_id, {
       provider,
       model,
       source_kind: body.source_kind,

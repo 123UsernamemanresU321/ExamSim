@@ -3,12 +3,16 @@ import { SavedViewsToolbar } from "@/components/owner/saved-views-toolbar";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
 import { listOwnerSavedViews } from "@/lib/owner-operations";
 import { MarkingLayout } from "@/components/owner/marking-layout";
+import { MarkingWorkflowPanel } from "@/components/owner/marking-workflow-panel";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { AssessmentGradingPolicy, MarkingReview, MarkingSubmission } from "@/types/database";
 
 export default async function MarkAttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [workspace, savedViews] = await Promise.all([
+  const [workspace, savedViews, markingWorkflow] = await Promise.all([
     getOwnerAttemptReviewWorkspace(id),
     listOwnerSavedViews("marking_workspace"),
+    loadMarkingWorkflow(id),
   ]);
   
   if (!workspace.attempt) {
@@ -35,7 +39,7 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
     <div className="flex flex-col h-full -mx-5 -my-8 md:-mx-8">
       <div className="px-6 py-4">
         <SectionHeading
-          title={`${workspace.attempt.student}'s Submission`}
+          title={markingWorkflow.policy?.anonymous_grading ? `Anonymous script ${id.slice(0, 8).toUpperCase()}` : `${workspace.attempt.student}'s Submission`}
           description={`Attempt ${id}. Review telemetry, mark responses, and provide feedback.`}
         />
         <div className="mt-4">
@@ -46,10 +50,28 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
             currentFilters={{ attempt_id: id, selected: "current-root" }}
           />
         </div>
+        <div className="mt-4">
+          <MarkingWorkflowPanel attemptId={id} policy={markingWorkflow.policy} submissions={markingWorkflow.submissions} review={markingWorkflow.review} />
+        </div>
       </div>
       <div className="flex-1 overflow-hidden px-6 pb-6">
         <MarkingLayout workspace={workspace} attemptId={id} />
       </div>
     </div>
   );
+}
+
+async function loadMarkingWorkflow(attemptId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: attempt, error: attemptError } = await supabase.from("attempts").select("assessment_id").eq("id", attemptId).single();
+  if (attemptError) throw attemptError;
+  const [{ data: policy, error: policyError }, { data: submissions, error: submissionsError }, { data: review, error: reviewError }] = await Promise.all([
+    supabase.from("assessment_grading_policies").select("*").eq("assessment_id", attempt.assessment_id).maybeSingle(),
+    supabase.from("marking_submissions").select("*").eq("attempt_id", attemptId).order("submitted_at"),
+    supabase.from("marking_reviews").select("*").eq("attempt_id", attemptId).maybeSingle(),
+  ]);
+  if (policyError) throw policyError;
+  if (submissionsError) throw submissionsError;
+  if (reviewError) throw reviewError;
+  return { policy: policy as AssessmentGradingPolicy | null, submissions: (submissions ?? []) as MarkingSubmission[], review: review as MarkingReview | null };
 }

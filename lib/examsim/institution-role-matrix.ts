@@ -18,6 +18,7 @@ export const INSTITUTION_PERMISSION_KEYS = [
   "exports",
   "analytics",
   "student_data",
+  "student_management",
   "readiness_security",
 ] as const;
 
@@ -29,10 +30,12 @@ const ROLE_PERMISSIONS: Record<InstitutionRole, readonly InstitutionPermission[]
     "assessment_authoring",
     "session_publishing",
     "marking",
+    "moderation",
     "invigilation",
     "exports",
     "analytics",
     "student_data",
+    "student_management",
   ],
   marker: ["marking", "student_data"],
   reviewer: ["marking", "moderation", "analytics", "student_data"],
@@ -58,6 +61,7 @@ export const INSTITUTION_PERMISSION_LABELS: Record<InstitutionPermission, string
   exports: "Export data",
   analytics: "View analytics",
   student_data: "View student data",
+  student_management: "Manage student roster",
   readiness_security: "Readiness and security",
 };
 

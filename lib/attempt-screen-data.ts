@@ -2,6 +2,7 @@
 import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import { attemptWithState, samplePackage } from "@/lib/demo-data";
 import { invokeEdgeFunctionServer } from "@/lib/edge/server";
+import { DEFAULT_STUDENT_ACCOMMODATIONS, type StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
 import type { AttemptSummary } from "@/lib/live-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -16,6 +17,7 @@ type AttemptStateResponse = {
   delivery_mode: string;
   solutions_requested: boolean;
   state_token: string;
+  accommodation_policy: StudentAccommodationPolicy;
 };
 
 type AttemptPackageResponse = {
@@ -35,6 +37,7 @@ export type AttemptScreenData = {
   annotations: { question_node_id: string | null; annotation_type: string; body: string }[];
   uploadSlots: UploadSlot[];
   sebConfigUrl: string | null;
+  accommodationPolicy: StudentAccommodationPolicy;
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
@@ -69,6 +72,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     annotations: [],
     uploadSlots: [],
     sebConfigUrl: null,
+    accommodationPolicy: DEFAULT_STUDENT_ACCOMMODATIONS,
   };
 }
 
@@ -89,7 +93,7 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
   if (assessmentError) throw assessmentError;
 
   const state = await invokeEdgeFunctionServer<AttemptStateResponse>("get-attempt-state", { attempt_id: attemptId });
-  const packageResult = includePackage && state.state !== "WAITING"
+  const packageResult = includePackage && state.state !== "WAITING" && state.state !== "PAUSED"
     ? await getReleasedPackageResult(attemptId, state.state_token)
     : { package: null, assetUrls: {}, packageError: null };
 
@@ -128,6 +132,7 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     annotations: annotations ?? [],
     uploadSlots: uploadSlots ?? [],
     sebConfigUrl,
+    accommodationPolicy: state.accommodation_policy ?? DEFAULT_STUDENT_ACCOMMODATIONS,
   };
 }
 

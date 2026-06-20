@@ -4,12 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { generateReadableExamCode, hashExamSecret, normalizeExamCode } from "@/lib/examsim/guest-access";
 import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
-import { requireOwnerProfileId } from "@/lib/examsim/session-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function createExamSessionAction(formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
-  await requireInstitutionPermission("session_publishing", ownerProfileId);
+  const { ownerProfileId } = await requireInstitutionPermission("session_publishing");
   const supabase = await createSupabaseServerClient();
   const selection = String(formData.get("assessment_version_selection") ?? "");
   const [selectedAssessmentId, selectedVersionId] = selection.split("|");
@@ -75,8 +73,7 @@ export async function createExamSessionAction(formData: FormData) {
 }
 
 export async function rotateExamSessionCodeAction(sessionId: string) {
-  const ownerProfileId = await requireOwnerProfileId();
-  await requireInstitutionPermission("session_publishing", ownerProfileId);
+  const { ownerProfileId } = await requireInstitutionPermission("session_publishing");
   const supabase = await createSupabaseServerClient();
   const code = generateReadableExamCode("EXAM");
   const { error } = await supabase
@@ -94,8 +91,7 @@ export async function rotateExamSessionCodeAction(sessionId: string) {
 }
 
 export async function updateExamSessionStatusAction(sessionId: string, status: "published" | "live" | "closed" | "marking" | "returned" | "archived") {
-  const ownerProfileId = await requireOwnerProfileId();
-  await requireInstitutionPermission("session_publishing", ownerProfileId);
+  const { ownerProfileId } = await requireInstitutionPermission("session_publishing");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("exam_sessions")

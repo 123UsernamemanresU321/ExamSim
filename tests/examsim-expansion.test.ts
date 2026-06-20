@@ -184,7 +184,10 @@ Find $n$.
     expect(groups.find((group) => group.normalized_answer === "1000 m")).toMatchObject({ count: 2, confidence: "normalized" });
     expect(groups.find((group) => group.normalized_answer === "")).toMatchObject({ label: "Blank or unreadable", confidence: "manual_review" });
     expect(groups.some((group) => group.label === "Different")).toBe(true);
-    expect(read("app/owner/assessments/[id]/cross-mark/page.tsx")).toContain("Deterministic grouping only");
+    const groupingPanel = read("components/owner/answer-grouping-review-panel.tsx");
+    expect(groupingPanel).toContain("deterministic draft");
+    expect(groupingPanel).toContain("No group is graded automatically");
+    expect(groupingPanel).toContain("Apply reviewed marks");
   });
 
   it("keeps source page preview signing behind owner authorization", () => {
@@ -208,8 +211,12 @@ Find $n$.
   it("adds owner reconciliation for guest attempts and roster-first linking", () => {
     expect(read("app/owner/exam-sessions/[id]/page.tsx")).toContain("Reconcile guests");
     expect(read("app/owner/exam-sessions/[id]/reconcile/page.tsx")).toContain("Guest attempt reconciliation");
-    expect(read("app/owner/exam-sessions/[id]/reconcile/actions.ts")).toContain("linkGuestAttemptToRosterAction");
-    expect(read("app/owner/exam-sessions/[id]/reconcile/actions.ts")).toContain("assignee_profile_id");
+    const actions = read("app/owner/exam-sessions/[id]/reconcile/actions.ts");
+    const migration = read("supabase/migrations/20260619000400_v3_institution_permission_rollout.sql");
+    expect(actions).toContain("linkGuestAttemptToRosterAction");
+    expect(actions).toContain("institution_link_guest_attempt");
+    expect(migration).toContain("set assignee_profile_id");
+    expect(migration).toContain("public.has_institution_permission(p_owner_profile_id, 'student_management')");
     expect(read("lib/examsim/session-data.ts")).toContain("getReconciliationCandidates");
   });
 });

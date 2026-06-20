@@ -57,7 +57,17 @@ describe("Examsim production-readiness matrix", () => {
       MINERU_API_KEY: "set",
     });
     expect(withProviders.find((item) => item.key === "smart_import_compiler")?.status).toBe("ready");
-    expect(withProviders.find((item) => item.key === "ocr_question_detection")?.status).toBe("provider_ready_needs_staging");
+    expect(withProviders.find((item) => item.key === "ocr_question_detection")?.status).toBe("provider_ready_needs_live_validation");
+  });
+
+  it("tracks SimpleTeX as the configured OCR path without claiming guest lockdown", () => {
+    const readiness = getExamsimProductionReadiness({
+      SIMPLETEX_APP_ID: "app-id",
+      SIMPLETEX_APP_SECRET: "server-secret",
+    });
+    expect(readiness.find((item) => item.key === "ocr_question_detection")?.status).toBe("provider_ready_needs_live_validation");
+    expect(readiness.find((item) => item.key === "stem_handwriting_ocr")?.status).toBe("provider_ready_needs_live_validation");
+    expect(readiness.find((item) => item.key === "guest_seb_lockdown")?.status).toBe("blocked");
   });
 
   it("summarizes readiness for owner-facing deployment decisions", () => {
@@ -65,7 +75,7 @@ describe("Examsim production-readiness matrix", () => {
     expect(summary.total).toBe(EXPECTED_FEATURE_KEYS.length);
     expect(summary.providerRequired).toBeGreaterThan(0);
     expect(summary.blocked).toBeGreaterThan(0);
-    expect(summary.ready + summary.providerReadyNeedsStaging + summary.providerRequired + summary.manualFallback + summary.blocked + summary.stagingRequired).toBe(summary.total);
+    expect(summary.ready + summary.providerReadyNeedsLiveValidation + summary.providerRequired + summary.manualFallback + summary.blocked + summary.liveValidationRequired).toBe(summary.total);
   });
 
   it("builds a release-candidate readiness summary without overclaiming full V3", () => {
@@ -73,14 +83,14 @@ describe("Examsim production-readiness matrix", () => {
     expect(candidate.readyForFullV3).toBe(false);
     expect(candidate.blockingCount).toBeGreaterThan(0);
     expect(candidate.providerGatedCount).toBeGreaterThan(0);
-    expect(candidate.stagingRequiredCount).toBeGreaterThan(0);
+    expect(candidate.liveValidationRequiredCount).toBeGreaterThan(0);
     expect(candidate.remainingItems.map((item) => item.key)).toContain("guest_seb_lockdown");
     expect(candidate.ownerMessage).toContain("Full V3 is not ready");
   });
 
   it("tracks Export Hub as the safe fallback for school reporting and interoperability", () => {
     const readiness = getExamsimProductionReadiness({});
-    expect(readiness.find((item) => item.key === "institution_role_matrix")?.status).toBe("staging_required");
+    expect(readiness.find((item) => item.key === "institution_role_matrix")?.status).toBe("live_validation_required");
     expect(readiness.find((item) => item.key === "institution_role_matrix")?.ownerMessage).toContain("RLS-protected membership table");
     expect(readiness.find((item) => item.key === "school_reporting")?.status).toBe("manual_fallback");
     expect(readiness.find((item) => item.key === "school_reporting")?.fallback).toContain("Export Hub");

@@ -5,6 +5,7 @@ export type AttemptStateInput = {
   startAtUtc: string | Date;
   endAtUtc: string | Date;
   uploadDeadlineAtUtc?: string | Date | null;
+  pausedAtUtc?: string | Date | null;
   solutionsRequested: boolean;
 };
 
@@ -22,12 +23,14 @@ export function computeAttemptState(input: AttemptStateInput): AttemptState {
   const start = toTime(input.startAtUtc);
   const end = toTime(input.endAtUtc);
   const uploadDeadline = toTime(input.uploadDeadlineAtUtc);
+  const pausedAt = toTime(input.pausedAtUtc);
 
   if (serverNow === null || start === null || end === null) {
     throw new Error("serverNowUtc, startAtUtc, and endAtUtc are required");
   }
 
   if (serverNow < start) return "WAITING";
+  if (pausedAt !== null && serverNow >= pausedAt) return "PAUSED";
   if (serverNow >= start && serverNow < end) return "ACTIVE";
   if (
     input.solutionsRequested &&

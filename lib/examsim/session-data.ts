@@ -1,4 +1,5 @@
 import { computeAttemptState } from "@/lib/attempt-state";
+import type { AttemptState } from "@/lib/constants";
 import { getCurrentUserProfile } from "@/lib/auth/server";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -21,7 +22,7 @@ export type LiveSessionAttempt = {
   attempt: Attempt;
   studentName: string;
   studentNumber: string | null;
-  state: "WAITING" | "ACTIVE" | "UPLOAD_ONLY" | "FINISHED_REVIEW";
+  state: AttemptState;
   uploadSlots: UploadSlot[];
   responseCount: number;
   currentQuestionKey: string | null;
@@ -36,6 +37,7 @@ export type ReconciliationCandidate = {
   guestName: string;
   guestNumber: string | null;
   matchedRosterEntry: StudentRosterEntry | null;
+  requestedProfile: Pick<Profile, "id" | "display_name"> | null;
 };
 
 export async function listOwnerExamSessions(): Promise<ExamSessionRow[]> {
@@ -172,6 +174,7 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
         startAtUtc: attempt.start_at_utc,
         endAtUtc: attempt.end_at_utc,
         uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
+        pausedAtUtc: attempt.paused_at,
         solutionsRequested: attempt.solutions_requested,
       }),
       uploadSlots: slotsByAttempt.get(attempt.id) ?? [],
@@ -216,6 +219,10 @@ export async function getReconciliationCandidates(sessionId: string): Promise<Re
   const numbers = [...new Set(attemptRows.map((attempt) => attempt.guest_student_number).filter((value): value is string => Boolean(value)))];
   const session = await getOwnerExamSession(sessionId);
   const rosterByNumber = new Map<string, StudentRosterEntry>();
+  const requestedProfiles = await loadProfiles(
+    [...new Set(attemptRows.map((attempt) => attempt.claim_requested_by_profile_id).filter((value): value is string => Boolean(value)))],
+  );
+  const requestedProfileById = new Map(requestedProfiles.map((profile) => [profile.id, profile]));
   if (numbers.length && session) {
     const { data: roster, error: rosterError } = await supabase
       .from("student_roster_entries")
@@ -230,6 +237,9 @@ export async function getReconciliationCandidates(sessionId: string): Promise<Re
     guestName: attempt.guest_student_name ?? "Guest student",
     guestNumber: attempt.guest_student_number ?? null,
     matchedRosterEntry: attempt.guest_student_number ? rosterByNumber.get(attempt.guest_student_number) ?? null : null,
+    requestedProfile: attempt.claim_requested_by_profile_id
+      ? requestedProfileById.get(attempt.claim_requested_by_profile_id) ?? null
+      : null,
   }));
 }
 

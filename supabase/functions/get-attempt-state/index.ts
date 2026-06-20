@@ -3,6 +3,7 @@ import { computeAttemptState, getCountdownTarget } from "../_shared/attempt-stat
 import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { signStateToken } from "../_shared/state-token.ts";
+import { loadAttemptAccommodationPolicy } from "../_shared/accommodations.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -40,6 +41,7 @@ serve(async (request) => {
       startAtUtc: attempt.start_at_utc,
       endAtUtc: attempt.end_at_utc,
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
+      pausedAtUtc: attempt.paused_at,
       solutionsRequested: attempt.solutions_requested,
     });
     const stateToken = await signStateToken({
@@ -53,6 +55,7 @@ serve(async (request) => {
       delivery_mode: attempt.delivery_mode,
       seb_verified: false,
     });
+    const accommodationPolicy = await loadAttemptAccommodationPolicy(admin, attempt);
 
     return json({
       attempt_id: attempt.id,
@@ -67,6 +70,7 @@ serve(async (request) => {
         language: "Browser Mode records moderation signals; it is tamper-evident, not tamper-proof.",
       },
       state_token: stateToken,
+      accommodation_policy: accommodationPolicy,
     });
   } catch (error) {
     return errorResponse(error, "get-attempt-state failed");

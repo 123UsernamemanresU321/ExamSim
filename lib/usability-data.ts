@@ -46,6 +46,7 @@ export async function listMarkingQueue() {
     return [
       {
         attempt_id: "att_active",
+        assessment_id: "demo_assessment",
         assessment_title: "Olympiad Mock Paper 1",
         paper_code: "MATH-MOCK-01",
         student_name: "Owner practice persona",
@@ -61,6 +62,7 @@ export async function listMarkingQueue() {
       },
       {
         attempt_id: "att_waiting",
+        assessment_id: "demo_assessment_2",
         assessment_title: "IB-style Physics Paper 2",
         paper_code: "PHY-HL-P2",
         student_name: "Naledi Mokoena",
@@ -79,9 +81,25 @@ export async function listMarkingQueue() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("owner_marking_queue").select("*").order("last_updated_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((row) => {
-    const typed = row as MarkingQueueRow & Record<string, unknown>;
-    return { ...typed, sections: classifyMarkingQueueRow(typed) };
+  const queueRows = (data ?? []) as unknown as Array<MarkingQueueRow & Record<string, unknown>>;
+  const assessmentIds = [...new Set(queueRows.map((row) => String(row.assessment_id)))];
+  let gradingPolicies: { assessment_id: string; anonymous_grading: boolean }[] = [];
+  if (assessmentIds.length) {
+    const { data: policyRows, error: policyError } = await supabase
+      .from("assessment_grading_policies")
+      .select("assessment_id,anonymous_grading")
+      .in("assessment_id", assessmentIds);
+    if (policyError) throw policyError;
+    gradingPolicies = policyRows ?? [];
+  }
+  const anonymousAssessmentIds = new Set(gradingPolicies.filter((policy) => policy.anonymous_grading).map((policy) => policy.assessment_id));
+  return queueRows.map((typed) => {
+    return {
+      ...typed,
+      student_name: typed.assessment_id && anonymousAssessmentIds.has(typed.assessment_id) ? `Anonymous script ${typed.attempt_id.slice(0, 8).toUpperCase()}` : typed.student_name,
+      anonymous_grading: Boolean(typed.assessment_id && anonymousAssessmentIds.has(typed.assessment_id)),
+      sections: classifyMarkingQueueRow(typed),
+    };
   });
 }
 

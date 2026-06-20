@@ -30,6 +30,7 @@ serve(async (request) => {
       startAtUtc: String(attempt.start_at_utc),
       endAtUtc: String(attempt.end_at_utc),
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc ? String(attempt.upload_deadline_at_utc) : null,
+      pausedAtUtc: attempt.paused_at ? String(attempt.paused_at) : null,
       solutionsRequested: Boolean(attempt.solutions_requested),
     });
     if (state !== "ACTIVE" && state !== "UPLOAD_ONLY") return json(request, { error: "Upload confirmation not allowed in current state", state }, 403);

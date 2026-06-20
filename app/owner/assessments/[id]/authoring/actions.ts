@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { PDFDocument } from "pdf-lib";
 import { buildDefaultInteractionForCapability } from "@/lib/examsim/response-capabilities";
-import { requireOwnerProfileId } from "@/lib/examsim/session-data";
+import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-policy";
 
@@ -24,7 +24,7 @@ export async function uploadPdfSourceAction(
   formData: FormData,
 ): Promise<PdfSourceUploadState> {
   try {
-    const ownerProfileId = await requireOwnerProfileId();
+    const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
     const file = formData.get("pdf_source");
     if (!(file instanceof File) || file.size <= 0) {
       throw new Error("Choose a PDF source file to upload.");
@@ -126,7 +126,7 @@ export async function uploadPdfSourceAction(
 export async function deleteSourceDocumentAction(assessmentId: string, versionId: string, formData: FormData) {
   const sourceDocumentId = String(formData.get("source_document_id") ?? "");
   if (!sourceDocumentId) throw new Error("source_document_id is required");
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
   const supabase = await createSupabaseServerClient();
   const { data: sourceDocument, error: sourceDocumentError } = await supabase
     .from("source_documents")
@@ -487,7 +487,7 @@ export async function mergeSourceRegionsAction(assessmentId: string, versionId: 
 }
 
 export async function createLatexDraftAction(assessmentId: string, formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
   const latexSource = String(formData.get("latex_source") ?? "").trim();
   if (latexSource.length < 10) throw new Error("LaTeX source is too short to import.");
   if (latexSource.length > 200_000) throw new Error("LaTeX source is too large for inline draft import.");
@@ -522,7 +522,7 @@ export async function createLatexDraftAction(assessmentId: string, formData: For
 }
 
 export async function createRubricTemplateAction(assessmentId: string, formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
   const supabase = await createSupabaseServerClient();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("Rubric name is required");

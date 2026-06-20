@@ -57,7 +57,7 @@ export function CountdownTimer({
       <div className="flex items-baseline gap-3">
         <div className="h-8 w-24 rounded bg-[var(--surface-muted)] opacity-50" />
         <span className="text-sm text-[var(--muted)] opacity-30">
-          {state === "WAITING" ? "until release" : state === "ACTIVE" ? "writing time" : "upload grace"}
+          {state === "WAITING" ? "until release" : state === "ACTIVE" ? "writing time" : state === "PAUSED" ? "rest break" : "upload grace"}
         </span>
       </div>
     );
@@ -66,7 +66,7 @@ export function CountdownTimer({
   if (remainingMs === null) {
     return (
       <div aria-live="polite" className="text-lg font-semibold text-[var(--muted)]">
-        Finished
+        {state === "PAUSED" ? "Timer paused by invigilator" : "Finished"}
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function CountdownTimer({
     <div aria-live="polite" className="flex items-baseline gap-3">
       <span className="font-mono text-2xl font-semibold tabular-nums">{formatRemaining(remainingMs)}</span>
       <span className="text-sm text-[var(--muted)]">
-        {state === "WAITING" ? "until release" : state === "ACTIVE" ? "writing time" : "upload grace"}
+        {state === "WAITING" ? "until release" : state === "ACTIVE" ? "writing time" : state === "PAUSED" ? "rest break" : "upload grace"}
       </span>
     </div>
   );

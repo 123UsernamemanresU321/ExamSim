@@ -22,9 +22,10 @@ serve(async (request) => {
       startAtUtc: String(attempt.start_at_utc),
       endAtUtc: String(attempt.end_at_utc),
       uploadDeadlineAtUtc: attempt.upload_deadline_at_utc ? String(attempt.upload_deadline_at_utc) : null,
+      pausedAtUtc: attempt.paused_at ? String(attempt.paused_at) : null,
       solutionsRequested: Boolean(attempt.solutions_requested),
     });
-    if (state === "WAITING") return json(request, { error: "Cannot finalize before the exam opens", state }, 403);
+    if (state === "WAITING" || state === "PAUSED") return json(request, { error: "Cannot finalize in the current exam state", state }, 403);
 
     const { data: slots, error: slotError } = await admin
       .from("upload_slots")

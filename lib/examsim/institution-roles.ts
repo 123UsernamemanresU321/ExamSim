@@ -1,7 +1,10 @@
 import "server-only";
 
+import { redirect } from "next/navigation";
 import { getCurrentUserProfile } from "@/lib/auth/server";
+import { dashboardPathForRole } from "@/lib/auth/routing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDemoModeEnabled } from "@/lib/runtime";
 import {
   INSTITUTION_PERMISSION_KEYS,
   normalizeInstitutionRole,
@@ -16,9 +19,20 @@ export type InstitutionPermissionContext = {
   ownerProfileId: string;
   role: InstitutionRole;
   permissions: InstitutionPermission[];
+  displayName: string;
 };
 
 export async function getInstitutionPermissionContext(ownerProfileId?: string): Promise<InstitutionPermissionContext | null> {
+  if (isDemoModeEnabled()) {
+    return {
+      profileId: "demo_owner",
+      ownerProfileId: ownerProfileId ?? "demo_owner",
+      role: "owner_admin",
+      permissions: [...INSTITUTION_PERMISSION_KEYS],
+      displayName: "Demo Owner",
+    };
+  }
+
   const { profile } = await getCurrentUserProfile();
   if (!profile) return null;
 
@@ -28,6 +42,7 @@ export async function getInstitutionPermissionContext(ownerProfileId?: string): 
       ownerProfileId: profile.id,
       role: "owner_admin",
       permissions: [...INSTITUTION_PERMISSION_KEYS],
+      displayName: profile.display_name,
     };
   }
 
@@ -52,7 +67,26 @@ export async function getInstitutionPermissionContext(ownerProfileId?: string): 
     ownerProfileId: membership.owner_profile_id,
     role,
     permissions: permissionsForInstitutionRole(role),
+    displayName: profile.display_name,
   };
+}
+
+export async function requireInstitutionContext(nextPath = "/owner") {
+  const context = await getInstitutionPermissionContext();
+  if (context) return context;
+
+  const { user, profile } = await getCurrentUserProfile();
+  if (!user) redirect(`/login?next=${encodeURIComponent(nextPath)}`);
+  if (profile) redirect(dashboardPathForRole(profile.app_role));
+  redirect("/login");
+}
+
+export async function requireInstitutionPagePermission(permission: InstitutionPermission, nextPath: string) {
+  const context = await requireInstitutionContext(nextPath);
+  if (!roleHasInstitutionPermission(context.role, permission)) {
+    redirect(`/owner/unauthorized?required=${encodeURIComponent(permission)}`);
+  }
+  return context;
 }
 
 export async function requireInstitutionPermission(permission: InstitutionPermission, ownerProfileId?: string) {

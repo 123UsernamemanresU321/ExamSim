@@ -1,30 +1,31 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { computeAttemptState } from "@/lib/attempt-state";
-import { requireOwnerProfileId } from "@/lib/examsim/session-data";
+import { auditInstitutionAction } from "@/lib/examsim/institution-audit";
+import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Attempt, Json } from "@/types/database";
+import type { Json } from "@/types/database";
 
 export async function sendSessionBroadcastAction(sessionId: string, formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId, profileId } = await requireInstitutionPermission("invigilation");
   const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!body) throw new Error("Message is required");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("invigilation_messages").insert({
     exam_session_id: sessionId,
-    sender_profile_id: ownerProfileId,
+    sender_profile_id: profileId,
     sender_kind: "owner",
     message_kind: "broadcast",
     body,
     visible_to_student: true,
   });
   if (error) throw error;
+  await auditInstitutionAction({ ownerProfileId, action: "invigilation.broadcast.sent", targetTable: "exam_sessions", targetId: sessionId });
   revalidatePath(`/owner/exam-sessions/${sessionId}/live`);
 }
 
 export async function sendPrivateInvigilationMessageAction(sessionId: string, attemptId: string, formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId, profileId } = await requireInstitutionPermission("invigilation");
   const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!body) throw new Error("Message is required");
   const supabase = await createSupabaseServerClient();
@@ -40,19 +41,14 @@ export async function sendPrivateInvigilationMessageAction(sessionId: string, at
   const { error } = await supabase.from("invigilation_messages").insert({
     exam_session_id: sessionId,
     attempt_id: attemptId,
-    sender_profile_id: ownerProfileId,
+    sender_profile_id: profileId,
     sender_kind: "owner",
     message_kind: "private",
     body,
     visible_to_student: true,
   });
   if (error) throw error;
-  await supabase.rpc("audit_owner_action", {
-    action: "invigilation.private_message.sent",
-    target_table: "attempts",
-    target_id: attemptId,
-    metadata_json: { exam_session_id: sessionId },
-  });
+  await auditInstitutionAction({ ownerProfileId, action: "invigilation.private_message.sent", targetTable: "attempts", targetId: attemptId, metadata: { exam_session_id: sessionId } });
   revalidatePath(`/owner/exam-sessions/${sessionId}/live`);
 }
 
@@ -62,52 +58,58 @@ export async function applyLiveInterventionAction(
   actionType: "extra_time" | "pause" | "resume" | "force_submit" | "technical_issue",
   formData?: FormData,
 ) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId } = await requireInstitutionPermission("invigilation");
   const supabase = await createSupabaseServerClient();
-  const { data: attemptRow, error: attemptError } = await supabase
-    .from("attempts")
-    .select("*")
-    .eq("id", attemptId)
-    .eq("exam_session_id", sessionId)
-    .single();
-  if (attemptError) throw attemptError;
-  const attempt = attemptRow as Attempt;
-  const state = computeAttemptState({
-    serverNowUtc: new Date().toISOString(),
-    startAtUtc: attempt.start_at_utc,
-    endAtUtc: attempt.end_at_utc,
-    uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
-    solutionsRequested: attempt.solutions_requested,
-  });
-  if (state === "FINISHED_REVIEW" || attempt.forced_submitted_at) {
-    throw new Error("Finalized or submitted attempts cannot receive live interventions.");
-  }
 
   let details: Record<string, unknown> = {};
   if (actionType === "extra_time") {
     const extraSeconds = validateExtraTimeSeconds(formData?.get("extra_seconds"));
-    const previousEndAtUtc = attempt.end_at_utc;
-    const previousUploadDeadlineAtUtc = attempt.upload_deadline_at_utc;
-    const nextEndAtUtc = new Date(Date.parse(attempt.end_at_utc) + extraSeconds * 1000).toISOString();
-    const nextUploadDeadlineAtUtc = attempt.upload_deadline_at_utc
-      ? new Date(Date.parse(attempt.upload_deadline_at_utc) + extraSeconds * 1000).toISOString()
-      : null;
-    const { error: timingError } = await supabase
-      .from("attempts")
-      .update({
-        end_at_utc: nextEndAtUtc,
-        upload_deadline_at_utc: nextUploadDeadlineAtUtc,
-      })
-      .eq("id", attemptId)
-      .eq("exam_session_id", sessionId);
+    const { data, error: timingError } = await supabase.rpc("institution_apply_timing_intervention", {
+      p_owner_profile_id: ownerProfileId,
+      p_attempt_id: attemptId,
+      p_exam_session_id: sessionId,
+      p_action: "extra_time",
+      p_extra_seconds: extraSeconds,
+    });
     if (timingError) throw timingError;
+    details = typeof data === "object" && data !== null && !Array.isArray(data) ? data as Record<string, unknown> : { extra_seconds: extraSeconds };
+  }
+  if (actionType === "pause") {
+    const reason = String(formData?.get("reason") ?? "Approved rest break").trim();
+    const { data: pauseData, error: pauseError } = await supabase.rpc("institution_start_attempt_rest_break", {
+      p_owner_profile_id: ownerProfileId,
+      p_attempt_id: attemptId,
+      p_exam_session_id: sessionId,
+      p_reason: reason,
+      p_maximum_seconds: 7200,
+    });
+    if (pauseError) throw pauseError;
+    details = { reason, pause_interval_id: pauseData?.[0]?.pause_interval_id ?? null };
+  }
+  if (actionType === "resume") {
+    const { data: resumeData, error: resumeError } = await supabase.rpc("institution_resume_attempt_rest_break", {
+      p_owner_profile_id: ownerProfileId,
+      p_attempt_id: attemptId,
+      p_exam_session_id: sessionId,
+    });
+    if (resumeError) throw resumeError;
     details = {
-      extra_seconds: extraSeconds,
-      previous_end_at_utc: previousEndAtUtc,
-      new_end_at_utc: nextEndAtUtc,
-      previous_upload_deadline_at_utc: previousUploadDeadlineAtUtc,
-      new_upload_deadline_at_utc: nextUploadDeadlineAtUtc,
+      pause_interval_id: resumeData?.[0]?.pause_interval_id ?? null,
+      applied_seconds: resumeData?.[0]?.applied_seconds ?? null,
+      new_end_at_utc: resumeData?.[0]?.new_end_at_utc ?? null,
+      new_upload_deadline_at_utc: resumeData?.[0]?.new_upload_deadline_at_utc ?? null,
     };
+  }
+  if (actionType === "force_submit") {
+    const { data, error: forceError } = await supabase.rpc("institution_apply_timing_intervention", {
+      p_owner_profile_id: ownerProfileId,
+      p_attempt_id: attemptId,
+      p_exam_session_id: sessionId,
+      p_action: "force_submit",
+      p_extra_seconds: null,
+    });
+    if (forceError) throw forceError;
+    details = typeof data === "object" && data !== null && !Array.isArray(data) ? data as Record<string, unknown> : {};
   }
   const { error } = await supabase.from("live_interventions").insert({
     exam_session_id: sessionId,
@@ -117,14 +119,12 @@ export async function applyLiveInterventionAction(
     details_json: details as Json,
   });
   if (error) throw error;
-  if (actionType === "pause") await supabase.from("attempts").update({ paused_at: new Date().toISOString() }).eq("id", attemptId);
-  if (actionType === "resume") await supabase.from("attempts").update({ paused_at: null }).eq("id", attemptId);
-  if (actionType === "force_submit") await supabase.from("attempts").update({ forced_submitted_at: new Date().toISOString() }).eq("id", attemptId);
-  await supabase.rpc("audit_owner_action", {
+  await auditInstitutionAction({
+    ownerProfileId,
     action: `live_intervention.${actionType}`,
-    target_table: "attempts",
-    target_id: attemptId,
-    metadata_json: {
+    targetTable: "attempts",
+    targetId: attemptId,
+    metadata: {
       exam_session_id: sessionId,
       action_type: actionType,
       ...details,

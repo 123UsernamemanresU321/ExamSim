@@ -52,7 +52,7 @@ export type StudentGroupSummary = {
 
 export type StudentRosterEntrySummary = Pick<
   StudentRosterEntry,
-  "id" | "student_number" | "display_name" | "class_group" | "email" | "active" | "created_at" | "student_profile_id"
+  "id" | "student_number" | "display_name" | "class_group" | "email" | "active" | "created_at" | "student_profile_id" | "accommodations_json"
 >;
 
 export type AssessmentSummary = {
@@ -254,7 +254,7 @@ export async function listOwnerRosterEntries(): Promise<StudentRosterEntrySummar
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("student_roster_entries")
-    .select("id,student_number,display_name,class_group,email,active,created_at,student_profile_id")
+    .select("id,student_number,display_name,class_group,email,active,created_at,student_profile_id,accommodations_json")
     .order("student_number", { ascending: true });
   if (error) {
     if (isMissingRosterSchemaError(error)) return [];

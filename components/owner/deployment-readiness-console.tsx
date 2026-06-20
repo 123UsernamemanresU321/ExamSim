@@ -19,7 +19,8 @@ export function DeploymentReadinessConsole() {
             <CardTitle>Deployment readiness console</CardTitle>
             <CardDescription>
               Launch checklist for migrations, RLS, private storage, Edge Functions, provider setup, seed accounts, and
-              security claims. Items marked manual validation require staging evidence before high-stakes use.
+              security claims. Items marked manual validation should be checked on the actual website with synthetic
+              owner, student, and guest records before high-stakes use.
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">

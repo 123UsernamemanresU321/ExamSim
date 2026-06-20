@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { buildStudentNumber, normalizeStudentNumber } from "@/lib/examsim/guest-access";
-import { requireOwnerProfileId } from "@/lib/examsim/session-data";
+import { auditInstitutionAction } from "@/lib/examsim/institution-audit";
+import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
 import { asJson } from "@/lib/owner-operations";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -12,7 +13,7 @@ export type StudentRosterLinkActionResult = { ok: true; message: string } | { ok
 type SupabaseDataClient = Pick<Awaited<ReturnType<typeof createSupabaseServerClient>>, "from">;
 
 export async function createRosterEntryAction(formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId } = await requireInstitutionPermission("student_management");
   const displayName = requiredString(formData, "display_name");
   const studentNumber = normalizeStudentNumber(requiredString(formData, "student_number"));
   const classGroup = String(formData.get("class_group") ?? "").trim() || null;
@@ -31,7 +32,7 @@ export async function createRosterEntryAction(formData: FormData) {
 }
 
 export async function generateRosterEntriesAction(formData: FormData) {
-  const ownerProfileId = await requireOwnerProfileId();
+  const { ownerProfileId } = await requireInstitutionPermission("student_management");
   const prefix = requiredString(formData, "prefix");
   const count = clampInteger(Number(formData.get("count") ?? 0), 1, 200);
   const firstOrdinal = clampInteger(Number(formData.get("first_ordinal") ?? 1), 1, 9999);
@@ -63,9 +64,62 @@ export async function generateRosterEntriesAction(formData: FormData) {
   revalidatePath("/owner/students");
 }
 
+export async function updateRosterAccommodationsAction(formData: FormData) {
+  const { ownerProfileId } = await requireInstitutionPermission("student_management");
+  const rosterEntryId = requiredId(String(formData.get("roster_entry_id") ?? ""), "roster_entry_id");
+  const extra_time_percent = clampInteger(Number(formData.get("extra_time_percent") ?? 0), 0, 200);
+  const upload_extension_minutes = clampInteger(Number(formData.get("upload_extension_minutes") ?? 0), 0, 240);
+  const rest_break_max_minutes = clampInteger(Number(formData.get("rest_break_max_minutes") ?? 0), 0, 240);
+  const fontScale = clampInteger(Number(formData.get("font_scale_percent") ?? 100), 100, 150);
+  const font_scale_percent = [100, 125, 150].includes(fontScale) ? fontScale : 100;
+  const contrastValue = String(formData.get("contrast_mode") ?? "standard");
+  const contrast_mode = contrastValue === "high" ? "high" : "standard";
+  const calculatorValue = String(formData.get("calculator_policy") ?? "none");
+  const calculator_policy = ["none", "basic", "scientific", "graphing"].includes(calculatorValue)
+    ? calculatorValue
+    : "none";
+  const allowed_materials = String(formData.get("allowed_materials") ?? "")
+    .split(/\r?\n/)
+    .map((item) => item.trim().slice(0, 120))
+    .filter(Boolean)
+    .slice(0, 20);
+  const accommodations = {
+    extra_time_percent,
+    upload_extension_minutes,
+    rest_break_allowed: formData.get("rest_break_allowed") === "on",
+    rest_break_max_minutes,
+    font_scale_percent,
+    dyslexia_font: formData.get("dyslexia_font") === "on",
+    contrast_mode,
+    calculator_policy,
+    formula_booklet_allowed: formData.get("formula_booklet_allowed") === "on",
+    allowed_materials,
+  };
+  const supabase = await createSupabaseServerClient();
+  const { data: entry, error: entryError } = await supabase
+    .from("student_roster_entries")
+    .select("id,owner_profile_id,student_number")
+    .eq("id", rosterEntryId)
+    .maybeSingle();
+  if (entryError) throw entryError;
+  if (!entry || entry.owner_profile_id !== ownerProfileId) throw new Error("Roster entry is not managed by this owner.");
+  const { error } = await supabase
+    .from("student_roster_entries")
+    .update({ accommodations_json: asJson(accommodations) })
+    .eq("id", rosterEntryId)
+    .eq("owner_profile_id", ownerProfileId);
+  if (error) throw error;
+  await auditStudentAction(ownerProfileId, "roster_entry.accommodations_updated", "student_roster_entries", rosterEntryId, {
+    student_number: entry.student_number,
+    policy: accommodations,
+  });
+  revalidatePath("/owner/students");
+  revalidatePath("/owner/exam-sessions");
+}
+
 export async function deleteStudentAccountAction(studentProfileId: string): Promise<StudentDeleteActionResult> {
   return runDeleteAction("student_account", async () => {
-    const ownerProfileId = await requireOwnerProfileId();
+    const { ownerProfileId } = await requireInstitutionPermission("student_management");
     const studentId = requiredId(studentProfileId, "student_profile_id");
     const supabase = await createSupabaseServerClient();
 
@@ -83,7 +137,7 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
 
     const attemptCount = await countAttempts(supabase, "assignee_profile_id", studentId);
     if (attemptCount > 0) {
-      await auditStudentAction("student.delete_blocked", "profiles", studentId, {
+      await auditStudentAction(ownerProfileId, "student.delete_blocked", "profiles", studentId, {
         reason: "attempt_history_exists",
         attempts: attemptCount,
         display_name: student.display_name,
@@ -91,7 +145,7 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
       throw new Error("This student has attempt history. Keep the account so exam records, uploads, marks, and receipts remain intact.");
     }
 
-    await auditStudentAction("student.delete_requested", "profiles", studentId, {
+    await auditStudentAction(ownerProfileId, "student.delete_requested", "profiles", studentId, {
       display_name: student.display_name,
     });
 
@@ -104,7 +158,7 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
       .eq("app_role", "student");
     if (profileDeleteError) throw profileDeleteError;
 
-    await auditStudentAction("student.deleted", "profiles", studentId, {
+    await auditStudentAction(ownerProfileId, "student.deleted", "profiles", studentId, {
       display_name: student.display_name,
     });
 
@@ -116,7 +170,7 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
 
 export async function deleteRosterEntryAction(rosterEntryId: string): Promise<StudentDeleteActionResult> {
   return runDeleteAction("roster_entry", async () => {
-    const ownerProfileId = await requireOwnerProfileId();
+    const { ownerProfileId } = await requireInstitutionPermission("student_management");
     const entryId = requiredId(rosterEntryId, "roster_entry_id");
     const supabase = await createSupabaseServerClient();
 
@@ -131,7 +185,7 @@ export async function deleteRosterEntryAction(rosterEntryId: string): Promise<St
 
     const attemptCount = await countAttempts(supabase, "roster_entry_id", entryId);
     if (attemptCount > 0) {
-      await auditStudentAction("roster_entry.delete_blocked", "student_roster_entries", entryId, {
+      await auditStudentAction(ownerProfileId, "roster_entry.delete_blocked", "student_roster_entries", entryId, {
         reason: "attempt_history_exists",
         attempts: attemptCount,
         student_number: entry.student_number,
@@ -140,7 +194,7 @@ export async function deleteRosterEntryAction(rosterEntryId: string): Promise<St
       throw new Error("This roster number is linked to exam attempts. Keep it so guest exam identity and receipts remain traceable.");
     }
 
-    await auditStudentAction("roster_entry.delete_requested", "student_roster_entries", entryId, {
+    await auditStudentAction(ownerProfileId, "roster_entry.delete_requested", "student_roster_entries", entryId, {
       student_number: entry.student_number,
       display_name: entry.display_name,
     });
@@ -152,7 +206,7 @@ export async function deleteRosterEntryAction(rosterEntryId: string): Promise<St
       .eq("owner_profile_id", ownerProfileId);
     if (deleteError) throw deleteError;
 
-    await auditStudentAction("roster_entry.deleted", "student_roster_entries", entryId, {
+    await auditStudentAction(ownerProfileId, "roster_entry.deleted", "student_roster_entries", entryId, {
       student_number: entry.student_number,
       display_name: entry.display_name,
     });
@@ -164,7 +218,7 @@ export async function deleteRosterEntryAction(rosterEntryId: string): Promise<St
 
 export async function linkRosterEntryToStudentAccountAction(formData: FormData): Promise<StudentRosterLinkActionResult> {
   return runRosterLinkAction(async () => {
-    const ownerProfileId = await requireOwnerProfileId();
+    const { ownerProfileId } = await requireInstitutionPermission("student_management");
     const entryId = requiredId(String(formData.get("roster_entry_id") ?? ""), "roster_entry_id");
     const requestedStudentId = String(formData.get("student_profile_id") ?? "").trim();
     const nextStudentId = requestedStudentId || null;
@@ -203,6 +257,7 @@ export async function linkRosterEntryToStudentAccountAction(formData: FormData):
     if (updateError) throw updateError;
 
     await auditStudentAction(
+      ownerProfileId,
       nextStudentId ? "roster_entry.account_linked" : "roster_entry.account_unlinked",
       "student_roster_entries",
       entryId,
@@ -262,15 +317,8 @@ async function countAttempts(client: SupabaseDataClient, column: "assignee_profi
   return count ?? 0;
 }
 
-async function auditStudentAction(action: string, targetTable: string, targetId: string, metadata: Record<string, unknown>) {
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("audit_owner_action", {
-    action,
-    target_table: targetTable,
-    target_id: targetId,
-    metadata_json: asJson(metadata),
-  });
-  if (error) throw error;
+async function auditStudentAction(ownerProfileId: string, action: string, targetTable: string, targetId: string, metadata: Record<string, unknown>) {
+  await auditInstitutionAction({ ownerProfileId, action, targetTable, targetId, metadata });
 }
 
 async function deleteAuthUserIfConfigured(authUserId: string) {

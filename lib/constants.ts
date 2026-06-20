@@ -18,6 +18,7 @@ export type DeliveryMode = (typeof DELIVERY_MODES)[number];
 export const ATTEMPT_STATES = [
   "WAITING",
   "ACTIVE",
+  "PAUSED",
   "UPLOAD_ONLY",
   "FINISHED_REVIEW",
 ] as const;

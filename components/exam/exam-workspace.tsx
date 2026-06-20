@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
+import { AccommodationSummary } from "@/components/exam/accommodation-summary";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionNavigator } from "@/components/question-navigator";
 import { QuestionPaper } from "@/components/question-paper";
@@ -18,13 +19,14 @@ import {
   type ExamLayoutMode,
 } from "@/components/student/exam-ops-panels";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { flattenQuestionNodes, normalizedPackageSchema } from "@/lib/assessment-package";
 import type { AttemptScreenData } from "@/lib/attempt-screen-data";
 import type { StudentUploadCompletion } from "@/lib/student-upload-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
+import type { StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
 import type { StudentMaterial } from "@/lib/student-experience";
 
 function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
@@ -68,7 +70,13 @@ export function ExamWorkspace({
         sessionId = session?.attempt_session_id;
         setAttemptSessionId(sessionId);
         if (sessionId) {
-          const state = await invokeEdgeFunction<{ state_token: string; server_now_utc: string; countdown_target_utc: string | null }>(
+          const state = await invokeEdgeFunction<{
+            state: AttemptScreenData["attempt"]["state"];
+            state_token: string;
+            server_now_utc: string;
+            countdown_target_utc: string | null;
+            accommodation_policy: StudentAccommodationPolicy;
+          }>(
             supabase,
             "get-attempt-state",
             { body: { attempt_id: attemptId, attempt_session_id: sessionId } },
@@ -79,10 +87,12 @@ export function ExamWorkspace({
               ...prev,
               stateToken: state.state_token,
               attempt: {
-                ...prev.attempt,
-                server_now_utc: state.server_now_utc,
+                 ...prev.attempt,
+                 state: state.state,
+                 server_now_utc: state.server_now_utc,
                 countdown_target_utc: state.countdown_target_utc,
               },
+              accommodationPolicy: state.accommodation_policy ?? prev.accommodationPolicy,
             }));
           }
         }
@@ -154,7 +164,58 @@ export function ExamWorkspace({
     void startSessionAndLoadPackage();
   }, [attemptId, initialScreenData.stateToken, screenData.package, initialScreenData.attempt.delivery_mode]);
 
-  const { attempt, package: assessmentPackage, packageError, stateToken, assetUrls, responses, sebConfigUrl, annotations, uploadSlots } = screenData;
+  useEffect(() => {
+    if (!attemptSessionId) return;
+    let cancelled = false;
+
+    async function refreshServerState() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const state = await invokeEdgeFunction<{
+          state: AttemptScreenData["attempt"]["state"];
+          state_token: string;
+          server_now_utc: string;
+          countdown_target_utc: string | null;
+          accommodation_policy: StudentAccommodationPolicy;
+        }>(supabase, "get-attempt-state", {
+          body: { attempt_id: attemptId, attempt_session_id: attemptSessionId },
+        });
+        if (!state || cancelled) return;
+        let shouldReloadPackage = false;
+        setScreenData((previous) => {
+          shouldReloadPackage = previous.attempt.state === "PAUSED" && state.state === "ACTIVE" && !previous.package;
+          return {
+            ...previous,
+            stateToken: state.state_token,
+            attempt: {
+              ...previous.attempt,
+              state: state.state,
+              server_now_utc: state.server_now_utc,
+              countdown_target_utc: state.countdown_target_utc,
+            },
+            accommodationPolicy: state.accommodation_policy ?? previous.accommodationPolicy,
+          };
+        });
+        if (shouldReloadPackage) window.location.reload();
+      } catch {
+        // ReconnectRecoveryBanner remains the visible recovery surface. The last
+        // verified server state stays authoritative until the next poll succeeds.
+      }
+    }
+
+    const interval = window.setInterval(() => void refreshServerState(), 10_000);
+    void refreshServerState();
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [attemptId, attemptSessionId]);
+
+  const { attempt, package: assessmentPackage, packageError, stateToken, assetUrls, responses, sebConfigUrl, annotations, uploadSlots, accommodationPolicy } = screenData;
+
+  if (attempt.state === "PAUSED") {
+    return <AuthenticatedRestBreakPanel attempt={attempt} onRefresh={() => window.location.reload()} />;
+  }
 
   // Show "Verifying..." if we are fetching the package on the client
   if (isLoadingPackage) {
@@ -262,7 +323,12 @@ export function ExamWorkspace({
   }
 
   return (
-    <div className="exam-mode min-h-screen bg-[var(--background)] pb-12">
+    <div
+      className="exam-mode min-h-screen bg-[var(--background)] pb-12"
+      data-exam-font-scale={accommodationPolicy.font_scale_percent}
+      data-exam-readable-font={accommodationPolicy.dyslexia_font}
+      data-exam-contrast={accommodationPolicy.contrast_mode}
+    >
       <TelemetryListener attemptId={attemptId} attemptSessionId={attemptSessionId} stateToken={stateToken} />
       <header className="sticky top-0 z-50 mb-6 border-b border-slate-700 bg-[var(--sidebar)] px-4 py-3 text-white shadow-[0_1px_0_rgba(0,0,0,0.2)] md:px-6">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
@@ -316,6 +382,7 @@ export function ExamWorkspace({
         <aside className={`content-start gap-4 xl:sticky xl:top-24 xl:self-start ${
           layoutMode === "focus" || !toolsOpen ? "hidden xl:hidden" : "grid"
         }`} aria-label="Response tools">
+          <AccommodationSummary policy={accommodationPolicy} />
           <StudentMaterialsDrawer materials={materials} />
           <PinnedMaterialsPanel materials={materials} />
           
@@ -356,6 +423,31 @@ export function ExamWorkspace({
         </aside>
       </div>
     </div>
+  );
+}
+
+function AuthenticatedRestBreakPanel({
+  attempt,
+  onRefresh,
+}: {
+  attempt: AttemptScreenData["attempt"];
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="mx-auto grid min-h-[70vh] max-w-[760px] content-center gap-5 px-4 py-10">
+      <div className="rounded-[6px] border border-[#e6c577] bg-[var(--warning-bg)] p-6 shadow-[var(--shadow-card)]">
+        <AttemptStateBadge state="PAUSED" />
+        <h1 className="mt-4 text-2xl font-semibold text-[var(--ink)]">Approved rest break</h1>
+        <p className="mt-2 text-sm leading-6 text-[#5f4510]">
+          The server has paused this attempt. Answers, uploads, and submission are locked until the invigilator resumes
+          the exam. Your official deadlines will be extended by the approved break duration.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Button type="button" onClick={onRefresh}>Check server state</Button>
+          <span className="text-xs text-[var(--muted)]">Attempt {attempt.id.slice(0, 8)}</span>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -1,11 +1,15 @@
-import { requireAppRole } from "@/lib/auth/server";
 import { OwnerShell } from "@/components/owner/owner-shell";
+import { requireInstitutionContext } from "@/lib/examsim/institution-roles";
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
-  const profile = await requireAppRole("owner", "/owner");
+  const context = await requireInstitutionContext("/owner");
 
   return (
-    <OwnerShell displayName={profile?.display_name || "Admin User"}>
+    <OwnerShell
+      displayName={context.displayName}
+      institutionRole={context.role}
+      institutionPermissions={context.permissions}
+    >
       {children}
     </OwnerShell>
   );
