@@ -1,6 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
+import {
+  ReadinessList,
+  ReadinessListDetail,
+  ReadinessListDetails,
+  ReadinessListRow,
+} from "@/components/ui/readiness-list";
 import {
   buildReleaseCandidateReadiness,
   getExamsimProductionReadiness,
@@ -57,7 +62,7 @@ export function ExamsimProductionReadinessPanel() {
   return (
     <Card className="content-start" aria-label="Production readiness matrix for Smart Import / Exam Compiler and Guest SEB / Lockdown">
       <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold">Production readiness matrix</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted)]">
             Tracks every Examsim product-spec capability as ready, provider-gated, blocked, or requiring live validation
@@ -65,7 +70,7 @@ export function ExamsimProductionReadinessPanel() {
             fully verified.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Badge tone="success">{summary.ready} ready</Badge>
           <Badge tone="warning">{summary.providerRequired + summary.providerReadyNeedsLiveValidation} provider-gated</Badge>
           <Badge tone="info">{summary.manualFallback} fallback</Badge>
@@ -75,11 +80,11 @@ export function ExamsimProductionReadinessPanel() {
 
       <div className="mt-5 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-semibold text-[var(--ink)]">Release candidate readiness</h3>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted)]">{releaseCandidate.ownerMessage}</p>
           </div>
-          <Badge tone={releaseCandidate.readyForFullV3 ? "success" : "warning"}>
+          <Badge className="shrink-0 self-start" tone={releaseCandidate.readyForFullV3 ? "success" : "warning"}>
             {releaseCandidate.readyForFullV3 ? "Full V3 ready" : `${releaseCandidate.remainingItems.length} remaining`}
           </Badge>
         </div>
@@ -100,23 +105,25 @@ export function ExamsimProductionReadinessPanel() {
       </div>
 
       <div className="mt-5">
-        <DataTable headers={["Feature", "Status", "Production path", "Fallback / QA"]} className="shadow-none">
+        <ReadinessList aria-label="Product capability readiness">
           {readiness.map((item) => (
-            <DataTableRow key={item.key}>
-              <DataTableCell className="min-w-[220px]">
-                <p className="font-semibold text-[var(--ink)]">{item.title}</p>
-                <p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{item.ownerMessage}</p>
-              </DataTableCell>
-              <DataTableCell className="whitespace-nowrap">
+            <ReadinessListRow key={item.key}>
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[var(--ink)]">{item.title}</p>
+                  <p className="mt-1 max-w-4xl break-words text-[13px] leading-5 text-[var(--muted)]">{item.ownerMessage}</p>
+                </div>
                 <ReadinessStatusBadge status={item.status} />
-              </DataTableCell>
-              <DataTableCell className="min-w-[260px] text-[var(--muted)]">{item.productionPath}</DataTableCell>
-              <DataTableCell className="min-w-[260px]">
-                <ReadinessDetail item={item} />
-              </DataTableCell>
-            </DataTableRow>
+              </div>
+              <ReadinessListDetails className="xl:grid-cols-2">
+                <ReadinessListDetail label="Production path">{item.productionPath}</ReadinessListDetail>
+                <ReadinessListDetail label="Fallback and QA">
+                  <ReadinessDetail item={item} />
+                </ReadinessListDetail>
+              </ReadinessListDetails>
+            </ReadinessListRow>
           ))}
-        </DataTable>
+        </ReadinessList>
       </div>
     </Card>
   );

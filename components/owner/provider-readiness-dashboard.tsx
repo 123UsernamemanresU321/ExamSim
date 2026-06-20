@@ -2,6 +2,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import {
+  ReadinessList,
+  ReadinessListDetail,
+  ReadinessListDetails,
+  ReadinessListRow,
+} from "@/components/ui/readiness-list";
+import {
   buildImportGovernanceSummary,
   buildSmartImportSampleQaPack,
   evaluateBatchPdfImportPlan,
@@ -33,14 +39,14 @@ export function ProviderReadinessDashboard({
     <Card aria-label="V3 provider and import readiness dashboard">
       <CardHeader>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <CardTitle>Provider and import readiness</CardTitle>
             <CardDescription>
               Configuration-only checks for OCR, AI grouping, LaTeX, private storage, Edge Functions, notifications,
               and exports. This dashboard does not send prompts, PDFs, or student data to external providers.
             </CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             <Badge tone={jobSummary.actionRequired ? "warning" : "success"}>{jobSummary.actionRequired} action required</Badge>
             <Badge tone="info">{jobSummary.active} active</Badge>
             <Badge tone="success">{jobSummary.completed} completed</Badge>
@@ -51,35 +57,38 @@ export function ProviderReadinessDashboard({
         </div>
       </CardHeader>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-        <DataTable headers={["Capability", "Status", "Safe probe", "Setup / fallback"]} className="shadow-none">
-          {providers.map((item) => (
-            <DataTableRow key={item.key}>
-              <DataTableCell className="min-w-[210px]">
+      <ReadinessList aria-label="Provider capability readiness">
+        {providers.map((item) => (
+          <ReadinessListRow key={item.key}>
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <p className="font-semibold text-[var(--ink)]">{item.title}</p>
-                <p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{item.ownerMessage}</p>
-              </DataTableCell>
-              <DataTableCell className="whitespace-nowrap">
-                <Badge tone={providerStatusTone(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
-                {item.requiredEnvVars.length ? (
-                  <p className="mt-2 max-w-[220px] text-[11px] leading-5 text-[var(--muted)]">
-                    {item.requiredEnvVars.join(", ")}
-                  </p>
-                ) : null}
-              </DataTableCell>
-              <DataTableCell className="min-w-[220px] text-[var(--muted)]">{item.safeProbe}</DataTableCell>
-              <DataTableCell className="min-w-[240px]">
-                <p className="text-[13px] leading-5 text-[var(--muted)]">{item.setupReference}</p>
-                <p className="mt-2 text-[12px] leading-5 text-[var(--muted)]">
+                <p className="mt-1 max-w-4xl break-words text-[13px] leading-5 text-[var(--muted)]">
+                  {item.ownerMessage}
+                </p>
+              </div>
+              <Badge className="shrink-0 self-start" tone={providerStatusTone(item.status)}>
+                {item.status.replaceAll("_", " ")}
+              </Badge>
+            </div>
+            <ReadinessListDetails>
+              <ReadinessListDetail label="Required configuration">
+                {item.requiredEnvVars.length ? item.requiredEnvVars.join(", ") : "No external configuration required."}
+              </ReadinessListDetail>
+              <ReadinessListDetail label="Safe probe">{item.safeProbe}</ReadinessListDetail>
+              <ReadinessListDetail label="Setup and fallback">
+                <p>{item.setupReference}</p>
+                <p className="mt-2">
                   <span className="font-semibold text-[var(--ink)]">Fallback:</span> {item.fallback}
                 </p>
-              </DataTableCell>
-            </DataTableRow>
-          ))}
-        </DataTable>
+              </ReadinessListDetail>
+            </ReadinessListDetails>
+          </ReadinessListRow>
+        ))}
+      </ReadinessList>
 
-        <div className="grid content-start gap-4">
-          <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+      <div className="mt-5 grid min-w-0 content-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
             <h3 className="text-sm font-semibold text-[var(--ink)]">Import job states</h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {V3_IMPORT_JOB_STATES.map((state) => (
@@ -124,23 +133,23 @@ export function ProviderReadinessDashboard({
           </div>
 
           <div className="rounded-[4px] border border-[var(--border)] bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-[var(--ink)]">Smart Import sample QA</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                   Live validation fixture coverage for PDF regions, LaTeX structure, and markscheme-to-rubric mapping.
                 </p>
               </div>
-              <Badge tone={smartImportQa.providerBackedReady ? "success" : "warning"}>
+              <Badge className="shrink-0" tone={smartImportQa.providerBackedReady ? "success" : "warning"}>
                 {smartImportQa.summary.passed}/{smartImportQa.totalFixtures} passed
               </Badge>
             </div>
             <div className="mt-3 grid gap-2">
               {smartImportQa.items.map((item) => (
                 <div key={item.fixture.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-[var(--ink)]">{item.fixture.title}</p>
-                    <Badge tone={sampleQaTone(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <p className="min-w-0 text-sm font-semibold text-[var(--ink)]">{item.fixture.title}</p>
+                    <Badge className="shrink-0" tone={sampleQaTone(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
                   </div>
                   <p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{item.ownerMessage}</p>
                   {item.missingChecks.length ? (
@@ -154,15 +163,15 @@ export function ProviderReadinessDashboard({
           </div>
 
           <div className="rounded-[4px] border border-[var(--border)] bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-[var(--ink)]">Batch PDF import readiness</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                   Preflight rules for duplicate PDFs, file size, markscheme grouping, provider setup, and large-batch
                   confirmation before OCR submission.
                 </p>
               </div>
-              <Badge tone={batchPdfPlan.canSubmitToProvider ? "success" : "info"}>{batchPdfPlan.acceptedPdfCount} PDFs</Badge>
+              <Badge className="shrink-0" tone={batchPdfPlan.canSubmitToProvider ? "success" : "info"}>{batchPdfPlan.acceptedPdfCount} PDFs</Badge>
             </div>
             <div className="mt-3 grid gap-2 text-sm text-[var(--muted)]">
               <p>
@@ -184,7 +193,7 @@ export function ProviderReadinessDashboard({
             </div>
           </div>
 
-          <DataTable headers={["Recent import", "State"]} className="shadow-none">
+          <DataTable headers={["Recent import", "State"]} className="shadow-none lg:col-span-2 2xl:col-span-3">
             {importJobs.length ? importJobs.slice(0, 8).map((job) => {
               const state = getImportJobState(job);
               const guard = governance.costGuards.find((candidate, index) => importJobs[index] === job);
@@ -216,7 +225,6 @@ export function ProviderReadinessDashboard({
               </DataTableRow>
             )}
           </DataTable>
-        </div>
       </div>
     </Card>
   );

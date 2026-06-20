@@ -6,11 +6,19 @@ import { InstitutionMembershipManager } from "@/components/owner/institution-mem
 import { ProviderReadinessDashboard } from "@/components/owner/provider-readiness-dashboard";
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
+import { ReadinessList, ReadinessListRow } from "@/components/ui/readiness-list";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ImportAuditLike, ImportJobLike } from "@/lib/examsim/provider-readiness";
 
 export const dynamic = "force-dynamic";
+
+const PRODUCTION_BASELINE = [
+  ["Owner MFA", "Supabase TOTP upgrades owner sessions to AAL2."],
+  ["Student accounts", "Owner-issued aliases and activation codes, not real email delivery."],
+  ["Browser Mode", "Tamper-evident only; server functions enforce timing, release, uploads, and exports."],
+  ["SEB Secure Mode", "Requires copied Browser Exam Key and Config Key values; user-agent checks are not accepted."],
+  ["Age attestation", "Students must be 13+ for production v1; the app stores an owner attestation, not a date of birth."],
+] as const;
 
 export default async function OwnerSecurityPage() {
   const [importJobs, importAuditLogs, membershipData] = await Promise.all([
@@ -33,28 +41,17 @@ export default async function OwnerSecurityPage() {
         <Card className="content-start">
           <h2 className="text-lg font-semibold">Production baseline</h2>
           <div className="mt-4">
-            <DataTable headers={["Control", "Production rule"]} className="shadow-none">
-              <DataTableRow>
-                <DataTableCell className="font-semibold">Owner MFA</DataTableCell>
-                <DataTableCell className="text-[var(--muted)]">Supabase TOTP upgrades owner sessions to AAL2.</DataTableCell>
-              </DataTableRow>
-              <DataTableRow>
-                <DataTableCell className="font-semibold">Student accounts</DataTableCell>
-                <DataTableCell className="text-[var(--muted)]">Owner-issued aliases and activation codes, not real email delivery.</DataTableCell>
-              </DataTableRow>
-              <DataTableRow>
-                <DataTableCell className="font-semibold">Browser Mode</DataTableCell>
-                <DataTableCell className="text-[var(--muted)]">Tamper-evident only; server functions enforce timing, release, uploads, and exports.</DataTableCell>
-              </DataTableRow>
-              <DataTableRow>
-                <DataTableCell className="font-semibold">SEB Secure Mode</DataTableCell>
-                <DataTableCell className="text-[var(--muted)]">Requires copied Browser Exam Key and Config Key values; user-agent checks are not accepted.</DataTableCell>
-              </DataTableRow>
-              <DataTableRow>
-                <DataTableCell className="font-semibold">Age attestation</DataTableCell>
-                <DataTableCell className="text-[var(--muted)]">Students must be 13+ for production v1; the app stores an owner attestation, not a date of birth.</DataTableCell>
-              </DataTableRow>
-            </DataTable>
+            <ReadinessList aria-label="Production security controls">
+              {PRODUCTION_BASELINE.map(([control, rule]) => (
+                <ReadinessListRow
+                  key={control}
+                  className="grid gap-1 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4"
+                >
+                  <p className="font-semibold text-[var(--ink)]">{control}</p>
+                  <p className="min-w-0 break-words text-[13px] leading-5 text-[var(--muted)]">{rule}</p>
+                </ReadinessListRow>
+              ))}
+            </ReadinessList>
           </div>
           <div className="mt-5 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--muted)]">
             <p className="font-semibold text-[var(--ink)]">SEB setup</p>
