@@ -117,6 +117,7 @@ function QuestionBlock({
   return (
     <article 
       id={node.node_id} 
+      data-exam-question
       className={cn(
         "scroll-mt-24 border-t border-[var(--border)] py-6 first:border-t-0 first:pt-0",
         depth > 0 && "ml-4 md:ml-8 border-t-0 pt-2"

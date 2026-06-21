@@ -71,6 +71,7 @@ RLS is enabled on all public tables. Owners can manage their own assessment esta
 
 Advanced learning workflow tables follow the same boundary:
 
+- Student group reads use a non-exposed `private.student_is_group_member` security-definer helper so student membership checks do not recursively evaluate collaborator policies on `student_groups` and `student_group_members`.
 - Paper health checks, question bank items, generated papers, and mistake category definitions are owner-only.
 - Mistake instances are student-readable only when explicitly marked student-visible and feedback has been released.
 - Correction notebooks and entries are visible/writeable to the assigned student only after a visible feedback release.
@@ -206,6 +207,17 @@ The Cloudflare KMS wrapper implements envelope-key wrapping for server-side call
 key, encrypts the package or marking packet with AES-GCM, stores only ciphertext in Supabase Storage, and stores the
 wrapped data key plus metadata in Postgres. If KMS wrapping fails, sensitive object writes fail rather than silently
 storing plaintext in KMS-required paths.
+
+## Student Subject Tools
+
+Exam Vault renders browser read-aloud, Desmos, GeoGebra, and Ketcher only when the server-issued session accommodation policy explicitly allows them. This controls the built-in exam UI; it is not proof that a student cannot open unrelated tools outside Exam Vault in Browser Mode.
+
+- Read-aloud uses the browser Web Speech API. Exam Vault does not request microphone permission or upload exam text to an Exam Vault TTS service, but browser vendors may implement installed or online voices differently.
+- Desmos uses the public `NEXT_PUBLIC_DESMOS_API_KEY` required by the official embed. No server-only key is placed in the client bundle.
+- Desmos and GeoGebra execute inside sandboxed opaque-origin iframes without `allow-same-origin`, so their scripts cannot read the parent exam DOM. GeoGebra loads the official geometry app with CAS disabled.
+- The Content Security Policy allowlists only the Desmos and GeoGebra origins needed by these embeds; it does not use wildcard script or frame sources.
+- Ketcher uses pinned `ketcher-core`, `ketcher-react`, and `ketcher-standalone` packages. Structures remain in the browser unless the student explicitly copies or exports them.
+- Desmos and GeoGebra do not receive the assessment package from Exam Vault. Students should still treat any text entered into an external embedded tool according to the provider's privacy terms.
 
 ## Future Hardening
 

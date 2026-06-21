@@ -21,6 +21,20 @@ test("active exam screen renders content and response tools", async ({ page }) =
   await expect(page.getByRole("complementary", { name: /Response tools/i })).toBeVisible();
 });
 
+test("approved student subject tools open without leaving the exam", async ({ page }) => {
+  await page.goto("/student/attempts/att_active/exam");
+  await expect(page.getByRole("heading", { name: /Algebraic structure/i })).toBeVisible();
+
+  await page.getByRole("button", { name: "Read aloud" }).click();
+  await expect(page.getByRole("dialog", { name: "Read aloud" })).toBeVisible();
+  await expect(page.getByText(/does not record audio and does not use the microphone/i)).toBeVisible();
+  await page.getByRole("button", { name: "Close Read aloud" }).click();
+
+  await page.getByRole("button", { name: "Ketcher" }).click();
+  await expect(page.getByRole("dialog", { name: "Ketcher chemistry editor" })).toBeVisible();
+  await expect(page.getByText(/Chemistry editor ready/i)).toBeVisible({ timeout: 20_000 });
+});
+
 test("upload and finished states keep writing readonly", async ({ page }) => {
   await page.goto("/student/attempts/att_upload/upload");
   await expect(page.getByText("UPLOAD ONLY", { exact: true })).toBeVisible();
@@ -49,6 +63,15 @@ test("owner can reach creation and moderation report screens", async ({ page }) 
   await page.goto("/owner/attempts/att_active/report");
   await expect(page.getByRole("heading", { name: /moderation report/i })).toBeVisible();
   await expect(page.getByText(/does not automatically accuse/i)).toBeVisible();
+});
+
+test("owner can configure policy-gated subject tools for an exam session", async ({ page }) => {
+  await page.goto("/owner/exam-sessions");
+  await expect(page.getByRole("heading", { name: "Built-in subject tools" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Read aloud/i })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Desmos graphing/i })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /GeoGebra geometry/i })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Ketcher chemistry editor/i })).toBeVisible();
 });
 
 test("owner security readiness panels do not overflow at laptop or mobile widths", async ({ page }) => {

@@ -41,7 +41,8 @@ providers; it only reports env/config readiness, recent import-job states, and m
 ## Production-safe V3 additions
 
 - Table response workspace for questions configured through the Visual Question Editor. Student answers are stored as structured JSON in the existing `text_responses` path and remain server/state-token mediated.
-- Simple whiteboard response workspace for sketch/drawing answers. Strokes are saved as normalized coordinates so they survive viewport changes; advanced graphing, geometry, CAS, and chemistry tools are not claimed unless a real provider is configured.
+- Simple whiteboard response workspace for sketch/drawing answers. Strokes are saved as normalized coordinates so they survive viewport changes.
+- Teacher-controlled subject tools: browser read-aloud through the Browser Web Speech API, sandbox-isolated Desmos graphing through the official keyed embed, sandbox-isolated GeoGebra geometry with CAS disabled, and a self-hosted Ketcher chemistry editor. All are disabled by default in the server-issued session policy.
 - Command-term answer inference now suggests table and whiteboard workspaces for table-completion and drawing/sketching prompts. These suggestions are advisory only; teacher confirmation remains required.
 - Deterministic answer grouping treats table and whiteboard responses as manual-review structured groups instead of auto-normalizing them as plain text.
 - Owner-facing provider readiness dashboard for OCR/layout extraction, AI/semantic grouping, LaTeX syntax parsing, PDF/source-region handling, private storage, Edge Functions, email/notifications, and export readiness.
@@ -63,7 +64,7 @@ providers; it only reports env/config readiness, recent import-job states, and m
 - Published assessment versions are immutable. Historical versions can be compared and restored only by cloning a complete, separately audited draft, including questions, source documents/pages/regions, markscheme mappings, rubrics, topics, and standards.
 - Paper Mode generates stable roster booklets and paper attempts, printable PDF packs, private verified scan uploads, audited manual page-to-student/question mapping, and mapped scan links in digital marking. Automatic OCR/barcode mapping remains optional and provider-gated.
 - Live invigilation now includes searchable risk filters, heartbeat/visibility evidence, private and broadcast messages, student acknowledgements, and acknowledgement counts for owner review.
-- The accommodations matrix includes server-enforced extra time, upload extensions, custom access windows, capped server-side rest breaks, display preferences, calculator/formula policies, and allowed materials. TTS remains unavailable unless a real provider is added.
+- The accommodations matrix includes server-enforced extra time, upload extensions, custom access windows, capped server-side rest breaks, display preferences, calculator/formula policies, allowed materials, and teacher-approved subject tools. Browser TTS support and installed voices vary by student device.
 - Question Library extraction preserves response interactions, source regions, topics, standards, rubrics, provenance, readiness, and duplicate fingerprints. Blueprint generation supports topic, standard, difficulty, command-term, paper-type, recent-use exclusions, replacement, readiness scoring, and conversion to an editable assessment.
 - Owner-managed curriculum frameworks and hierarchical standards include reviewable starter structures for IB, MYP, IGCSE, and Olympiad/SAMO-style use. They feed question links, standards mastery, cohort reporting, and revision recommendations without claiming official completeness.
 - Adaptive revision sets use released marks only, match weaknesses to reviewed Question Library items, remain teacher-editable drafts until assignment, and expose assigned content through a student-checked database projection rather than direct Question Library access.
@@ -78,7 +79,7 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Import job state, sample QA, and governance model | `lib/examsim/provider-readiness.ts`, `components/owner/provider-readiness-dashboard.tsx`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs` and `owner_audit_logs`; no new table is required for V3 status, sample QA fixture display, batch PDF preflight, quota, retry, cost, and audit display. |
 | Deployment readiness console | `components/owner/deployment-readiness-console.tsx`, `lib/examsim/deployment-readiness.ts`, `tests/examsim-v3-deployment-readiness.test.ts` | Read-only launch checklist. Live RLS/storage/migration validation should run on the actual website and Supabase project with synthetic records. |
 | Institution role matrix | `lib/examsim/institution-role-matrix.ts`, `lib/examsim/institution-roles.ts`, `lib/examsim/institution-route-access.ts`, `components/owner/institution-role-matrix-panel.tsx`, `components/owner/sidebar-nav.tsx`, `supabase/migrations/20260618140348_institution_role_matrix.sql`, `supabase/migrations/20260619000400_v3_institution_permission_rollout.sql`, `tests/examsim-v3-institution-roles.test.ts`, `tests/examsim-v3-route-permissions.test.ts` | Owner-scoped collaboration membership, server/RLS permission enforcement, role-aware navigation, and sensitive route layouts are deployed. Multi-account workflow QA remains required before institution-wide use. |
-| V3 release-candidate schema | Migrations `20260619000100` through `20260621145455`; claim, OCR, state, upload, invigilation, Paper Mode, revision, analytics, export, and security-closure functions | Applied to the actual Supabase project. The security-closure migration adds tenant-bound revision/Paper Mode references, atomic accommodation updates, safe student revision projection, and cross-reference triggers. |
+| V3 release-candidate schema | Migrations `20260619000100` through `20260621171549`; claim, OCR, state, upload, invigilation, Paper Mode, revision, analytics, export, security-closure, and student-group RLS functions | Applied to the actual Supabase project. The security-closure migration adds tenant-bound revision/Paper Mode references, atomic accommodation updates, safe student revision projection, and cross-reference triggers. The latest migration removes recursive student-group policy evaluation without widening group access. |
 | Release-candidate readiness | `lib/examsim-production-readiness.ts`, `components/owner/examsim-production-readiness-panel.tsx`, `tests/examsim-production-readiness-matrix.test.ts` | Explicitly states whether full V3 can be claimed. Current status remains not full V3 ready while blocked, provider-gated, live-validation-required, and manual-fallback items remain. |
 | Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `supabase/migrations/20260621093000_v3_export_governance.sql`, `tests/examsim-v3-export-governance.test.ts` | Audited owner-scoped CSV/JSON/PDF exports. QTI and conservative Moodle XML remain AAL2 assessment-scoped and visibly warn about lossy interactions. |
 | Paper Mode | `app/owner/paper-mode`, `app/api/owner/paper-mode/[jobId]/booklet/route.ts`, `supabase/migrations/20260621082532_v3_paper_mode.sql`, `tests/examsim-v3-paper-mode.test.ts` | Manual mapping is production-safe. Automated OCR/barcode mapping is not claimed without provider validation. |
@@ -107,7 +108,7 @@ The owner Security page includes a `Release candidate readiness` summary derived
 - Automatic Paper Mode OCR/barcode scan mapping. The complete manual path is implemented.
 - Multi-account actual-site validation for teacher, marker, reviewer, invigilator, and read-only roles.
 - True offline-first file submission after browser/process termination.
-- Advanced graphing, geometry, CAS, chemistry sketch, and STEM-specific in-exam tools.
+- Advanced CAS and specialist STEM engines beyond the approved Desmos graphing, GeoGebra geometry, Ketcher chemistry, table, and whiteboard tools.
 - Official complete standard trees for every curriculum. Owner-managed trees and starter samples are implemented.
 - Lossless Moodle/QTI round-tripping for interactions those standards cannot represent. Conservative exports are implemented with warnings.
 
@@ -134,14 +135,14 @@ The owner Security page includes a `Release candidate readiness` summary derived
 | Question Library / Mock Generator | Live validation required | Extraction and generation require health-check review before generated exams are published. |
 | Student Account Claim Flow | Live validation required | Expiring one-time codes, safe automatic matches, and owner review are deployed; duplicate and mismatched synthetic identity QA remains required. |
 | Source PDF Health | Ready | Integrated into publish/health checks with weighted score breakdown and supporting-region warnings for diagrams, tables, and instructions. |
-| Accommodations Matrix | Live validation required | Extra time, upload extension, access windows, server-controlled rest breaks, visual preferences, tools/materials, and audit evidence are implemented. TTS remains unavailable without a provider. |
-| Built-in Subject Tools | Manual fallback | Allowed materials, table responses, and simple whiteboard responses are safe. Advanced graphing/geometry/CAS tools must stay labelled unavailable unless integrated. |
+| Accommodations Matrix | Live validation required | Extra time, upload extension, access windows, server-controlled rest breaks, visual preferences, tools/materials, and audit evidence are implemented. Browser speech and approved subject tools still require device/browser QA. |
+| Built-in Subject Tools | Live validation required | Browser Web Speech API TTS, keyed Desmos graphing, GeoGebra geometry with CAS disabled, self-hosted Ketcher, table responses, and whiteboard responses are implemented and session-policy gated. Desmos/GeoGebra require internet access; CAS remains unavailable. |
 | Curriculum Alignment | Ready owner-managed path | Hierarchical standards, starter framework seeds, topic/standard links, analytics, and import/edit controls are implemented. Starters are not represented as complete official curriculum data. |
 | Adaptive Revision | Ready | Released evidence produces teacher-reviewed drafts; assigned content is student-scoped and does not expose Question Library rows directly. |
 | QTI / Moodle / XML | Live validation required | Audited QTI and conservative Moodle XML exports are implemented. Unsupported interactions are visibly warned and Moodle uses review-required essay fallback. |
 | Version History / Rollback | Live validation required | Published versions are protected, field/source diffs are visible, and rollback clones a complete new draft without mutating live attempts. |
 | School-level Reporting | Live validation required | Owner-scoped group dashboards, topic/standards mastery, completion/support metrics, CSV, and PDF are implemented. Actual-site cross-workspace QA remains. |
-| Deployment Validation | Live validation required | Live migrations through `20260621145455`, changed Edge deployment, production build/e2e, and dependency audit pass. Authenticated multi-role, provider sample, classroom-scale, and cross-workspace workflow QA remain. |
+| Deployment Validation | Live validation required | Live migrations through `20260621171549`, changed Edge deployment, production build/e2e, and dependency audit pass. Authenticated multi-role, provider sample, classroom-scale, and cross-workspace workflow QA remain. |
 
 ## External providers and environment variables
 
@@ -158,6 +159,10 @@ Required for provider-backed import/OCR/AI:
 - `SIMPLETEX_APP_ID` and `SIMPLETEX_APP_SECRET`, or `MINERU_API_KEY` / a configured MinerU worker
 - `MINERU_WORKER_HMAC_SECRET` when a MinerU worker callback is used
 
+Required only when Desmos is enabled for an exam:
+
+- `NEXT_PUBLIC_DESMOS_API_KEY` in the Vercel/Next.js production environment. This is a public embed key, not a server secret.
+
 Operational setup outside the repo:
 
 - Apply Supabase migrations to the actual Supabase project.
@@ -172,7 +177,8 @@ Operational setup outside the repo:
 - Automated Paper Mode scan-to-student/question matching is not claimed without OCR/barcode validation; audited manual mapping is the production path.
 - Full offline submission is not claimed. Browser apps cannot safely retain selected local upload files after a process restart without user re-selection.
 - Advanced STEM OCR, handwriting OCR, chemistry extraction, diagrams, and tables depend on external OCR provider quality and confidence review.
-- Advanced graphing, geometry, CAS, and chemistry sketch tools are not production-ready; the current whiteboard is a simple manual drawing response, not a symbolic math or geometry engine.
+- Browser speech voices differ by browser and operating system, and some browsers may obtain voices through their own online service. Validate the actual student devices before relying on TTS as a formal accommodation.
+- Desmos and GeoGebra require internet access. Ketcher is bundled locally. CAS remains unavailable and must not be described as an approved built-in tool.
 - Group/school dashboards require synthetic actual-site records to verify aggregation, exports, and cross-workspace isolation before institution-wide use.
 - Curriculum starter trees need owner approval or replacement before they should be treated as official.
 
@@ -245,7 +251,7 @@ Security closure verification on 2026-06-21:
 - `npm run typecheck`
 - `npm audit` - zero known vulnerabilities after upgrading Next.js to 16.2.9 and enforcing PostCSS 8.5.14.
 - `supabase db push --dry-run`
-- `supabase db push` - applied through `20260621145455_v3_security_closure.sql`.
+- `supabase db push` - applied through `20260621171549_fix_student_group_rls_recursion.sql`.
 - Redeployed the ten security-affected Edge Functions, including attempt state/package, intervention, student results, upload analysis, Paper Mode confirmation, OCR review, and Moodle export.
 
 Earlier live verification on 2026-06-20:

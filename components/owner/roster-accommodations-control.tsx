@@ -92,7 +92,7 @@ export function RosterAccommodationsControl({
           </Field>
         </div>
         <p className="text-xs leading-5 text-[var(--muted)]">
-          TTS is not enabled unless a real provider is configured. These settings never weaken exam timing or upload checks.
+          Browser read-aloud and built-in subject tools are enabled at session level. These student-specific settings never weaken exam timing or upload checks.
         </p>
         <Button type="submit" variant="secondary">Save accommodations</Button>
       </form>

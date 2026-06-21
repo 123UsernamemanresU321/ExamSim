@@ -42,6 +42,16 @@ export type AttemptScreenData = {
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
   const attempt = attemptWithState(attemptId);
+  const accommodationPolicy = attemptId === "att_active"
+    ? {
+        ...DEFAULT_STUDENT_ACCOMMODATIONS,
+        calculator_policy: "graphing" as const,
+        tts_allowed: true,
+        desmos_allowed: true,
+        geogebra_allowed: true,
+        chemistry_editor_allowed: true,
+      }
+    : DEFAULT_STUDENT_ACCOMMODATIONS;
   return {
     attempt: {
       id: attempt.id,
@@ -72,7 +82,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     annotations: [],
     uploadSlots: [],
     sebConfigUrl: null,
-    accommodationPolicy: DEFAULT_STUDENT_ACCOMMODATIONS,
+    accommodationPolicy,
   };
 }
 

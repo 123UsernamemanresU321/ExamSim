@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { AccommodationSummary } from "@/components/exam/accommodation-summary";
+import { StudentSubjectTools } from "@/components/exam/student-subject-tools";
 import { StudentInvigilationMessages, type StudentInvigilationMessage } from "@/components/exam/student-invigilation-messages";
 import { MathRenderer } from "@/components/math-renderer";
 import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
@@ -538,7 +539,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
             <span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" size={18} /> Loading secure exam workspace...</span>
           </div>
         ) : selectedQuestion ? (
-          <article>
+          <article data-exam-question data-exam-question-active="true">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
               <div>
                 <h1 className="text-xl font-semibold text-[var(--ink)]">{selectedQuestion.display_label ?? selectedQuestion.node_key}</h1>
@@ -592,6 +593,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
 
       <aside className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
         <AccommodationSummary policy={accommodationPolicy} />
+        <StudentSubjectTools policy={accommodationPolicy} />
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Exam state</p>
         <p className="mt-2 font-mono text-lg font-semibold text-[var(--ink)]">{state?.state ?? "CHECKING"}</p>
         {state ? (

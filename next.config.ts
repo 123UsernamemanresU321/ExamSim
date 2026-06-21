@@ -10,11 +10,12 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.desmos.com https://www.geogebra.org",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co blob:",
+  "img-src 'self' data: blob: https://*.supabase.co https://*.desmos.com https://*.geogebra.org",
+  "font-src 'self' data: https://*.desmos.com https://*.geogebra.org",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.desmos.com https://*.geogebra.org blob:",
+  "frame-src 'self' https://*.geogebra.org",
   "worker-src 'self' blob:",
   "media-src 'self' blob: https://*.supabase.co",
   "manifest-src 'self'",
@@ -35,6 +36,22 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   images: {
     unoptimized: true,
+  },
+  webpack(config, { webpack }) {
+    // Ketcher is client-only. Paper.js declares these Node canvas helpers as
+    // browser-disabled, but Next still resolves its server graph for dynamic imports.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "canvas": false,
+      "jsdom": false,
+      "jsdom/lib/jsdom/living/generated/utils": false,
+      "source-map-support": false,
+    };
+    config.plugins.push(new webpack.IgnorePlugin({
+      resourceRegExp: /^\.\/node\/(?:self|extend)\.js$/,
+      contextRegExp: /paper[/\\]dist$/,
+    }));
+    return config;
   },
   async headers() {
     return [

@@ -137,7 +137,7 @@ export function ExamSessionForm({ options }: { options: SessionAssessmentOption[
             <label className="grid gap-2 text-sm font-semibold text-[var(--ink)]">
               Calculator policy
               <select name="calculator_policy" defaultValue="none" className="min-h-11 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
-                <option value="none">Not allowed</option><option value="basic">Basic</option><option value="scientific">Scientific</option><option value="graphing">Graphing, externally supplied</option>
+                <option value="none">Not allowed</option><option value="basic">Basic</option><option value="scientific">Scientific</option><option value="graphing">Graphing calculator allowed</option>
               </select>
             </label>
           </div>
@@ -149,6 +149,30 @@ export function ExamSessionForm({ options }: { options: SessionAssessmentOption[
             Approved materials
             <textarea name="allowed_materials" rows={3} placeholder="One item per line" className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm" />
           </label>
+          <div className="mt-5 border-t border-[var(--border)] pt-4">
+            <h4 className="text-sm font-semibold text-[var(--ink)]">Built-in subject tools</h4>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+              Enable only the built-in tools permitted for this sitting. Exam Vault shows them only when they are included in the server-issued session policy.
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="flex items-start gap-3 text-sm leading-5">
+                <input name="tts_allowed" type="checkbox" className="mt-1" />
+                <span><strong>Read aloud</strong><span className="block text-[var(--muted)]">Uses the student browser&apos;s installed Web Speech voices.</span></span>
+              </label>
+              <label className="flex items-start gap-3 text-sm leading-5">
+                <input name="desmos_allowed" type="checkbox" className="mt-1" />
+                <span><strong>Desmos graphing</strong><span className="block text-[var(--muted)]">Requires the configured public Desmos API key.</span></span>
+              </label>
+              <label className="flex items-start gap-3 text-sm leading-5">
+                <input name="geogebra_allowed" type="checkbox" className="mt-1" />
+                <span><strong>GeoGebra geometry</strong><span className="block text-[var(--muted)]">Embeds the official geometry workspace; internet access is required.</span></span>
+              </label>
+              <label className="flex items-start gap-3 text-sm leading-5">
+                <input name="chemistry_editor_allowed" type="checkbox" className="mt-1" />
+                <span><strong>Ketcher chemistry editor</strong><span className="block text-[var(--muted)]">Self-hosted with Exam Vault; no third-party editor account is required.</span></span>
+              </label>
+            </div>
+          </div>
         </div>
         <input name="display_timezone" type="hidden" value="Africa/Johannesburg" />
         <Button type="submit">Create session</Button>

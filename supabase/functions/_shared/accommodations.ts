@@ -7,6 +7,10 @@ export type StudentAccommodationPolicy = {
   calculator_policy: "none" | "basic" | "scientific" | "graphing";
   formula_booklet_allowed: boolean;
   allowed_materials: string[];
+  tts_allowed: boolean;
+  desmos_allowed: boolean;
+  geogebra_allowed: boolean;
+  chemistry_editor_allowed: boolean;
 };
 
 const DEFAULT_POLICY: StudentAccommodationPolicy = {
@@ -18,6 +22,10 @@ const DEFAULT_POLICY: StudentAccommodationPolicy = {
   calculator_policy: "none",
   formula_booklet_allowed: false,
   allowed_materials: [],
+  tts_allowed: false,
+  desmos_allowed: false,
+  geogebra_allowed: false,
+  chemistry_editor_allowed: false,
 };
 
 export async function loadAttemptAccommodationPolicy(
@@ -58,6 +66,10 @@ function normalizePolicy(source: Record<string, unknown>): StudentAccommodationP
     allowed_materials: Array.isArray(source.allowed_materials)
       ? source.allowed_materials.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 20)
       : [],
+    tts_allowed: source.tts_allowed === true,
+    desmos_allowed: source.desmos_allowed === true,
+    geogebra_allowed: source.geogebra_allowed === true,
+    chemistry_editor_allowed: source.chemistry_editor_allowed === true,
   };
 }
 
@@ -70,4 +82,3 @@ function clampInteger(value: unknown, min: number, max: number) {
 function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
-

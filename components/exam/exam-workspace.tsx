@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { AccommodationSummary } from "@/components/exam/accommodation-summary";
 import { StudentInvigilationMessages, type StudentInvigilationMessage } from "@/components/exam/student-invigilation-messages";
+import { StudentSubjectTools } from "@/components/exam/student-subject-tools";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionNavigator } from "@/components/question-navigator";
 import { QuestionPaper } from "@/components/question-paper";
@@ -400,6 +401,7 @@ export function ExamWorkspace({
           layoutMode === "focus" || !toolsOpen ? "hidden xl:hidden" : "grid"
         }`} aria-label="Response tools">
           <AccommodationSummary policy={accommodationPolicy} />
+          <StudentSubjectTools policy={accommodationPolicy} />
           <StudentInvigilationMessages messages={invigilationMessages} compact onAcknowledge={acknowledgeInvigilationMessage} />
           <StudentMaterialsDrawer materials={materials} />
           <PinnedMaterialsPanel materials={materials} />

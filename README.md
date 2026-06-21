@@ -30,7 +30,10 @@ Client-visible:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_DEFAULT_TIMEZONE=Africa/Johannesburg
+NEXT_PUBLIC_DESMOS_API_KEY=
 ```
+
+`NEXT_PUBLIC_DESMOS_API_KEY` is intentionally browser-visible because Desmos requires the key in its official embed script URL. Restrict and monitor it through the Desmos account that issued the key. Browser TTS, GeoGebra geometry, and the self-hosted Ketcher editor do not require API keys.
 
 Server-only application and Supabase Edge secrets:
 
@@ -91,6 +94,8 @@ SMTP_PASS=
 ```
 
 Never expose `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, `ATTEMPT_STATE_TOKEN_SECRET`, `DEEPSEEK_API_KEY`, `EXTERNAL_KMS_ADMIN_TOKEN`, or Cloudflare worker secrets to client code.
+
+Built-in exam tools are disabled by default and must be enabled when creating a session. Read-aloud uses the browser Web Speech API, Desmos uses the official v1.12 embed, GeoGebra loads the official geometry app with CAS disabled, and Ketcher runs from pinned local npm packages. See [`docs/ketcher-self-hosting.md`](docs/ketcher-self-hosting.md).
 
 ## Local Setup
 

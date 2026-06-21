@@ -3,7 +3,8 @@ import type { StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
 
 export function AccommodationSummary({ policy }: { policy: StudentAccommodationPolicy }) {
   const hasDisplayPolicy = policy.font_scale_percent > 100 || policy.dyslexia_font || policy.contrast_mode === "high";
-  const hasTools = policy.calculator_policy !== "none" || policy.formula_booklet_allowed || policy.allowed_materials.length > 0;
+  const hasTools = policy.calculator_policy !== "none" || policy.formula_booklet_allowed || policy.allowed_materials.length > 0
+    || policy.tts_allowed || policy.desmos_allowed || policy.geogebra_allowed || policy.chemistry_editor_allowed;
   const hasBreak = policy.rest_break_allowed;
   if (!hasDisplayPolicy && !hasTools && !hasBreak) return null;
 
@@ -28,6 +29,12 @@ export function AccommodationSummary({ policy }: { policy: StudentAccommodationP
           {policy.allowed_materials.length ? (
             <p><strong className="text-[var(--ink)]">Approved materials:</strong> {policy.allowed_materials.join(", ")}</p>
           ) : null}
+          {policy.tts_allowed || policy.desmos_allowed || policy.geogebra_allowed || policy.chemistry_editor_allowed ? (
+            <p>
+              <strong className="text-[var(--ink)]">Built-in tools:</strong>{" "}
+              {[policy.tts_allowed ? "Read aloud" : null, policy.desmos_allowed ? "Desmos" : null, policy.geogebra_allowed ? "GeoGebra geometry" : null, policy.chemistry_editor_allowed ? "Ketcher" : null].filter(Boolean).join(", ")}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -42,5 +49,5 @@ function calculatorLabel(policy: StudentAccommodationPolicy["calculator_policy"]
   if (policy === "none") return "Not allowed";
   if (policy === "basic") return "Basic calculator allowed";
   if (policy === "scientific") return "Scientific calculator allowed";
-  return "Graphing calculator permitted; no built-in graphing tool is provided";
+  return "Graphing calculator permitted";
 }

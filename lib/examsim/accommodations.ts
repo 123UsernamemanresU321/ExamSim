@@ -25,7 +25,12 @@ export type StudentAccommodationPolicy = Pick<
   | "calculator_policy"
   | "formula_booklet_allowed"
   | "allowed_materials"
->;
+> & {
+  tts_allowed: boolean;
+  desmos_allowed: boolean;
+  geogebra_allowed: boolean;
+  chemistry_editor_allowed: boolean;
+};
 
 export const DEFAULT_STUDENT_ACCOMMODATIONS: StudentAccommodationPolicy = {
   font_scale_percent: 100,
@@ -36,6 +41,10 @@ export const DEFAULT_STUDENT_ACCOMMODATIONS: StudentAccommodationPolicy = {
   calculator_policy: "none",
   formula_booklet_allowed: false,
   allowed_materials: [],
+  tts_allowed: false,
+  desmos_allowed: false,
+  geogebra_allowed: false,
+  chemistry_editor_allowed: false,
 };
 
 export const DEFAULT_ROSTER_ACCOMMODATIONS: RosterAccommodationPolicy = {
