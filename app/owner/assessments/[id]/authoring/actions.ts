@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { PDFDocument } from "pdf-lib";
 import { buildDefaultInteractionForCapability } from "@/lib/examsim/response-capabilities";
 import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
+import { assertAssessmentVersionMutable, shouldDeleteSharedSourceObject } from "@/lib/examsim/version-governance";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-policy";
 
@@ -44,12 +45,13 @@ export async function uploadPdfSourceAction(
     const supabase = await createSupabaseServerClient();
     const { data: version, error: versionError } = await supabase
       .from("assessment_versions")
-      .select("id,assessment_id")
+      .select("id,assessment_id,status")
       .eq("id", versionId)
       .eq("assessment_id", assessmentId)
       .maybeSingle();
     if (versionError) throw versionError;
     if (!version) throw new Error("Assessment version not found.");
+    assertAssessmentVersionMutable(version.status);
 
     const uploadId = crypto.randomUUID();
     const objectPath = `${ownerProfileId}/assessments/${assessmentId}/versions/${versionId}/sources/${uploadId}-${originalFileName}`;
@@ -124,6 +126,7 @@ export async function uploadPdfSourceAction(
 }
 
 export async function deleteSourceDocumentAction(assessmentId: string, versionId: string, formData: FormData) {
+  await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const sourceDocumentId = String(formData.get("source_document_id") ?? "");
   if (!sourceDocumentId) throw new Error("source_document_id is required");
   const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
@@ -139,9 +142,26 @@ export async function deleteSourceDocumentAction(assessmentId: string, versionId
   if (sourceDocumentError) throw sourceDocumentError;
   if (!sourceDocument) throw new Error("Source document not found.");
 
-  if (sourceDocument.object_path) {
-    const { error: storageError } = await supabase.storage.from("assessment-sources").remove([sourceDocument.object_path]);
-    if (storageError) throw storageError;
+  const sourceObjectReferences = sourceDocument.object_path
+    ? await Promise.all([
+        supabase
+          .from("source_documents")
+          .select("id", { count: "exact", head: true })
+          .eq("object_path", sourceDocument.object_path)
+          .neq("id", sourceDocumentId),
+        supabase
+          .from("assessment_versions")
+          .select("id", { count: "exact", head: true })
+          .eq("source_object_path", sourceDocument.object_path)
+          .neq("id", versionId),
+        supabase
+          .from("assessment_versions")
+          .select("id", { count: "exact", head: true })
+          .eq("markscheme_source_object_path", sourceDocument.object_path),
+      ])
+    : null;
+  for (const referenceResult of sourceObjectReferences ?? []) {
+    if (referenceResult.error) throw referenceResult.error;
   }
 
   const { error: deleteError } = await supabase
@@ -173,12 +193,21 @@ export async function deleteSourceDocumentAction(assessmentId: string, versionId
     .eq("assessment_id", assessmentId);
   if (versionUpdateError) throw versionUpdateError;
 
+  if (sourceDocument.object_path && sourceObjectReferences && shouldDeleteSharedSourceObject({
+    sourceDocumentReferences: sourceObjectReferences[0].count ?? 0,
+    versionReferences: (sourceObjectReferences[1].count ?? 0) + (sourceObjectReferences[2].count ?? 0),
+  })) {
+    const { error: storageError } = await supabase.storage.from("assessment-sources").remove([sourceDocument.object_path]);
+    if (storageError) throw storageError;
+  }
+
   revalidatePath(`/owner/assessments/${assessmentId}/compiler`);
   revalidatePath(`/owner/assessments/${assessmentId}/authoring`);
   revalidatePath(`/owner/assessments/${assessmentId}/health`);
 }
 
 export async function updateQuestionCardAction(assessmentId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId);
   const questionNodeId = String(formData.get("question_node_id") ?? "");
   const responseMode = String(formData.get("response_mode") ?? "none");
   const responseCapability = readResponseCapability(formData.get("response_capability"));
@@ -190,13 +219,15 @@ export async function updateQuestionCardAction(assessmentId: string, formData: F
   if (!isResponseMode(responseMode)) {
     throw new Error("Invalid response mode");
   }
-  const supabase = await createSupabaseServerClient();
   const { data: existingNode, error: existingNodeError } = await supabase
     .from("question_nodes")
-    .select("interaction_json")
+    .select("interaction_json,assessment_versions!inner(assessment_id,status)")
     .eq("id", questionNodeId)
+    .eq("assessment_versions.assessment_id", assessmentId)
     .maybeSingle();
   if (existingNodeError) throw existingNodeError;
+  const linkedVersion = existingNode?.assessment_versions as { status?: string } | null;
+  assertAssessmentVersionMutable(linkedVersion?.status);
   const canonicalResponseMode: ResponseMode = responseCapability === "whiteboard" || responseCapability === "table" ? "typed_text" : responseMode;
   const updatePayload: {
     title: string | null;
@@ -226,11 +257,11 @@ export async function updateQuestionCardAction(assessmentId: string, formData: F
 }
 
 export async function createSourceRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const sourceDocumentId = String(formData.get("source_document_id") ?? "");
   if (!sourceDocumentId) throw new Error("source_document_id is required");
   const regionType = readRegionType(formData.get("region_type"));
   const bbox = readNormalizedBbox(formData);
-  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("question_source_regions").insert({
     assessment_version_id: versionId,
     source_document_id: sourceDocumentId,
@@ -249,6 +280,7 @@ export async function createSourceRegionAction(assessmentId: string, versionId: 
 }
 
 export async function updateSourceRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const regionId = String(formData.get("region_id") ?? "");
   if (!regionId) throw new Error("region_id is required");
   const regionType = readRegionType(formData.get("region_type"));
@@ -256,7 +288,6 @@ export async function updateSourceRegionAction(assessmentId: string, versionId: 
   const confidence = readConfidence(formData.get("confidence"));
   const bbox = readNormalizedBbox(formData);
   const metadata = readRegionMetadata(formData);
-  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("question_source_regions")
     .update({
@@ -278,9 +309,9 @@ export async function updateSourceRegionAction(assessmentId: string, versionId: 
 }
 
 export async function duplicateSourceRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const regionId = String(formData.get("region_id") ?? "");
   if (!regionId) throw new Error("region_id is required");
-  const supabase = await createSupabaseServerClient();
   const { data: region, error: regionError } = await supabase
     .from("question_source_regions")
     .select("*")
@@ -312,9 +343,9 @@ export async function duplicateSourceRegionAction(assessmentId: string, versionI
 }
 
 export async function deleteSourceRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const regionId = String(formData.get("region_id") ?? "");
   if (!regionId) throw new Error("region_id is required");
-  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("question_source_regions")
     .delete()
@@ -326,10 +357,10 @@ export async function deleteSourceRegionAction(assessmentId: string, versionId: 
 }
 
 export async function createQuestionFromRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const regionId = String(formData.get("region_id") ?? "");
   const rawNodeKey = String(formData.get("node_key") ?? "").trim();
   if (!regionId) throw new Error("region_id is required");
-  const supabase = await createSupabaseServerClient();
   const { data: region, error: regionError } = await supabase
     .from("question_source_regions")
     .select("*")
@@ -387,9 +418,9 @@ export async function createQuestionFromRegionAction(assessmentId: string, versi
 }
 
 export async function ignoreSourceRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const regionId = String(formData.get("region_id") ?? "");
   if (!regionId) throw new Error("region_id is required");
-  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("question_source_regions")
     .update({ status: "ignored" })
@@ -401,10 +432,10 @@ export async function ignoreSourceRegionAction(assessmentId: string, versionId: 
 }
 
 export async function splitSourceRegionAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const regionId = String(formData.get("region_id") ?? "");
   const axis = String(formData.get("axis") ?? "vertical") === "horizontal" ? "horizontal" : "vertical";
   if (!regionId) throw new Error("region_id is required");
-  const supabase = await createSupabaseServerClient();
   const { data: region, error: regionError } = await supabase
     .from("question_source_regions")
     .select("*")
@@ -452,10 +483,10 @@ export async function splitSourceRegionAction(assessmentId: string, versionId: s
 }
 
 export async function mergeSourceRegionsAction(assessmentId: string, versionId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId, versionId);
   const primaryId = String(formData.get("primary_region_id") ?? "");
   const secondaryId = String(formData.get("secondary_region_id") ?? "");
   if (!primaryId || !secondaryId || primaryId === secondaryId) throw new Error("Choose two different regions to merge");
-  const supabase = await createSupabaseServerClient();
   const { data: regions, error: regionError } = await supabase
     .from("question_source_regions")
     .select("*")
@@ -487,21 +518,21 @@ export async function mergeSourceRegionsAction(assessmentId: string, versionId: 
 }
 
 export async function createLatexDraftAction(assessmentId: string, formData: FormData) {
-  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
+  const { ownerProfileId, supabase } = await requireAssessmentAuthoringAccess(assessmentId);
   const latexSource = String(formData.get("latex_source") ?? "").trim();
   if (latexSource.length < 10) throw new Error("LaTeX source is too short to import.");
   if (latexSource.length > 200_000) throw new Error("LaTeX source is too large for inline draft import.");
 
-  const supabase = await createSupabaseServerClient();
   const { data: versions, error: versionError } = await supabase
     .from("assessment_versions")
-    .select("id")
+    .select("id,status")
     .eq("assessment_id", assessmentId)
     .order("version_no", { ascending: false })
     .limit(1);
   if (versionError) throw versionError;
   const versionId = versions?.[0]?.id;
   if (!versionId) throw new Error("No assessment version is available for LaTeX import.");
+  assertAssessmentVersionMutable(versions?.[0]?.status);
 
   const { error } = await supabase.from("parse_jobs").insert({
     assessment_version_id: versionId,
@@ -522,8 +553,7 @@ export async function createLatexDraftAction(assessmentId: string, formData: For
 }
 
 export async function createRubricTemplateAction(assessmentId: string, formData: FormData) {
-  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
-  const supabase = await createSupabaseServerClient();
+  const { ownerProfileId, supabase } = await requireAssessmentAuthoringAccess(assessmentId);
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("Rubric name is required");
   const { error } = await supabase.from("rubric_templates").insert({
@@ -537,13 +567,13 @@ export async function createRubricTemplateAction(assessmentId: string, formData:
 }
 
 export async function createRubricTemplateItemAction(assessmentId: string, formData: FormData) {
+  const { supabase } = await requireAssessmentAuthoringAccess(assessmentId);
   const rubricTemplateId = String(formData.get("rubric_template_id") ?? "");
   const label = String(formData.get("label") ?? "").trim();
   const maxMarks = Number(formData.get("max_marks") ?? 1);
   if (!rubricTemplateId) throw new Error("rubric_template_id is required");
   if (!label) throw new Error("Rubric item label is required");
   if (!Number.isFinite(maxMarks) || maxMarks < 0) throw new Error("Rubric item marks must be zero or greater");
-  const supabase = await createSupabaseServerClient();
   const { data: existing, error: existingError } = await supabase
     .from("rubric_template_items")
     .select("ordinal")
@@ -588,6 +618,33 @@ async function syncQuestionNodeSourceAnchor(versionId: string, regionId: string)
     .eq("id", region.question_node_id)
     .eq("assessment_version_id", versionId);
   if (error) throw error;
+}
+
+async function requireAssessmentAuthoringAccess(assessmentId: string, versionId?: string) {
+  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
+  const supabase = await createSupabaseServerClient();
+  const { data: assessment, error: assessmentError } = await supabase
+    .from("assessments")
+    .select("id")
+    .eq("id", assessmentId)
+    .eq("owner_profile_id", ownerProfileId)
+    .maybeSingle();
+  if (assessmentError) throw assessmentError;
+  if (!assessment) throw new Error("Assessment is outside this institution.");
+
+  if (versionId) {
+    const { data: version, error: versionError } = await supabase
+      .from("assessment_versions")
+      .select("id,status")
+      .eq("id", versionId)
+      .eq("assessment_id", assessmentId)
+      .maybeSingle();
+    if (versionError) throw versionError;
+    if (!version) throw new Error("Assessment version is outside this institution.");
+    assertAssessmentVersionMutable(version.status);
+  }
+
+  return { ownerProfileId, supabase };
 }
 
 function readRegionType(value: FormDataEntryValue | null) {

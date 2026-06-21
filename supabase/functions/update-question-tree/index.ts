@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireOwner } from "../_shared/auth.ts";
+import { assertInstitutionOwner, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type FlatNode = {
   node_key: string;
@@ -26,7 +27,7 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { admin } = await requireOwner(request);
+    const { admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Record<string, unknown>>(request);
     const versionId = stringValue(body.version_id) ?? stringValue(body.assessment_version_id);
     if (!versionId) return json({ error: "version_id is required" }, 400);
@@ -38,11 +39,13 @@ serve(async (request) => {
 
     const { data: version, error: versionLookupError } = await admin
       .from("assessment_versions")
-      .select("status, normalized_package_json, assessments(id,title,paper_code,assessment_kind)")
+      .select("status, normalized_package_json, assessments(id,title,paper_code,assessment_kind,owner_profile_id)")
       .eq("id", versionId)
       .single();
     if (versionLookupError) throw versionLookupError;
-    if (version.status === "published") return json({ error: "Published assessment versions are immutable. Create a new draft version before editing the tree." }, 409);
+    const assessmentRelation = Array.isArray(version.assessments) ? version.assessments[0] : version.assessments;
+    assertInstitutionOwner(assessmentRelation?.owner_profile_id, ownerProfileId);
+    assertVersionMutable(version.status);
 
     const validationError = validateNodeTree(nodes);
     if (validationError) return json({ error: validationError }, 400);

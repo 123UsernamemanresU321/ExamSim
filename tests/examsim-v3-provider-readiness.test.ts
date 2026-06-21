@@ -48,9 +48,9 @@ describe("Examsim V3 provider and import readiness", () => {
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
     });
 
-    expect(readiness.find((item) => item.key === "ocr_layout")?.status).toBe("ready");
-    expect(readiness.find((item) => item.key === "ai_semantic")?.status).toBe("ready");
-    expect(readiness.find((item) => item.key === "storage_private_files")?.status).toBe("ready");
+    expect(readiness.find((item) => item.key === "ocr_layout")?.status).toBe("live_validation_required");
+    expect(readiness.find((item) => item.key === "ai_semantic")?.status).toBe("live_validation_required");
+    expect(readiness.find((item) => item.key === "storage_private_files")?.status).toBe("live_validation_required");
   });
 
   it("recognizes SimpleTeX APP credentials as a production OCR path", () => {
@@ -59,7 +59,7 @@ describe("Examsim V3 provider and import readiness", () => {
       SIMPLETEX_APP_SECRET: "server-secret",
     });
     const ocr = readiness.find((item) => item.key === "ocr_layout");
-    expect(ocr?.status).toBe("ready");
+    expect(ocr?.status).toBe("live_validation_required");
     expect(ocr?.ownerMessage).toContain("SimpleTeX");
     expect(ocr?.requiredEnvVars.join(" ")).toContain("SIMPLETEX_APP_ID");
   });
@@ -128,7 +128,18 @@ describe("Examsim V3 provider and import readiness", () => {
 
     expect(audit.importAuditCount).toBe(2);
     expect(audit.latestImportAuditAt).toBe("2026-01-02T00:00:00Z");
-    expect(audit.actions).toEqual(["mineru_hosted.submitted", "ai_parse.proposed"]);
+    expect(audit.actions).toEqual(["ai_parse.proposed", "mineru_hosted.submitted"]);
+  });
+
+  it("orders import audit actions by newest evidence instead of query order", () => {
+    const audit = buildImportJobAuditSummary([
+      { action: "ai_parse.proposed", created_at: "2026-01-01T00:00:00Z" },
+      { action: "mineru_hosted.completed", created_at: "2026-01-03T00:00:00Z" },
+      { action: "assessment.ingested", created_at: "2026-01-02T00:00:00Z" },
+    ]);
+
+    expect(audit.latestImportAuditAt).toBe("2026-01-03T00:00:00Z");
+    expect(audit.actions[0]).toBe("mineru_hosted.completed");
   });
 
   it("builds a governance summary for provider fallback and large-job confirmation", () => {
@@ -231,11 +242,28 @@ describe("Examsim V3 provider and import readiness", () => {
     expect(edge).toContain("enforceRateLimit");
     expect(edge).toContain('status: "needs_review"');
     expect(edge).toContain('.from("source_pages")');
-    expect(edge).toContain("source_documents!inner(id,owner_profile_id)");
+    expect(edge).toContain("source_documents!inner(id,owner_profile_id,assessment_version_id)");
     expect(edge).not.toContain("NEXT_PUBLIC_SIMPLETEX");
     const editor = readFileSync("components/owner/source-region-editor.tsx", "utf8");
     expect(editor).toContain('"simpletex-ocr-source-page"');
     expect(editor).toContain("Run SimpleTeX OCR");
     expect(editor).toContain("Needs teacher review");
+  });
+
+  it("requires an audited server-side review before corrected OCR can be approved", () => {
+    const edge = readFileSync("supabase/functions/review-ocr-result/index.ts", "utf8");
+    expect(edge).toContain('requireInstitutionAal2(request, "assessment_authoring")');
+    expect(edge).toContain("assertInstitutionOwner");
+    expect(edge).toContain("corrected_latex");
+    expect(edge).toContain("original_extracted_latex");
+    expect(edge).toContain("ocr_result.reviewed");
+    expect(edge).toContain("reviewed_by_profile_id");
+
+    const editor = readFileSync("components/owner/source-region-editor.tsx", "utf8");
+    expect(editor).toContain('"review-ocr-result"');
+    expect(editor).toContain("MathRenderer");
+    expect(editor).toContain("Approve correction");
+    expect(editor).toContain("Reject suggestion");
+    expect(editor).not.toContain("x {selectedRegion.bbox.x.toFixed(3)}");
   });
 });

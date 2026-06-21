@@ -9,8 +9,10 @@ import { AssessmentStatusBadge, ParseBadge, StatusBadge } from "@/components/ui/
 import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-button";
 import { listOwnerAssessments } from "@/lib/live-data";
 import { listOwnerSavedViews } from "@/lib/owner-operations";
+import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
 
 export default async function OwnerAssessmentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await requireInstitutionPagePermission("assessment_authoring", "/owner/assessments");
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q : "";
   const status = typeof params.status === "string" ? params.status : "";

@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card";
 import { NewAssessmentForm } from "@/components/owner/new-assessment-form";
 import { QtiImportForm } from "@/components/owner/qti-import-form";
 import { listAssessmentTemplates } from "@/lib/usability-data";
+import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
 
 export default async function NewAssessmentPage() {
+  await requireInstitutionPagePermission("assessment_authoring", "/owner/assessments/new");
   const templates = await listAssessmentTemplates();
   return (
     <>

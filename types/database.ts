@@ -157,6 +157,7 @@ export type AssessmentVersion = {
   assessment_id: string;
   version_no: number;
   status: "draft" | "review_required" | "published" | "archived";
+  governance_status: "draft" | "reviewed" | "approved" | "published";
   source_kind: "pdf" | "latex" | "json";
   source_object_path: string | null;
   normalized_package_path: string | null;
@@ -172,6 +173,19 @@ export type AssessmentVersion = {
   markscheme_source_kind: "pdf" | "latex" | "json" | null;
   markscheme_source_object_path: string | null;
   published_at: string | null;
+  created_at: string;
+};
+
+export type AssessmentVersionReview = {
+  id: string;
+  owner_profile_id: string;
+  assessment_version_id: string;
+  reviewer_profile_id: string;
+  decision: "reviewed" | "approved" | "rejected" | "warning_acknowledged";
+  previous_status: string;
+  new_status: string;
+  comments: string | null;
+  checklist_json: Json;
   created_at: string;
 };
 
@@ -319,6 +333,14 @@ export type InvigilationMessage = {
   message_kind: "private" | "broadcast" | "technical_issue" | "system";
   body: string;
   visible_to_student: boolean;
+  created_at: string;
+};
+
+export type InvigilationMessageReceipt = {
+  id: string;
+  message_id: string;
+  attempt_id: string;
+  acknowledged_at: string;
   created_at: string;
 };
 
@@ -719,6 +741,52 @@ export type QuestionTopicLink = {
   created_at: string;
 };
 
+export type CurriculumFramework = {
+  id: string;
+  owner_profile_id: string;
+  code: string;
+  name: string;
+  version: string;
+  description: string | null;
+  created_by_profile_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CurriculumStandard = {
+  id: string;
+  owner_profile_id: string;
+  framework_id: string;
+  parent_standard_id: string | null;
+  code: string;
+  title: string;
+  description: string | null;
+  subject: string | null;
+  level: string | null;
+  sort_order: number;
+  metadata_json: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuestionStandardLink = {
+  id: string;
+  owner_profile_id: string;
+  question_node_id: string;
+  curriculum_standard_id: string;
+  weight: number;
+  created_at: string;
+};
+
+export type RubricStandardLink = {
+  id: string;
+  owner_profile_id: string;
+  rubric_template_item_id: string;
+  curriculum_standard_id: string;
+  weight: number;
+  created_at: string;
+};
+
 export type CalendarRecommendation = {
   id: string;
   owner_profile_id: string;
@@ -947,6 +1015,17 @@ export type QuestionBankItem = {
   markscheme_html: string | null;
   markscheme_refs: Json;
   do_not_reuse: boolean;
+  subtopic: string | null;
+  year: number | null;
+  paper_type: string | null;
+  command_term: string | null;
+  curriculum_standard_ids: string[];
+  interaction_json: Json | null;
+  performance_stats_json: Json;
+  content_fingerprint: string | null;
+  readiness_status: "needs_review" | "ready" | "retired";
+  source_history_json: Json;
+  rubric_json: Json;
   created_at: string;
   updated_at: string;
 };
@@ -954,6 +1033,7 @@ export type QuestionBankItem = {
 export type QuestionBankChild = {
   id: string;
   question_bank_item_id: string;
+  source_question_node_id: string | null;
   node_key: string;
   parent_node_key: string | null;
   ordinal_path: number[];
@@ -961,6 +1041,10 @@ export type QuestionBankChild = {
   prompt_latex: string | null;
   marks_available: number | null;
   markscheme_html: string | null;
+  response_mode: "none" | "upload_pdf" | "typed_text" | "typed_or_upload" | "multiple_choice" | "numerical";
+  interaction_json: Json | null;
+  source_region_json: Json | null;
+  visual_asset_refs: Json;
   created_at: string;
 };
 
@@ -974,6 +1058,8 @@ export type GeneratedPaper = {
   criteria_json: Json;
   status: "draft" | "converted_to_assessment" | "discarded";
   converted_assessment_id: string | null;
+  readiness_score: number;
+  health_warnings_json: Json;
   created_at: string;
   updated_at: string;
 };
@@ -985,6 +1071,115 @@ export type GeneratedPaperItem = {
   ordinal: number;
   included_marks: number | null;
   locked: boolean;
+  created_at: string;
+};
+
+export type PaperModeJob = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  title: string;
+  duration_seconds: number;
+  status: "draft" | "printed" | "scanning" | "mapping" | "ready_to_mark" | "completed" | "archived";
+  instructions: string | null;
+  created_by_profile_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaperModeBooklet = {
+  id: string;
+  paper_mode_job_id: string;
+  roster_entry_id: string | null;
+  student_profile_id: string | null;
+  attempt_id: string | null;
+  booklet_code: string;
+  student_number_snapshot: string | null;
+  student_name_snapshot: string;
+  generated_at: string;
+  created_at: string;
+};
+
+export type PaperModeScan = {
+  id: string;
+  paper_mode_job_id: string;
+  booklet_id: string | null;
+  object_path: string;
+  original_file_name: string | null;
+  file_size_bytes: number;
+  page_count: number | null;
+  status: "needs_mapping" | "partially_mapped" | "mapped" | "rejected";
+  mapping_confidence: number | null;
+  uploaded_by_profile_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaperModeScanPage = {
+  id: string;
+  paper_mode_scan_id: string;
+  page_number: number;
+  booklet_id: string | null;
+  attempt_id: string | null;
+  question_node_id: string | null;
+  mapping_status: "unmapped" | "needs_review" | "mapped" | "rejected";
+  mapping_confidence: number | null;
+  notes: string | null;
+  mapped_by_profile_id: string | null;
+  mapped_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RevisionSet = {
+  id: string;
+  owner_profile_id: string;
+  student_profile_id: string;
+  title: string;
+  rationale: string | null;
+  status: "draft" | "assigned" | "completed" | "archived";
+  source_analysis_json: Json;
+  created_by_profile_id: string;
+  reviewed_by_profile_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RevisionSetItem = {
+  id: string;
+  revision_set_id: string;
+  question_bank_item_id: string;
+  ordinal: number;
+  priority: "low" | "medium" | "high";
+  reason: string;
+  created_at: string;
+};
+
+export type RevisionSetAssignment = {
+  id: string;
+  revision_set_id: string;
+  student_profile_id: string;
+  assigned_by_profile_id: string;
+  status: "assigned" | "in_progress" | "completed" | "revoked";
+  assigned_at: string;
+  completed_at: string | null;
+  created_at: string;
+};
+
+export type ExportDownloadHistory = {
+  id: string;
+  owner_profile_id: string;
+  actor_profile_id: string;
+  assessment_id: string | null;
+  export_kind: string;
+  format: string;
+  object_path: string | null;
+  row_count: number | null;
+  status: "completed" | "review_required" | "failed";
+  fidelity_warnings_json: Json;
+  metadata_json: Json;
   created_at: string;
 };
 
@@ -1259,6 +1454,12 @@ export type Database = {
         Update: Partial<AssessmentVersion>;
         Relationships: [];
       };
+      assessment_version_reviews: {
+        Row: AssessmentVersionReview;
+        Insert: Partial<AssessmentVersionReview> & Pick<AssessmentVersionReview, "owner_profile_id" | "assessment_version_id" | "reviewer_profile_id" | "decision" | "previous_status" | "new_status">;
+        Update: Partial<AssessmentVersionReview>;
+        Relationships: [];
+      };
       question_nodes: {
         Row: QuestionNodeRow;
         Insert: Partial<QuestionNodeRow> & Pick<QuestionNodeRow, "assessment_version_id" | "node_key" | "ordinal" | "node_type" | "response_mode">;
@@ -1330,6 +1531,12 @@ export type Database = {
         Row: InvigilationMessage;
         Insert: Partial<InvigilationMessage> & Pick<InvigilationMessage, "exam_session_id" | "sender_kind" | "message_kind" | "body">;
         Update: Partial<InvigilationMessage>;
+        Relationships: [];
+      };
+      invigilation_message_receipts: {
+        Row: InvigilationMessageReceipt;
+        Insert: Partial<InvigilationMessageReceipt> & Pick<InvigilationMessageReceipt, "message_id" | "attempt_id">;
+        Update: Partial<InvigilationMessageReceipt>;
         Relationships: [];
       };
       live_interventions: {
@@ -1519,6 +1726,30 @@ export type Database = {
         Update: Partial<QuestionTopicLink>;
         Relationships: [];
       };
+      curriculum_frameworks: {
+        Row: CurriculumFramework;
+        Insert: Partial<CurriculumFramework> & Pick<CurriculumFramework, "owner_profile_id" | "code" | "name" | "created_by_profile_id">;
+        Update: Partial<CurriculumFramework>;
+        Relationships: [];
+      };
+      curriculum_standards: {
+        Row: CurriculumStandard;
+        Insert: Partial<CurriculumStandard> & Pick<CurriculumStandard, "owner_profile_id" | "framework_id" | "code" | "title">;
+        Update: Partial<CurriculumStandard>;
+        Relationships: [];
+      };
+      question_standard_links: {
+        Row: QuestionStandardLink;
+        Insert: Partial<QuestionStandardLink> & Pick<QuestionStandardLink, "owner_profile_id" | "question_node_id" | "curriculum_standard_id">;
+        Update: Partial<QuestionStandardLink>;
+        Relationships: [];
+      };
+      rubric_standard_links: {
+        Row: RubricStandardLink;
+        Insert: Partial<RubricStandardLink> & Pick<RubricStandardLink, "owner_profile_id" | "rubric_template_item_id" | "curriculum_standard_id">;
+        Update: Partial<RubricStandardLink>;
+        Relationships: [];
+      };
       calendar_recommendations: {
         Row: CalendarRecommendation;
         Insert: Partial<CalendarRecommendation> & Pick<CalendarRecommendation, "owner_profile_id" | "student_profile_id" | "reason">;
@@ -1595,6 +1826,54 @@ export type Database = {
         Row: GeneratedPaperItem;
         Insert: Partial<GeneratedPaperItem> & Pick<GeneratedPaperItem, "generated_paper_id" | "question_bank_item_id" | "ordinal">;
         Update: Partial<GeneratedPaperItem>;
+        Relationships: [];
+      };
+      paper_mode_jobs: {
+        Row: PaperModeJob;
+        Insert: Partial<PaperModeJob> & Pick<PaperModeJob, "owner_profile_id" | "assessment_id" | "assessment_version_id" | "title" | "created_by_profile_id">;
+        Update: Partial<PaperModeJob>;
+        Relationships: [];
+      };
+      paper_mode_booklets: {
+        Row: PaperModeBooklet;
+        Insert: Partial<PaperModeBooklet> & Pick<PaperModeBooklet, "paper_mode_job_id" | "booklet_code" | "student_name_snapshot">;
+        Update: Partial<PaperModeBooklet>;
+        Relationships: [];
+      };
+      paper_mode_scans: {
+        Row: PaperModeScan;
+        Insert: Partial<PaperModeScan> & Pick<PaperModeScan, "paper_mode_job_id" | "object_path" | "file_size_bytes" | "uploaded_by_profile_id">;
+        Update: Partial<PaperModeScan>;
+        Relationships: [];
+      };
+      paper_mode_scan_pages: {
+        Row: PaperModeScanPage;
+        Insert: Partial<PaperModeScanPage> & Pick<PaperModeScanPage, "paper_mode_scan_id" | "page_number">;
+        Update: Partial<PaperModeScanPage>;
+        Relationships: [];
+      };
+      revision_sets: {
+        Row: RevisionSet;
+        Insert: Partial<RevisionSet> & Pick<RevisionSet, "owner_profile_id" | "student_profile_id" | "title" | "created_by_profile_id">;
+        Update: Partial<RevisionSet>;
+        Relationships: [];
+      };
+      revision_set_items: {
+        Row: RevisionSetItem;
+        Insert: Partial<RevisionSetItem> & Pick<RevisionSetItem, "revision_set_id" | "question_bank_item_id" | "ordinal" | "reason">;
+        Update: Partial<RevisionSetItem>;
+        Relationships: [];
+      };
+      revision_set_assignments: {
+        Row: RevisionSetAssignment;
+        Insert: Partial<RevisionSetAssignment> & Pick<RevisionSetAssignment, "revision_set_id" | "student_profile_id" | "assigned_by_profile_id">;
+        Update: Partial<RevisionSetAssignment>;
+        Relationships: [];
+      };
+      export_download_history: {
+        Row: ExportDownloadHistory;
+        Insert: Partial<ExportDownloadHistory> & Pick<ExportDownloadHistory, "owner_profile_id" | "actor_profile_id" | "export_kind" | "format">;
+        Update: Partial<ExportDownloadHistory>;
         Relationships: [];
       };
       correction_notebooks: {
@@ -1770,6 +2049,14 @@ export type Database = {
         Args: { target_owner_profile_id: string; required_permission: string };
         Returns: boolean;
       };
+      clone_assessment_version_as_draft: {
+        Args: { p_source_version_id: string };
+        Returns: string;
+      };
+      review_assessment_version: {
+        Args: { p_version_id: string; p_decision: string; p_comments?: string | null; p_checklist_json?: Json };
+        Returns: string;
+      };
       institution_link_guest_attempt: {
         Args: { p_owner_profile_id: string; p_exam_session_id: string; p_attempt_id: string; p_roster_entry_id: string };
         Returns: undefined;
@@ -1793,6 +2080,31 @@ export type Database = {
       institution_apply_timing_intervention: {
         Args: { p_owner_profile_id: string; p_attempt_id: string; p_exam_session_id: string; p_action: "extra_time" | "force_submit"; p_extra_seconds?: number | null };
         Returns: Json;
+      };
+      institution_generate_paper_mode_booklets: {
+        Args: { p_job_id: string };
+        Returns: Array<{ booklet_id: string; attempt_id: string; booklet_code: string }>;
+      };
+      student_revision_assignments_safe: {
+        Args: Record<string, never>;
+        Returns: Array<{
+          assignment_id: string;
+          revision_set_id: string;
+          set_title: string;
+          rationale: string | null;
+          assignment_status: string;
+          assigned_at: string;
+          item_id: string;
+          ordinal: number;
+          priority: string;
+          reason: string;
+          question_title: string | null;
+          prompt_html: string | null;
+          prompt_latex: string | null;
+          marks_available: number | null;
+          answer_mode: string;
+          tags: string[];
+        }>;
       };
       reconcile_marking_review: {
         Args: { p_owner_profile_id: string; p_attempt_id: string };

@@ -1,6 +1,7 @@
 import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { listTopicDashboard } from "@/lib/usability-data";
 
 export default async function TopicsPage() {
@@ -11,6 +12,7 @@ export default async function TopicsPage() {
         title="Topics and Calendar Bridge"
         description="Tag questions with topics, review weak areas, and export revision recommendations for the adaptive calendar."
       />
+      <div className="mb-5 flex justify-end"><ButtonLink href="/owner/standards" variant="secondary">Curriculum standards</ButtonLink></div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <h2 className="text-lg font-semibold">Topic tags</h2>

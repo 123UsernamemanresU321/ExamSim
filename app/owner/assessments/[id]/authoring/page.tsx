@@ -20,12 +20,14 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getAssessmentAuthoringWorkspace } from "@/lib/examsim/authoring-data";
 import { inferAnswerTypeSuggestion } from "@/lib/examsim/compiler-readiness";
 import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
+import { isAssessmentVersionMutable } from "@/lib/examsim/version-governance";
 
 export default async function VisualAuthoringPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const workspace = await getAssessmentAuthoringWorkspace(id);
   const saveAction = updateQuestionCardAction.bind(null, id);
   const hasSourceDocuments = workspace.sourceDocuments.length > 0;
+  const readOnly = workspace.latestVersion ? !isAssessmentVersionMutable(workspace.latestVersion.status) : true;
   return (
     <>
       <SectionHeading title="Visual Question Editor" description="Edit question cards, marks, response types, source anchors, and validation details without raw JSON." />
@@ -33,6 +35,16 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
         <EmptyState title="No version available" description="Upload or import a paper before editing the visual question tree." />
       ) : (
         <div className="grid gap-5">
+          {readOnly ? (
+            <Card className="border-amber-200 bg-amber-50">
+              <h2 className="text-base font-semibold text-amber-950">Published versions are read-only</h2>
+              <p className="mt-2 text-sm leading-6 text-amber-900">
+                This snapshot is frozen because attempts may depend on it. Open version history and duplicate it as a new
+                draft before changing questions, source regions, OCR corrections, or rubrics.
+              </p>
+              <ButtonLink className="mt-3" href={`/owner/assessments/${id}/history`} variant="secondary">Open version history</ButtonLink>
+            </Card>
+          ) : null}
           <Card className="border-blue-100 bg-blue-50/50">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -74,7 +86,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
             </aside>
 
             <section className="grid min-w-0 gap-5">
-              {hasSourceDocuments ? (
+              {hasSourceDocuments && !readOnly ? (
                 <SourceRegionEditor
                   versionId={workspace.latestVersion.id}
                   sourceDocuments={workspace.sourceDocuments}
@@ -91,6 +103,13 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                   deleteSourceDocumentAction={deleteSourceDocumentAction.bind(null, id, workspace.latestVersion.id)}
                   createQuestionFromRegionAction={createQuestionFromRegionAction.bind(null, id, workspace.latestVersion.id)}
                 />
+              ) : readOnly ? (
+                <Card id="pdf-region-editor">
+                  <h2 className="text-base font-semibold text-[var(--ink)]">Frozen source anchors</h2>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                    {workspace.sourceDocuments.length} source document(s), {workspace.sourcePages.length} page(s), and {workspace.sourceRegions.length} region(s) are preserved in this published snapshot.
+                  </p>
+                </Card>
               ) : (
                 <NoSourceDocumentState assessmentId={id} versionId={workspace.latestVersion.id} />
               )}
@@ -113,6 +132,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                             Question number / title
                             <input
                               name="title"
+                              disabled={readOnly}
                               defaultValue={node.title ?? ""}
                               placeholder={node.display_label ?? node.node_key}
                               className="rounded-[2px] border border-[var(--border)] px-3 py-2 text-sm normal-case text-[var(--ink)]"
@@ -136,11 +156,11 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                         <div className="grid content-start gap-4">
                           <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                             Marks
-                            <input name="marks" type="number" min="0" step="0.5" defaultValue={node.marks ?? ""} className="rounded-[2px] border border-[var(--border)] px-3 py-2 text-sm normal-case text-[var(--ink)]" />
+                            <input name="marks" type="number" min="0" step="0.5" defaultValue={node.marks ?? ""} disabled={readOnly} className="rounded-[2px] border border-[var(--border)] px-3 py-2 text-sm normal-case text-[var(--ink)] disabled:bg-[var(--surface-muted)]" />
                           </label>
                           <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                             Response type
-                            <select name="response_mode" defaultValue={node.response_mode} className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm normal-case text-[var(--ink)]">
+                            <select name="response_mode" defaultValue={node.response_mode} disabled={readOnly} className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm normal-case text-[var(--ink)] disabled:bg-[var(--surface-muted)]">
                               <option value="none">No direct answer</option>
                               <option value="typed_text">Typed text</option>
                               <option value="upload_pdf">PDF upload</option>
@@ -158,7 +178,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                           </div>
                           <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                             Response workspace
-                            <select name="response_capability" defaultValue={responseCapabilityValue} className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm normal-case text-[var(--ink)]">
+                            <select name="response_capability" defaultValue={responseCapabilityValue} disabled={readOnly} className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm normal-case text-[var(--ink)] disabled:bg-[var(--surface-muted)]">
                               <option value="standard">Standard input</option>
                               <option value="table">Table response</option>
                               <option value="whiteboard">Whiteboard response</option>
@@ -179,7 +199,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
                           </div>
                         )}
                         <div className="flex justify-end">
-                          <Button type="submit" variant="secondary">Save question</Button>
+                          {readOnly ? <StatusBadge status="frozen" tone="warning" /> : <Button type="submit" variant="secondary">Save question</Button>}
                         </div>
                       </div>
                     </form>
@@ -195,7 +215,7 @@ export default async function VisualAuthoringPage({ params }: { params: Promise<
               <Card>
                 <h2 className="text-sm font-semibold text-[var(--ink)]">Source workflow</h2>
                 <div className="mt-4 grid gap-3">
-                  {hasSourceDocuments ? <PdfSourceUploadPanel assessmentId={id} versionId={workspace.latestVersion.id} compact /> : null}
+                  {hasSourceDocuments && !readOnly ? <PdfSourceUploadPanel assessmentId={id} versionId={workspace.latestVersion.id} compact /> : null}
                   <WorkflowLink href={`/owner/assessments/${id}/compiler`} title="PDF Region Editor" copy="Upload or process a PDF, review source pages, and draw question boxes." />
                   <WorkflowLink href={`/owner/assessments/${id}/latex`} title="LaTeX Compiler" copy="Use Examsim syntax with split editor and validation preview." />
                   <WorkflowLink href={`/owner/assessments/${id}/review`} title="Advanced JSON Import" copy="Review normalized JSON and parser warnings. Intended for power users and debugging." />

@@ -28,7 +28,7 @@ describe("Examsim V3 secure student attempt claiming", () => {
     const redeem = readFileSync("supabase/functions/claim-guest-attempt/index.ts", "utf8");
     const migrationFile = readdirSync("supabase/migrations").find((file) => file.includes("v3_student_claim_flow"));
     const migration = readFileSync(`supabase/migrations/${migrationFile}`, "utf8");
-    expect(issue).toContain("requireOwnerAal2");
+    expect(issue).toContain("requireInstitutionAal2");
     expect(issue).toContain("enforceRateLimit");
     expect(issue).toContain("hashAttemptClaimCode");
     expect(issue).not.toContain("claim_code_plaintext");

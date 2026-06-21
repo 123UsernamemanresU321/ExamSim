@@ -10,7 +10,7 @@ serve(async (request) => {
     const { user, admin } = await requireUser(request);
     const profile = await profileForAuthUser(user.id);
     const body = await readJson<{ attempt_id: string }>(request);
-    if (!body.attempt_id) return json({ error: "attempt_id is required" }, 400);
+    if (!body.attempt_id) return json(request, { error: "attempt_id is required" }, 400);
 
     const { data: attempt, error: attemptError } = await admin
       .from("attempts")
@@ -18,7 +18,7 @@ serve(async (request) => {
       .eq("id", body.attempt_id)
       .single();
     if (attemptError) throw attemptError;
-    if (profile.app_role !== "owner" && attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (attempt.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
 
     const state = computeAttemptState({
       serverNowUtc: new Date().toISOString(),
@@ -59,8 +59,8 @@ serve(async (request) => {
       .maybeSingle();
     if (feedbackError) throw feedbackError;
 
-    if (!feedbackRelease?.visible_to_student && profile.app_role !== "owner") {
-      return json({
+    if (!feedbackRelease?.visible_to_student) {
+      return json(request, {
         attempt: attemptSummary,
         questionNodes: [],
         uploadSlots: [],
@@ -116,7 +116,7 @@ serve(async (request) => {
         .from("work_annotations")
         .select("*")
         .eq("attempt_id", attempt.id)
-        .eq(profile.app_role === "owner" ? "attempt_id" : "visibility", profile.app_role === "owner" ? attempt.id : "student_visible")
+        .eq("visibility", "student_visible")
         .order("created_at", { ascending: true }),
       admin
         .from("marking_tickets")
@@ -157,7 +157,7 @@ serve(async (request) => {
       }
     }
 
-    return json({
+    return json(request, {
       attempt: attemptSummary,
       questionNodes: questionNodes ?? [],
       uploadSlots: uploadSlots ?? [],
@@ -166,13 +166,13 @@ serve(async (request) => {
       attemptEvents: [],
       package: null,
       packageError: null,
-      marks: profile.app_role === "owner" || feedbackRelease?.release_marks !== false ? marks ?? [] : [],
-      annotations: profile.app_role === "owner" || feedbackRelease?.release_comments !== false ? annotations ?? [] : [],
-      workAnnotations: profile.app_role === "owner" ? workAnnotations ?? [] : [],
+      marks: feedbackRelease?.release_marks !== false ? marks ?? [] : [],
+      annotations: feedbackRelease?.release_comments !== false ? annotations ?? [] : [],
+      workAnnotations: workAnnotations ?? [],
       markingTickets: markingTickets ?? [],
       markingTicketMessages: markingTicketMessages ?? [],
       uploadUrls,
-      annotatedUploadUrls: profile.app_role === "owner" || feedbackRelease?.release_annotated_pdfs !== false ? annotatedUploadUrls : {},
+      annotatedUploadUrls: feedbackRelease?.release_annotated_pdfs !== false ? annotatedUploadUrls : {},
       feedbackRelease: feedbackRelease ?? null,
       markschemeHtml: version?.markscheme_html ?? null,
       markschemePdfPath: version?.markscheme_pdf_path ?? null,
@@ -180,7 +180,7 @@ serve(async (request) => {
       commentBank: [],
     });
   } catch (error) {
-    return errorResponse(error, "get-student-results failed");
+    return errorResponse(request, error, "get-student-results failed");
   }
 });
 

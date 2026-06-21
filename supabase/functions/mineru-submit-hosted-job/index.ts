@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
 import {
@@ -9,6 +9,7 @@ import {
   mineruUploadMode,
   normalizeMineruBatchSubmitResponse,
 } from "../_shared/mineru-hosted.ts";
+import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type Body = {
   parse_job_id: string;
@@ -19,20 +20,34 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   let body: Body | null = null;
+  let authorizedJobId: string | null = null;
+  let failureAdmin: any = null;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
+    failureAdmin = admin;
     body = await readJson<Body>(request);
     if (!body.parse_job_id) return json(request, { error: "parse_job_id is required" }, 400);
     if (Deno.env.get("MINERU_PROVIDER") !== "hosted") return json(request, { error: "MINERU_PROVIDER must be hosted" }, 500);
 
     const { data: parseJob, error: parseJobError } = await admin.from("parse_jobs").select("*").eq("id", body.parse_job_id).single();
     if (parseJobError) throw parseJobError;
-    if (parseJob.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
+    assertInstitutionOwner(parseJob.owner_profile_id, ownerProfileId);
+    authorizedJobId = parseJob.id;
+
+    const { data: version, error: versionError } = await admin
+      .from("assessment_versions")
+      .select("status,assessments!inner(owner_profile_id)")
+      .eq("id", parseJob.assessment_version_id)
+      .maybeSingle();
+    if (versionError) throw versionError;
+    if (!version) throw new Error("Assessment version not found");
+    const assessment = version.assessments as { owner_profile_id?: string } | null;
+    assertInstitutionOwner(assessment?.owner_profile_id, ownerProfileId);
+    assertVersionMutable(version.status);
 
     await enforceRateLimit(admin, {
       scope: "mineru-submit-hosted-job:owner",
-      key: ownerProfile.id,
+      key: ownerProfileId,
       limit: envInt("MINERU_SUBMIT_OWNER_HOURLY_LIMIT", 20),
       windowSeconds: 3600,
     });
@@ -196,7 +211,7 @@ serve(async (request) => {
         .eq("id", parseJob.id);
       if (updateError) throw updateError;
 
-      await auditOwnerAction(ownerProfile.id, user.id, "mineru_hosted.submitted", "parse_jobs", parseJob.id, {
+      await auditOwnerAction(ownerProfileId, user.id, "mineru_hosted.submitted", "parse_jobs", parseJob.id, {
         batch_id: submission.batchId,
         upload_mode: uploadMode,
         force_restart: canForceRestart,
@@ -215,14 +230,12 @@ serve(async (request) => {
     const message = error instanceof Error ? error.message : "mineru-submit-hosted-job failed";
     try {
       // If we have a job ID, mark it as failed in the DB so the UI updates
-      const jobId = body?.parse_job_id;
-      if (jobId) {
-        const { admin } = await requireOwnerAal2(request);
-        await admin.from("parse_jobs").update({
+      if (authorizedJobId && failureAdmin) {
+        await failureAdmin.from("parse_jobs").update({
           status: "failed",
           error_message: message,
           completed_at: new Date().toISOString()
-        }).eq("id", jobId);
+        }).eq("id", authorizedJobId);
       }
     } catch (dbError) {
       console.error("Failed to update parse job status on error:", dbError);

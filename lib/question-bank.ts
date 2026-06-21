@@ -1,6 +1,6 @@
 import { buildMarkingTree, computeMarkingTotals, flattenMarkingTree, getSelectableMarkingGroups, type MarkingTreeNode } from "@/lib/marking-tree";
 import { compareOrdinalPaths, formatQuestionKeyFromOrdinalPath } from "@/lib/question-hierarchy";
-import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionBankChild, QuestionBankItem, QuestionNodeRow } from "@/types/database";
+import type { Assessment, AssessmentVersion, Json, MarkschemeNode, QuestionBankChild, QuestionBankItem, QuestionNodeRow, QuestionSourceRegion } from "@/types/database";
 
 export type QuestionBankDraftItem = {
   root: MarkingTreeNode;
@@ -14,6 +14,9 @@ export type QuestionBankDraftItem = {
   sourceObjectPath: string | null;
   visualAssetRefs: string[];
   markschemeHtml: string | null;
+  sourceRegionJson: Json | null;
+  answerMode: QuestionBankItem["answer_mode"];
+  interactionJson: Json | null;
 };
 
 export type PaperGenerationCriteria = {
@@ -24,11 +27,21 @@ export type PaperGenerationCriteria = {
   difficultyMax?: number | null;
   includeVisualQuestions?: boolean;
   avoidQuestionIds?: string[];
+  paperTypes?: string[];
+  commandTerms?: string[];
+  standardIds?: string[];
 };
 
 export type GeneratedPaperSelection = {
   selectedItems: QuestionBankItem[];
   totalMarks: number;
+  warnings: string[];
+};
+
+export type GeneratedPaperHealth = {
+  score: number;
+  totalMarks: number;
+  blockers: string[];
   warnings: string[];
 };
 
@@ -43,11 +56,13 @@ export function extractQuestionBankDrafts({
   version,
   questionNodes,
   markschemeNodes = [],
+  sourceRegions = [],
 }: {
   assessment: Pick<Assessment, "title" | "paper_code" | "assessment_kind" | "subject">;
   version: Pick<AssessmentVersion, "source_object_path">;
   questionNodes: QuestionNodeRow[];
   markschemeNodes?: Pick<MarkschemeNode, "mapped_question_node_id" | "markscheme_html">[];
+  sourceRegions?: Pick<QuestionSourceRegion, "id" | "question_node_id" | "source_document_id" | "source_page_id" | "region_type" | "bbox_json" | "confidence" | "status" | "metadata_json">[];
 }): QuestionBankDraftItem[] {
   const tree = buildMarkingTree(questionNodes);
   const roots = getSelectableMarkingGroups(tree);
@@ -62,6 +77,7 @@ export function extractQuestionBankDrafts({
       .join("\n<hr />\n") || root.markscheme_html;
     const sourcePageRange = sourcePageRangeForNodes(fullTree);
     const visualAssetRefs = visualAssetRefsForNodes(fullTree);
+    const matchingRegions = sourceRegions.filter((region) => region.question_node_id === root.id);
     return {
       root,
       children: descendants,
@@ -74,6 +90,9 @@ export function extractQuestionBankDrafts({
       sourceObjectPath: version.source_object_path,
       visualAssetRefs,
       markschemeHtml: markschemeHtml || null,
+      sourceRegionJson: matchingRegions.length ? matchingRegions as unknown as Json : null,
+      answerMode: root.response_mode,
+      interactionJson: root.interaction_json ?? null,
     };
   });
 }
@@ -88,6 +107,9 @@ export function selectQuestionBankItems(items: QuestionBankItem[], criteria: Pap
     .filter((item) => criteria.includeVisualQuestions !== false || !item.has_visual_assets)
     .filter((item) => criteria.difficultyMin == null || item.estimated_difficulty == null || item.estimated_difficulty >= criteria.difficultyMin)
     .filter((item) => criteria.difficultyMax == null || item.estimated_difficulty == null || item.estimated_difficulty <= criteria.difficultyMax)
+    .filter((item) => !criteria.paperTypes?.length || (item.paper_type != null && criteria.paperTypes.includes(item.paper_type)))
+    .filter((item) => !criteria.commandTerms?.length || (item.command_term != null && criteria.commandTerms.includes(item.command_term)))
+    .filter((item) => !criteria.standardIds?.length || criteria.standardIds.some((standardId) => item.curriculum_standard_ids.includes(standardId)))
     .filter((item) => {
       const topicTags = criteria.topicTags ?? [];
       if (!topicTags.length) return true;
@@ -109,6 +131,45 @@ export function selectQuestionBankItems(items: QuestionBankItem[], criteria: Pap
   if (targetMarks > 0 && totalMarks > targetMarks) warnings.push(`Selected ${totalMarks} marks, above the ${targetMarks} mark target.`);
 
   return { selectedItems, totalMarks, warnings };
+}
+
+export function contentFingerprintForQuestion(input: {
+  promptHtml?: string | null;
+  promptLatex?: string | null;
+  marks?: number | null;
+  answerMode?: string | null;
+}) {
+  const normalized = [input.promptHtml, input.promptLatex, input.marks, input.answerMode]
+    .map((value) => String(value ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toLowerCase())
+    .join("|");
+  let hash = 2166136261;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash ^= normalized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `qf1-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+export function computeGeneratedPaperHealth(items: QuestionBankItem[], targetMarks?: number | null): GeneratedPaperHealth {
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+  if (!items.length) blockers.push("The blueprint has no questions.");
+  const missingMarks = items.filter((item) => item.marks_available == null);
+  if (missingMarks.length) blockers.push(`${missingMarks.length} selected question(s) have no mark total.`);
+  const unready = items.filter((item) => item.readiness_status !== "ready");
+  if (unready.length) blockers.push(`${unready.length} selected question(s) still need library review.`);
+  const missingSource = items.filter((item) => item.has_visual_assets && !item.source_pdf_object_path);
+  if (missingSource.length) blockers.push(`${missingSource.length} visual question(s) have no private source PDF.`);
+  const totalMarks = items.reduce((sum, item) => sum + Number(item.marks_available ?? 0), 0);
+  if (targetMarks && totalMarks !== Number(targetMarks)) warnings.push(`Selected ${totalMarks} marks instead of the ${targetMarks} mark target.`);
+  const missingCommandTerm = items.filter((item) => !item.command_term).length;
+  if (missingCommandTerm) warnings.push(`${missingCommandTerm} question(s) have no command-term metadata.`);
+  return {
+    score: Math.max(0, 100 - blockers.length * 30 - warnings.length * 8),
+    totalMarks,
+    blockers,
+    warnings,
+  };
 }
 
 export function buildQuestionBankChildTree(children: QuestionBankChild[]): QuestionBankTreeNode[] {

@@ -221,11 +221,11 @@ export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V
     {
       key: "ocr_layout",
       title: "OCR and source extraction",
-      status: hasOcrProvider ? "ready" : "provider_required",
+      status: hasOcrProvider ? "live_validation_required" : "provider_required",
       ownerMessage: hasMineru
-        ? "MinerU credentials are present for layout extraction. Provider output remains review-required."
+        ? "MinerU credentials are present for layout extraction. A reviewed sample run is still required before this provider path is production-ready."
         : hasSimpleTex
-          ? "SimpleTeX APP credentials are present for server-side page, formula, table, and handwriting OCR. Region boxes remain teacher-reviewed and manually editable."
+          ? "SimpleTeX APP credentials are present for server-side page, formula, table, and handwriting OCR. A reviewed sample run is still required, and region boxes remain teacher-reviewed and manually editable."
         : "Provider-backed OCR is not configured. Teachers should use the manual PDF region editor instead of expecting automatic detection.",
       requiredEnvVars: ["SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, or MINERU_API_KEY / MINERU_WORKER_HMAC_SECRET"],
       fallback: "Manual PDF upload, page review, normalized region drawing, and source-anchor linking.",
@@ -235,9 +235,9 @@ export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V
     {
       key: "ai_semantic",
       title: "AI parsing and semantic grouping",
-      status: hasDeepSeek ? "ready" : "manual_fallback",
+      status: hasDeepSeek ? "live_validation_required" : "manual_fallback",
       ownerMessage: hasDeepSeek
-        ? "DeepSeek credentials are present for review-required parser suggestions and semantic grouping assists."
+        ? "DeepSeek credentials are present for review-required parser suggestions and semantic grouping assists. A reviewed sample run is still required."
         : "Semantic grouping and AI parser suggestions are unavailable. Deterministic repair and manual grouping remain supported.",
       requiredEnvVars: ["DEEPSEEK_API_KEY"],
       fallback: "Deterministic parser repair, answer normalization, numeric grouping, and teacher-reviewed manual groups.",
@@ -267,7 +267,7 @@ export function getProviderReadiness(env: ProviderReadinessEnv = process.env): V
     {
       key: "storage_private_files",
       title: "Private storage and signed files",
-      status: hasSupabase ? "ready" : "provider_required",
+      status: hasSupabase ? "live_validation_required" : "provider_required",
       ownerMessage: hasSupabase
         ? "Supabase client configuration is present. Private bucket access must still be validated on the actual website."
         : "Supabase URL/anon configuration is missing, so private storage and signed-file flows cannot run in this environment.",
@@ -391,7 +391,7 @@ export function buildImportJobAuditSummary(auditLogs: ImportAuditLike[]) {
   return {
     importAuditCount: importLogs.length,
     latestImportAuditAt: latestImportLog[0]?.created_at ?? null,
-    actions: Array.from(new Set(importLogs.map((entry) => String(entry.action)).filter(Boolean))),
+    actions: Array.from(new Set(latestImportLog.map((entry) => String(entry.action)).filter(Boolean))),
   };
 }
 

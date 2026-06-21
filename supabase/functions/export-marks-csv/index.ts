@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { corsHeaders, errorResponse, handleOptions, readJson } from "../_shared/http.ts";
 
 function csvCell(value: unknown) {
@@ -10,15 +10,26 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "exports");
     const body = await readJson<{ attempt_id?: string }>(request);
+    const { data: assessments, error: assessmentError } = await admin
+      .from("assessments")
+      .select("id")
+      .eq("owner_profile_id", ownerProfileId);
+    if (assessmentError) throw assessmentError;
+    const assessmentIds = (assessments ?? []).map((assessment) => assessment.id);
+    const { data: attempts, error: attemptError } = assessmentIds.length
+      ? await admin.from("attempts").select("id").in("assessment_id", assessmentIds)
+      : { data: [], error: null };
+    if (attemptError) throw attemptError;
+    const ownedAttemptIds = new Set((attempts ?? []).map((attempt) => attempt.id));
+    if (body.attempt_id && !ownedAttemptIds.has(body.attempt_id)) throw new Error("Attempt is outside this institution");
+    const selectedAttemptIds = body.attempt_id ? [body.attempt_id] : [...ownedAttemptIds];
     const query = admin
       .from("marks")
-      .select("attempt_id,question_node_id,rubric_criteria_id,awarded_marks,notes,created_at");
-    const { data: marks, error } = body.attempt_id
-      ? await query.eq("attempt_id", body.attempt_id)
-      : await query.order("created_at", { ascending: false });
+      .select("attempt_id,question_node_id,rubric_criteria_id,awarded_marks,notes,created_at")
+      .in("attempt_id", selectedAttemptIds.length ? selectedAttemptIds : ["00000000-0000-0000-0000-000000000000"]);
+    const { data: marks, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
     const rows = [
@@ -34,7 +45,9 @@ serve(async (request) => {
     ];
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
 
-    await auditOwnerAction(ownerProfile.id, user.id, "marks_csv.exported", body.attempt_id ? "attempts" : null, body.attempt_id ?? null);
+    await auditOwnerAction(ownerProfileId, user.id, "marks_csv.exported", body.attempt_id ? "attempts" : null, body.attempt_id ?? null, {
+      exported_row_count: marks?.length ?? 0,
+    });
 
     return new Response(csv, {
       status: 200,

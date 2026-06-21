@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { AccommodationSummary } from "@/components/exam/accommodation-summary";
+import { StudentInvigilationMessages, type StudentInvigilationMessage } from "@/components/exam/student-invigilation-messages";
 import { MathRenderer } from "@/components/math-renderer";
 import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
 import { Button } from "@/components/ui/button";
@@ -64,13 +65,7 @@ type GuestUploadUrlResponse = {
   max_file_size_bytes: number;
 };
 
-type GuestInvigilationMessage = {
-  id: string;
-  message_kind: "broadcast" | "private" | "system";
-  sender_kind: "owner" | "student_guest" | "student_account" | "system";
-  body: string;
-  created_at: string;
-};
+type GuestInvigilationMessage = StudentInvigilationMessage;
 
 export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finalize" | "submitted" }) {
   const router = useRouter();
@@ -247,6 +242,17 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     } catch (stateError) {
       setError(stateError instanceof Error ? stateError.message : "Could not verify exam state.");
     }
+  }
+
+  async function acknowledgeInvigilationMessage(messageId: string) {
+    if (!guestToken || !attemptId) return;
+    const response = await invokePublicEdgeFunction<{ acknowledged_at: string }>("guest-acknowledge-invigilation-message", {
+      body: { guest_token: guestToken, attempt_id: attemptId, message_id: messageId },
+    });
+    if (!response) throw new Error("The acknowledgement could not be confirmed.");
+    setInvigilationMessages((current) => current.map((message) => message.id === messageId
+      ? { ...message, acknowledged_at: response.acknowledged_at }
+      : message));
   }
 
   function saveAnswer(question: QuestionNode, answerText: string) {
@@ -523,9 +529,10 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
             state={state}
             messages={invigilationMessages}
             onRefresh={() => void refreshState()}
+            onAcknowledge={acknowledgeInvigilationMessage}
           />
         ) : state?.state === "PAUSED" ? (
-          <RestBreakPanel messages={invigilationMessages} onRefresh={() => void refreshState()} />
+          <RestBreakPanel messages={invigilationMessages} onRefresh={() => void refreshState()} onAcknowledge={acknowledgeInvigilationMessage} />
         ) : !assessmentPackage || isPending ? (
           <div className="grid min-h-[360px] place-items-center text-[var(--muted)]">
             <span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" size={18} /> Loading secure exam workspace...</span>
@@ -607,7 +614,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
             Local typed-response recovery is active for this attempt. It is only a browser backup; final submission still uses the server.
           </p>
         ) : null}
-        <InvigilationMessagesPanel messages={invigilationMessages} compact />
+        <StudentInvigilationMessages messages={invigilationMessages} compact onAcknowledge={acknowledgeInvigilationMessage} />
         {error?.includes("Guest SEB sessions are blocked") ? (
           <p className="mt-4 rounded-[4px] bg-[var(--warning-bg)] p-3 text-sm text-[var(--warning)]">
             Guest SEB sessions are blocked unless verified secure mode is configured. Ask your teacher for the authenticated secure-mode route.
@@ -658,9 +665,11 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
 function RestBreakPanel({
   messages,
   onRefresh,
+  onAcknowledge,
 }: {
   messages: GuestInvigilationMessage[];
   onRefresh: () => void;
+  onAcknowledge: (messageId: string) => Promise<void>;
 }) {
   return (
     <div className="mx-auto grid min-h-[520px] max-w-3xl content-center gap-5 py-8">
@@ -677,7 +686,7 @@ function RestBreakPanel({
           <Button type="button" variant="secondary" onClick={onRefresh}>Check status</Button>
         </div>
       </div>
-      <InvigilationMessagesPanel messages={messages} />
+      <StudentInvigilationMessages messages={messages} onAcknowledge={onAcknowledge} />
     </div>
   );
 }
@@ -686,10 +695,12 @@ function WaitingLivePanel({
   state,
   messages,
   onRefresh,
+  onAcknowledge,
 }: {
   state: GuestStateResponse;
   messages: GuestInvigilationMessage[];
   onRefresh: () => void;
+  onAcknowledge: (messageId: string) => Promise<void>;
 }) {
   return (
     <div className="mx-auto grid min-h-[520px] max-w-3xl content-center gap-5 py-8">
@@ -733,47 +744,8 @@ function WaitingLivePanel({
           </div>
         </div>
       </div>
-      <InvigilationMessagesPanel messages={messages} />
+      <StudentInvigilationMessages messages={messages} onAcknowledge={onAcknowledge} />
     </div>
-  );
-}
-
-function InvigilationMessagesPanel({
-  messages,
-  compact = false,
-}: {
-  messages: GuestInvigilationMessage[];
-  compact?: boolean;
-}) {
-  const visibleMessages = compact ? messages.slice(0, 3) : messages;
-  return (
-    <section className={`${compact ? "mt-5" : ""} rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3`}>
-      <div className="flex items-center gap-2">
-        <Bell size={15} aria-hidden="true" className="text-[var(--primary)]" />
-        <h2 className="text-sm font-semibold text-[var(--ink)]">Teacher announcements</h2>
-      </div>
-      {visibleMessages.length ? (
-        <div className="mt-3 grid gap-2">
-          {visibleMessages.map((message) => (
-            <article key={message.id} className="rounded-[3px] border border-[var(--border)] bg-white p-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-semibold text-[var(--ink)]">
-                  {message.message_kind === "broadcast" ? "Broadcast" : "Direct message"}
-                </p>
-                <time className="whitespace-nowrap font-mono text-[11px] text-[var(--subtle)]" dateTime={message.created_at}>
-                  {formatShortTime(message.created_at)}
-                </time>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap leading-6 text-[var(--muted)]">{message.body}</p>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Broadcasts and direct messages from your teacher will appear here.
-        </p>
-      )}
-    </section>
   );
 }
 

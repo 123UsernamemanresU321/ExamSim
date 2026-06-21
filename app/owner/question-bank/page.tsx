@@ -3,21 +3,42 @@ import type { ReactNode } from "react";
 import { Filter, PlusCircle } from "lucide-react";
 import { listQuestionBankWorkspace } from "@/lib/usability-data";
 import { SUBJECT_PRESETS } from "@/lib/subjects";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input, Select } from "@/components/ui/form";
 import { PageHeader, SectionHeader } from "@/components/ui/page-header";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function QuestionBankPage({ searchParams }: { searchParams: Promise<{ subject?: string; tag?: string }> }) {
-  const { subject = "all", tag = "" } = await searchParams;
+type LibraryFilters = { subject?: string; tag?: string; subtopic?: string; difficulty?: string; marks_min?: string; marks_max?: string; year?: string; paper_type?: string; command_term?: string; response_type?: string; readiness?: string; standard?: string };
+
+export default async function QuestionBankPage({ searchParams }: { searchParams: Promise<LibraryFilters> }) {
+  const filters = await searchParams;
+  const { subject = "all", tag = "" } = filters;
   const { items, children } = await listQuestionBankWorkspace();
+  const supabase = await createSupabaseServerClient();
+  const { data: standards, error: standardsError } = await supabase.from("curriculum_standards").select("id,code,title").order("code");
+  if (standardsError) throw standardsError;
   const childrenByItem = new Map<string, number>();
   for (const child of children) childrenByItem.set(child.question_bank_item_id, (childrenByItem.get(child.question_bank_item_id) ?? 0) + 1);
   const subjects = [...new Set([...SUBJECT_PRESETS, ...items.map((item) => item.subject).filter((value): value is string => Boolean(value))])];
   const filteredItems = items.filter((item) => {
     const subjectMatch = subject === "all" || item.subject === subject;
     const tagMatch = !tag || item.tags.some((itemTag) => itemTag.toLowerCase().includes(tag.toLowerCase()));
-    return subjectMatch && tagMatch;
+    const minimumMarks = Number(filters.marks_min ?? 0);
+    const maximumMarks = Number(filters.marks_max ?? 0);
+    return subjectMatch
+      && tagMatch
+      && (!filters.subtopic || item.subtopic?.toLowerCase().includes(filters.subtopic.toLowerCase()))
+      && (!filters.difficulty || item.estimated_difficulty === Number(filters.difficulty))
+      && (!minimumMarks || Number(item.marks_available ?? -1) >= minimumMarks)
+      && (!maximumMarks || Number(item.marks_available ?? Number.POSITIVE_INFINITY) <= maximumMarks)
+      && (!filters.year || item.year === Number(filters.year))
+      && (!filters.paper_type || item.paper_type === filters.paper_type)
+      && (!filters.command_term || item.command_term === filters.command_term)
+      && (!filters.response_type || item.answer_mode === filters.response_type)
+      && (!filters.readiness || item.readiness_status === filters.readiness)
+      && (!filters.standard || item.curriculum_standard_ids.includes(filters.standard));
   });
 
   return (
@@ -58,6 +79,21 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
             </ButtonLink>
           ))}
         </div>
+        <form method="get" className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 md:grid-cols-3 xl:grid-cols-5">
+          <input type="hidden" name="subject" value={subject} />
+          <Field label="Topic / tag"><Input name="tag" defaultValue={tag} placeholder="mechanics" /></Field>
+          <Field label="Subtopic"><Input name="subtopic" defaultValue={filters.subtopic ?? ""} /></Field>
+          <Field label="Difficulty"><Select name="difficulty" defaultValue={filters.difficulty ?? ""}><option value="">Any</option>{[1,2,3,4,5].map((value) => <option key={value} value={value}>{value}</option>)}</Select></Field>
+          <Field label="Minimum marks"><Input name="marks_min" type="number" min="0" defaultValue={filters.marks_min ?? ""} /></Field>
+          <Field label="Maximum marks"><Input name="marks_max" type="number" min="0" defaultValue={filters.marks_max ?? ""} /></Field>
+          <Field label="Year"><Input name="year" type="number" min="1900" max="2200" defaultValue={filters.year ?? ""} /></Field>
+          <Field label="Paper type"><Input name="paper_type" defaultValue={filters.paper_type ?? ""} placeholder="Paper 1" /></Field>
+          <Field label="Command term"><Input name="command_term" defaultValue={filters.command_term ?? ""} placeholder="calculate" /></Field>
+          <Field label="Response type"><Select name="response_type" defaultValue={filters.response_type ?? ""}><option value="">Any</option>{["typed_text","upload_pdf","typed_or_upload","multiple_choice","numerical"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</Select></Field>
+          <Field label="Readiness"><Select name="readiness" defaultValue={filters.readiness ?? ""}><option value="">Any</option><option value="ready">Ready</option><option value="needs_review">Needs review</option><option value="retired">Retired</option></Select></Field>
+          {standards?.length ? <Field label="Standard"><Select name="standard" defaultValue={filters.standard ?? ""}><option value="">Any</option>{standards.map((standard) => <option key={standard.id} value={standard.id}>{standard.code} · {standard.title}</option>)}</Select></Field> : null}
+          <div className="flex items-end gap-2"><Button type="submit" variant="secondary">Apply</Button><ButtonLink href="/owner/question-bank" variant="ghost">Clear</ButtonLink></div>
+        </form>
       </section>
 
       {filteredItems.length ? (
@@ -83,6 +119,8 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
                   ))}
                   {item.has_visual_assets ? <Chip>visual source</Chip> : null}
                   {item.do_not_reuse ? <Chip>do not reuse</Chip> : null}
+                  <Chip>{item.readiness_status.replaceAll("_", " ")}</Chip>
+                  {item.command_term ? <Chip>{item.command_term}</Chip> : null}
                 </div>
               </DataTableCell>
               <DataTableCell className="w-[10%] font-mono text-xs">{item.marks_available ?? "?"}</DataTableCell>

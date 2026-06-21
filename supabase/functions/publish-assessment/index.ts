@@ -1,7 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { validatePublishHealth } from "../_shared/publish-health.ts";
 import { validateSebPublishKeys } from "../_shared/seb.ts";
+import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type Body = {
   assessment_id: string;
@@ -27,15 +29,14 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "session_publishing");
     const body = await readJson<Body>(request);
     const assignedProfileIds = [...new Set(body.assigned_profile_ids ?? [])];
     const assignedGroupIds = [...new Set(body.assigned_group_ids ?? [])];
     const assignedCohortIds = [...new Set(body.assigned_cohort_ids ?? [])];
     if (!body.assessment_id || !body.version_id || !body.start_at_local || (!assignedProfileIds.length && !assignedGroupIds.length && !assignedCohortIds.length)) {
-      return json({ error: "Missing publish fields" }, 400);
+      return json(request, { error: "Missing publish fields" }, 400);
     }
-    const ownerProfile = await profileForAuthUser(user.id);
     const sebBrowserExamKeys = normalizeHashList(body.seb_browser_exam_key_hashes);
     const sebConfigKeys = normalizeHashList(body.seb_config_key_hashes);
     const sebValidation = validateSebPublishKeys({
@@ -43,23 +44,70 @@ serve(async (request) => {
       browserExamKeys: sebBrowserExamKeys,
       configKeys: sebConfigKeys,
     });
-    if (!sebValidation.ok) return json({ error: sebValidation.reason }, 400);
+    if (!sebValidation.ok) return json(request, { error: sebValidation.reason }, 400);
 
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
-      .select("*")
+      .select("*,assessments!inner(owner_profile_id)")
       .eq("id", body.version_id)
+      .eq("assessment_id", body.assessment_id)
       .single();
     if (versionError) throw versionError;
-    if (version.requires_owner_review) return json({ error: "Owner review is required before publish" }, 400);
+    const assessment = version.assessments as { owner_profile_id?: string } | null;
+    assertInstitutionOwner(assessment?.owner_profile_id, ownerProfileId);
+    assertVersionMutable(version.status);
+    if (version.governance_status !== "approved") {
+      return json(request, { error: "This version must be reviewed and approved before publish", code: "approval_required" }, 409);
+    }
+    if (version.requires_owner_review) return json(request, { error: "Owner review is required before publish" }, 400);
 
-    const { data: assessment, error: assessmentError } = await admin
-      .from("assessments")
-      .select("owner_profile_id")
-      .eq("id", body.assessment_id)
-      .single();
-    if (assessmentError) throw assessmentError;
-    if (assessment.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    const [{ data: questionNodes, error: questionError }, { data: sourceRegions, error: regionError }, { data: markschemeDocuments, error: markschemeDocumentError }] = await Promise.all([
+      admin.from("question_nodes").select("id,node_key,node_type,marks,response_mode").eq("assessment_version_id", body.version_id),
+      admin.from("question_source_regions").select("id,question_node_id,region_type,status,confidence,metadata_json").eq("assessment_version_id", body.version_id),
+      admin.from("markscheme_documents").select("id").eq("assessment_version_id", body.version_id),
+    ]);
+    if (questionError) throw questionError;
+    if (regionError) throw regionError;
+    if (markschemeDocumentError) throw markschemeDocumentError;
+    const markschemeDocumentIds = (markschemeDocuments ?? []).map((document) => document.id);
+    const { data: markschemeNodes, error: markschemeError } = markschemeDocumentIds.length
+      ? await admin.from("markscheme_nodes").select("status,mapped_question_node_id").in("markscheme_document_id", markschemeDocumentIds)
+      : { data: [], error: null };
+    if (markschemeError) throw markschemeError;
+    const healthBlockers = validatePublishHealth({
+      questionNodes: questionNodes ?? [],
+      sourceRegions: sourceRegions ?? [],
+      markschemeNodes: markschemeNodes ?? [],
+    });
+    if (healthBlockers.length) {
+      return json(request, { error: "Publish health checks failed", code: "publish_health_blocked", blockers: healthBlockers }, 409);
+    }
+
+    if (assignedProfileIds.length) {
+      const { data: linkedStudents, error: linkedStudentError } = await admin
+        .from("owner_student_links")
+        .select("student_profile_id")
+        .eq("owner_profile_id", ownerProfileId)
+        .in("student_profile_id", assignedProfileIds);
+      if (linkedStudentError) throw linkedStudentError;
+      const linkedIds = new Set((linkedStudents ?? []).map((link) => link.student_profile_id));
+      if (assignedProfileIds.some((profileId) => !linkedIds.has(profileId))) {
+        return json(request, { error: "One or more assigned students are outside this institution" }, 403);
+      }
+    }
+
+    if (assignedGroupIds.length) {
+      const { data: ownedGroups, error: groupError } = await admin
+        .from("student_groups")
+        .select("id")
+        .eq("owner_profile_id", ownerProfileId)
+        .in("id", assignedGroupIds);
+      if (groupError) throw groupError;
+      const ownedGroupIds = new Set((ownedGroups ?? []).map((group) => group.id));
+      if (assignedGroupIds.some((groupId) => !ownedGroupIds.has(groupId))) {
+        return json(request, { error: "One or more assigned groups are outside this institution" }, 403);
+      }
+    }
 
     const start = parseLocalTimeToUtc(body.start_at_local, body.display_timezone || "Africa/Johannesburg");
     const end = new Date(start.getTime() + body.duration_seconds * 1000);
@@ -70,7 +118,7 @@ serve(async (request) => {
 
     const { error: publishError } = await admin
       .from("assessment_versions")
-      .update({ status: "published", published_at: new Date().toISOString() })
+      .update({ status: "published", governance_status: "published", published_at: new Date().toISOString() })
       .eq("id", body.version_id);
     if (publishError) throw publishError;
 
@@ -92,7 +140,7 @@ serve(async (request) => {
 
     const assignmentRows = [
       ...assignedProfileIds.map((profileId) => ({
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         assessment_id: body.assessment_id,
         assessment_version_id: body.version_id,
         assignment_kind: "individual",
@@ -101,7 +149,7 @@ serve(async (request) => {
         ...timing,
       })),
       ...assignedGroupIds.map((groupId) => ({
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         assessment_id: body.assessment_id,
         assessment_version_id: body.version_id,
         assignment_kind: "group",
@@ -134,7 +182,7 @@ serve(async (request) => {
         .eq("id", cohortId)
         .single();
       if (cohortError) throw cohortError;
-      if (cohort.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden cohort assignment" }, 403);
+      if (cohort.owner_profile_id !== ownerProfileId) return json(request, { error: "Forbidden cohort assignment" }, 403);
       const { data: members, error: memberError } = await admin
         .from("cohort_members")
         .select("student_profile_id")
@@ -163,16 +211,16 @@ serve(async (request) => {
         await admin.rpc("create_upload_slots_for_attempt", { target_attempt_id: attempt.id });
       }
     }
-    await auditOwnerAction(ownerProfile.id, user.id, "assessment.published", "assessment_versions", body.version_id, {
+    await auditOwnerAction(ownerProfileId, user.id, "assessment.published", "assessment_versions", body.version_id, {
       assessment_id: body.assessment_id,
       assigned_profile_count: assignedProfileIds.length,
       assigned_group_count: assignedGroupIds.length,
       assigned_cohort_count: assignedCohortIds.length,
       created_attempt_count: attempts?.length ?? 0,
     });
-    return json({ ok: true, attempt_ids: attempts?.map((attempt) => attempt.id) ?? [] });
+    return json(request, { ok: true, attempt_ids: attempts?.map((attempt) => attempt.id) ?? [] });
   } catch (error) {
-    return errorResponse(error, "publish-assessment failed");
+    return errorResponse(request, error, "publish-assessment failed");
   }
 });
 

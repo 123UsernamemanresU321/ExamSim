@@ -1,5 +1,8 @@
 import type { InstitutionPermission } from "@/lib/examsim/institution-role-matrix";
-import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
+import {
+  requireInstitutionPageAnyPermission,
+  requireInstitutionPagePermission,
+} from "@/lib/examsim/institution-roles";
 
 export async function InstitutionPermissionLayout({
   children,
@@ -11,5 +14,18 @@ export async function InstitutionPermissionLayout({
   path: string;
 }) {
   await requireInstitutionPagePermission(permission, path);
+  return children;
+}
+
+export async function InstitutionAnyPermissionLayout({
+  children,
+  permissions,
+  path,
+}: {
+  children: React.ReactNode;
+  permissions: readonly InstitutionPermission[];
+  path: string;
+}) {
+  await requireInstitutionPageAnyPermission(permissions, path);
   return children;
 }

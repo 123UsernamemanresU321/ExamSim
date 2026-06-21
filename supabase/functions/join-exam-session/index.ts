@@ -72,6 +72,22 @@ serve(async (request) => {
       }, 409);
     }
 
+    const accessWindow = readAccessWindowPolicy(rosterEntry?.accommodations_json);
+    const now = Date.now();
+    if (accessWindow.openAtUtc && now < Date.parse(accessWindow.openAtUtc)) {
+      return json(request, {
+        error: "Your individual access window has not opened yet. Check the time provided by your teacher.",
+        code: "student_access_not_open",
+        opens_at_utc: accessWindow.openAtUtc,
+      }, 403);
+    }
+    if (accessWindow.closeAtUtc && now >= Date.parse(accessWindow.closeAtUtc)) {
+      return json(request, {
+        error: "Your individual access window has closed. Contact your teacher.",
+        code: "student_access_closed",
+      }, 403);
+    }
+
     const matchColumn = rosterEntry?.id ? "roster_entry_id" : "guest_student_number";
     const matchValue = rosterEntry?.id ?? effectiveStudentNumber;
     const { data: existingAttempts, error: existingError } = await admin
@@ -223,6 +239,22 @@ function readAccommodationPolicy(value: unknown, baseDurationSeconds: number) {
     extraTimeSeconds: Math.min(Math.max(extraTimeSeconds, 0), 4 * 60 * 60),
     uploadExtensionSeconds: Math.min(Math.max(uploadExtensionSeconds, 0), 4 * 60 * 60),
   };
+}
+
+function readAccessWindowPolicy(value: unknown) {
+  const policy = typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  return {
+    openAtUtc: readIso(policy.access_open_at_utc),
+    closeAtUtc: readIso(policy.access_close_at_utc),
+  };
+}
+
+function readIso(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
 function readSeconds(value: unknown) {

@@ -8,7 +8,7 @@ import { AnnotationPropertiesPanel } from "@/components/owner/annotation-propert
 import { AnnotationToolbar } from "@/components/owner/annotation-toolbar";
 import { PageThumbnailSidebar } from "@/components/owner/page-thumbnail-sidebar";
 import { PdfAnnotationPage, type PdfAnnotationPageInfo } from "@/components/owner/pdf-annotation-page";
-import { ReleaseAnnotatedPdfDialog } from "@/components/owner/release-annotated-pdf-dialog";
+import { ReleaseAnnotatedPdfDialog, type FeedbackReleaseChecklist } from "@/components/owner/release-annotated-pdf-dialog";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
@@ -310,7 +310,7 @@ export function WorkAnnotationStudio({
     }
   }
 
-  async function releaseToStudent() {
+  async function releaseToStudent(releaseChecklist: FeedbackReleaseChecklist) {
     setIsReleasing(true);
     try {
       await saveDraft();
@@ -320,6 +320,7 @@ export function WorkAnnotationStudio({
           attempt_id: attemptId,
           summary_text: studentFeedback.trim() || undefined,
           visible_to_student: true,
+          release_checklist: releaseChecklist,
         },
         requiresAal2: true,
       });
@@ -475,7 +476,7 @@ export function WorkAnnotationStudio({
             open={releaseDialogOpen}
             isSaving={isReleasing}
             onCancel={() => setReleaseDialogOpen(false)}
-            onConfirm={() => void releaseToStudent()}
+            onConfirm={(checklist) => void releaseToStudent(checklist)}
           />
         </div>
       ) : null}

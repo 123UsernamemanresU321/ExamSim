@@ -1,25 +1,25 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2, type InstitutionPermission } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
     const body = await readJson<{
-      bucket: "assessment-sources" | "assessment-packages" | "answer-uploads" | "marking-packets";
+      bucket: "assessment-sources" | "assessment-packages" | "answer-uploads" | "marking-packets" | "paper-scans";
       object_path: string;
-      purpose: "assessment_source" | "parse_artifact" | "answer_upload" | "marking_packet";
+      purpose: "assessment_source" | "parse_artifact" | "answer_upload" | "marking_packet" | "paper_scan";
       expires_in_seconds?: number;
     }>(request);
     if (!body.bucket || !body.object_path || !body.purpose) {
       return json(request, { error: "bucket, object_path, and purpose are required" }, 400);
     }
     if (!isSafeObjectPath(body.object_path)) return json(request, { error: "Invalid object path" }, 400);
+    const permission = permissionForStorageRequest(body.bucket, body.purpose);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, permission);
 
-    const allowed = await ownerCanAccessObject(admin, ownerProfile.id, body.bucket, body.object_path, body.purpose);
+    const allowed = await ownerCanAccessObject(admin, ownerProfileId, body.bucket, body.object_path, body.purpose);
     if (!allowed) return json(request, { error: "Forbidden" }, 403);
 
     const expiresIn = Math.min(Math.max(body.expires_in_seconds ?? 300, 60), 900);
@@ -27,7 +27,7 @@ serve(async (request) => {
     if (error) throw error;
     if (!data?.signedUrl) throw new Error("Could not create signed URL");
 
-    await auditOwnerAction(ownerProfile.id, user.id, `storage_url.${body.purpose}`, null, null, {
+    await auditOwnerAction(ownerProfileId, user.id, `storage_url.${body.purpose}`, null, null, {
       bucket: body.bucket,
       object_path: body.object_path,
       expires_in_seconds: expiresIn,
@@ -38,6 +38,19 @@ serve(async (request) => {
     return errorResponse(request, error, "owner-sign-storage-url failed");
   }
 });
+
+function permissionForStorageRequest(bucket: string, purpose: string): InstitutionPermission {
+  if ((bucket === "assessment-sources" && purpose === "assessment_source") ||
+      (bucket === "assessment-packages" && purpose === "parse_artifact")) {
+    return "assessment_authoring";
+  }
+  if ((bucket === "answer-uploads" && purpose === "answer_upload") ||
+      (bucket === "marking-packets" && purpose === "marking_packet") ||
+      (bucket === "paper-scans" && purpose === "paper_scan")) {
+    return "marking";
+  }
+  throw new Error("Unsupported storage signing purpose");
+}
 
 async function ownerCanAccessObject(
   admin: any,
@@ -152,6 +165,23 @@ async function ownerCanAccessObject(
       .maybeSingle();
     if (error) throw error;
     return data?.owner_profile_id === ownerProfileId;
+  }
+
+  if (bucket === "paper-scans" && purpose === "paper_scan") {
+    const { data: scan, error: scanError } = await admin
+      .from("paper_mode_scans")
+      .select("paper_mode_job_id")
+      .eq("object_path", objectPath)
+      .maybeSingle();
+    if (scanError) throw scanError;
+    if (!scan?.paper_mode_job_id) return false;
+    const { data: job, error: jobError } = await admin
+      .from("paper_mode_jobs")
+      .select("owner_profile_id")
+      .eq("id", String(scan.paper_mode_job_id))
+      .maybeSingle();
+    if (jobError) throw jobError;
+    return job?.owner_profile_id === ownerProfileId;
   }
 
   return false;

@@ -3,6 +3,7 @@ import md5 from "https://esm.sh/blueimp-md5@2.19.0";
 import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, requestIpKey } from "../_shared/rate-limit.ts";
+import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type SimpleTexMode = "formula" | "formula_fast" | "general" | "document";
 
@@ -48,13 +49,21 @@ serve(async (request) => {
 
     const { data: sourcePage, error: pageError } = await admin
       .from("source_pages")
-      .select("id,source_document_id,image_object_path,source_documents!inner(id,owner_profile_id)")
+      .select("id,source_document_id,image_object_path,source_documents!inner(id,owner_profile_id,assessment_version_id)")
       .eq("id", sourcePageId)
       .maybeSingle();
     if (pageError) throw pageError;
-    const sourceDocument = sourcePage?.source_documents as { id?: string; owner_profile_id?: string } | null;
+    const sourceDocument = sourcePage?.source_documents as { id?: string; owner_profile_id?: string; assessment_version_id?: string } | null;
     if (!sourcePage) throw new Error("Source page not found");
     assertInstitutionOwner(sourceDocument?.owner_profile_id, ownerProfileId);
+    const { data: version, error: versionError } = await admin
+      .from("assessment_versions")
+      .select("status")
+      .eq("id", sourceDocument?.assessment_version_id)
+      .maybeSingle();
+    if (versionError) throw versionError;
+    if (!version) throw new Error("Assessment version not found");
+    assertVersionMutable(version.status);
     if (!sourcePage.image_object_path) {
       throw new Error("This source page has no private rendered image. Render the PDF page or use manual region editing.");
     }

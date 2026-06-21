@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Save, FileText, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
+import { Save, FileText, AlertCircle, Flag, Ban, CheckCircle2, History, User, Lock, ExternalLink, MessageSquare, Trash2, Undo2, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/form";
@@ -273,6 +273,14 @@ export function MarkingDiscussionWorkspace({
   );
 }
 
+type MarkingDraftSnapshot = {
+  awarded: string;
+  binaryDecision: BinaryMarkDecision;
+  selectedRubricAwardIds: Set<string>;
+  isFlagged: boolean;
+  isUnreadable: boolean;
+};
+
 function MarkingResponseCard({
   attemptId,
   node,
@@ -324,6 +332,8 @@ function MarkingResponseCard({
   const [isUnreadable, setIsUnreadable] = useState(annotations.some(a => a.is_unreadable));
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const historyRef = useRef<MarkingDraftSnapshot[]>([]);
+  const [historyDepth, setHistoryDepth] = useState(0);
   const [selectedRubricAwardIds, setSelectedRubricAwardIds] = useState<Set<string>>(
     () => new Set(rubricItemAwards.filter((award) => award.selected && award.rubric_template_item_id).map((award) => String(award.rubric_template_item_id))),
   );
@@ -332,6 +342,71 @@ function MarkingResponseCard({
     [node, rubricTemplates, rubricTemplateItems],
   );
   const rubricAwarded = rubricItemsForNode.reduce((sum, item) => selectedRubricAwardIds.has(item.id) ? sum + Number(item.max_marks ?? 0) : sum, 0);
+
+  function pushHistory() {
+    historyRef.current = [...historyRef.current.slice(-19), {
+      awarded,
+      binaryDecision,
+      selectedRubricAwardIds: new Set(selectedRubricAwardIds),
+      isFlagged,
+      isUnreadable,
+    }];
+    setHistoryDepth(historyRef.current.length);
+  }
+
+  function undoLastChange() {
+    const previous = historyRef.current.at(-1);
+    if (!previous) return;
+    historyRef.current = historyRef.current.slice(0, -1);
+    setAwarded(previous.awarded);
+    setBinaryDecision(previous.binaryDecision);
+    setSelectedRubricAwardIds(new Set(previous.selectedRubricAwardIds));
+    setIsFlagged(previous.isFlagged);
+    setIsUnreadable(previous.isUnreadable);
+    setHistoryDepth(historyRef.current.length);
+    setLastSaved(null);
+  }
+
+  function toggleRubricItem(item: RubricTemplateItem) {
+    pushHistory();
+    setSelectedRubricAwardIds((current) => {
+      const next = new Set(current);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  }
+
+  function handleCardKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement;
+    const isEditingText = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      void handleSave();
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      undoLastChange();
+      return;
+    }
+    if (isEditingText || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (/^[1-9]$/.test(event.key)) {
+      const item = rubricItemsForNode[Number(event.key) - 1];
+      if (item) {
+        event.preventDefault();
+        toggleRubricItem(item);
+      }
+    } else if (event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      pushHistory();
+      setIsFlagged((current) => !current);
+    } else if (event.key.toLowerCase() === "u") {
+      event.preventDefault();
+      pushHistory();
+      setIsUnreadable((current) => !current);
+    }
+  }
 
   // Sync state when props change (e.g. after router.refresh)
   useEffect(() => {
@@ -343,6 +418,8 @@ function MarkingResponseCard({
       setIsFlagged(annotations.some(a => a.annotation_type === "marker_flag"));
       setIsUnreadable(annotations.some(a => a.is_unreadable));
       setSelectedRubricAwardIds(new Set(rubricItemAwards.filter((award) => award.selected && award.rubric_template_item_id).map((award) => String(award.rubric_template_item_id))));
+      historyRef.current = [];
+      setHistoryDepth(0);
     }, 0);
     return () => window.clearTimeout(id);
   }, [mark, node, existingFeedback, annotations, rubricItemAwards]);
@@ -452,7 +529,13 @@ function MarkingResponseCard({
   const canShowStudentWork = node.node_type === "question";
 
   return (
-    <div id={`mark-response-${node.id}`} className="scroll-mt-24 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
+    <div
+      id={`mark-response-${node.id}`}
+      className="scroll-mt-24 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
+      tabIndex={0}
+      onKeyDown={handleCardKeyDown}
+      aria-keyshortcuts="Control+S Meta+S Control+Z Meta+Z F U"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-slate-50/70 px-5 py-3">
         <div>
           <h3 className="text-sm font-semibold text-[var(--ink)]">{node.node_key}</h3>
@@ -555,7 +638,7 @@ function MarkingResponseCard({
                     type="button"
                     variant={binaryDecision === "correct" ? "primary" : "secondary"}
                     className={cn("h-14 font-semibold", binaryDecision === "correct" && "!text-white")}
-                    onClick={() => setBinaryDecision("correct")}
+                    onClick={() => { pushHistory(); setBinaryDecision("correct"); }}
                   >
                     Correct - award full marks
                   </Button>
@@ -563,7 +646,7 @@ function MarkingResponseCard({
                     type="button"
                     variant={binaryDecision === "incorrect" ? "primary" : "secondary"}
                     className={cn("h-14 font-semibold", binaryDecision === "incorrect" && "!text-white")}
-                    onClick={() => setBinaryDecision("incorrect")}
+                    onClick={() => { pushHistory(); setBinaryDecision("incorrect"); }}
                   >
                     Incorrect - award 0 marks
                   </Button>
@@ -572,7 +655,7 @@ function MarkingResponseCard({
                   <Button
                     variant="secondary"
                     className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
-                    onClick={() => setIsFlagged(!isFlagged)}
+                    onClick={() => { pushHistory(); setIsFlagged(!isFlagged); }}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
                     {isFlagged ? "Review Required" : "Flag"}
@@ -580,7 +663,7 @@ function MarkingResponseCard({
                   <Button
                     variant="secondary"
                     className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
-                    onClick={() => setIsUnreadable(!isUnreadable)}
+                    onClick={() => { pushHistory(); setIsUnreadable(!isUnreadable); }}
                   >
                     <Ban size={12} className="mr-1.5" />
                     {isUnreadable ? "Broken/Corrupt" : "Corrupt"}
@@ -593,14 +676,7 @@ function MarkingResponseCard({
                   <RubricClickPanel
                     items={rubricItemsForNode}
                     selectedIds={selectedRubricAwardIds}
-                    onToggle={(item) => {
-                      setSelectedRubricAwardIds((current) => {
-                        const next = new Set(current);
-                        if (next.has(item.id)) next.delete(item.id);
-                        else next.add(item.id);
-                        return next;
-                      });
-                    }}
+                    onToggle={toggleRubricItem}
                   />
                 ) : (
                   <div className="grid grid-cols-5 gap-3">
@@ -611,7 +687,7 @@ function MarkingResponseCard({
                         min={0}
                         max={maxMarks}
                         value={awarded}
-                        onChange={(e) => setAwarded(e.target.value)}
+                        onChange={(e) => { pushHistory(); setAwarded(e.target.value); }}
                         className={cn(
                           "h-16 pl-6 text-3xl font-semibold transition-colors",
                           isOverLimit ? "border-red-500 bg-red-50 text-red-700" : "bg-slate-50 border-transparent hover:bg-slate-100 focus:bg-white focus:border-[var(--primary)]"
@@ -627,7 +703,7 @@ function MarkingResponseCard({
                   <Button
                     variant="secondary"
                     className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isFlagged && "border-red-600 bg-red-600 !text-white hover:bg-red-700")}
-                    onClick={() => setIsFlagged(!isFlagged)}
+                    onClick={() => { pushHistory(); setIsFlagged(!isFlagged); }}
                   >
                     <Flag size={12} className={cn("mr-1.5", isFlagged && "fill-current")} />
                     {isFlagged ? "Review Required" : "Flag"}
@@ -635,7 +711,7 @@ function MarkingResponseCard({
                   <Button
                     variant="secondary"
                     className={cn("h-10 text-[10px] font-bold uppercase tracking-tight transition-colors", isUnreadable && "border-orange-600 bg-orange-600 !text-white hover:bg-orange-700")}
-                    onClick={() => setIsUnreadable(!isUnreadable)}
+                    onClick={() => { pushHistory(); setIsUnreadable(!isUnreadable); }}
                   >
                     <Ban size={12} className="mr-1.5" />
                     {isUnreadable ? "Broken/Corrupt" : "Corrupt"}
@@ -699,18 +775,34 @@ function MarkingResponseCard({
               </div>
             )}
           </div>
-          <Button 
-            onClick={handleSave} 
-            disabled={isSaving || isOverLimit || (usesBinaryMarking && binaryDecision === "unmarked")}
-            className="px-8 font-semibold uppercase tracking-widest shadow-lg shadow-blue-500/20"
-          >
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <details className="relative">
+              <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-2 border border-[var(--border)] bg-white px-3 text-xs font-semibold [&::-webkit-details-marker]:hidden">
+                <Keyboard size={14} /> Shortcut legend
+              </summary>
+              <div className="absolute bottom-11 right-0 z-20 w-64 border border-[var(--border)] bg-white p-3 text-xs leading-6 shadow-[var(--shadow-popover)]">
+                <p><kbd>Ctrl/⌘ + S</kbd> Save this question</p>
+                <p><kbd>Ctrl/⌘ + Z</kbd> Undo the last score/rubric change</p>
+                <p><kbd>1-9</kbd> Toggle rubric items</p>
+                <p><kbd>F</kbd> Toggle review flag · <kbd>U</kbd> Toggle unreadable</p>
+              </div>
+            </details>
+            <Button type="button" variant="secondary" onClick={undoLastChange} disabled={historyDepth === 0 || isSaving}>
+              <Undo2 size={14} /> Undo
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || isOverLimit || (usesBinaryMarking && binaryDecision === "unmarked")}
+              className="px-8 font-semibold uppercase tracking-widest shadow-lg shadow-blue-500/20"
+            >
             {isSaving ? (
               <div className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full mr-2" />
             ) : (
               <Save size={16} className="mr-2" />
             )}
             {isSaving ? "Syncing..." : "Finalize Change"}
-          </Button>
+            </Button>
+          </div>
         </div>
 
         {showDiscussion ? (
@@ -818,13 +910,15 @@ function RubricClickPanel({
         <Badge tone="accent" className="font-mono">{selectedMarks} / {totalMarks}</Badge>
       </div>
       <div className="grid gap-2">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const selected = selectedIds.has(item.id);
           return (
             <button
               key={item.id}
               type="button"
               onClick={() => onToggle(item)}
+              aria-pressed={selected}
+              aria-keyshortcuts={index < 9 ? String(index + 1) : undefined}
               className={cn(
                 "rounded-[4px] border p-3 text-left transition-colors",
                 selected ? "border-[var(--primary)] bg-white text-[var(--ink)] shadow-sm" : "border-[var(--border)] bg-white/60 text-[var(--muted)] hover:bg-white",
@@ -843,6 +937,7 @@ function RubricClickPanel({
                   selected ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500",
                 )}>
                   {Number(item.max_marks ?? 0)}m
+                  {index < 9 ? <span className="ml-1 text-[9px] opacity-60">{index + 1}</span> : null}
                 </span>
               </span>
             </button>

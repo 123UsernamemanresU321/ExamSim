@@ -89,6 +89,17 @@ export async function requireInstitutionPagePermission(permission: InstitutionPe
   return context;
 }
 
+export async function requireInstitutionPageAnyPermission(
+  permissions: readonly InstitutionPermission[],
+  nextPath: string,
+) {
+  const context = await requireInstitutionContext(nextPath);
+  if (!permissions.some((permission) => context.permissions.includes(permission))) {
+    redirect(`/owner/unauthorized?required=${encodeURIComponent(permissions.join(","))}`);
+  }
+  return context;
+}
+
 export async function requireInstitutionPermission(permission: InstitutionPermission, ownerProfileId?: string) {
   const context = await getInstitutionPermissionContext(ownerProfileId);
   if (!context || !roleHasInstitutionPermission(context.role, permission)) {

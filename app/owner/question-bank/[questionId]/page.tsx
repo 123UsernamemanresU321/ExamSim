@@ -4,29 +4,47 @@ import { getQuestionBankItemWorkspace } from "@/lib/usability-data";
 import { buildQuestionBankChildTree, calculateQuestionBankRootMarks, type QuestionBankTreeNode } from "@/lib/question-bank";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { splitTags } from "@/lib/subjects";
+import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
 import { QuestionBankSourcePreview } from "@/components/owner/question-bank-source-preview";
 import { DeleteQuestionBankItemButton } from "@/components/owner/delete-question-bank-item-button";
 import { Card } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/form";
+import { Field, Input, Select } from "@/components/ui/form";
 import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import { MathRenderer } from "@/components/math-renderer";
 
 async function updateQuestionBankMetadata(formData: FormData) {
   "use server";
+  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
   const questionId = String(formData.get("question_id") ?? "");
   const tags = splitTags(formData.get("tags"));
   const subject = String(formData.get("subject") ?? "").trim() || null;
   const estimatedDifficultyRaw = Number(formData.get("estimated_difficulty") ?? 0);
-  const { error } = await (await createSupabaseServerClient())
+  const yearRaw = Number(formData.get("year") ?? 0);
+  const requestedStandardIds = formData.getAll("standard_ids").map(String).filter(Boolean);
+  const supabase = await createSupabaseServerClient();
+  if (requestedStandardIds.length) {
+    const { data: standards, error: standardError } = await supabase.from("curriculum_standards").select("id").eq("owner_profile_id", ownerProfileId).in("id", requestedStandardIds);
+    if (standardError) throw standardError;
+    if ((standards ?? []).length !== new Set(requestedStandardIds).size) throw new Error("One or more standards are outside this institution.");
+  }
+  const readinessValue = String(formData.get("readiness_status") ?? "needs_review");
+  const { error } = await supabase
     .from("question_bank_items")
     .update({
       subject,
       tags,
       estimated_difficulty: estimatedDifficultyRaw || null,
       do_not_reuse: formData.get("do_not_reuse") === "on",
+      subtopic: String(formData.get("subtopic") ?? "").trim() || null,
+      year: yearRaw >= 1900 && yearRaw <= 2200 ? yearRaw : null,
+      paper_type: String(formData.get("paper_type") ?? "").trim() || null,
+      command_term: String(formData.get("command_term") ?? "").trim().toLowerCase() || null,
+      curriculum_standard_ids: [...new Set(requestedStandardIds)],
+      readiness_status: ["ready", "needs_review", "retired"].includes(readinessValue) ? readinessValue as "ready" | "needs_review" | "retired" : "needs_review",
     })
-    .eq("id", questionId);
+    .eq("id", questionId)
+    .eq("owner_profile_id", ownerProfileId);
   if (error) throw error;
   revalidatePath(`/owner/question-bank/${questionId}`);
   revalidatePath("/owner/question-bank");
@@ -51,6 +69,9 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
   const visualAssetRefs = Array.isArray(item.visual_asset_refs)
     ? item.visual_asset_refs.filter((ref): ref is string => typeof ref === "string" && ref.trim().length > 0)
     : [];
+  const supabase = await createSupabaseServerClient();
+  const { data: standards, error: standardError } = await supabase.from("curriculum_standards").select("id,code,title").order("code");
+  if (standardError) throw standardError;
 
   return (
     <main className="space-y-6">
@@ -117,6 +138,18 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
               <Field label="Difficulty 1-5">
                 <Input name="estimated_difficulty" type="number" min="1" max="5" defaultValue={item.estimated_difficulty ?? ""} />
               </Field>
+              <Field label="Subtopic"><Input name="subtopic" defaultValue={item.subtopic ?? ""} placeholder="linear equations" /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Year"><Input name="year" type="number" min="1900" max="2200" defaultValue={item.year ?? ""} /></Field>
+                <Field label="Paper type"><Input name="paper_type" defaultValue={item.paper_type ?? ""} placeholder="Paper 1" /></Field>
+              </div>
+              <Field label="Command term"><Input name="command_term" defaultValue={item.command_term ?? ""} placeholder="calculate" /></Field>
+              <Field label="Standards" tooltip="Attach verified standards used by analytics and revision recommendations.">
+                <Select name="standard_ids" multiple className="min-h-28" defaultValue={item.curriculum_standard_ids}>
+                  {(standards ?? []).map((standard) => <option key={standard.id} value={standard.id}>{standard.code} · {standard.title}</option>)}
+                </Select>
+              </Field>
+              <Field label="Library readiness"><Select name="readiness_status" defaultValue={item.readiness_status}><option value="needs_review">Needs review</option><option value="ready">Ready</option><option value="retired">Retired</option></Select></Field>
               <label className="flex items-start gap-2 text-sm text-[var(--muted)]">
                 <input name="do_not_reuse" type="checkbox" defaultChecked={item.do_not_reuse} className="mt-1" />
                 Do not reuse in generated papers
@@ -130,6 +163,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
               Source pages: {item.source_page_start ?? "?"}
               {item.source_page_end && item.source_page_end !== item.source_page_start ? `-${item.source_page_end}` : ""}
             </p>
+            <p className="mt-2 text-xs font-mono text-[var(--muted)]">Fingerprint: {item.content_fingerprint ?? "not generated"}</p>
             {item.has_visual_assets ? (
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
                 <ImageIcon size={15} />

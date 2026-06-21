@@ -10,6 +10,7 @@ import type { QuestionNodeRow, QuestionSourceRegion, SourceDocument, SourcePage 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MathRenderer } from "@/components/math-renderer";
 import { cn } from "@/lib/utils";
 
 type RegionAction = (formData: FormData) => void | Promise<void>;
@@ -61,7 +62,8 @@ type Interaction =
   | { kind: "draw"; startX: number; startY: number; startPoint: { x: number; y: number } };
 
 type SimpleTexOcrResult = {
-  status: "needs_review";
+  id: string;
+  status: "needs_review" | "approved" | "rejected";
   confidence: number | null;
   extracted_text: string | null;
   extracted_latex: string | null;
@@ -137,6 +139,10 @@ export function SourceRegionEditor({
   const [ocrResult, setOcrResult] = useState<SimpleTexOcrResult | null>(null);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrRunning, setOcrRunning] = useState(false);
+  const [ocrReviewRunning, setOcrReviewRunning] = useState(false);
+  const [ocrReviewMessage, setOcrReviewMessage] = useState<string | null>(null);
+  const [correctedOcrText, setCorrectedOcrText] = useState("");
+  const [correctedOcrLatex, setCorrectedOcrLatex] = useState("");
 
   async function runSimpleTexOcr() {
     if (!selectedPage?.id || !selectedPage.image_object_path) return;
@@ -155,10 +161,38 @@ export function SourceRegionEditor({
       });
       if (!response?.result) throw new Error("SimpleTeX returned no review result.");
       setOcrResult(response.result);
+      setCorrectedOcrText(response.result.extracted_text ?? "");
+      setCorrectedOcrLatex(response.result.extracted_latex ?? "");
+      setOcrReviewMessage(null);
     } catch (error) {
       setOcrError(error instanceof Error ? error.message : "SimpleTeX OCR could not run.");
     } finally {
       setOcrRunning(false);
+    }
+  }
+
+  async function reviewOcrResult(status: "approved" | "rejected") {
+    if (!ocrResult?.id) return;
+    setOcrReviewRunning(true);
+    setOcrReviewMessage(null);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const response = await invokeEdgeFunction<{ result: SimpleTexOcrResult }>(supabase, "review-ocr-result", {
+        body: {
+          result_id: ocrResult.id,
+          status,
+          corrected_text: correctedOcrText,
+          corrected_latex: correctedOcrLatex,
+        },
+        requiresAal2: true,
+      });
+      if (!response?.result) throw new Error("The OCR review returned no result.");
+      setOcrResult(response.result);
+      setOcrReviewMessage(status === "approved" ? "Correction approved and saved." : "Suggestion rejected.");
+    } catch (error) {
+      setOcrReviewMessage(error instanceof Error ? error.message : "OCR review could not be saved.");
+    } finally {
+      setOcrReviewRunning(false);
     }
   }
 
@@ -584,9 +618,6 @@ export function SourceRegionEditor({
                   Notes
                   <textarea name="notes" defaultValue={selectedRegion.notes ?? ""} rows={3} className="rounded-[2px] border border-[var(--border)] px-2 py-2 text-sm normal-case text-[var(--ink)]" />
                 </label>
-                <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 font-mono text-[11px] text-slate-600">
-                  x {selectedRegion.bbox.x.toFixed(3)} · y {selectedRegion.bbox.y.toFixed(3)} · w {selectedRegion.bbox.width.toFixed(3)} · h {selectedRegion.bbox.height.toFixed(3)}
-                </div>
                 <RegionSubmitButton />
               </form>
 
@@ -633,17 +664,43 @@ export function SourceRegionEditor({
                 {ocrResult ? (
                   <div className="mt-3 rounded-[4px] border border-[#e6c577] bg-white p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-[#76530d]">Needs teacher review</p>
+                      <p className="text-xs font-semibold text-[#76530d]">
+                        {ocrResult.status === "needs_review" ? "Needs teacher review" : `Review ${ocrResult.status}`}
+                      </p>
                       <Badge tone={ocrResult.confidence !== null && ocrResult.confidence >= 0.8 ? "success" : "warning"}>
                         {ocrResult.confidence === null ? "confidence unavailable" : `${Math.round(ocrResult.confidence * 100)}%`}
                       </Badge>
                     </div>
-                    {ocrResult.extracted_latex ? (
-                      <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-[3px] bg-[var(--surface-muted)] p-2 text-xs text-[var(--ink)]">{ocrResult.extracted_latex}</pre>
+                    <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
+                      The selected source box remains highlighted in the page preview. Correct the provider output here,
+                      compare the rendered equation, then approve or reject it.
+                    </p>
+                    <label className="mt-3 grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                      Corrected LaTeX
+                      <textarea
+                        value={correctedOcrLatex}
+                        onChange={(event) => setCorrectedOcrLatex(event.target.value)}
+                        rows={3}
+                        className="rounded-[2px] border border-[var(--border)] px-2 py-2 font-mono text-xs normal-case text-[var(--ink)]"
+                      />
+                    </label>
+                    {correctedOcrLatex ? (
+                      <MathRenderer latex={correctedOcrLatex} className="mt-2 rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-sm" />
                     ) : null}
-                    {ocrResult.extracted_text ? (
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-[3px] bg-[var(--surface-muted)] p-2 text-xs text-[var(--ink)]">{ocrResult.extracted_text}</pre>
-                    ) : null}
+                    <label className="mt-3 grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                      Corrected text or table output
+                      <textarea
+                        value={correctedOcrText}
+                        onChange={(event) => setCorrectedOcrText(event.target.value)}
+                        rows={5}
+                        className="rounded-[2px] border border-[var(--border)] px-2 py-2 text-xs normal-case text-[var(--ink)]"
+                      />
+                    </label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button type="button" isLoading={ocrReviewRunning} onClick={() => void reviewOcrResult("approved")}>Approve correction</Button>
+                      <Button type="button" variant="dangerSubtle" disabled={ocrReviewRunning} onClick={() => void reviewOcrResult("rejected")}>Reject suggestion</Button>
+                    </div>
+                    {ocrReviewMessage ? <p className="mt-2 text-xs leading-5 text-[var(--muted)]" role="status">{ocrReviewMessage}</p> : null}
                   </div>
                 ) : null}
               </section>

@@ -1,4 +1,5 @@
 import { BarChart3, Database, FileDown, ShieldCheck } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { ExportHubDownloads } from "@/components/owner/export-hub-downloads";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
   listOwnerStudentGroups,
   listOwnerStudents,
 } from "@/lib/live-data";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,7 @@ export default async function OwnerExportHubPage() {
         eyebrow="Review"
         title="Export Hub"
         description="Owner-only handoff exports for markbooks, roster reconciliation, cohort reporting, assessment inventory, and analytics validation. Unsupported formats stay visibly blocked instead of pretending to be lossless."
+        actions={<ButtonLink href="/api/owner/exports/analytics-report" target="_blank" variant="secondary"><FileDown size={16} /> Group analytics PDF</ButtonLink>}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -88,11 +91,11 @@ export default async function OwnerExportHubPage() {
             </DataListRow>
             <DataListRow className="grid gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="danger">Unsupported</Badge>
+                <Badge tone="warning">Review required</Badge>
                 <p className="font-semibold text-[var(--ink)]">Moodle XML</p>
               </div>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Moodle XML is not exposed as a working export until unsupported item-type warnings and round-trip fidelity are validated.
+                Published assessments can export conservative Moodle XML. Unsupported interactions become manually graded essay questions and every export carries explicit fidelity warnings.
               </p>
             </DataListRow>
           </DataList>
@@ -129,6 +132,15 @@ export default async function OwnerExportHubPage() {
           )}
         </Card>
       </div>
+
+      <ExportHistory />
     </main>
   );
+}
+
+async function ExportHistory() {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("export_download_history").select("id,export_kind,format,status,row_count,created_at").order("created_at", { ascending: false }).limit(20);
+  if (error) throw error;
+  return <Card className="p-6"><SectionHeader title="Download history" description="Audited owner-scoped evidence for generated handoffs and fidelity review." />{data?.length ? <DataList className="mt-4">{data.map((entry) => <DataListRow key={entry.id} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><div><p className="font-semibold text-[var(--ink)]">{entry.export_kind.replaceAll("_", " ")}</p><DataListMeta><span>{entry.format}</span><span>{entry.row_count ?? 0} rows/items</span><span>{new Date(entry.created_at).toLocaleString()}</span></DataListMeta></div><Badge tone={entry.status === "completed" ? "success" : entry.status === "review_required" ? "warning" : "danger"}>{entry.status.replaceAll("_", " ")}</Badge></DataListRow>)}</DataList> : <EmptyState title="No export history" description="Downloads generated after the export-governance migration appear here." />}</Card>;
 }

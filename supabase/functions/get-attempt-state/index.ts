@@ -4,6 +4,7 @@ import { profileForAuthUser, requireUser } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { signStateToken } from "../_shared/state-token.ts";
 import { loadAttemptAccommodationPolicy } from "../_shared/accommodations.ts";
+import { loadStudentVisibleMessages } from "../_shared/invigilation-messages.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -17,12 +18,11 @@ serve(async (request) => {
       request.method === "GET"
         ? new URL(request.url).searchParams.get("attempt_id")
         : body.attempt_id;
-    if (!attemptId) return json({ error: "attempt_id is required" }, 400);
+    if (!attemptId) return json(request, { error: "attempt_id is required" }, 400);
 
     const { data: attempt, error } = await admin.from("attempts").select("*").eq("id", attemptId).single();
     if (error) throw error;
-    const isOwner = profile.app_role === "owner";
-    if (!isOwner && attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (attempt.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
     const attemptSessionId = typeof body.attempt_session_id === "string" ? body.attempt_session_id : undefined;
     if (attemptSessionId) {
       const { data: session, error: sessionError } = await admin
@@ -32,7 +32,7 @@ serve(async (request) => {
         .eq("attempt_id", attempt.id)
         .maybeSingle();
       if (sessionError) throw sessionError;
-      if (!session) return json({ error: "Attempt session does not match this attempt" }, 403);
+      if (!session) return json(request, { error: "Attempt session does not match this attempt" }, 403);
     }
 
     const serverNowUtc = new Date().toISOString();
@@ -56,8 +56,11 @@ serve(async (request) => {
       seb_verified: false,
     });
     const accommodationPolicy = await loadAttemptAccommodationPolicy(admin, attempt);
+    const invigilationMessages = attempt.exam_session_id
+      ? await loadStudentVisibleMessages(admin, String(attempt.exam_session_id), String(attempt.id))
+      : [];
 
-    return json({
+    return json(request, {
       attempt_id: attempt.id,
       state,
       server_now_utc: serverNowUtc,
@@ -71,8 +74,9 @@ serve(async (request) => {
       },
       state_token: stateToken,
       accommodation_policy: accommodationPolicy,
+      invigilation_messages: invigilationMessages,
     });
   } catch (error) {
-    return errorResponse(error, "get-attempt-state failed");
+    return errorResponse(request, error, "get-attempt-state failed");
   }
 });

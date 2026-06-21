@@ -16,21 +16,35 @@ import {
 
 const statusLabels: Record<ExamsimProductionStatus, string> = {
   ready: "Ready",
-  provider_ready_needs_live_validation: "Provider ready",
   provider_required: "Provider required",
   manual_fallback: "Manual fallback",
   blocked: "Blocked",
   live_validation_required: "Live validation required",
+  staging_required: "Live sample required",
+  v4_future: "V4 / future",
 };
 
 const statusTones: Record<ExamsimProductionStatus, "success" | "warning" | "danger" | "info" | "neutral"> = {
   ready: "success",
-  provider_ready_needs_live_validation: "warning",
   provider_required: "warning",
   manual_fallback: "info",
   blocked: "danger",
   live_validation_required: "warning",
+  staging_required: "warning",
+  v4_future: "neutral",
 };
+
+const evidenceLabels = {
+  routes: "Routes",
+  tests: "Tests",
+  migrations: "Migrations",
+  components: "Components",
+  serverActions: "Server actions",
+  edgeFunctions: "Edge functions",
+  browserVerification: "Browser verification",
+  seededQa: "Seeded QA",
+  providerValidation: "Provider validation",
+} as const;
 
 function ReadinessStatusBadge({ status }: { status: ExamsimProductionStatus }) {
   return <Badge tone={statusTones[status]}>{statusLabels[status]}</Badge>;
@@ -54,6 +68,20 @@ function ReadinessDetail({ item }: { item: ExamsimProductionReadinessItem }) {
   );
 }
 
+function ReadinessEvidence({ item }: { item: ExamsimProductionReadinessItem }) {
+  const groups = Object.entries(item.evidence).filter((entry): entry is [keyof typeof evidenceLabels, string[]] => Boolean(entry[1]?.length));
+
+  return (
+    <div className="grid gap-2 text-[12px] leading-5 text-[var(--muted)]">
+      {groups.map(([kind, entries]) => (
+        <p key={kind} className="min-w-0 break-words">
+          <span className="font-semibold text-[var(--ink)]">{evidenceLabels[kind]}:</span> {entries.join("; ")}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function ExamsimProductionReadinessPanel() {
   const readiness = getExamsimProductionReadiness();
   const summary = summarizeExamsimProductionReadiness(readiness);
@@ -72,7 +100,8 @@ export function ExamsimProductionReadinessPanel() {
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Badge tone="success">{summary.ready} ready</Badge>
-          <Badge tone="warning">{summary.providerRequired + summary.providerReadyNeedsLiveValidation} provider-gated</Badge>
+          <Badge tone="warning">{summary.providerRequired} provider-gated</Badge>
+          <Badge tone="warning">{summary.stagingRequired} live sample</Badge>
           <Badge tone="info">{summary.manualFallback} fallback</Badge>
           <Badge tone="danger">{summary.blocked} blocked</Badge>
         </div>
@@ -93,6 +122,9 @@ export function ExamsimProductionReadinessPanel() {
           <Badge tone={releaseCandidate.providerGatedCount ? "warning" : "success"}>{releaseCandidate.providerGatedCount} provider-gated</Badge>
           <Badge tone={releaseCandidate.liveValidationRequiredCount ? "warning" : "success"}>
             {releaseCandidate.liveValidationRequiredCount} live validation
+          </Badge>
+          <Badge tone={releaseCandidate.stagingRequiredCount ? "warning" : "success"}>
+            {releaseCandidate.stagingRequiredCount} live sample
           </Badge>
           <Badge tone={releaseCandidate.manualFallbackCount ? "info" : "success"}>{releaseCandidate.manualFallbackCount} fallback</Badge>
         </div>
@@ -115,10 +147,13 @@ export function ExamsimProductionReadinessPanel() {
                 </div>
                 <ReadinessStatusBadge status={item.status} />
               </div>
-              <ReadinessListDetails className="xl:grid-cols-2">
+              <ReadinessListDetails className="xl:grid-cols-3">
                 <ReadinessListDetail label="Production path">{item.productionPath}</ReadinessListDetail>
                 <ReadinessListDetail label="Fallback and QA">
                   <ReadinessDetail item={item} />
+                </ReadinessListDetail>
+                <ReadinessListDetail label="Evidence">
+                  <ReadinessEvidence item={item} />
                 </ReadinessListDetail>
               </ReadinessListDetails>
             </ReadinessListRow>

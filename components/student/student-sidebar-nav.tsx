@@ -53,6 +53,7 @@ const studentNavSections: StudentNavSection[] = [
       { href: "/student/feedback", label: "Inbox", Icon: Inbox },
       { href: "/student/progress", label: "Progress", Icon: LineChart },
       { href: "/student/mistake-patterns", label: "Mistake Patterns", Icon: Target },
+      { href: "/student/revision", label: "Suggested Revision", Icon: Target },
     ],
   },
   {

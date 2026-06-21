@@ -153,11 +153,11 @@ export function buildExportHubCatalog(dataset: ExportHubDataset): ExportHubItem[
       key: "moodle_xml",
       title: "Moodle XML",
       format: "XML",
-      status: "unsupported",
-      rowCount: 0,
-      filename: "unsupported-moodle-export.xml",
-      description: "Moodle XML remains blocked until feature fidelity and unsupported item warnings are validated.",
-      warnings: ["Use normalized JSON or conservative QTI instead; do not claim lossless Moodle XML export yet."],
+      status: publishedAssessments.length ? "edge_export" : "needs_review",
+      rowCount: publishedAssessments.length,
+      filename: "generated-by-moodle-export-edge-function.xml",
+      description: "Published assessments can be exported as conservative Moodle XML through an AAL2-gated Edge Function.",
+      warnings: ["Moodle XML is not lossless: unsupported interactions become manually graded essay questions and require review after import."],
     },
   ];
 }

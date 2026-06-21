@@ -7,9 +7,12 @@ import { SectionHeading } from "@/components/section-heading";
 import { getAssessmentWorkspace } from "@/lib/live-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AssessmentGradingPolicy } from "@/types/database";
+import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
+import { MoodleExportButton } from "@/components/owner/moodle-export-button";
 
 export default async function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireInstitutionPagePermission("assessment_authoring", `/owner/assessments/${id}`);
   const [workspace, gradingPolicy] = await Promise.all([getAssessmentWorkspace(id), loadGradingPolicy(id)]);
   if (!workspace) {
     return <SectionHeading title="Assessment not found" description={`No assessment exists for ${id}.`} />;
@@ -44,13 +47,27 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
           <p className="mt-3 text-sm font-semibold text-[var(--primary)]">
             Latest version: {workspace.latestVersion?.status ?? "none"}
           </p>
-          {workspace.latestVersion ? <div className="mt-4"><QtiExportButton versionId={workspace.latestVersion.id} /></div> : null}
+          {workspace.latestVersion ? <div className="mt-4 grid gap-3"><QtiExportButton versionId={workspace.latestVersion.id} /><MoodleExportButton versionId={workspace.latestVersion.id} published={workspace.latestVersion.status === "published"} /></div> : null}
         </Card>
         <Card>
           <h2 className="text-lg font-semibold">Visual authoring</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">Edit question cards, marks, response types, source anchors, and validation fields without raw JSON.</p>
           <ButtonLink className="mt-4" href={`/owner/assessments/${id}/authoring`} variant="secondary">
             Open editor
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Version history</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Compare frozen versions and duplicate any historical version into a separate editable draft.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/history`} variant="secondary">
+            Open history
+          </ButtonLink>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-semibold">Publishing approval</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Run the reviewer checklist and record approval before the server permits publishing.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/approval`} variant="secondary">
+            Open approval
           </ButtonLink>
         </Card>
         <Card>

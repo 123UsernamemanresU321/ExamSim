@@ -68,16 +68,18 @@ export function Field({
   label,
   description,
   tooltip,
+  className,
   children,
 }: {
   label: string;
   description?: string;
   tooltip?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   const helpText = tooltip ?? description;
   return (
-    <div className="grid gap-2">
+    <div className={cn("grid gap-2", className)}>
       <div className="flex items-center gap-2">
         <Label>{label}</Label>
         {helpText ? <InfoTooltip label={label}>{helpText}</InfoTooltip> : null}

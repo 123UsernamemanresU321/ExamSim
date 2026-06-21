@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2, requireMarkerAssignment } from "../_shared/auth.ts";
 import { layoutAnnotationTextBox } from "../_shared/annotation-text-layout.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
@@ -38,16 +38,17 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const context = await requireInstitutionAal2(request, "marking");
+    const { user, admin, ownerProfileId } = context;
     const body = await readJson<Body>(request);
     if (!body.attempt_id || !body.question_node_id || !body.upload_slot_id) {
-      return json({ error: "attempt_id, question_node_id, and upload_slot_id are required" }, 400);
+      return json(request, { error: "attempt_id, question_node_id, and upload_slot_id are required" }, 400);
     }
-    if (!Array.isArray(body.annotations)) return json({ error: "annotations must be an array" }, 400);
+    if (!Array.isArray(body.annotations)) return json(request, { error: "annotations must be an array" }, 400);
 
-    const { attempt, slot } = await loadOwnedContext(admin, ownerProfile.id, body);
-    if (!slot.object_path) return json({ error: "Upload slot has no submitted PDF" }, 400);
+    const { attempt, slot } = await loadOwnedContext(admin, ownerProfileId, body);
+    await requireMarkerAssignment(admin, context, attempt.id);
+    if (!slot.object_path) return json(request, { error: "Upload slot has no submitted PDF" }, 400);
 
     const { data: sourceBlob, error: downloadError } = await admin.storage.from("answer-uploads").download(slot.object_path);
     if (downloadError) throw downloadError;
@@ -64,7 +65,7 @@ serve(async (request) => {
     }
 
     const bytes = await pdfDoc.save({ useObjectStreams: false });
-    const objectPath = `${ownerProfile.id}/attempts/${attempt.id}/annotated/${slot.id}-${Date.now()}.pdf`;
+    const objectPath = `${ownerProfileId}/attempts/${attempt.id}/annotated/${slot.id}-${Date.now()}.pdf`;
     const { error: uploadError } = await admin.storage.from("marking-packets").upload(objectPath, bytes, {
       contentType: "application/pdf",
       upsert: false,
@@ -80,16 +81,16 @@ serve(async (request) => {
 
     const { data: signed } = await admin.storage.from("marking-packets").createSignedUrl(objectPath, 300);
 
-    await auditOwnerAction(ownerProfile.id, user.id, "annotated_pdf.generated", "attempts", attempt.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "annotated_pdf.generated", "attempts", attempt.id, {
       question_node_id: body.question_node_id,
       upload_slot_id: slot.id,
       object_path: objectPath,
       annotation_count: body.annotations.length,
     });
 
-    return json({ ok: true, object_path: objectPath, signed_url: signed?.signedUrl ?? null, expires_in_seconds: 300 });
+    return json(request, { ok: true, object_path: objectPath, signed_url: signed?.signedUrl ?? null, expires_in_seconds: 300 });
   } catch (error) {
-    return errorResponse(error, "generate-annotated-pdf failed");
+    return errorResponse(request, error, "generate-annotated-pdf failed");
   }
 });
 

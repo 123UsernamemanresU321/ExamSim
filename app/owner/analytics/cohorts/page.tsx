@@ -1,0 +1,22 @@
+import { AlertTriangle, BarChart3, Download, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { loadInstitutionCohortAnalytics } from "@/lib/examsim/cohort-analytics-data";
+import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
+
+export default async function CohortAnalyticsPage() {
+  const context = await requireInstitutionPagePermission("analytics", "/owner/analytics/cohorts");
+  const reports = await loadInstitutionCohortAnalytics(context.ownerProfileId);
+  const members = reports.reduce((sum, report) => sum + report.memberCount, 0);
+  const attempts = reports.reduce((sum, report) => sum + report.attemptCount, 0);
+  const atRisk = reports.reduce((sum, report) => sum + report.atRiskStudentCount, 0);
+  return <main className="space-y-6"><PageHeader eyebrow="Review" title="Group and cohort reporting" description="Owner-scoped class comparisons from real attempts, marks, topics, standards, and released feedback." actions={<>{context.permissions.includes("exports") ? <ButtonLink href="/api/owner/analytics/cohorts" target="_blank" variant="secondary"><Download size={15} /> Export CSV</ButtonLink> : null}<ButtonLink href="/owner/analytics" variant="secondary">Analytics overview</ButtonLink></>} /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Groups" value={reports.length} icon={<Users size={18} />} /><StatCard label="Group memberships" value={members} /><StatCard label="Attempts" value={attempts} icon={<BarChart3 size={18} />} /><StatCard label="At-risk students" value={atRisk} tone={atRisk ? "warning" : "neutral"} icon={<AlertTriangle size={18} />} /></div>{reports.length ? <div className="grid gap-5">{reports.map((report) => <Card key={report.cohortId}><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-[var(--ink)]">{report.cohortName}</h2><DataListMeta><span>{report.memberCount} members</span><span>{report.finishedAttemptCount}/{report.attemptCount} completed</span><span>{report.atRiskStudentCount} support flags</span></DataListMeta></div><div className="flex flex-wrap gap-2"><Badge tone={report.averagePercent !== null && report.averagePercent < 50 ? "danger" : "success"}>Average {formatPercent(report.averagePercent)}</Badge><Badge tone="neutral">Marking {formatPercent(report.markingCompletionPercent)}</Badge></div></div><div className="mt-5 grid gap-5 xl:grid-cols-3"><ReportList title="Weakest topics" empty="No topic-linked marking evidence" rows={report.topicMastery.slice(0, 6).map((item) => ({ label: item.label, value: formatPercent(item.averagePercent), detail: `${item.evidenceCount} marked response(s)` }))} /><ReportList title="Standards mastery" empty="No standards-linked marking evidence" rows={report.standardMastery.slice(0, 6).map((item) => ({ label: item.label, value: formatPercent(item.averagePercent), detail: `${item.evidenceCount} marked response(s)` }))} /><ReportList title="Paper comparison" empty="No scored papers" rows={report.paperComparison.slice(0, 6).map((item) => ({ label: item.title, value: formatPercent(item.averagePercent), detail: `${item.attemptCount} attempt(s)` }))} /></div></Card>)}</div> : <EmptyState title="No group reporting data" description="Create a group, add linked student accounts, and mark attempts before cohort analytics can be calculated." />}</main>;
+}
+
+function ReportList({ title, empty, rows }: { title: string; empty: string; rows: Array<{ label: string; value: string; detail: string }> }) { return <section><SectionHeader title={title} />{rows.length ? <DataList className="mt-3">{rows.map((row) => <DataListRow key={`${row.label}-${row.detail}`} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3"><div><p className="font-semibold text-[var(--ink)]">{row.label}</p><p className="text-xs text-[var(--muted)]">{row.detail}</p></div><span className="font-mono text-sm text-[var(--muted)]">{row.value}</span></DataListRow>)}</DataList> : <p className="mt-3 text-sm text-[var(--muted)]">{empty}</p>}</section>; }
+function formatPercent(value: number | null) { return value === null ? "n/a" : `${Math.round(value)}%`; }

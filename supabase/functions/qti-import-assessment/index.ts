@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
@@ -14,8 +14,7 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Body>(request);
     if (!body.title || !body.assessment_kind || !body.qti_zip_base64) return json({ error: "Missing QTI import fields" }, 400);
 
@@ -56,7 +55,7 @@ serve(async (request) => {
     const { data: assessment, error: assessmentError } = await admin
       .from("assessments")
       .insert({
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         title: body.title,
         paper_code: body.paper_code ?? null,
         assessment_kind: body.assessment_kind,
@@ -65,7 +64,7 @@ serve(async (request) => {
       .single();
     if (assessmentError) throw assessmentError;
 
-    const sourcePath = `${ownerProfile.id}/qti/${assessment.id}/source-${Date.now()}.zip`;
+    const sourcePath = `${ownerProfileId}/qti/${assessment.id}/source-${Date.now()}.zip`;
     const { error: sourceUploadError } = await admin.storage.from("assessment-sources").upload(sourcePath, zipBytes, {
       contentType: "application/zip",
       upsert: false,
@@ -131,7 +130,7 @@ serve(async (request) => {
     const { error: nodeError } = await admin.from("question_nodes").insert(nodeRows);
     if (nodeError) throw nodeError;
 
-    await auditOwnerAction(ownerProfile.id, user.id, "qti.imported", "assessment_versions", version.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "qti.imported", "assessment_versions", version.id, {
       assessment_id: assessment.id,
       question_count: questions.length,
     });

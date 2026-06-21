@@ -70,6 +70,7 @@ export type AssessmentSummary = {
 export type AttemptSummary = {
   id: string;
   assessment_id?: string | null;
+  assessment_version_id?: string | null;
   title: string;
   paper_code: string | null;
   subject: string | null;
@@ -146,6 +147,7 @@ function demoAttemptSummaries(): AttemptSummary[] {
     return {
       id: attempt.id,
       assessment_id: sampleAssessment.id,
+      assessment_version_id: "demo_version",
       title: attempt.title,
       paper_code: attempt.paper_code ?? null,
       subject: "Olympiad",
@@ -185,6 +187,7 @@ function mapAttemptSummary(
   return {
     id: attempt.id,
     assessment_id: attempt.assessment_id,
+    assessment_version_id: attempt.assessment_version_id,
     title: assessment?.title ?? "Untitled assessment",
     paper_code: assessment?.paper_code ?? null,
     subject: assessment?.subject ?? null,
@@ -399,6 +402,7 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
           assessment_id: sampleAssessment.id,
           version_no: 1,
           status: "draft",
+          governance_status: "draft",
           source_kind: "json",
           source_object_path: null,
           normalized_package_path: null,
@@ -422,6 +426,7 @@ export async function getAssessmentWorkspace(assessmentId: string): Promise<Asse
         assessment_id: sampleAssessment.id,
         version_no: 1,
         status: "draft",
+        governance_status: "draft",
         source_kind: "json",
         source_object_path: null,
         normalized_package_path: null,

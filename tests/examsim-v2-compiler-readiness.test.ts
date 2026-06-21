@@ -79,6 +79,15 @@ describe("Examsim V2 compiler readiness", () => {
     expect(configured.smartImport.status).toBe("configured");
     expect(configured.ocr.status).toBe("configured");
     expect(configured.manualFallbackAvailable).toBe(true);
+
+    const simpleTex = getCompilerProviderStatus({
+      DEEPSEEK_API_KEY: "set",
+      SIMPLETEX_APP_ID: "app-id",
+      SIMPLETEX_APP_SECRET: "server-secret",
+    });
+    expect(simpleTex.smartImport.status).toBe("configured");
+    expect(simpleTex.ocr.status).toBe("configured");
+    expect(simpleTex.ocr.message).toContain("SimpleTeX");
   });
 
   it("builds a low-confidence review queue across source regions and question cards", () => {

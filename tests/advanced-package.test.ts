@@ -221,6 +221,17 @@ function bankItem(id: string, marks: number, subject: string, tags: string[], di
     markscheme_html: null,
     markscheme_refs: [],
     do_not_reuse: false,
+    subtopic: null,
+    year: null,
+    paper_type: null,
+    command_term: null,
+    curriculum_standard_ids: [],
+    interaction_json: null,
+    performance_stats_json: {},
+    content_fingerprint: null,
+    readiness_status: "ready",
+    source_history_json: [],
+    rubric_json: [],
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
   };
@@ -230,6 +241,7 @@ function bankChild(nodeKey: string, parentNodeKey: string | null, ordinalPath: n
   return {
     id: nodeKey,
     question_bank_item_id: "item",
+    source_question_node_id: null,
     node_key: nodeKey,
     parent_node_key: parentNodeKey,
     ordinal_path: ordinalPath,
@@ -237,6 +249,10 @@ function bankChild(nodeKey: string, parentNodeKey: string | null, ordinalPath: n
     prompt_latex: null,
     marks_available: marks,
     markscheme_html: null,
+    response_mode: "none" as const,
+    interaction_json: null,
+    source_region_json: null,
+    visual_asset_refs: [],
     created_at: "2026-01-01T00:00:00.000Z",
   };
 }

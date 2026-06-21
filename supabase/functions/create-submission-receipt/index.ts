@@ -9,7 +9,7 @@ serve(async (request) => {
     const { user, admin } = await requireUser(request);
     const profile = await profileForAuthUser(user.id);
     const body = await readJson<{ attempt_id: string }>(request);
-    if (!body.attempt_id) return json({ error: "attempt_id is required" }, 400);
+    if (!body.attempt_id) return json(request, { error: "attempt_id is required" }, 400);
 
     const { data: attempt, error: attemptError } = await admin
       .from("attempts")
@@ -17,7 +17,7 @@ serve(async (request) => {
       .eq("id", body.attempt_id)
       .single();
     if (attemptError) throw attemptError;
-    if (profile.app_role !== "owner" && attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (attempt.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
 
     const { data: slots, error: slotError } = await admin.from("upload_slots").select("*").eq("attempt_id", body.attempt_id).order("created_at");
     if (slotError) throw slotError;
@@ -56,8 +56,8 @@ serve(async (request) => {
       .select("*")
       .single();
     if (error) throw error;
-    return json({ ok: true, receipt: data });
+    return json(request, { ok: true, receipt: data });
   } catch (error) {
-    return errorResponse(error, "create-submission-receipt failed");
+    return errorResponse(request, error, "create-submission-receipt failed");
   }
 });

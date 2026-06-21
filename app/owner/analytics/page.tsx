@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, CheckCircle2, FileText, Tags } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, FileText, Tags, Users } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataList, DataListMeta, DataListRow } from "@/components/ui/data-list";
@@ -34,6 +34,14 @@ export default async function OwnerAnalyticsPage() {
             <ButtonLink href="/owner/topics" variant="secondary">
               <Tags size={16} aria-hidden="true" />
               Topics
+            </ButtonLink>
+            <ButtonLink href="/owner/standards" variant="secondary">
+              <Tags size={16} aria-hidden="true" />
+              Standards
+            </ButtonLink>
+            <ButtonLink href="/owner/analytics/cohorts" variant="secondary">
+              <Users size={16} aria-hidden="true" />
+              Group reporting
             </ButtonLink>
             <ButtonLink href="/owner/mistakes" variant="secondary">
               <AlertTriangle size={16} aria-hidden="true" />
@@ -107,43 +115,55 @@ async function loadAnalyticsSnapshot(assessmentVersions: Array<{ id: string; lat
   try {
     const supabase = await createSupabaseServerClient();
     const versionToAssessment = new Map(assessmentVersions.filter((item) => item.latestVersionId).map((item) => [String(item.latestVersionId), item.id]));
-    const versionIds = [...versionToAssessment.keys()];
+    const attemptVersionIds = attempts.map((attempt) => attempt.assessment_version_id).filter(isString);
+    const versionIds = [...new Set([...versionToAssessment.keys(), ...attemptVersionIds])];
+    const { data: versionRows, error: versionError } = versionIds.length
+      ? await supabase.from("assessment_versions").select("id,assessment_id").in("id", versionIds)
+      : { data: [], error: null };
+    if (versionError) throw versionError;
+    for (const version of versionRows ?? []) versionToAssessment.set(version.id, version.assessment_id);
     const [{ data: questionRows, error: questionError }] = await Promise.all([
       versionIds.length
-        ? supabase.from("question_nodes").select("id,assessment_version_id,node_key,title,marks,response_mode").in("assessment_version_id", versionIds)
+        ? supabase.from("question_nodes").select("id,assessment_version_id,parent_node_id,node_key,title,marks,response_mode").in("assessment_version_id", versionIds)
         : { data: [], error: null },
     ]);
     if (questionError) throw questionError;
 
     const attemptIds = attempts.map((attempt) => attempt.id);
     const questionIds = (questionRows ?? []).map((question) => question.id);
-    const [{ data: markRows, error: markError }, { data: topicLinks, error: topicLinkError }, { data: rubricAwards, error: awardError }] = await Promise.all([
+    const [{ data: markRows, error: markError }, { data: topicLinks, error: topicLinkError }, { data: standardLinks, error: standardLinkError }, { data: rubricAwards, error: awardError }] = await Promise.all([
       attemptIds.length ? supabase.from("marks").select("attempt_id,question_node_id,awarded_marks").in("attempt_id", attemptIds) : { data: [], error: null },
       questionIds.length ? supabase.from("question_topic_links").select("question_node_id,topic_tag_id").in("question_node_id", questionIds) : { data: [], error: null },
+      questionIds.length ? supabase.from("question_standard_links").select("question_node_id,curriculum_standard_id").in("question_node_id", questionIds) : { data: [], error: null },
       attemptIds.length ? supabase.from("rubric_item_awards").select("question_node_id,awarded_marks,rubric_template_item_id").in("attempt_id", attemptIds) : { data: [], error: null },
     ]);
     if (markError) throw markError;
     if (topicLinkError) throw topicLinkError;
+    if (standardLinkError) throw standardLinkError;
     if (awardError) throw awardError;
 
     const topicIds = [...new Set((topicLinks ?? []).map((link) => link.topic_tag_id).filter(isString))];
     const rubricItemIds = [...new Set((rubricAwards ?? []).map((award) => award.rubric_template_item_id).filter(isString))];
-    const [{ data: topicTags, error: topicTagError }, { data: rubricItems, error: rubricItemError }] = await Promise.all([
+    const standardIds = [...new Set((standardLinks ?? []).map((link) => link.curriculum_standard_id).filter(isString))];
+    const [{ data: topicTags, error: topicTagError }, { data: standards, error: standardsError }, { data: rubricItems, error: rubricItemError }] = await Promise.all([
       topicIds.length ? supabase.from("topic_tags").select("id,tag").in("id", topicIds) : { data: [], error: null },
+      standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").in("id", standardIds) : { data: [], error: null },
       rubricItemIds.length ? supabase.from("rubric_template_items").select("id,label,max_marks").in("id", rubricItemIds) : { data: [], error: null },
     ]);
     if (topicTagError) throw topicTagError;
+    if (standardsError) throw standardsError;
     if (rubricItemError) throw rubricItemError;
 
     const topicTagById = new Map((topicTags ?? []).map((tag) => [tag.id, tag.tag]));
     const rubricItemById = new Map((rubricItems ?? []).map((item) => [item.id, item]));
+    const standardById = new Map((standards ?? []).map((standard) => [standard.id, `${standard.code} · ${standard.title}`]));
 
     return computeTeacherAnalyticsSnapshot({
       attempts: attempts.map((attempt) => ({
         id: attempt.id,
         assessment_id: attempt.assessment_id,
         state: attempt.state,
-        duration_seconds: attempt.duration_seconds,
+         duration_seconds: attempt.duration_seconds,
       })),
       questionNodes: (questionRows ?? []).map((question) => ({
         id: question.id,
@@ -152,7 +172,8 @@ async function loadAnalyticsSnapshot(assessmentVersions: Array<{ id: string; lat
         node_key: question.node_key,
         title: question.title,
         marks: question.marks,
-        response_mode: question.response_mode,
+         response_mode: question.response_mode,
+         parent_node_id: question.parent_node_id,
       })),
       marks: (markRows ?? []).map((mark) => ({
         attempt_id: mark.attempt_id,
@@ -162,6 +183,10 @@ async function loadAnalyticsSnapshot(assessmentVersions: Array<{ id: string; lat
       topicLinks: (topicLinks ?? []).flatMap((link) => {
         const tag = topicTagById.get(link.topic_tag_id);
         return tag ? [{ question_node_id: link.question_node_id, tag }] : [];
+      }),
+      standardLinks: (standardLinks ?? []).flatMap((link) => {
+        const standard = standardById.get(link.curriculum_standard_id);
+        return standard ? [{ question_node_id: link.question_node_id, standard }] : [];
       }),
       rubricAwards: (rubricAwards ?? []).map((award) => {
         const rubricItem = award.rubric_template_item_id ? rubricItemById.get(award.rubric_template_item_id) : null;
@@ -240,6 +265,20 @@ function AnalyticsSnapshotPanel({ snapshot }: { snapshot: TeacherAnalyticsSnapsh
             ))}
           </DataList>
         ) : <EmptyState title="No topic data yet" description="Add topic tags to questions to unlock topic-level analytics." />}
+      </Card>
+
+      <Card className="p-6">
+        <SectionHeader title="Standards mastery" description={`Stored marks by linked standard. Scheduled allocation is ${snapshot.timePerMarkSeconds === null ? "not available" : `${Math.round(snapshot.timePerMarkSeconds)} seconds per mark`}.`} />
+        {snapshot.standardMastery.length ? (
+          <DataList className="mt-4">
+            {snapshot.standardMastery.slice(0, 6).map((standard) => (
+              <DataListRow key={standard.standard} className="grid grid-cols-[1fr_auto] items-center gap-3">
+                <span className="font-semibold text-[var(--ink)]">{standard.standard}</span>
+                <span className="font-mono text-sm text-[var(--muted)]">{standard.averagePercent === null ? "n/a" : `${Math.round(standard.averagePercent)}%`}</span>
+              </DataListRow>
+            ))}
+          </DataList>
+        ) : <EmptyState title="No standards evidence yet" description="Link standards to scoreable questions to calculate standards mastery." />}
       </Card>
 
       <Card className="p-6">

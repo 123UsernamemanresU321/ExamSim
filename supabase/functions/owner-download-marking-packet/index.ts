@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2, requireMarkerAssignment } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 
@@ -8,11 +8,19 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const context = await requireInstitutionAal2(request, "marking");
+    const { user, admin, profile, ownerProfileId } = context;
     const body = await readJson<{ attempt_id: string }>(request);
     const { data: attempt, error } = await admin.from("attempts").select("*").eq("id", body.attempt_id).single();
     if (error) throw error;
+    const { data: assessment, error: assessmentError } = await admin
+      .from("assessments")
+      .select("owner_profile_id")
+      .eq("id", attempt.assessment_id)
+      .single();
+    if (assessmentError) throw assessmentError;
+    assertInstitutionOwner(assessment.owner_profile_id, ownerProfileId);
+    await requireMarkerAssignment(admin, context, attempt.id);
     const [
       { data: responses },
       { data: slots },
@@ -69,7 +77,7 @@ serve(async (request) => {
       ],
     };
     const audit = {
-      exported_by_profile_id: ownerProfile.id,
+      exported_by_profile_id: profile.id,
       exported_by_auth_user_id: user.id,
       browser_mode_note: "Browser Mode evidence is tamper-evident, not tamper-proof.",
     };
@@ -87,7 +95,7 @@ serve(async (request) => {
     zip.file("audit.json", JSON.stringify(audit, null, 2));
     const zipBytes = new Uint8Array(await zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" }));
 
-    const objectPathBase = `${ownerProfile.id}/attempts/${attempt.id}/marking-packet-${Date.now()}.zip`;
+    const objectPathBase = `${ownerProfileId}/attempts/${attempt.id}/marking-packet-${Date.now()}.zip`;
     const encrypted = await maybeEncryptPacket(zipBytes);
     const objectPath = encrypted ? `${objectPathBase}.enc` : objectPathBase;
     const uploadBody = encrypted?.ciphertextBytes ?? zipBytes;
@@ -102,7 +110,7 @@ serve(async (request) => {
       const { data: envelope, error: envelopeError } = await admin
         .from("encrypted_object_envelopes")
         .insert({
-          owner_profile_id: ownerProfile.id,
+          owner_profile_id: ownerProfileId,
           bucket_id: "marking-packets",
           object_path: objectPath,
           kms_provider: "cloudflare",
@@ -121,7 +129,7 @@ serve(async (request) => {
       .from("marking_packet_exports")
       .insert({
         attempt_id: attempt.id,
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         object_path: objectPath,
         encrypted: Boolean(encrypted),
         encrypted_envelope_id: envelopeId,
@@ -149,7 +157,7 @@ serve(async (request) => {
         export_id: exportRow.id,
       },
     };
-    await auditOwnerAction(ownerProfile.id, user.id, "marking_packet.exported", "attempts", body.attempt_id);
+    await auditOwnerAction(ownerProfileId, user.id, "marking_packet.exported", "attempts", body.attempt_id);
     return json(packet);
   } catch (error) {
     return errorResponse(error, "owner-download-marking-packet failed");

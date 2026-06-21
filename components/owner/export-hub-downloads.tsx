@@ -18,9 +18,11 @@ export function ExportHubDownloads({
   catalog: ExportHubItem[];
   dataset: ExportHubDataset;
 }) {
-  function downloadExport(item: ExportHubItem) {
+  async function downloadExport(item: ExportHubItem) {
     const file = buildExportFile(item.key, dataset);
     if (!file) return;
+    const response = await fetch("/api/owner/exports/log", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ export_kind: item.key, format: item.format, row_count: item.rowCount, warnings: item.warnings }) });
+    if (!response.ok) throw new Error("The export history entry could not be recorded.");
     const blob = new Blob([file.content], { type: file.mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -57,12 +59,12 @@ export function ExportHubDownloads({
                   type="button"
                   variant={item.status === "empty" ? "secondary" : "primary"}
                   disabled={item.status === "empty"}
-                  onClick={() => downloadExport(item)}
+                  onClick={() => void downloadExport(item)}
                 >
                   <Download size={16} aria-hidden="true" />
                   Download {item.format}
                 </Button>
-              ) : item.key === "qti_zip" ? (
+              ) : item.key === "qti_zip" || item.key === "moodle_xml" ? (
                 <ButtonLink href="/owner/assessments" variant="secondary">
                   <ExternalLink size={16} aria-hidden="true" />
                   Open assessment

@@ -275,7 +275,7 @@ bulk assignment and queue filtering.
 
 ## create-submission-receipt
 
-Student or owner for an authorized attempt. Creates or refreshes the readonly submission receipt JSON after finalization,
+Student only for the student's own authorized attempt. Creates or refreshes the readonly submission receipt JSON after finalization,
 including upload slot status, original filename, sanity page counts/warnings, and file hashes when known.
 
 ## attempt-recovery
@@ -312,12 +312,12 @@ client-side Storage signing in parse review and marking views.
 
 ## get-student-results
 
-Student or owner. Returns released student feedback only through a checked Edge boundary. Students receive sanitized
+Student only for the student's own attempt. Returns released student feedback through a checked Edge boundary. Students receive sanitized
 question metadata, marks, feedback annotations, discussion tickets, released annotated PDF URLs, and their own response
 summaries only after `feedback_releases` is visible. It does not pre-issue signed URLs for original student upload PDFs
 or raw work-annotation JSON to student clients; originals are available only through the explicit request function below.
 Moderation reports, attempt events, private package objects, private annotations, and unreleased feedback remain
-owner-only.
+owner-only through separate owner marking routes.
 
 ## get-student-original-upload-url
 
@@ -370,3 +370,31 @@ not duplicate the final record. Existing authenticated finalization remains unch
 Guest-only technical issue/private message endpoint. Verifies the guest token and inserts `invigilation_messages` with
 `sender_kind = student_guest` for owner live-roster review. It is additive evidence and does not mutate moderation events
 or attempt timing.
+
+## acknowledge-invigilation-message / guest-acknowledge-invigilation-message
+
+Authenticated-student and opaque-guest-token variants record idempotent acknowledgement receipts only after proving the
+message is a visible broadcast or belongs to the exact attempt. Students never write receipt rows directly.
+
+## owner-issue-paper-scan-upload / owner-confirm-paper-scan-upload
+
+Institution marking permission plus AAL2 is required. The issue function creates an owner/job-scoped private signed
+upload path. Confirmation downloads the object server-side, validates PDF bytes and size, rejects closed jobs, creates
+page records, and attributes the upload to the actual collaborator profile.
+
+## review-ocr-result
+
+Institution authoring permission plus AAL2 is required. Approves or rejects a provider result with bounded corrections,
+preserves the original provider output in metadata, attributes review to the collaborator profile, and audits the decision.
+
+## semantic-group-answers
+
+Institution marking permission plus AAL2 is required. Sends bounded, pseudonymous answer text to DeepSeek only when
+configured, validates that provider groups contain every response exactly once, and persists an unapproved draft for
+teacher review. It never applies marks automatically.
+
+## moodle-export-assessment
+
+Institution export permission plus AAL2 is required. Exports only published assessment versions, converts prompt markup
+to inert text, stores the XML in private `marking-packets`, records fidelity warnings and download history, and returns a
+five-minute signed URL. Unsupported response modes remain manually graded essays.

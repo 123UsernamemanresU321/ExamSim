@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   applyAnswerGroupingRunAction,
   approveAnswerGroupAction,
@@ -9,6 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AnswerGroupingReviewState } from "@/lib/examsim/answer-grouping-data";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 
 export function AnswerGroupingReviewPanel({
   assessmentId,
@@ -23,6 +29,28 @@ export function AnswerGroupingReviewPanel({
   review: AnswerGroupingReviewState | null;
   memberLabels: Record<string, string>;
 }) {
+  const router = useRouter();
+  const [semanticStatus, setSemanticStatus] = useState<string | null>(null);
+  const [semanticLoading, setSemanticLoading] = useState(false);
+
+  async function createSemanticDraft() {
+    setSemanticLoading(true);
+    setSemanticStatus("Creating a review-only semantic draft...");
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await invokeEdgeFunction(supabase, "semantic-group-answers", {
+        body: { assessment_id: assessmentId, question_node_id: questionNodeId },
+        requiresAal2: true,
+      });
+      setSemanticStatus("Semantic draft created. Review every group before applying marks.");
+      router.refresh();
+    } catch (error) {
+      setSemanticStatus(error instanceof Error ? error.message : "Semantic grouping is unavailable. Use deterministic groups instead.");
+    } finally {
+      setSemanticLoading(false);
+    }
+  }
+
   if (!review) {
     return (
       <section className="border-t border-[var(--border)] pt-5">
@@ -30,9 +58,16 @@ export function AnswerGroupingReviewPanel({
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
           Create a deterministic draft, then review every response before applying marks. No group is graded automatically.
         </p>
-        <form action={createAnswerGroupingRunAction.bind(null, assessmentId, questionNodeId)} className="mt-4">
-          <Button type="submit">Create review groups</Button>
-        </form>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <form action={createAnswerGroupingRunAction.bind(null, assessmentId, questionNodeId)}>
+            <Button type="submit">Create deterministic groups</Button>
+          </form>
+          <Button type="button" variant="secondary" isLoading={semanticLoading} onClick={() => void createSemanticDraft()}>
+            Create semantic draft
+          </Button>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[var(--muted)]">Manual fallback remains available. Semantic groups require the configured AI provider and are never auto-graded.</p>
+        {semanticStatus ? <p className="mt-2 text-xs font-medium text-[var(--muted)]" role="status">{semanticStatus}</p> : null}
       </section>
     );
   }

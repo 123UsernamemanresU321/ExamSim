@@ -59,32 +59,36 @@ export type CompilerReadinessEnv = Partial<Record<string, string | undefined>>;
 export function getCompilerProviderStatus(env: CompilerReadinessEnv = process.env): CompilerProviderStatus {
   const hasDeepSeek = hasEnv(env, "DEEPSEEK_API_KEY");
   const hasMineru = hasEnv(env, "MINERU_API_KEY") || hasEnv(env, "MINERU_WORKER_HMAC_SECRET");
-  const smartImportConfigured = hasDeepSeek && hasMineru;
+  const hasSimpleTex = hasEnv(env, "SIMPLETEX_APP_ID") && hasEnv(env, "SIMPLETEX_APP_SECRET");
+  const hasOcrProvider = hasMineru || hasSimpleTex;
+  const smartImportConfigured = hasDeepSeek && hasOcrProvider;
   const blockingMessages: string[] = [];
 
   if (!smartImportConfigured) {
     blockingMessages.push(
-      "Provider-backed Smart Import requires DEEPSEEK_API_KEY plus MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET. Manual review remains available.",
+      "Provider-backed Smart Import requires DEEPSEEK_API_KEY plus SimpleTeX APP credentials, MINERU_API_KEY, or MINERU_WORKER_HMAC_SECRET. Manual review remains available.",
     );
   }
-  if (!hasMineru) {
-    blockingMessages.push("OCR/layout detection requires MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET.");
+  if (!hasOcrProvider) {
+    blockingMessages.push("OCR requires SimpleTeX APP credentials, MINERU_API_KEY, or MINERU_WORKER_HMAC_SECRET.");
   }
 
   return {
     smartImport: {
       status: smartImportConfigured ? "configured" : "not_configured",
-      requiredEnvVars: ["DEEPSEEK_API_KEY", "MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET"],
+      requiredEnvVars: ["DEEPSEEK_API_KEY", "SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, or MINERU_API_KEY / MINERU_WORKER_HMAC_SECRET"],
       message: smartImportConfigured
         ? "Provider-backed Smart Import is configured. Teacher review is still mandatory before publish."
         : "Provider-backed Smart Import is unavailable; use manual PDF regions, LaTeX parsing, or Advanced JSON Review.",
     },
     ocr: {
-      status: hasMineru ? "configured" : "not_configured",
-      requiredEnvVars: ["MINERU_API_KEY or MINERU_WORKER_HMAC_SECRET"],
+      status: hasOcrProvider ? "configured" : "not_configured",
+      requiredEnvVars: ["SIMPLETEX_APP_ID + SIMPLETEX_APP_SECRET, or MINERU_API_KEY / MINERU_WORKER_HMAC_SECRET"],
       message: hasMineru
         ? "OCR/layout detection can be run through the configured MinerU path."
-        : "OCR/layout detection is not configured; draw and link source regions manually.",
+        : hasSimpleTex
+          ? "SimpleTeX OCR can extract page, formula, table, and handwriting suggestions; layout regions remain teacher-drawn or MinerU-backed."
+          : "OCR/layout detection is not configured; draw and link source regions manually.",
     },
     semanticGrouping: {
       status: hasDeepSeek ? "configured" : "not_configured",

@@ -30,7 +30,13 @@ export type LiveSessionAttempt = {
   lastEventType: string | null;
   heartbeatGapSeconds: number | null;
   technicalIssueCount: number;
+  visibilityHiddenCount: number;
+  windowBlurCount: number;
+  acknowledgementCount: number;
+  riskLevel: "low" | "medium" | "high";
 };
+
+export type LiveSessionMessage = InvigilationMessage & { acknowledgementCount: number };
 
 export type ReconciliationCandidate = {
   attempt: Attempt;
@@ -128,13 +134,14 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
   if (error) throw error;
   const attemptRows = (attempts ?? []) as Attempt[];
   const attemptIds = attemptRows.map((attempt) => attempt.id);
-  const [profiles, rosterEntries, uploadSlots, events, responses, issueMessages] = await Promise.all([
+  const [profiles, rosterEntries, uploadSlots, events, responses, issueMessages, acknowledgements] = await Promise.all([
     loadProfiles(attemptRows.map((attempt) => attempt.assignee_profile_id).filter((id): id is string => Boolean(id))),
     loadRosterEntries(attemptRows.map((attempt) => attempt.roster_entry_id).filter((id): id is string => Boolean(id))),
     loadUploadSlots(attemptIds),
     loadAttemptEvents(attemptIds),
     loadTextResponses(attemptIds),
     loadTechnicalIssueMessages(sessionId),
+    loadAcknowledgements(attemptIds),
   ]);
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
   const rosterById = new Map(rosterEntries.map((entry) => [entry.id, entry]));
@@ -149,6 +156,10 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
   for (const message of issueMessages) {
     if (!message.attempt_id) continue;
     issueCountByAttempt.set(message.attempt_id, (issueCountByAttempt.get(message.attempt_id) ?? 0) + 1);
+  }
+  const acknowledgementCountByAttempt = new Map<string, number>();
+  for (const receipt of acknowledgements) {
+    acknowledgementCountByAttempt.set(receipt.attempt_id, (acknowledgementCountByAttempt.get(receipt.attempt_id) ?? 0) + 1);
   }
   const serverNowUtc = new Date().toISOString();
   return attemptRows.map((attempt) => {
@@ -165,6 +176,14 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
     const heartbeatGapSeconds = lastHeartbeat?.server_received_at
       ? Math.max(0, Math.floor((Date.parse(serverNowUtc) - Date.parse(lastHeartbeat.server_received_at)) / 1000))
       : null;
+    const visibilityHiddenCount = attemptEvents.filter((event) => event.event_type === "visibility.hidden").length;
+    const windowBlurCount = attemptEvents.filter((event) => event.event_type === "window.blur").length;
+    const riskScore =
+      (heartbeatGapSeconds === null || heartbeatGapSeconds > 120 ? 2 : heartbeatGapSeconds > 45 ? 1 : 0)
+      + (attempt.duplicate_identity_flag ? 2 : 0)
+      + ((issueCountByAttempt.get(attempt.id) ?? 0) > 0 ? 1 : 0)
+      + (visibilityHiddenCount >= 3 ? 1 : 0)
+      + (windowBlurCount >= 3 ? 1 : 0);
     return {
       attempt,
       studentName: attempt.guest_student_name ?? roster?.display_name ?? profile?.display_name ?? "Guest student",
@@ -188,11 +207,15 @@ export async function getLiveSessionAttempts(sessionId: string): Promise<LiveSes
       lastEventType: lastEvent?.event_type ?? null,
       heartbeatGapSeconds,
       technicalIssueCount: issueCountByAttempt.get(attempt.id) ?? 0,
+      visibilityHiddenCount,
+      windowBlurCount,
+      acknowledgementCount: acknowledgementCountByAttempt.get(attempt.id) ?? 0,
+      riskLevel: riskScore >= 4 ? "high" : riskScore >= 2 ? "medium" : "low",
     };
   });
 }
 
-export async function getLiveSessionMessages(sessionId: string): Promise<InvigilationMessage[]> {
+export async function getLiveSessionMessages(sessionId: string): Promise<LiveSessionMessage[]> {
   if (isDemoModeEnabled()) return [];
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -202,7 +225,18 @@ export async function getLiveSessionMessages(sessionId: string): Promise<Invigil
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw error;
-  return (data ?? []) as InvigilationMessage[];
+  const rows = (data ?? []) as InvigilationMessage[];
+  const messageIds = rows.map((message) => message.id);
+  const acknowledgementCount = new Map<string, number>();
+  if (messageIds.length) {
+    const { data: receipts, error: receiptError } = await supabase
+      .from("invigilation_message_receipts")
+      .select("message_id")
+      .in("message_id", messageIds);
+    if (receiptError) throw receiptError;
+    for (const receipt of receipts ?? []) acknowledgementCount.set(receipt.message_id, (acknowledgementCount.get(receipt.message_id) ?? 0) + 1);
+  }
+  return rows.map((message) => ({ ...message, acknowledgementCount: acknowledgementCount.get(message.id) ?? 0 }));
 }
 
 export async function getReconciliationCandidates(sessionId: string): Promise<ReconciliationCandidate[]> {
@@ -294,6 +328,17 @@ async function loadTechnicalIssueMessages(sessionId: string): Promise<Pick<Invig
     .select("attempt_id")
     .eq("exam_session_id", sessionId)
     .eq("message_kind", "technical_issue");
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function loadAcknowledgements(attemptIds: string[]): Promise<Array<{ attempt_id: string }>> {
+  if (!attemptIds.length) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("invigilation_message_receipts")
+    .select("attempt_id")
+    .in("attempt_id", attemptIds);
   if (error) throw error;
   return data ?? [];
 }

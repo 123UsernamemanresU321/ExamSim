@@ -4,6 +4,7 @@ import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
+import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type Body = {
   assessment_version_id: string;
@@ -49,6 +50,7 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
     assertInstitutionOwner(version.assessments?.owner_profile_id, ownerProfileId);
+    assertVersionMutable(version.status);
 
     const operationalWarnings: string[] = [];
     try {

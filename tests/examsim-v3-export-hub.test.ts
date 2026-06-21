@@ -72,7 +72,8 @@ describe("V3 Export Hub", () => {
     expect(catalog.find((item) => item.key === "markbook_csv")?.status).toBe("ready");
     expect(catalog.find((item) => item.key === "assessment_inventory_json")?.status).toBe("ready");
     expect(catalog.find((item) => item.key === "qti_zip")?.status).toBe("edge_export");
-    expect(catalog.find((item) => item.key === "moodle_xml")?.status).toBe("unsupported");
+    expect(catalog.find((item) => item.key === "moodle_xml")?.status).toBe("edge_export");
+    expect(catalog.find((item) => item.key === "moodle_xml")?.warnings.join(" ")).toContain("not lossless");
   });
 
   it("exports CSV using spreadsheet-injection-safe cells", () => {

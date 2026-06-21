@@ -24,7 +24,7 @@ serve(async (request) => {
       .single();
     if (slotError) throw slotError;
     const attempt = Array.isArray(slot.attempts) ? slot.attempts[0] : slot.attempts;
-    if (profile.app_role !== "owner" && attempt?.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
+    if (attempt?.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
 
     const objectPath = body.object_path ?? slot.object_path;
     const fileName = slot.original_file_name ?? objectPath?.split("/").pop() ?? null;

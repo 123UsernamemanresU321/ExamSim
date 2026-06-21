@@ -1,6 +1,7 @@
 "use client";
 
 import katex from "katex";
+import { sanitizeExamHtml } from "@/lib/examsim/sanitize-exam-html";
 
 const KATEX_MACROS = {
   "\\floor": "\\left\\lfloor #1 \\right\\rfloor",
@@ -18,13 +19,14 @@ export function formatPromptContent({ latex, html }: { latex?: string; html?: st
 }
 
 function formatHtmlPromptContent(html: string) {
-  if (!html.trim()) return "";
+  const safeHtml = sanitizeExamHtml(html);
+  if (!safeHtml.trim()) return "";
 
-  if (!/<[a-z][\s\S]*>/i.test(html)) {
-    return formatPromptLines(html.replace(/\r\n/g, "\n").split("\n"));
+  if (!/<[a-z][\s\S]*>/i.test(safeHtml)) {
+    return formatPromptLines(safeHtml.replace(/\r\n/g, "\n").split("\n"));
   }
 
-  return html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (_match, attrs: string, body: string) => {
+  return safeHtml.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (_match, attrs: string, body: string) => {
     const text = body.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ").trim();
     if (text.includes("\t")) return formatPromptLine(text);
     if (hasBareLatexCommand(text) || looksLikeBareMath(text)) return `<p${attrs}>${formatPromptSegment(text)}</p>`;

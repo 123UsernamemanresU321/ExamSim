@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 
@@ -26,10 +26,9 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, profile, admin, ownerProfileId } = await requireInstitutionAal2(request, "exports");
     const body = await readJson<Body>(request);
-    if (!body.assessment_version_id) return json({ error: "assessment_version_id is required" }, 400);
+    if (!body.assessment_version_id) return json(request, { error: "assessment_version_id is required" }, 400);
 
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
@@ -38,7 +37,7 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
     const assessment = normalizeAssessmentRelation(version.assessments);
-    if (assessment?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    assertInstitutionOwner(assessment?.owner_profile_id, ownerProfileId);
     const pkg = await loadNormalizedPackage(admin, version) as {
       assessment?: { title?: string; paper_code?: string };
       questions?: QtiQuestion[];
@@ -74,20 +73,23 @@ serve(async (request) => {
     }
     zip.file("exam-vault-normalized-package.json", JSON.stringify(pkg, null, 2));
     const bytes = new Uint8Array(await zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" }));
-    const path = `${ownerProfile.id}/qti/${version.id}/qti-export-${Date.now()}.zip`;
+    const path = `${ownerProfileId}/qti/${version.id}/qti-export-${Date.now()}.zip`;
     const { error: uploadError } = await admin.storage.from("marking-packets").upload(path, bytes, {
       contentType: "application/zip",
       upsert: false,
     });
     if (uploadError) throw uploadError;
     const { data: signed } = await admin.storage.from("marking-packets").createSignedUrl(path, 300);
-    await auditOwnerAction(ownerProfile.id, user.id, "qti.exported", "assessment_versions", version.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "qti.exported", "assessment_versions", version.id, {
       object_path: path,
       item_count: items.length,
     });
-    return json({ ok: true, object_path: path, download_url: signed?.signedUrl ?? null, expires_in_seconds: 300 });
+    const qtiWarnings = ["QTI export includes the normalized Exam Vault package for fidelity review. Unsupported response interactions require review after import."];
+    const { error: historyError } = await admin.from("export_download_history").insert({ owner_profile_id: ownerProfileId, actor_profile_id: profile.id, assessment_id: assessment?.id ?? null, export_kind: "qti_zip", format: "ZIP", object_path: path, row_count: items.length, status: "review_required", fidelity_warnings_json: qtiWarnings, metadata_json: { assessment_version_id: version.id } });
+    if (historyError) throw historyError;
+    return json(request, { ok: true, object_path: path, download_url: signed?.signedUrl ?? null, expires_in_seconds: 300, review_required: true, fidelity_warnings: qtiWarnings });
   } catch (error) {
-    return errorResponse(error, "qti-export-assessment failed");
+    return errorResponse(request, error, "qti-export-assessment failed");
   }
 });
 

@@ -58,4 +58,18 @@ describe("Examsim V3 answer grouping review", () => {
     expect(actions).toContain("auditInstitutionAction");
     expect(page).toContain("AnswerGroupingReviewPanel");
   });
+
+  it("keeps semantic grouping provider-backed, rate-limited, and review-only", () => {
+    const edge = readFileSync("supabase/functions/semantic-group-answers/index.ts", "utf8");
+    const panel = readFileSync("components/owner/answer-grouping-review-panel.tsx", "utf8");
+    expect(edge).toContain('requireInstitutionAal2(request, "marking")');
+    expect(edge).toContain("DEEPSEEK_API_KEY");
+    expect(edge).toContain("enforceRateLimit");
+    expect(edge).toContain("MAX_RESPONSES");
+    expect(edge).toContain('provider: "semantic"');
+    expect(edge).toContain('status: "draft"');
+    expect(edge).not.toContain("apply_answer_grouping_run");
+    expect(panel).toContain("Create semantic draft");
+    expect(panel).toContain("Manual fallback remains available");
+  });
 });

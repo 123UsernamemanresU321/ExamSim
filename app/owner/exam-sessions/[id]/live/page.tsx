@@ -1,22 +1,59 @@
 import { notFound } from "next/navigation";
 import { applyLiveInterventionAction, sendPrivateInvigilationMessageAction, sendSessionBroadcastAction } from "@/app/owner/exam-sessions/[id]/live/actions";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SectionHeading } from "@/components/section-heading";
 import { getLiveSessionAttempts, getLiveSessionMessages, getOwnerExamSession } from "@/lib/examsim/session-data";
 
-export default async function OwnerExamSessionLivePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OwnerExamSessionLivePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string; risk?: string }>;
+}) {
   const { id } = await params;
+  const filters = await searchParams;
   const [session, attempts, messages] = await Promise.all([getOwnerExamSession(id), getLiveSessionAttempts(id), getLiveSessionMessages(id)]);
   if (!session) notFound();
+  const query = String(filters.q ?? "").trim().toLowerCase();
+  const risk = ["low", "medium", "high"].includes(String(filters.risk)) ? String(filters.risk) : "all";
+  const visibleAttempts = attempts.filter((row) => {
+    const matchesQuery = !query || `${row.studentName} ${row.studentNumber ?? ""}`.toLowerCase().includes(query);
+    return matchesQuery && (risk === "all" || row.riskLevel === risk);
+  });
+  const highRiskCount = attempts.filter((row) => row.riskLevel === "high").length;
+  const disconnectedCount = attempts.filter((row) => row.heartbeatGapSeconds === null || row.heartbeatGapSeconds > 120).length;
+  const pausedCount = attempts.filter((row) => row.state === "PAUSED").length;
   return (
     <>
       <SectionHeading title="Live roster" description={`Monitor joined students, upload progress, and server-computed attempt states for ${session.title}.`} />
+      <section className="mb-5 border-y border-[var(--border)] bg-white px-4 py-4" aria-labelledby="risk-overview-heading">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="risk-overview-heading" className="text-sm font-semibold text-[var(--ink)]">Risk overview</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">Signals support invigilation review; they are not proof of misconduct.</p>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span><strong>{attempts.length}</strong> joined</span>
+            <span><strong>{highRiskCount}</strong> high risk</span>
+            <span><strong>{disconnectedCount}</strong> disconnected</span>
+            <span><strong>{pausedCount}</strong> paused</span>
+          </div>
+        </div>
+        <form method="get" className="mt-4 grid gap-3 sm:grid-cols-[minmax(220px,1fr)_180px_auto]">
+          <input name="q" defaultValue={filters.q ?? ""} placeholder="Search student or number" className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+          <select name="risk" defaultValue={risk} className="min-h-10 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
+            <option value="all">All risk levels</option><option value="high">High risk</option><option value="medium">Medium risk</option><option value="low">Low risk</option>
+          </select>
+          <Button type="submit" variant="secondary">Apply filters</Button>
+        </form>
+      </section>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <DataTable headers={["Student", "State", "Progress", "Reliability", "Actions"]}>
-          {attempts.map((row) => {
+          {visibleAttempts.map((row) => {
             const uploaded = row.uploadSlots.filter((slot) => slot.status === "uploaded" || slot.status === "blank_placeholder").length;
             const heartbeatTone = row.heartbeatGapSeconds === null
               ? "neutral"
@@ -46,6 +83,8 @@ export default async function OwnerExamSessionLivePage({ params }: { params: Pro
                   <p className="mt-1 text-xs text-[var(--muted)]">
                     Last: {row.lastEventType ?? "no events"}{row.lastEventAt ? ` · ${new Date(row.lastEventAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                   </p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">Risk: <strong className="text-[var(--ink)]">{row.riskLevel}</strong> · hidden {row.visibilityHiddenCount} · blur {row.windowBlurCount}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">Announcements acknowledged: {row.acknowledgementCount}</p>
                   {row.technicalIssueCount ? <p className="mt-1 text-xs font-semibold text-amber-700">{row.technicalIssueCount} issue report{row.technicalIssueCount === 1 ? "" : "s"}</p> : null}
                 </DataTableCell>
                 <DataTableCell>
@@ -56,6 +95,7 @@ export default async function OwnerExamSessionLivePage({ params }: { params: Pro
                     </form>
                     <form action={applyLiveInterventionAction.bind(null, id, row.attempt.id, row.attempt.paused_at ? "resume" : "pause")}><Button type="submit" variant="secondary">{row.attempt.paused_at ? "Resume" : "Pause"}</Button></form>
                     <form action={applyLiveInterventionAction.bind(null, id, row.attempt.id, "force_submit")}><Button type="submit" variant="dangerSubtle">Force submit</Button></form>
+                    <ButtonLink href={`/owner/attempts/${row.attempt.id}/report`} variant="secondary">Timeline</ButtonLink>
                   </div>
                 </DataTableCell>
               </DataTableRow>
@@ -77,6 +117,7 @@ export default async function OwnerExamSessionLivePage({ params }: { params: Pro
                 <div key={message.id} className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">{message.sender_kind} · {message.message_kind}</p>
                   <p className="mt-1 text-sm text-[var(--ink)]">{message.body}</p>
+                  {message.message_kind === "broadcast" ? <p className="mt-2 text-xs text-[var(--muted)]">{message.acknowledgementCount} acknowledgement{message.acknowledgementCount === 1 ? "" : "s"}</p> : null}
                   {message.attempt_id && message.sender_kind !== "owner" ? (
                     <form action={sendPrivateInvigilationMessageAction.bind(null, id, message.attempt_id)} className="mt-3 grid gap-2">
                       <textarea name="body" placeholder="Private reply to this student" className="min-h-16 rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm" />

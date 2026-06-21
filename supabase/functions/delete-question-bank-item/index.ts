@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
@@ -10,16 +10,15 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Body>(request);
-    if (!body.question_bank_item_id) return json({ error: "question_bank_item_id is required" }, 400);
+    if (!body.question_bank_item_id) return json(request, { error: "question_bank_item_id is required" }, 400);
 
     const { data: item, error: itemError } = await admin
       .from("question_bank_items")
       .select("id, title, root_node_key, source_assessment_id, source_assessment_version_id, source_question_node_id, owner_profile_id")
       .eq("id", body.question_bank_item_id)
-      .eq("owner_profile_id", ownerProfile.id)
+      .eq("owner_profile_id", ownerProfileId)
       .single();
     if (itemError) throw itemError;
 
@@ -49,7 +48,7 @@ serve(async (request) => {
       .eq("question_bank_item_id", item.id);
     if (childDeleteError) throw childDeleteError;
 
-    await auditOwnerAction(ownerProfile.id, user.id, "question_bank_item.deleted", "question_bank_items", item.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "question_bank_item.deleted", "question_bank_items", item.id, {
       title: item.title,
       root_node_key: item.root_node_key,
       source_assessment_id: item.source_assessment_id,
@@ -63,16 +62,16 @@ serve(async (request) => {
       .from("question_bank_items")
       .delete()
       .eq("id", item.id)
-      .eq("owner_profile_id", ownerProfile.id);
+      .eq("owner_profile_id", ownerProfileId);
     if (deleteError) throw deleteError;
 
-    return json({
+    return json(request, {
       ok: true,
       deleted_question_bank_item_id: item.id,
       removed_child_count: children?.length ?? 0,
       removed_generated_paper_references: generatedRefs?.length ?? 0,
     });
   } catch (error) {
-    return errorResponse(error, "delete-question-bank-item failed");
+    return errorResponse(request, error, "delete-question-bank-item failed");
   }
 });

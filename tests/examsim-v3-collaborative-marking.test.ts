@@ -57,5 +57,31 @@ describe("Examsim V3 collaborative marking", () => {
     expect(release).toContain("assessment_grading_policies");
     expect(release).toContain("marking_reviews");
     expect(release).toContain('review.status !== "approved"');
+    expect(release).toContain("missingMarkedQuestionIds");
+    expect(release).toContain("incomplete_marking");
+    expect(release).toContain("release_checklist");
+  });
+
+  it("supports accessible marking shortcuts, bounded undo, and a visible release checklist", () => {
+    const workspace = readFileSync("components/owner/marking-response-workspace.tsx", "utf8");
+    const layout = readFileSync("components/owner/marking-layout.tsx", "utf8");
+    expect(workspace).toContain("undoLastChange");
+    expect(workspace).toContain("aria-keyshortcuts");
+    expect(workspace).toContain("Shortcut legend");
+    expect(workspace).toContain("aria-pressed");
+    expect(layout).toContain("Release checklist");
+    expect(layout).toContain("release_checklist");
+  });
+
+  it("provides a scoped marker workload and consistency dashboard", () => {
+    const page = readFileSync("app/owner/marking-queue/workload/page.tsx", "utf8");
+    const layout = readFileSync("app/owner/marking-queue/workload/layout.tsx", "utf8");
+    expect(layout).toContain('InstitutionPermissionLayout permission="moderation"');
+    expect(page).toContain("Marker workload");
+    expect(page).toContain("Inter-marker consistency");
+    expect(page).toContain("marker_assignments");
+    expect(page).toContain("marking_submissions");
+    expect(page).toContain("marking_reviews");
+    expect(page).toContain("ownerProfileId");
   });
 });

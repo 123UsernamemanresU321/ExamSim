@@ -65,9 +65,9 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
       key: "private_storage",
       title: "Private storage buckets",
       status: "manual_validation",
-      ownerMessage: "Assessment sources, packages, answers, and marking packets must remain private and signed.",
+      ownerMessage: "Assessment sources, packages, answers, marking packets, and Paper Mode scans must remain private and signed.",
       evidence: "Storage must be checked in the Supabase dashboard or live validation scripts.",
-      nextAction: "Verify assessment-sources, assessment-packages, answer-uploads, and marking-packets are not public.",
+      nextAction: "Verify assessment-sources, assessment-packages, answer-uploads, marking-packets, and paper-scans are not public.",
       requiredEnvVars: [],
     },
     {

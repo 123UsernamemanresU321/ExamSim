@@ -1,18 +1,17 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { randomCode, sha256Hex } from "../_shared/hash.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
+    const { user, admin, profile: actorProfile, ownerProfileId } = await requireInstitutionAal2(request, "student_management");
     const body = await readJson<{ display_name: string; student_13_plus_attested?: boolean }>(request);
     if (!body.display_name?.trim()) return json({ error: "display_name is required" }, 400);
     if (!body.student_13_plus_attested) return json({ error: "13+ student attestation is required" }, 400);
 
-    const ownerProfile = await profileForAuthUser(user.id);
     const loginCode = randomCode("STU");
     const activationCode = randomCode("ACT", 8);
     const email = `${loginCode.toLowerCase()}@students.local.exam-vault`;
@@ -31,9 +30,9 @@ serve(async (request) => {
         auth_user_id: created.user.id,
         app_role: "student",
         display_name: body.display_name.trim(),
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         student_13_plus_attested_at: new Date().toISOString(),
-        student_13_plus_attested_by_profile_id: ownerProfile.id,
+        student_13_plus_attested_by_profile_id: actorProfile.id,
       })
       .select("*")
       .single();
@@ -48,13 +47,13 @@ serve(async (request) => {
     if (credentialError) throw credentialError;
 
     const { error: linkError } = await admin.from("owner_student_links").insert({
-      owner_profile_id: ownerProfile.id,
+      owner_profile_id: ownerProfileId,
       student_profile_id: profile.id,
       link_type: "managed_student",
     });
     if (linkError) throw linkError;
 
-    await auditOwnerAction(ownerProfile.id, user.id, "student.created", "profiles", profile.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "student.created", "profiles", profile.id, {
       student_13_plus_attested: true,
     });
 

@@ -130,7 +130,7 @@ describe("Edge state and content release boundaries", () => {
     expect(form).toContain('"upload-seb-config"');
     expect(form).not.toContain('.storage\n        .from("assessment-sources")');
     expect(form).toContain("requiresAal2: true");
-    expect(read("supabase/functions/upload-seb-config/index.ts")).toContain("requireOwnerAal2");
+    expect(read("supabase/functions/upload-seb-config/index.ts")).toContain("requireInstitutionAal2");
   });
 
   it("does not auto-load source PDFs when opening an attempt marking workspace", () => {
@@ -404,7 +404,7 @@ describe("work annotations and mark discussion tickets", () => {
 
   it("keeps marker annotations owner-AAL2 gated and separate from submitted work", () => {
     const edge = read("supabase/functions/save-work-annotation/index.ts");
-    expect(edge).toContain("requireOwnerAal2");
+    expect(edge).toContain("requireInstitutionAal2");
     expect(edge).toContain("work_annotations");
     expect(edge).toContain("anchor_json");
     expect(edge).toContain("work_annotation.saved");
@@ -487,7 +487,7 @@ describe("work annotations and mark discussion tickets", () => {
   it("generates annotated PDFs as private copies without mutating the original upload", () => {
     expect(read("supabase/migrations/202605170001_upload_slot_annotated_pdf.sql")).toContain("annotated_object_path");
     const edge = read("supabase/functions/generate-annotated-pdf/index.ts");
-    expect(edge).toContain("requireOwnerAal2");
+    expect(edge).toContain("requireInstitutionAal2");
     expect(edge).toContain('storage.from("answer-uploads").download');
     expect(edge).toContain('storage.from("marking-packets").upload');
     expect(edge).toContain("annotated_object_path");
@@ -526,7 +526,8 @@ describe("work annotations and mark discussion tickets", () => {
   it("serves released annotations and uploaded work previews through the results Edge Function", () => {
     const edge = read("supabase/functions/get-student-results/index.ts");
     expect(edge).toContain("work_annotations");
-    expect(edge).toContain('workAnnotations: profile.app_role === "owner" ? workAnnotations ?? [] : []');
+    expect(edge).toContain('workAnnotations: workAnnotations ?? []');
+    expect(edge).toContain('.eq("visibility", "student_visible")');
     expect(edge).toContain("marking_tickets");
     expect(edge).toContain("marking_ticket_messages");
     expect(edge).not.toContain("createSignedUrl(slot.object_path, 300)");

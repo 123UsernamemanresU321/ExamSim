@@ -17,11 +17,11 @@ serve(async (request) => {
       payload?: Record<string, unknown>;
       state_token?: string;
     }>(request);
-    if (!body.attempt_id || !body.event_type) return json({ error: "attempt_id and event_type are required" }, 400);
+    if (!body.attempt_id || !body.event_type) return json(request, { error: "attempt_id and event_type are required" }, 400);
 
     const { data: attempt, error } = await admin.from("attempts").select("id, assignee_profile_id").eq("id", body.attempt_id).single();
     if (error) throw error;
-    if (profile.app_role !== "owner" && attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (attempt.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
     if (body.attempt_session_id) {
       const { data: session, error: sessionError } = await admin
         .from("attempt_sessions")
@@ -30,7 +30,7 @@ serve(async (request) => {
         .eq("attempt_id", attempt.id)
         .maybeSingle();
       if (sessionError) throw sessionError;
-      if (!session) return json({ error: "Attempt session does not match this attempt" }, 403);
+      if (!session) return json(request, { error: "Attempt session does not match this attempt" }, 403);
     }
 
     const { error: insertError } = await admin.from("attempt_events").insert({
@@ -50,8 +50,8 @@ serve(async (request) => {
         .eq("id", body.attempt_session_id)
         .eq("attempt_id", attempt.id);
     }
-    return json({ ok: true });
+    return json(request, { ok: true });
   } catch (error) {
-    return errorResponse(error, "record-attempt-event failed");
+    return errorResponse(request, error, "record-attempt-event failed");
   }
 });

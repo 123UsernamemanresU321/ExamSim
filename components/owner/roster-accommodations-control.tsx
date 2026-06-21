@@ -23,6 +23,7 @@ export function RosterAccommodationsControl({
     policy.calculator_policy !== "none",
     policy.formula_booklet_allowed,
     policy.allowed_materials.length > 0,
+    Boolean(policy.access_open_at_utc || policy.access_close_at_utc),
   ].filter(Boolean).length;
 
   return (
@@ -82,6 +83,14 @@ export function RosterAccommodationsControl({
         <Field label="Allowed materials" tooltip="One student-specific material per line. Session rules still apply.">
           <Textarea name="allowed_materials" defaultValue={policy.allowed_materials.join("\n")} placeholder="Bilingual dictionary\nApproved data booklet" />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Access opens" tooltip="Optional student-specific access start. It can narrow, but never bypass, the session window.">
+            <Input name="access_open_at_utc" type="datetime-local" defaultValue={toLocalInput(policy.access_open_at_utc)} />
+          </Field>
+          <Field label="Access closes" tooltip="Optional student-specific final entry time. Students outside this window are blocked server-side.">
+            <Input name="access_close_at_utc" type="datetime-local" defaultValue={toLocalInput(policy.access_close_at_utc)} />
+          </Field>
+        </div>
         <p className="text-xs leading-5 text-[var(--muted)]">
           TTS is not enabled unless a real provider is configured. These settings never weaken exam timing or upload checks.
         </p>
@@ -91,3 +100,10 @@ export function RosterAccommodationsControl({
   );
 }
 
+function toLocalInput(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}

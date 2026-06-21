@@ -26,9 +26,9 @@ describe("owner deletion workflows", () => {
     expect(existsSync(path)).toBe(true);
     const source = read(path);
 
-    expect(source).toContain("requireOwnerAal2");
+    expect(source).toContain("requireInstitutionAal2");
     expect(source).toContain("question_bank_item_id");
-    expect(source).toContain(".eq(\"owner_profile_id\", ownerProfile.id)");
+    expect(source).toContain(".eq(\"owner_profile_id\", ownerProfileId)");
     expect(source).toContain("generated_paper_items");
     expect(source).toContain("question_bank_children");
     expect(source).toContain("question_bank_item.deleted");

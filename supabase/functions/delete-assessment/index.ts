@@ -1,13 +1,12 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<{ assessment_id: string }>(request);
     if (!body.assessment_id) return json({ error: "assessment_id is required" }, 400);
 
@@ -17,7 +16,7 @@ serve(async (request) => {
       .eq("id", body.assessment_id)
       .single();
     if (assessmentError) throw assessmentError;
-    if (assessment.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    assertInstitutionOwner(assessment.owner_profile_id, ownerProfileId);
 
     const { data: versions, error: versionError } = await admin
       .from("assessment_versions")
@@ -74,7 +73,7 @@ serve(async (request) => {
       await admin.from("encrypted_object_envelopes").delete().in("object_path", envelopePaths);
     }
 
-    await auditOwnerAction(ownerProfile.id, user.id, "assessment.deleted", "assessments", assessment.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "assessment.deleted", "assessments", assessment.id, {
       title: assessment.title,
       version_count: versionIds.length,
       attempt_count: attemptIds.length,

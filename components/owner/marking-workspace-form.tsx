@@ -39,6 +39,7 @@ export function MarkingWorkspaceForm({
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState("");
+  const [releaseChecklist, setReleaseChecklist] = useState({ marks_reviewed: false, feedback_reviewed: false, visibility_reviewed: false });
   const activeNodes = getSelectableMarkingGroups(buildMarkingTree(questionNodes)).flatMap(getMarkableLeafNodes);
   const [localMarks, setLocalMarks] = useState<Record<string, LocalMarkState>>(
     activeNodes.reduce((acc, node) => {
@@ -106,10 +107,19 @@ export function MarkingWorkspaceForm({
   }
 
   async function releaseFeedback() {
+    if (!Object.values(releaseChecklist).every(Boolean)) {
+      setMessage("Complete the release checklist before releasing feedback.");
+      return;
+    }
     const supabase = createSupabaseBrowserClient();
     try {
       await invokeEdgeFunction(supabase, "release-feedback", {
-        body: { attempt_id: attemptId, summary_text: summaryText, visible_to_student: true },
+        body: {
+          attempt_id: attemptId,
+          summary_text: summaryText,
+          visible_to_student: true,
+          release_checklist: releaseChecklist,
+        },
         requiresAal2: true,
       });
       setMessage("Feedback released to the student.");
@@ -275,7 +285,19 @@ export function MarkingWorkspaceForm({
           value={summaryText}
           onChange={(e) => setSummaryText(e.target.value)}
         />
-        <Button className="w-full" type="button" variant="secondary" onClick={() => void releaseFeedback()}>
+        <div className="mb-4 grid gap-2 text-sm">
+          {([
+            ["marks_reviewed", "All markable questions have a saved mark."],
+            ["feedback_reviewed", "Student feedback is final."],
+            ["visibility_reviewed", "Private marker notes remain hidden."],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="flex items-start gap-2 border border-[var(--border)] bg-[var(--surface-muted)] p-2">
+              <input className="mt-0.5" type="checkbox" checked={releaseChecklist[key]} onChange={(event) => setReleaseChecklist((current) => ({ ...current, [key]: event.target.checked }))} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        <Button className="w-full" type="button" variant="secondary" disabled={!Object.values(releaseChecklist).every(Boolean)} onClick={() => void releaseFeedback()}>
           <Send size={16} />
           Release feedback to student
         </Button>

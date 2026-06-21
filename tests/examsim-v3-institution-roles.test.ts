@@ -112,6 +112,34 @@ describe("Examsim V3 institution role matrix", () => {
     expect(operationActions).toContain('return "invigilation"');
   });
 
+  it("checks assessment authoring permission inside every exported visual-editor mutation", () => {
+    const source = readFileSync("app/owner/assessments/[id]/authoring/actions.ts", "utf8");
+    const actionNames = [
+      "uploadPdfSourceAction",
+      "deleteSourceDocumentAction",
+      "updateQuestionCardAction",
+      "createSourceRegionAction",
+      "updateSourceRegionAction",
+      "duplicateSourceRegionAction",
+      "deleteSourceRegionAction",
+      "createQuestionFromRegionAction",
+      "ignoreSourceRegionAction",
+      "splitSourceRegionAction",
+      "mergeSourceRegionsAction",
+      "createLatexDraftAction",
+      "createRubricTemplateAction",
+      "createRubricTemplateItemAction",
+    ];
+    for (const [index, name] of actionNames.entries()) {
+      const start = source.indexOf(`export async function ${name}`);
+      const nextName = actionNames[index + 1];
+      const end = nextName ? source.indexOf(`export async function ${nextName}`, start) : source.indexOf("async function syncQuestionNodeSourceAnchor", start);
+      const body = source.slice(start, end);
+      expect(start, `${name} is missing`).toBeGreaterThanOrEqual(0);
+      expect(body, `${name} has no explicit institution authorization`).toMatch(/requireInstitutionPermission|requireAssessmentAuthoringAccess/);
+    }
+  });
+
   it("keeps service-role Edge handlers behind explicit institution ownership checks", () => {
     const auth = readFileSync("supabase/functions/_shared/auth.ts", "utf8");
     expect(auth).toContain("requireInstitutionAal2");
@@ -128,5 +156,44 @@ describe("Examsim V3 institution role matrix", () => {
       expect(source).toContain(`requireInstitutionAal2(request, "${permission}")`);
       expect(source).toContain("assertInstitutionOwner");
     }
+  });
+
+  it("maps legacy owner Edge workflows to explicit V3 institution permissions", () => {
+    const expectations: Array<[string, string]> = [
+      ["attempt-intervention", "invigilation"],
+      ["attempt-recovery", "invigilation"],
+      ["comment-bank", "marking"],
+      ["cohort", "student_management"],
+      ["assessment-template", "assessment_authoring"],
+      ["calendar-recommendations", "analytics"],
+      ["create-student-group", "student_management"],
+      ["create-student", "student_management"],
+      ["export-marks-csv", "exports"],
+      ["delete-question-bank-item", "assessment_authoring"],
+      ["delete-assessment", "assessment_authoring"],
+      ["generate-annotated-pdf", "marking"],
+      ["markscheme-mapper", "assessment_authoring"],
+      ["qti-export-assessment", "exports"],
+      ["owner-issue-attempt-claim-code", "student_management"],
+      ["ingest-assessment", "assessment_authoring"],
+      ["mineru-poll-hosted-job", "assessment_authoring"],
+      ["owner-download-marking-packet", "marking"],
+      ["qti-import-assessment", "assessment_authoring"],
+      ["upload-seb-config", "session_publishing"],
+      ["save-work-annotation", "marking"],
+      ["topic-tags", "assessment_authoring"],
+      ["update-question-tree", "assessment_authoring"],
+      ["summarize-attempt-report", "moderation"],
+    ];
+    for (const [functionName, permission] of expectations) {
+      const source = readFileSync(`supabase/functions/${functionName}/index.ts`, "utf8");
+      expect(source, `${functionName} must use the institution boundary`).toContain(`requireInstitutionAal2(request, "${permission}")`);
+      expect(source, `${functionName} must use the resolved owner workspace`).toContain("ownerProfileId");
+    }
+    const signing = readFileSync("supabase/functions/owner-sign-storage-url/index.ts", "utf8");
+    expect(signing).toContain("permissionForStorageRequest");
+    expect(signing).toContain("requireInstitutionAal2(request, permission)");
+    expect(signing).toContain('return "assessment_authoring"');
+    expect(signing).toContain('return "marking"');
   });
 });

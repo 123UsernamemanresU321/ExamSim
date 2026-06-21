@@ -21,15 +21,15 @@ serve(async (request) => {
       attempt_id: string;
       state_token: string;
     }>(request);
-    if (!body.attempt_id || !body.state_token) return json({ error: "attempt_id and state_token are required" }, 400);
+    if (!body.attempt_id || !body.state_token) return json(request, { error: "attempt_id and state_token are required" }, 400);
     const tokenPayload = await verifyStateToken(body.state_token);
     if (tokenPayload.attempt_id !== body.attempt_id || tokenPayload.profile_id !== profile.id) {
-      return json({ error: "State token does not match this attempt" }, 403);
+      return json(request, { error: "State token does not match this attempt" }, 403);
     }
 
     const { data: attempt, error } = await admin.from("attempts").select("*").eq("id", body.attempt_id).single();
     if (error) throw error;
-    if (profile.app_role !== "owner" && attempt.assignee_profile_id !== profile.id) return json({ error: "Forbidden" }, 403);
+    if (attempt.assignee_profile_id !== profile.id) return json(request, { error: "Forbidden" }, 403);
 
     const state = computeAttemptState({
       serverNowUtc: new Date().toISOString(),
@@ -39,12 +39,12 @@ serve(async (request) => {
       pausedAtUtc: attempt.paused_at,
       solutionsRequested: attempt.solutions_requested,
     });
-    if (state === "WAITING" || state === "PAUSED") return json({ error: "Content not available in the current state", state }, 403);
+    if (state === "WAITING" || state === "PAUSED") return json(request, { error: "Content not available in the current state", state }, 403);
     let sebVerified = attempt.delivery_mode === "browser";
 
     if (attempt.delivery_mode === "seb_required") {
       if (!tokenPayload.attempt_session_id) {
-        return json({ error: "SEB attempts require a session-bound state token", state, seb_required: true }, 403);
+        return json(request, { error: "SEB attempts require a session-bound state token", state, seb_required: true }, 403);
       }
 
       const { data: session } = await admin
@@ -55,7 +55,7 @@ serve(async (request) => {
         .single();
 
       if (!session || session.ended_at) {
-        return json({ error: "SEB attempt session is not active", state, seb_required: true }, 403);
+        return json(request, { error: "SEB attempt session is not active", state, seb_required: true }, 403);
       }
 
       const currentHashes = extractSebRequestHashes(request);
@@ -69,7 +69,7 @@ serve(async (request) => {
           receivedConfigKeyRequestHash: currentHashes.configKeyRequestHash,
           url: request.url,
         });
-        if (!validation.ok) return json({ error: validation.reason, state, seb_required: true }, 403);
+        if (!validation.ok) return json(request, { error: validation.reason, state, seb_required: true }, 403);
 
         sebVerified = true;
         await admin
@@ -88,12 +88,12 @@ serve(async (request) => {
           .eq("attempt_id", attempt.id);
       } else {
         if (!session.seb_verified || !session.seb_verified_at || !session.seb_verification_url) {
-          return json({ error: "Safe Exam Browser verification is required before content release", state, seb_required: true }, 403);
+          return json(request, { error: "Safe Exam Browser verification is required before content release", state, seb_required: true }, 403);
         }
 
         const verifiedAtMs = Date.parse(session.seb_verified_at);
         if (!Number.isFinite(verifiedAtMs) || verifiedAtMs + sebVerificationTtlSeconds() * 1000 < Date.now()) {
-          return json({ error: "Safe Exam Browser verification expired. Refresh verification before content release.", state, seb_required: true }, 403);
+          return json(request, { error: "Safe Exam Browser verification expired. Refresh verification before content release.", state, seb_required: true }, 403);
         }
 
         const storedValidation = await verifySebRequestHashes({
@@ -104,7 +104,7 @@ serve(async (request) => {
           url: session.seb_verification_url,
         });
         if (!storedValidation.ok) {
-          return json({ error: "Stored SEB session no longer matches this attempt configuration.", state, seb_required: true }, 403);
+          return json(request, { error: "Stored SEB session no longer matches this attempt configuration.", state, seb_required: true }, 403);
         }
 
         sebVerified = true;
@@ -118,7 +118,7 @@ serve(async (request) => {
       }
 
       if (!sebVerified) {
-        return json({ error: "Safe Exam Browser verification is required before content release", state, seb_required: true }, 403);
+        return json(request, { error: "Safe Exam Browser verification is required before content release", state, seb_required: true }, 403);
       }
     }
 
@@ -132,7 +132,7 @@ serve(async (request) => {
     const assessmentPackageWithDatabaseIds = await hydratePackageQuestionNodeIds(admin, assessmentPackage, attempt.assessment_version_id);
     const assetUrls = await signPackageAssetUrls(admin, assessmentPackageWithDatabaseIds);
 
-    return json({
+    return json(request, {
       attempt_id: attempt.id,
       state,
       package_version_id: version.id,
@@ -142,7 +142,7 @@ serve(async (request) => {
       asset_urls: assetUrls,
     });
   } catch (error) {
-    return errorResponse(error, "get-attempt-package failed");
+    return errorResponse(request, error, "get-attempt-package failed");
   }
 });
 

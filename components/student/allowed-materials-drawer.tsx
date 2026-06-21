@@ -1,3 +1,5 @@
+import { sanitizeExamHtml } from "@/lib/examsim/sanitize-exam-html";
+
 type AllowedMaterial = {
   id: string;
   title: string;
@@ -17,7 +19,7 @@ export function StudentMaterialsDrawer({ materials }: { materials: AllowedMateri
           <div key={material.id} className="rounded-md border border-[var(--border)] p-3">
             <p className="font-semibold">{material.title}</p>
             <p className="text-xs uppercase tracking-widest text-[var(--subtle)]">{material.material_type.replaceAll("_", " ")}</p>
-            {material.content_html ? <div className="mt-2 text-sm text-[var(--muted)]" dangerouslySetInnerHTML={{ __html: material.content_html }} /> : null}
+            {material.content_html ? <div className="mt-2 text-sm text-[var(--muted)]" dangerouslySetInnerHTML={{ __html: sanitizeExamHtml(material.content_html) }} /> : null}
             {material.signed_url ? (
               <a className="mt-2 inline-flex font-semibold text-[var(--primary)]" href={material.signed_url} target="_blank" rel="noreferrer">
                 Open material

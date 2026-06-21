@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
+import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type Body =
   | { action: "create_document"; assessment_id: string; assessment_version_id: string; source_object_path: string }
@@ -12,14 +13,22 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Body>(request);
 
     if (body.action === "create_document") {
       const { data: assessment, error: assessmentError } = await admin.from("assessments").select("owner_profile_id").eq("id", body.assessment_id).single();
       if (assessmentError) throw assessmentError;
-      if (assessment.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+      assertInstitutionOwner(assessment.owner_profile_id, ownerProfileId);
+      const { data: version, error: versionError } = await admin
+        .from("assessment_versions")
+        .select("id,status")
+        .eq("id", body.assessment_version_id)
+        .eq("assessment_id", body.assessment_id)
+        .single();
+      if (versionError) throw versionError;
+      if (!version) throw new Error("Assessment version not found");
+      assertVersionMutable(version.status);
       const { data, error } = await admin
         .from("markscheme_documents")
         .insert({
@@ -31,11 +40,13 @@ serve(async (request) => {
         .select("*")
         .single();
       if (error) throw error;
-      await auditOwnerAction(ownerProfile.id, user.id, "markscheme_document.created", "markscheme_documents", data.id);
+      await auditOwnerAction(ownerProfileId, user.id, "markscheme_document.created", "markscheme_documents", data.id);
       return json({ ok: true, document: data });
     }
 
     if (body.action === "upsert_node") {
+      const document = await loadOwnedMarkschemeDocument(admin, ownerProfileId, body.markscheme_document_id);
+      if (body.mapped_question_node_id) await assertQuestionInVersion(admin, body.mapped_question_node_id, document.assessment_version_id);
       const normalized = normalizeNodeKey(body.node_key ?? null);
       const { data, error } = await admin
         .from("markscheme_nodes")
@@ -54,10 +65,18 @@ serve(async (request) => {
         .select("*")
         .single();
       if (error) throw error;
-      await auditOwnerAction(ownerProfile.id, user.id, "markscheme_node.created", "markscheme_nodes", data.id);
+      await auditOwnerAction(ownerProfileId, user.id, "markscheme_node.created", "markscheme_nodes", data.id);
       return json({ ok: true, node: data });
     }
 
+    const { data: existingNode, error: existingNodeError } = await admin
+      .from("markscheme_nodes")
+      .select("id,markscheme_document_id")
+      .eq("id", body.markscheme_node_id)
+      .single();
+    if (existingNodeError) throw existingNodeError;
+    const document = await loadOwnedMarkschemeDocument(admin, ownerProfileId, existingNode.markscheme_document_id);
+    if (body.action === "map_node") await assertQuestionInVersion(admin, body.question_node_id, document.assessment_version_id);
     const status = body.action === "map_node" ? "mapped" : "ignored";
     const { data, error } = await admin
       .from("markscheme_nodes")
@@ -69,12 +88,47 @@ serve(async (request) => {
       .select("*")
       .single();
     if (error) throw error;
-    await auditOwnerAction(ownerProfile.id, user.id, `markscheme_node.${status}`, "markscheme_nodes", body.markscheme_node_id);
+    await auditOwnerAction(ownerProfileId, user.id, `markscheme_node.${status}`, "markscheme_nodes", body.markscheme_node_id);
     return json({ ok: true, node: data });
   } catch (error) {
     return errorResponse(error, "markscheme-mapper failed");
   }
 });
+
+async function loadOwnedMarkschemeDocument(admin: any, ownerProfileId: string, documentId: string) {
+  const { data: document, error: documentError } = await admin
+    .from("markscheme_documents")
+    .select("id,assessment_id,assessment_version_id")
+    .eq("id", documentId)
+    .single();
+  if (documentError) throw documentError;
+  const { data: assessment, error: assessmentError } = await admin
+    .from("assessments")
+    .select("owner_profile_id")
+    .eq("id", document.assessment_id)
+    .single();
+  if (assessmentError) throw assessmentError;
+  assertInstitutionOwner(assessment.owner_profile_id, ownerProfileId);
+  const { data: version, error: versionError } = await admin
+    .from("assessment_versions")
+    .select("status")
+    .eq("id", document.assessment_version_id)
+    .single();
+  if (versionError) throw versionError;
+  assertVersionMutable(version.status);
+  return document;
+}
+
+async function assertQuestionInVersion(admin: any, questionNodeId: string, versionId: string) {
+  const { data, error } = await admin
+    .from("question_nodes")
+    .select("id")
+    .eq("id", questionNodeId)
+    .eq("assessment_version_id", versionId)
+    .single();
+  if (error) throw error;
+  if (!data) throw new Error("Question is outside this markscheme version");
+}
 
 function normalizeNodeKey(rawKey: string | null) {
   const path = ordinalPathForKey(rawKey);

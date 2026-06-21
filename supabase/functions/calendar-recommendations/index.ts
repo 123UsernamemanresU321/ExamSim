@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body =
@@ -10,8 +10,7 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "analytics");
     const body = await readJson<Body>(request);
 
     if (body.action === "set_status") {
@@ -19,11 +18,11 @@ serve(async (request) => {
         .from("calendar_recommendations")
         .update({ status: body.status })
         .eq("id", body.recommendation_id)
-        .eq("owner_profile_id", ownerProfile.id)
+        .eq("owner_profile_id", ownerProfileId)
         .select("*")
         .single();
       if (error) throw error;
-      await auditOwnerAction(ownerProfile.id, user.id, "calendar_recommendation.status_changed", "calendar_recommendations", body.recommendation_id, { status: body.status });
+      await auditOwnerAction(ownerProfileId, user.id, "calendar_recommendation.status_changed", "calendar_recommendations", body.recommendation_id, { status: body.status });
       return json({ ok: true, recommendation: data });
     }
 
@@ -34,13 +33,13 @@ serve(async (request) => {
       .single();
     if (attemptError) throw attemptError;
     const assessment = Array.isArray(attempt.assessments) ? attempt.assessments[0] : attempt.assessments;
-    if (assessment?.owner_profile_id !== ownerProfile.id) return json({ error: "Forbidden" }, 403);
+    assertInstitutionOwner(assessment?.owner_profile_id, ownerProfileId);
 
     const [{ data: nodes }, { data: marks }, { data: links }, { data: tags }] = await Promise.all([
       admin.from("question_nodes").select("id, marks").eq("assessment_version_id", attempt.assessment_version_id),
       admin.from("marks").select("question_node_id, awarded_marks").eq("attempt_id", body.attempt_id),
       admin.from("question_topic_links").select("question_node_id, topic_tag_id, weight"),
-      admin.from("topic_tags").select("id, subject, tag").eq("owner_profile_id", ownerProfile.id),
+      admin.from("topic_tags").select("id, subject, tag").eq("owner_profile_id", ownerProfileId),
     ]);
 
     const nodeById = new Map((nodes ?? []).map((node: { id: string; marks: number | null }) => [node.id, node]));
@@ -62,7 +61,7 @@ serve(async (request) => {
       const tag = tagById.get(topicTagId);
       const percent = Math.round((total.awarded / total.available) * 100);
       return {
-        owner_profile_id: ownerProfile.id,
+        owner_profile_id: ownerProfileId,
         student_profile_id: attempt.assignee_profile_id,
         assessment_id: attempt.assessment_id,
         paper_code: assessment?.paper_code ?? null,
@@ -75,7 +74,7 @@ serve(async (request) => {
     });
     const { data, error } = rows.length ? await admin.from("calendar_recommendations").insert(rows).select("*") : { data: [], error: null };
     if (error) throw error;
-    await auditOwnerAction(ownerProfile.id, user.id, "calendar_recommendations.generated", "attempts", body.attempt_id, { count: rows.length });
+    await auditOwnerAction(ownerProfileId, user.id, "calendar_recommendations.generated", "attempts", body.attempt_id, { count: rows.length });
     return json({ ok: true, recommendations: data ?? [] });
   } catch (error) {
     return errorResponse(error, "calendar-recommendations failed");

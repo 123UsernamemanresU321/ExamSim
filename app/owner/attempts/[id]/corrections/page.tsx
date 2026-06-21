@@ -8,12 +8,25 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/form";
 import { PageHeader } from "@/components/ui/page-header";
 import type { CorrectionEntry } from "@/types/database";
+import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
+import { assertInstitutionAttemptAccess } from "@/lib/examsim/institution-resource-access";
+import { auditInstitutionAction } from "@/lib/examsim/institution-audit";
 
 async function reviewCorrections(formData: FormData) {
   "use server";
+  const { ownerProfileId } = await requireInstitutionPermission("marking");
   const attemptId = String(formData.get("attempt_id") ?? "");
   const notebookId = String(formData.get("notebook_id") ?? "");
   const supabase = await createSupabaseServerClient();
+  await assertInstitutionAttemptAccess(supabase, attemptId, ownerProfileId);
+  const { data: notebook, error: notebookAccessError } = await supabase
+    .from("correction_notebooks")
+    .select("id")
+    .eq("id", notebookId)
+    .eq("attempt_id", attemptId)
+    .maybeSingle();
+  if (notebookAccessError) throw notebookAccessError;
+  if (!notebook) throw new Error("Correction notebook not found for this attempt.");
   const { data: entries, error: entryError } = await supabase.from("correction_entries").select("id").eq("notebook_id", notebookId);
   if (entryError) throw entryError;
   for (const entry of entries ?? []) {
@@ -23,6 +36,13 @@ async function reviewCorrections(formData: FormData) {
   }
   const { error: notebookError } = await supabase.from("correction_notebooks").update({ status: "reviewed", reviewed_at: new Date().toISOString() }).eq("id", notebookId);
   if (notebookError) throw notebookError;
+  await auditInstitutionAction({
+    ownerProfileId,
+    action: "correction_notebook.reviewed",
+    targetTable: "correction_notebooks",
+    targetId: notebookId,
+    metadata: { attempt_id: attemptId, entry_count: entries?.length ?? 0 },
+  });
   redirect(`/owner/attempts/${attemptId}/corrections`);
 }
 

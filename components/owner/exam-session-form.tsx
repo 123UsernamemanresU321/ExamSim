@@ -108,6 +108,48 @@ export function ExamSessionForm({ options }: { options: SessionAssessmentOption[
             </div>
           </div>
         </div>
+        <div className="rounded-[4px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+          <h3 className="text-sm font-semibold text-[var(--ink)]">Session accommodation defaults</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            These defaults apply to the session. A student-specific roster policy may override them. Rest breaks remain invigilator controlled.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <label className="flex items-start gap-3 text-sm leading-6 md:col-span-2">
+              <input name="rest_break_allowed" type="checkbox" className="mt-1" />
+              <span><strong>Allow approved rest breaks</strong><span className="block text-[var(--muted)]">The server pauses writing and extends the deadline only when an invigilator resumes the attempt.</span></span>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-[var(--ink)]">
+              Maximum break minutes
+              <input name="rest_break_max_minutes" type="number" min="1" max="240" defaultValue="15" className="min-h-11 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm" />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-[var(--ink)]">
+              Default text size
+              <select name="font_scale_percent" defaultValue="100" className="min-h-11 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
+                <option value="100">Standard</option><option value="125">Large</option><option value="150">Extra large</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-[var(--ink)]">
+              Default contrast
+              <select name="contrast_mode" defaultValue="standard" className="min-h-11 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
+                <option value="standard">Standard</option><option value="high">High contrast</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-[var(--ink)]">
+              Calculator policy
+              <select name="calculator_policy" defaultValue="none" className="min-h-11 rounded-[2px] border border-[var(--border)] bg-white px-3 text-sm">
+                <option value="none">Not allowed</option><option value="basic">Basic</option><option value="scientific">Scientific</option><option value="graphing">Graphing, externally supplied</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm"><input name="dyslexia_font" type="checkbox" /> Use readable font by default</label>
+            <label className="flex items-center gap-2 text-sm"><input name="formula_booklet_allowed" type="checkbox" /> Formula booklet allowed</label>
+          </div>
+          <label className="mt-4 grid gap-2 text-sm font-semibold text-[var(--ink)]">
+            Approved materials
+            <textarea name="allowed_materials" rows={3} placeholder="One item per line" className="rounded-[2px] border border-[var(--border)] bg-white px-3 py-2 text-sm" />
+          </label>
+        </div>
         <input name="display_timezone" type="hidden" value="Africa/Johannesburg" />
         <Button type="submit">Create session</Button>
       </form>

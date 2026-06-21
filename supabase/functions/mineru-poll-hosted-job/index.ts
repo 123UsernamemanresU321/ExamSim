@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import JSZip from "https://esm.sh/jszip@3.10.1";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
 import {
@@ -18,17 +18,16 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Body>(request);
     if (!body.parse_job_id) return json(request, { error: "parse_job_id is required" }, 400);
 
     const { data: parseJob, error: parseJobError } = await admin.from("parse_jobs").select("*").eq("id", body.parse_job_id).single();
     if (parseJobError) throw parseJobError;
-    if (parseJob.owner_profile_id !== ownerProfile.id) return json(request, { error: "Forbidden" }, 403);
+    assertInstitutionOwner(parseJob.owner_profile_id, ownerProfileId);
     await enforceRateLimit(admin, {
       scope: "mineru-poll-hosted-job:owner",
-      key: ownerProfile.id,
+      key: ownerProfileId,
       limit: envInt("MINERU_POLL_OWNER_HOURLY_LIMIT", 240),
       windowSeconds: 3600,
     });
@@ -191,7 +190,7 @@ serve(async (request) => {
         })
         .eq("id", parseJob.assessment_version_id);
 
-      await auditOwnerAction(ownerProfile.id, user.id, "mineru_hosted.completed", "parse_jobs", parseJob.id, {
+      await auditOwnerAction(ownerProfileId, user.id, "mineru_hosted.completed", "parse_jobs", parseJob.id, {
         artifact_count: artifacts.length + 1,
         result_object_path: primaryArtifact?.object_path ?? zipPath,
       });

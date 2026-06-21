@@ -11,6 +11,7 @@ export async function sendSessionBroadcastAction(sessionId: string, formData: Fo
   const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!body) throw new Error("Message is required");
   const supabase = await createSupabaseServerClient();
+  await requireOwnedSession(supabase, sessionId, ownerProfileId);
   const { error } = await supabase.from("invigilation_messages").insert({
     exam_session_id: sessionId,
     sender_profile_id: profileId,
@@ -29,6 +30,7 @@ export async function sendPrivateInvigilationMessageAction(sessionId: string, at
   const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!body) throw new Error("Message is required");
   const supabase = await createSupabaseServerClient();
+  await requireOwnedSession(supabase, sessionId, ownerProfileId);
   const { data: attempt, error: attemptError } = await supabase
     .from("attempts")
     .select("id")
@@ -60,6 +62,7 @@ export async function applyLiveInterventionAction(
 ) {
   const { ownerProfileId } = await requireInstitutionPermission("invigilation");
   const supabase = await createSupabaseServerClient();
+  await requireOwnedSession(supabase, sessionId, ownerProfileId);
 
   let details: Record<string, unknown> = {};
   if (actionType === "extra_time") {
@@ -140,4 +143,19 @@ function validateExtraTimeSeconds(value: FormDataEntryValue | null | undefined) 
     throw new Error("Extra time must be between 1 and 120 minutes.");
   }
   return seconds;
+}
+
+async function requireOwnedSession(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  sessionId: string,
+  ownerProfileId: string,
+) {
+  const { data, error } = await supabase
+    .from("exam_sessions")
+    .select("id")
+    .eq("id", sessionId)
+    .eq("owner_profile_id", ownerProfileId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Exam session not found in this institution.");
 }

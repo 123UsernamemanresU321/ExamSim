@@ -208,11 +208,12 @@ Set these Vercel environment variables for Production, Preview, and Development:
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_DEFAULT_TIMEZONE
+SUPABASE_SERVICE_ROLE_KEY
 ```
 
-Do not add static export flags to Vercel. Keep `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, and
-`ATTEMPT_STATE_TOKEN_SECRET` out of Vercel unless a future Vercel-side server workflow explicitly requires them. The
-current sensitive workflows run in Supabase Edge Functions, where those server-side secrets belong.
+Do not add static export flags to Vercel. `SUPABASE_SERVICE_ROLE_KEY` is server-only and is required in Vercel for the
+owner-managed student Auth deletion action; never expose it through a `NEXT_PUBLIC_` variable. Keep `OWNER_EMAIL` and
+`ATTEMPT_STATE_TOKEN_SECRET` in Supabase Edge unless a Vercel-side server workflow explicitly requires them.
 
 Set these Supabase Edge Function secrets for production SEB verification:
 

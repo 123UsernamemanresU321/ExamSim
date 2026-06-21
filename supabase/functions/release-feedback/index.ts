@@ -17,11 +17,19 @@ serve(async (request) => {
       release_annotated_pdfs?: boolean;
       release_moderation_summary?: boolean;
       release_note?: string;
+      release_checklist?: {
+        marks_reviewed?: boolean;
+        feedback_reviewed?: boolean;
+        visibility_reviewed?: boolean;
+      };
     }>(request);
     if (!body.attempt_id) return json({ error: "attempt_id is required" }, 400);
+    if (!body.release_checklist?.marks_reviewed || !body.release_checklist.feedback_reviewed || !body.release_checklist.visibility_reviewed) {
+      return json({ error: "Complete the feedback release checklist before release", code: "release_checklist_required" }, 409);
+    }
 
     const [{ data: marks, error: marksError }, { data: attempt, error: attemptError }] = await Promise.all([
-      admin.from("marks").select("awarded_marks").eq("attempt_id", body.attempt_id),
+      admin.from("marks").select("question_node_id,awarded_marks").eq("attempt_id", body.attempt_id),
       admin.from("attempts").select("assessment_id,assessment_version_id,assessments!inner(owner_profile_id)").eq("id", body.attempt_id).single(),
     ]);
     if (marksError) throw marksError;
@@ -55,9 +63,21 @@ serve(async (request) => {
 
     const totalAwarded = (marks ?? []).reduce((sum, mark) => sum + Number(mark.awarded_marks || 0), 0);
     const parentIds = new Set((nodes ?? []).map((node: { parent_node_id: string | null }) => node.parent_node_id).filter(Boolean));
-    const totalAvailable = (nodes ?? [])
-      .filter((node: { id: string }) => !parentIds.has(node.id))
+    const markableLeafNodes = (nodes ?? [])
+      .filter((node: { id: string; marks: number | null }) => !parentIds.has(node.id) && Number(node.marks ?? 0) > 0);
+    const totalAvailable = markableLeafNodes
       .reduce((sum, node: { marks: number | null }) => sum + Number(node.marks || 0), 0);
+    const markedQuestionIds = new Set((marks ?? []).map((mark: { question_node_id: string | null }) => mark.question_node_id).filter(Boolean));
+    const missingMarkedQuestionIds = markableLeafNodes
+      .filter((node: { id: string }) => !markedQuestionIds.has(node.id))
+      .map((node: { id: string }) => node.id);
+    if (missingMarkedQuestionIds.length) {
+      return json({
+        error: "Every markable question must have a saved mark, including zero for unanswered work",
+        code: "incomplete_marking",
+        missing_question_node_ids: missingMarkedQuestionIds,
+      }, 409);
+    }
 
     const { data: release, error: releaseError } = await admin
       .from("feedback_releases")
@@ -92,6 +112,7 @@ serve(async (request) => {
     await auditOwnerAction(ownerProfileId, user.id, "feedback.released", "attempts", body.attempt_id, {
       total_awarded_marks: totalAwarded,
       total_available_marks: totalAvailable,
+      release_checklist: body.release_checklist,
     });
 
     return json({ ok: true, release });

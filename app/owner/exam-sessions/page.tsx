@@ -6,8 +6,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SectionHeading } from "@/components/section-heading";
 import { listOwnerExamSessions, listSessionAssessmentOptions } from "@/lib/examsim/session-data";
+import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
 
 export default async function OwnerExamSessionsPage() {
+  await requireInstitutionPagePermission("session_publishing", "/owner/exam-sessions");
   const [sessions, options] = await Promise.all([listOwnerExamSessions(), listSessionAssessmentOptions()]);
 
   return (

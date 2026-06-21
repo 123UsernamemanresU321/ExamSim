@@ -11,6 +11,8 @@ export type RosterAccommodationPolicy = {
   calculator_policy: "none" | "basic" | "scientific" | "graphing";
   formula_booklet_allowed: boolean;
   allowed_materials: string[];
+  access_open_at_utc: string | null;
+  access_close_at_utc: string | null;
 };
 
 export type StudentAccommodationPolicy = Pick<
@@ -47,6 +49,8 @@ export const DEFAULT_ROSTER_ACCOMMODATIONS: RosterAccommodationPolicy = {
   calculator_policy: "none",
   formula_booklet_allowed: false,
   allowed_materials: [],
+  access_open_at_utc: null,
+  access_close_at_utc: null,
 };
 
 export function parseRosterAccommodationPolicy(value: Json | unknown): RosterAccommodationPolicy {
@@ -70,7 +74,15 @@ export function parseRosterAccommodationPolicy(value: Json | unknown): RosterAcc
     allowed_materials: Array.isArray(source.allowed_materials)
       ? source.allowed_materials.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 20)
       : [],
+    access_open_at_utc: readIso(source.access_open_at_utc),
+    access_close_at_utc: readIso(source.access_close_at_utc),
   };
+}
+
+function readIso(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 
 function clampInteger(value: unknown, min: number, max: number) {

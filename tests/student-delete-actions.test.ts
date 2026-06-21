@@ -138,14 +138,17 @@ async function importStudentActionsWithWorkingOwnerClientAndMissingAdmin() {
 }
 
 describe("student delete server actions", () => {
-  it("deletes unused student app accounts without requiring Supabase Auth admin access", async () => {
+  it("fails closed when Supabase Auth admin access is unavailable", async () => {
     const { deleteStudentAccountAction, deletedProfiles, auditEvents, revalidatePath } =
       await importStudentActionsWithWorkingOwnerClientAndMissingAdmin();
 
-    await expect(deleteStudentAccountAction("student-1")).resolves.toEqual({ ok: true });
-    expect(deletedProfiles).toEqual(["student-1"]);
-    expect(auditEvents).toEqual(["student.delete_requested", "student.deleted"]);
-    expect(revalidatePath).toHaveBeenCalledWith("/owner/students");
+    await expect(deleteStudentAccountAction("student-1")).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining("No profile was removed"),
+    });
+    expect(deletedProfiles).toEqual([]);
+    expect(auditEvents).toEqual(["student.delete_requested"]);
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("returns a structured failure instead of rejecting when roster deletion cannot run", async () => {

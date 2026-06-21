@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildReleaseCandidateReadiness,
@@ -27,6 +28,7 @@ const EXPECTED_FEATURE_KEYS = [
   "accommodations_matrix",
   "subject_tools",
   "curriculum_alignment",
+  "adaptive_revision",
   "qti_moodle_interop",
   "version_history_rollback",
   "school_reporting",
@@ -56,8 +58,8 @@ describe("Examsim production-readiness matrix", () => {
       DEEPSEEK_API_KEY: "set",
       MINERU_API_KEY: "set",
     });
-    expect(withProviders.find((item) => item.key === "smart_import_compiler")?.status).toBe("ready");
-    expect(withProviders.find((item) => item.key === "ocr_question_detection")?.status).toBe("provider_ready_needs_live_validation");
+    expect(withProviders.find((item) => item.key === "smart_import_compiler")?.status).toBe("staging_required");
+    expect(withProviders.find((item) => item.key === "ocr_question_detection")?.status).toBe("staging_required");
   });
 
   it("tracks SimpleTeX as the configured OCR path without claiming guest lockdown", () => {
@@ -65,9 +67,19 @@ describe("Examsim production-readiness matrix", () => {
       SIMPLETEX_APP_ID: "app-id",
       SIMPLETEX_APP_SECRET: "server-secret",
     });
-    expect(readiness.find((item) => item.key === "ocr_question_detection")?.status).toBe("provider_ready_needs_live_validation");
-    expect(readiness.find((item) => item.key === "stem_handwriting_ocr")?.status).toBe("provider_ready_needs_live_validation");
+    expect(readiness.find((item) => item.key === "ocr_question_detection")?.status).toBe("staging_required");
+    expect(readiness.find((item) => item.key === "stem_handwriting_ocr")?.status).toBe("staging_required");
     expect(readiness.find((item) => item.key === "guest_seb_lockdown")?.status).toBe("blocked");
+  });
+
+  it("accepts DeepSeek plus SimpleTeX as the configured Smart Import provider pair without calling it ready", () => {
+    const readiness = getExamsimProductionReadiness({
+      DEEPSEEK_API_KEY: "set",
+      SIMPLETEX_APP_ID: "app-id",
+      SIMPLETEX_APP_SECRET: "server-secret",
+    });
+    expect(readiness.find((item) => item.key === "smart_import_compiler")?.status).toBe("staging_required");
+    expect(readiness.find((item) => item.key === "smart_import_compiler")?.ownerMessage).toContain("reviewed sample");
   });
 
   it("summarizes readiness for owner-facing deployment decisions", () => {
@@ -75,7 +87,7 @@ describe("Examsim production-readiness matrix", () => {
     expect(summary.total).toBe(EXPECTED_FEATURE_KEYS.length);
     expect(summary.providerRequired).toBeGreaterThan(0);
     expect(summary.blocked).toBeGreaterThan(0);
-    expect(summary.ready + summary.providerReadyNeedsLiveValidation + summary.providerRequired + summary.manualFallback + summary.blocked + summary.liveValidationRequired).toBe(summary.total);
+    expect(summary.ready + summary.providerRequired + summary.manualFallback + summary.blocked + summary.liveValidationRequired + summary.stagingRequired + summary.v4Future).toBe(summary.total);
   });
 
   it("builds a release-candidate readiness summary without overclaiming full V3", () => {
@@ -84,17 +96,55 @@ describe("Examsim production-readiness matrix", () => {
     expect(candidate.blockingCount).toBeGreaterThan(0);
     expect(candidate.providerGatedCount).toBeGreaterThan(0);
     expect(candidate.liveValidationRequiredCount).toBeGreaterThan(0);
+    expect(candidate.stagingRequiredCount).toBeGreaterThanOrEqual(0);
+    expect(candidate.v4FutureCount).toBeGreaterThanOrEqual(0);
     expect(candidate.remainingItems.map((item) => item.key)).toContain("guest_seb_lockdown");
     expect(candidate.ownerMessage).toContain("Full V3 is not ready");
+  });
+
+  it("uses only the strict readiness statuses from the V3 acceptance contract", () => {
+    const statuses = getExamsimProductionReadiness({
+      DEEPSEEK_API_KEY: "set",
+      SIMPLETEX_APP_ID: "set",
+      SIMPLETEX_APP_SECRET: "set",
+    }).map((item) => item.status);
+
+    expect(statuses).not.toContain("provider_ready_needs_live_validation");
+    expect(statuses).toContain("staging_required");
+    const allowedStatuses = new Set([
+      "ready",
+      "provider_required",
+      "manual_fallback",
+      "blocked",
+      "live_validation_required",
+      "staging_required",
+      "v4_future",
+    ]);
+    expect(statuses.every((status) => allowedStatuses.has(status))).toBe(true);
+  });
+
+  it("attaches verifiable implementation evidence to every readiness item", () => {
+    const readiness = getExamsimProductionReadiness({});
+
+    for (const item of readiness) {
+      const evidence = Object.values(item.evidence).flat();
+      expect(evidence.length, `${item.key} has no evidence`).toBeGreaterThan(0);
+      expect(evidence.every((entry) => entry.length > 3), `${item.key} has invalid evidence`).toBe(true);
+      for (const entry of evidence) {
+        if (/^(app|components|lib|supabase|tests)\//.test(entry)) {
+          expect(existsSync(entry), `${item.key} references missing evidence: ${entry}`).toBe(true);
+        }
+      }
+    }
   });
 
   it("tracks Export Hub as the safe fallback for school reporting and interoperability", () => {
     const readiness = getExamsimProductionReadiness({});
     expect(readiness.find((item) => item.key === "institution_role_matrix")?.status).toBe("live_validation_required");
     expect(readiness.find((item) => item.key === "institution_role_matrix")?.ownerMessage).toContain("RLS-protected membership table");
-    expect(readiness.find((item) => item.key === "school_reporting")?.status).toBe("manual_fallback");
+    expect(readiness.find((item) => item.key === "school_reporting")?.status).toBe("live_validation_required");
     expect(readiness.find((item) => item.key === "school_reporting")?.fallback).toContain("Export Hub");
-    expect(readiness.find((item) => item.key === "qti_moodle_interop")?.ownerMessage).toContain("Moodle XML is intentionally blocked");
+    expect(readiness.find((item) => item.key === "qti_moodle_interop")?.ownerMessage).toContain("conservative Moodle XML");
   });
 
   it("surfaces the production-readiness panel in owner security", () => {
@@ -121,7 +171,7 @@ describe("Examsim production-readiness matrix", () => {
     const page = readFileSync("app/owner/export-hub/page.tsx", "utf8");
     const sidebar = readFileSync("components/owner/sidebar-nav.tsx", "utf8");
     expect(page).toContain("Export Hub");
-    expect(page).toContain("Moodle XML is not exposed as a working export");
+    expect(page).toContain("Published assessments can export conservative Moodle XML");
     expect(page).toContain("ExportHubDownloads");
     expect(sidebar).toContain('href: "/owner/export-hub"');
   });

@@ -1,6 +1,6 @@
 # Examsim Production Readiness
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 This document records the current production boundary for Examsim. It is intentionally strict: provider-dependent OCR, AI, lockdown, offline, and scan-mapping features must be shown as provider-gated, blocked, manual fallback, or live-validation-required until they are verified end to end on the actual website with synthetic records.
 
@@ -60,6 +60,15 @@ providers; it only reports env/config readiness, recent import-job states, and m
 - Institution permissions are enforced by server layouts, server actions, RLS, owner-scoped memberships, and checked timing/identity RPCs for owner/admin, teacher, marker, reviewer, invigilator, and read-only roles.
 - Collaborative marking now stores immutable review snapshots, optional anonymous/double-marking policy, moderation decisions, release gating, and database-checked submission/review transitions.
 - Deterministic answer groups, members, approvals, mark application, and audit events are persisted with explicit owner/question/attempt linkage checks.
+- Published assessment versions are immutable. Historical versions can be compared and restored only by cloning a complete, separately audited draft, including questions, source documents/pages/regions, markscheme mappings, rubrics, topics, and standards.
+- Paper Mode generates stable roster booklets and paper attempts, printable PDF packs, private verified scan uploads, audited manual page-to-student/question mapping, and mapped scan links in digital marking. Automatic OCR/barcode mapping remains optional and provider-gated.
+- Live invigilation now includes searchable risk filters, heartbeat/visibility evidence, private and broadcast messages, student acknowledgements, and acknowledgement counts for owner review.
+- The accommodations matrix includes server-enforced extra time, upload extensions, custom access windows, capped server-side rest breaks, display preferences, calculator/formula policies, and allowed materials. TTS remains unavailable unless a real provider is added.
+- Question Library extraction preserves response interactions, source regions, topics, standards, rubrics, provenance, readiness, and duplicate fingerprints. Blueprint generation supports topic, standard, difficulty, command-term, paper-type, recent-use exclusions, replacement, readiness scoring, and conversion to an editable assessment.
+- Owner-managed curriculum frameworks and hierarchical standards include reviewable starter structures for IB, MYP, IGCSE, and Olympiad/SAMO-style use. They feed question links, standards mastery, cohort reporting, and revision recommendations without claiming official completeness.
+- Adaptive revision sets use released marks only, match weaknesses to reviewed Question Library items, remain teacher-editable drafts until assignment, and expose assigned content through a student-checked database projection rather than direct Question Library access.
+- Group/cohort reporting uses owner-scoped attempts and marks for completion, marking completion, average score, support flags, topic mastery, standards mastery, paper comparison, CSV, and PDF output.
+- Export governance records download history. CSV/JSON/PDF exports are permission-checked; QTI and conservative Moodle XML are AAL2-gated and carry explicit fidelity warnings.
 
 ## Owner-facing readiness evidence
 
@@ -69,9 +78,12 @@ providers; it only reports env/config readiness, recent import-job states, and m
 | Import job state, sample QA, and governance model | `lib/examsim/provider-readiness.ts`, `components/owner/provider-readiness-dashboard.tsx`, `tests/examsim-v3-provider-readiness.test.ts` | Uses existing `parse_jobs` and `owner_audit_logs`; no new table is required for V3 status, sample QA fixture display, batch PDF preflight, quota, retry, cost, and audit display. |
 | Deployment readiness console | `components/owner/deployment-readiness-console.tsx`, `lib/examsim/deployment-readiness.ts`, `tests/examsim-v3-deployment-readiness.test.ts` | Read-only launch checklist. Live RLS/storage/migration validation should run on the actual website and Supabase project with synthetic records. |
 | Institution role matrix | `lib/examsim/institution-role-matrix.ts`, `lib/examsim/institution-roles.ts`, `lib/examsim/institution-route-access.ts`, `components/owner/institution-role-matrix-panel.tsx`, `components/owner/sidebar-nav.tsx`, `supabase/migrations/20260618140348_institution_role_matrix.sql`, `supabase/migrations/20260619000400_v3_institution_permission_rollout.sql`, `tests/examsim-v3-institution-roles.test.ts`, `tests/examsim-v3-route-permissions.test.ts` | Owner-scoped collaboration membership, server/RLS permission enforcement, role-aware navigation, and sensitive route layouts are deployed. Multi-account workflow QA remains required before institution-wide use. |
-| Live V3 database and Edge rollout | Migrations `20260619000100` through `20260620084239`; deployed functions `claim-guest-attempt`, `owner-issue-attempt-claim-code`, `simpletex-ocr-source-page`, and state/upload/marking functions | Migration history was reconciled against verified live schema markers. New tables use RLS and explicit Data API grants; privileged RPCs revoke anonymous execution. |
+| V3 release-candidate schema | Migrations `20260619000100` through `20260621145455`; claim, OCR, state, upload, invigilation, Paper Mode, revision, analytics, export, and security-closure functions | Applied to the actual Supabase project. The security-closure migration adds tenant-bound revision/Paper Mode references, atomic accommodation updates, safe student revision projection, and cross-reference triggers. |
 | Release-candidate readiness | `lib/examsim-production-readiness.ts`, `components/owner/examsim-production-readiness-panel.tsx`, `tests/examsim-production-readiness-matrix.test.ts` | Explicitly states whether full V3 can be claimed. Current status remains not full V3 ready while blocked, provider-gated, live-validation-required, and manual-fallback items remain. |
-| Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `tests/examsim-v3-export-hub.test.ts` | Owner-scoped CSV/JSON handoff exports. QTI remains AAL2 Edge-scoped per assessment; Moodle XML remains visibly unsupported. |
+| Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `supabase/migrations/20260621093000_v3_export_governance.sql`, `tests/examsim-v3-export-governance.test.ts` | Audited owner-scoped CSV/JSON/PDF exports. QTI and conservative Moodle XML remain AAL2 assessment-scoped and visibly warn about lossy interactions. |
+| Paper Mode | `app/owner/paper-mode`, `app/api/owner/paper-mode/[jobId]/booklet/route.ts`, `supabase/migrations/20260621082532_v3_paper_mode.sql`, `tests/examsim-v3-paper-mode.test.ts` | Manual mapping is production-safe. Automated OCR/barcode mapping is not claimed without provider validation. |
+| Curriculum and cohort analytics | `app/owner/standards`, `app/owner/analytics/cohorts`, `lib/examsim/cohort-analytics.ts`, `tests/examsim-v3-standards-analytics.test.ts`, `tests/examsim-v3-cohort-reporting.test.ts` | Real-data owner-scoped reporting is implemented; cross-account isolation and representative datasets still require actual-site QA. |
+| Adaptive revision | `app/owner/revision`, `app/student/revision`, `supabase/migrations/20260621091000_v3_adaptive_revision.sql`, `tests/examsim-v3-adaptive-revision.test.ts` | Only visible, non-revoked released feedback feeds generation. Assignment is teacher-reviewed and student-scoped. |
 | Compiler review queue | `lib/examsim/compiler-readiness.ts`, `app/owner/assessments/[id]/compiler/page.tsx` | Low-confidence and missing-data items stay review-required before publish. |
 | Source coverage score | `lib/paper-health.ts`, `app/owner/assessments/[id]/health/page.tsx`, `tests/examsim-v2-compiler-readiness.test.ts`, `tests/pdf-region-editor-pipeline.test.ts` | Weighted health score and category breakdown for structure, source, markscheme, delivery, marking, and security. It flags unlinked question and supporting regions without touching Storage or publish logic. |
 | Rubric total validator | `lib/examsim/rubric-readiness.ts`, `app/owner/assessments/[id]/rubrics/page.tsx`, `components/owner/marking-response-workspace.tsx`, `supabase/functions/save-marking/index.ts`, `tests/rubric-readiness.test.ts`, `tests/marking-scoring.test.ts`, `tests/production-browser-mode.test.ts` | Owners see point-bank totals and question-maximum warnings before marking; the Edge save boundary rejects manual and summed rubric totals above the question maximum. |
@@ -79,11 +91,11 @@ providers; it only reports env/config readiness, recent import-job states, and m
 
 ## Release-candidate readiness
 
-The owner Security page now includes a `Release candidate readiness` summary derived from the same production-readiness matrix. It must read as **not full V3 ready** until all remaining features leave blocked, provider-gated, live-validation-required, or manual-fallback status. The main blockers remain guest SEB lockdown, provider-backed sample-paper OCR validation, Paper Mode auto-mapping, school dashboards, curriculum standard trees, Moodle XML/QTI fidelity, version rollback/diff UX, advanced accommodations/tools, and true offline file submission after browser/process restart.
+The owner Security page includes a `Release candidate readiness` summary derived from the same matrix. The migrations and changed Edge Functions are live on the actual project. It remains **not full V3 ready** until actual-site multi-role and synthetic classroom QA pass, configured OCR/AI providers pass reviewed sample papers, and the intentional limitations below are accepted. Guest SEB and true process-restart file submission remain blocked rather than overclaimed.
 
 ## Provider-gated V2 features
 
-- Provider-backed Smart Import / Exam Compiler needs `DEEPSEEK_API_KEY` plus `MINERU_API_KEY` or `MINERU_WORKER_HMAC_SECRET`.
+- Provider-backed Smart Import / Exam Compiler needs `DEEPSEEK_API_KEY` plus SimpleTeX APP credentials or `MINERU_API_KEY`.
 - AI/OCR question-region detection has live SimpleTeX and MinerU configuration but still requires reviewed sample-paper validation. Manual PDF regions remain the production fallback.
 - STEM/handwriting/table/diagram OCR uses the deployed SimpleTeX hook where supported and still requires confidence review and manual correction.
 - Semantic answer grouping needs `DEEPSEEK_API_KEY`; deterministic/manual grouping remains available without it.
@@ -92,14 +104,12 @@ The owner Security page now includes a `Release candidate readiness` summary der
 ## Intentionally V3 / future
 
 - Guest SEB lockdown. Authenticated SEB can be used; no-login guest SEB remains blocked until server-verifiable evidence exists.
-- Full Paper Mode automatic scan-to-student/question mapping.
-- Full route-by-route institution role rollout across all authoring, publishing, marking, moderation, invigilation, export, analytics, and security data loaders. The role matrix, membership table, and navigation permission map exist, but every sensitive route must be staged with real collaborator accounts before this is production-ready.
+- Automatic Paper Mode OCR/barcode scan mapping. The complete manual path is implemented.
+- Multi-account actual-site validation for teacher, marker, reviewer, invigilator, and read-only roles.
 - True offline-first file submission after browser/process termination.
 - Advanced graphing, geometry, CAS, chemistry sketch, and STEM-specific in-exam tools.
-- Official seeded standard trees for every curriculum.
-- Full Moodle XML interoperability and lossless QTI round-tripping for unsupported item types.
-- School-level dashboards across multiple workspaces.
-- Historical rollback/diff UX beyond safe draft duplication/version protection.
+- Official complete standard trees for every curriculum. Owner-managed trees and starter samples are implemented.
+- Lossless Moodle/QTI round-tripping for interactions those standards cannot represent. Conservative exports are implemented with warnings.
 
 ## Feature readiness matrix
 
@@ -113,7 +123,7 @@ The owner Security page now includes a `Release candidate readiness` summary der
 | Markscheme Mapping and Rubrics | Ready | Markscheme blocks and rubric points are editable; setup warnings show point-bank drift and `save-marking` rejects manual or summed rubric totals above the question maximum. |
 | AI Answer Grouping | Manual fallback without DeepSeek | Deterministic/manual grouping covers typed normalization, numeric tolerance/unit grouping, blank buckets, table/manual-review, and whiteboard/manual-review responses. Semantic grouping is review-required and provider-gated. |
 | Guest SEB / Lockdown | Blocked | Authenticated SEB can be used. Guest SEB remains blocked until BEK/CK/request-hash evidence can be server-verified safely. |
-| Paper Mode | Manual fallback | Printable/scan workflows need OCR/barcode live validation for reliable auto-mapping; manual scan attachment and correction are the safe path. |
+| Paper Mode | Ready manual production path | Personalized booklet PDF, private scan upload, PDF byte verification, page records, audited manual mapping, marking links, and normal release/analytics integration are implemented. Automatic OCR/barcode mapping remains provider-gated. |
 | STEM / Handwriting / Table OCR | Provider required | Needs Mathpix, MinerU, or equivalent OCR provider plus confidence review. Manual transcription remains the fallback. |
 | Collaborative Grading Roles | Live validation required | Anonymous/double-marking policy, checked snapshot submission, moderation decisions, release gating, and marker assignment are deployed; multi-account workflow QA remains required. |
 | Institution Role Matrix | Live validation required | `institution_memberships` RLS, role permissions, checked RPCs/actions, sensitive server layouts, and role-aware navigation are deployed. Real collaborator-account QA remains required. |
@@ -124,13 +134,14 @@ The owner Security page now includes a `Release candidate readiness` summary der
 | Question Library / Mock Generator | Live validation required | Extraction and generation require health-check review before generated exams are published. |
 | Student Account Claim Flow | Live validation required | Expiring one-time codes, safe automatic matches, and owner review are deployed; duplicate and mismatched synthetic identity QA remains required. |
 | Source PDF Health | Ready | Integrated into publish/health checks with weighted score breakdown and supporting-region warnings for diagrams, tables, and instructions. |
-| Accommodations Matrix | Manual fallback | Extra time, upload extension, and server-controlled rest breaks are effective. Broader access-window, tool, visual, and TTS policies still need expansion/live validation. |
+| Accommodations Matrix | Live validation required | Extra time, upload extension, access windows, server-controlled rest breaks, visual preferences, tools/materials, and audit evidence are implemented. TTS remains unavailable without a provider. |
 | Built-in Subject Tools | Manual fallback | Allowed materials, table responses, and simple whiteboard responses are safe. Advanced graphing/geometry/CAS tools must stay labelled unavailable unless integrated. |
-| Curriculum Alignment | Manual fallback | Topic tags exist. Full standard trees need seeded IB/MYP/IGCSE/Olympiad content. |
-| QTI / Moodle / XML | Manual fallback | Export Hub provides CSV/JSON handoffs and routes QTI to the existing assessment-scoped Edge export. Moodle XML remains unsupported with visible fidelity warnings. |
-| Version History / Rollback | Manual fallback | Published versions are protected. Rollback should create/duplicate a new draft rather than mutating live attempts. |
-| School-level Reporting | Manual fallback / live validation | Export Hub provides group/cohort CSV and analytics handoff JSON from owner-scoped data. Full school dashboards still need cross-workspace permission and export validation on the actual website. |
-| Deployment Validation | Live validation required | Live migrations, Edge deployment, provider/core secret names, production aliases, headers, CORS, unauthenticated denial, and public route smoke checks passed on 2026-06-20. Authenticated multi-role workflow QA remains. |
+| Curriculum Alignment | Ready owner-managed path | Hierarchical standards, starter framework seeds, topic/standard links, analytics, and import/edit controls are implemented. Starters are not represented as complete official curriculum data. |
+| Adaptive Revision | Ready | Released evidence produces teacher-reviewed drafts; assigned content is student-scoped and does not expose Question Library rows directly. |
+| QTI / Moodle / XML | Live validation required | Audited QTI and conservative Moodle XML exports are implemented. Unsupported interactions are visibly warned and Moodle uses review-required essay fallback. |
+| Version History / Rollback | Live validation required | Published versions are protected, field/source diffs are visible, and rollback clones a complete new draft without mutating live attempts. |
+| School-level Reporting | Live validation required | Owner-scoped group dashboards, topic/standards mastery, completion/support metrics, CSV, and PDF are implemented. Actual-site cross-workspace QA remains. |
+| Deployment Validation | Live validation required | Live migrations through `20260621145455`, changed Edge deployment, production build/e2e, and dependency audit pass. Authenticated multi-role, provider sample, classroom-scale, and cross-workspace workflow QA remain. |
 
 ## External providers and environment variables
 
@@ -139,7 +150,7 @@ Required for production core:
 - `APP_ALLOWED_ORIGINS`
 - `ATTEMPT_STATE_TOKEN_SECRET`
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY` in server/Edge environments only
+- `SUPABASE_SERVICE_ROLE_KEY` in Supabase Edge and the Vercel server environment only. Vercel needs it for owner-managed Supabase Auth user deletion; it must never use a `NEXT_PUBLIC_` name.
 
 Required for provider-backed import/OCR/AI:
 
@@ -151,19 +162,19 @@ Operational setup outside the repo:
 
 - Apply Supabase migrations to the actual Supabase project.
 - Deploy Supabase Edge Functions after every Edge change.
-- Keep Storage buckets private: `assessment-sources`, `assessment-packages`, `answer-uploads`, `marking-packets`.
+- Keep Storage buckets private: `assessment-sources`, `assessment-packages`, `answer-uploads`, `marking-packets`, and `paper-scans`.
 - Configure DeepSeek/MinerU/Mathpix spend caps and provider alerting.
 - Configure Supabase/Edge/WAF alerts for authentication failures, upload errors, rate-limit spikes, and Edge Function failures.
 
 ## Remaining limitations
 
 - Guest SEB is intentionally blocked. Do not enable it for no-login exams until the server can verify URL-specific SEB evidence for a guest session.
-- Automated Paper Mode scan-to-student/question matching is not production-complete without OCR/barcode live validation.
+- Automated Paper Mode scan-to-student/question matching is not claimed without OCR/barcode validation; audited manual mapping is the production path.
 - Full offline submission is not claimed. Browser apps cannot safely retain selected local upload files after a process restart without user re-selection.
 - Advanced STEM OCR, handwriting OCR, chemistry extraction, diagrams, and tables depend on external OCR provider quality and confidence review.
 - Advanced graphing, geometry, CAS, and chemistry sketch tools are not production-ready; the current whiteboard is a simple manual drawing response, not a symbolic math or geometry engine.
-- School-level dashboards and analytics require synthetic live records to verify aggregation, exports, and cross-workspace isolation.
-- Curriculum standard trees need owner-approved seed data before they should be treated as official.
+- Group/school dashboards require synthetic actual-site records to verify aggregation, exports, and cross-workspace isolation before institution-wide use.
+- Curriculum starter trees need owner approval or replacement before they should be treated as official.
 
 ## Production deployment checklist
 
@@ -227,7 +238,17 @@ This section should be updated for each release candidate. For this readiness pa
 - `npm run e2e`
 - `npm run build`
 
-Live verification on 2026-06-20:
+Security closure verification on 2026-06-21:
+
+- `npm test -- tests/examsim-v3-security-closure.test.ts tests/examsim-html-sanitization.test.ts`
+- `npm test` - 67 files and 428 tests passed.
+- `npm run typecheck`
+- `npm audit` - zero known vulnerabilities after upgrading Next.js to 16.2.9 and enforcing PostCSS 8.5.14.
+- `supabase db push --dry-run`
+- `supabase db push` - applied through `20260621145455_v3_security_closure.sql`.
+- Redeployed the ten security-affected Edge Functions, including attempt state/package, intervention, student results, upload analysis, Paper Mode confirmation, OCR review, and Moodle export.
+
+Earlier live verification on 2026-06-20:
 
 - Reconciled and verified Supabase migration history, then applied migrations through `20260620084239`.
 - Deployed 19 changed/new Edge Functions sequentially with JWT verification preserved.

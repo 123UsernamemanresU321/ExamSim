@@ -21,6 +21,15 @@ export async function createExamSessionAction(formData: FormData) {
   const uploadGraceMinutes = Math.max(0, Number(formData.get("upload_grace_minutes") ?? 15));
   const closeAt = toIso(String(formData.get("close_at_utc") || new Date(Date.parse(startAt) + (durationSeconds + uploadGraceMinutes * 60) * 1000).toISOString()));
   const uploadDeadlineAt = uploadGraceMinutes ? new Date(Date.parse(startAt) + (durationSeconds + uploadGraceMinutes * 60) * 1000).toISOString() : null;
+  const restBreakMaxMinutes = boundedInteger(formData.get("rest_break_max_minutes"), 1, 240, 15);
+  const fontScale = boundedInteger(formData.get("font_scale_percent"), 100, 150, 100);
+  const calculatorValue = String(formData.get("calculator_policy") ?? "none");
+  const calculatorPolicy = ["none", "basic", "scientific", "graphing"].includes(calculatorValue) ? calculatorValue : "none";
+  const allowedMaterials = String(formData.get("allowed_materials") ?? "")
+    .split(/\r?\n/)
+    .map((item) => item.trim().slice(0, 120))
+    .filter(Boolean)
+    .slice(0, 20);
 
   const { data: assessment, error: assessmentError } = await supabase
     .from("assessments")
@@ -62,6 +71,18 @@ export async function createExamSessionAction(formData: FormData) {
         roster_first: true,
         require_roster_match: formData.get("require_roster_match") === "on",
         allow_unregistered_guests: formData.get("allow_unregistered_guests") === "on",
+      },
+      settings_json: {
+        accommodations: {
+          rest_break_allowed: formData.get("rest_break_allowed") === "on",
+          rest_break_max_minutes: restBreakMaxMinutes,
+          font_scale_percent: [100, 125, 150].includes(fontScale) ? fontScale : 100,
+          dyslexia_font: formData.get("dyslexia_font") === "on",
+          contrast_mode: formData.get("contrast_mode") === "high" ? "high" : "standard",
+          calculator_policy: calculatorPolicy,
+          formula_booklet_allowed: formData.get("formula_booklet_allowed") === "on",
+          allowed_materials: allowedMaterials,
+        },
       },
       published_at: new Date().toISOString(),
     })
@@ -116,4 +137,10 @@ function toIso(value: string) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) throw new Error("Invalid date");
   return date.toISOString();
+}
+
+function boundedInteger(value: FormDataEntryValue | null, min: number, max: number, fallback: number) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(number)));
 }

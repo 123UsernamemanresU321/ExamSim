@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwner } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import type { getAdminClient } from "../_shared/supabase.ts";
 
@@ -173,15 +173,14 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwner(request);
-    const profile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<IngestBody>(request);
     if (!body.title || !body.assessment_kind || !body.source_kind) return json({ error: "Missing assessment fields" }, 400);
 
     const { data: assessment, error: assessmentError } = await admin
       .from("assessments")
       .insert({
-        owner_profile_id: profile.id,
+        owner_profile_id: ownerProfileId,
         title: body.title,
         paper_code: body.paper_code ?? null,
         subject: body.subject?.trim() || null,
@@ -194,11 +193,11 @@ serve(async (request) => {
 
     const versionId = crypto.randomUUID();
     const sourceObjectPath = body.source_kind === "pdf"
-      ? await resolvePdfSourceObjectPath(admin, profile.id, assessment.id, versionId, body)
+      ? await resolvePdfSourceObjectPath(admin, ownerProfileId, assessment.id, versionId, body)
       : body.source_kind === "latex" && body.latex_source
-        ? await storeTextSource(admin, profile.id, assessment.id, versionId, "source.tex", body.latex_source, "application/x-tex")
+        ? await storeTextSource(admin, ownerProfileId, assessment.id, versionId, "source.tex", body.latex_source, "application/x-tex")
         : body.uploaded_source_path ?? null;
-    const markschemeSource = await resolveMarkschemeSource(admin, profile.id, assessment.id, versionId, body);
+    const markschemeSource = await resolveMarkschemeSource(admin, ownerProfileId, assessment.id, versionId, body);
 
     const parseConfidence = body.source_kind === "json" ? 1 : body.source_kind === "latex" ? 0.62 : 0.15;
     const requiresReview = parseConfidence < 0.9;
@@ -239,7 +238,7 @@ serve(async (request) => {
           };
     const normalizedPackage = mergeMarkschemeIntoPackage(baseNormalizedPackage, markschemeSource.json, markschemeSource.html);
 
-    const packageStorage = await storeNormalizedPackageObject(admin, profile.id, versionId, normalizedPackage);
+    const packageStorage = await storeNormalizedPackageObject(admin, ownerProfileId, versionId, normalizedPackage);
     const { data: version, error: versionError } = await admin
       .from("assessment_versions")
       .insert({
@@ -311,7 +310,7 @@ serve(async (request) => {
         .from("parse_jobs")
         .insert({
           assessment_version_id: version.id,
-          owner_profile_id: profile.id,
+          owner_profile_id: ownerProfileId,
           source_object_path: sourceObjectPath,
           parser: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : "mineru",
           status: "queued",
@@ -334,7 +333,7 @@ serve(async (request) => {
         .from("parse_jobs")
         .insert({
           assessment_version_id: version.id,
-          owner_profile_id: profile.id,
+          owner_profile_id: ownerProfileId,
           source_object_path: markschemeSource.objectPath,
           parser: Deno.env.get("MINERU_PROVIDER") === "hosted" ? "mineru_hosted" : "mineru",
           status: "queued",
@@ -351,7 +350,7 @@ serve(async (request) => {
       markschemeParseJobId = parseJob.id;
     }
 
-    await auditOwnerAction(profile.id, user.id, "assessment.ingested", "assessment_versions", version.id, {
+    await auditOwnerAction(ownerProfileId, user.id, "assessment.ingested", "assessment_versions", version.id, {
       source_kind: body.source_kind,
       parse_job_id: parseJobId,
       markscheme_source_kind: markschemeSource.kind,

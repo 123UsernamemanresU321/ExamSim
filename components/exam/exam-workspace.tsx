@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { AccommodationSummary } from "@/components/exam/accommodation-summary";
+import { StudentInvigilationMessages, type StudentInvigilationMessage } from "@/components/exam/student-invigilation-messages";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { QuestionNavigator } from "@/components/question-navigator";
 import { QuestionPaper } from "@/components/question-paper";
@@ -51,6 +52,7 @@ export function ExamWorkspace({
   const [attemptSessionId, setAttemptSessionId] = useState<string | undefined>();
   const [layoutMode, setLayoutMode] = useState<ExamLayoutMode>("standard");
   const [toolsOpen, setToolsOpen] = useState(true);
+  const [invigilationMessages, setInvigilationMessages] = useState<StudentInvigilationMessage[]>([]);
   const sessionStarted = useRef(false);
 
   useEffect(() => {
@@ -76,6 +78,7 @@ export function ExamWorkspace({
             server_now_utc: string;
             countdown_target_utc: string | null;
             accommodation_policy: StudentAccommodationPolicy;
+            invigilation_messages?: StudentInvigilationMessage[];
           }>(
             supabase,
             "get-attempt-state",
@@ -94,6 +97,7 @@ export function ExamWorkspace({
               },
               accommodationPolicy: state.accommodation_policy ?? prev.accommodationPolicy,
             }));
+            setInvigilationMessages(state.invigilation_messages ?? []);
           }
         }
       } catch (error) {
@@ -177,10 +181,12 @@ export function ExamWorkspace({
           server_now_utc: string;
           countdown_target_utc: string | null;
           accommodation_policy: StudentAccommodationPolicy;
+          invigilation_messages?: StudentInvigilationMessage[];
         }>(supabase, "get-attempt-state", {
           body: { attempt_id: attemptId, attempt_session_id: attemptSessionId },
         });
         if (!state || cancelled) return;
+        setInvigilationMessages(state.invigilation_messages ?? []);
         let shouldReloadPackage = false;
         setScreenData((previous) => {
           shouldReloadPackage = previous.attempt.state === "PAUSED" && state.state === "ACTIVE" && !previous.package;
@@ -213,8 +219,19 @@ export function ExamWorkspace({
 
   const { attempt, package: assessmentPackage, packageError, stateToken, assetUrls, responses, sebConfigUrl, annotations, uploadSlots, accommodationPolicy } = screenData;
 
+  async function acknowledgeInvigilationMessage(messageId: string) {
+    const supabase = createSupabaseBrowserClient();
+    const response = await invokeEdgeFunction<{ acknowledged_at: string }>(supabase, "acknowledge-invigilation-message", {
+      body: { attempt_id: attemptId, message_id: messageId },
+    });
+    if (!response) throw new Error("The acknowledgement could not be confirmed.");
+    setInvigilationMessages((current) => current.map((message) => message.id === messageId
+      ? { ...message, acknowledged_at: response.acknowledged_at }
+      : message));
+  }
+
   if (attempt.state === "PAUSED") {
-    return <AuthenticatedRestBreakPanel attempt={attempt} onRefresh={() => window.location.reload()} />;
+    return <AuthenticatedRestBreakPanel attempt={attempt} messages={invigilationMessages} onAcknowledge={acknowledgeInvigilationMessage} onRefresh={() => window.location.reload()} />;
   }
 
   // Show "Verifying..." if we are fetching the package on the client
@@ -383,6 +400,7 @@ export function ExamWorkspace({
           layoutMode === "focus" || !toolsOpen ? "hidden xl:hidden" : "grid"
         }`} aria-label="Response tools">
           <AccommodationSummary policy={accommodationPolicy} />
+          <StudentInvigilationMessages messages={invigilationMessages} compact onAcknowledge={acknowledgeInvigilationMessage} />
           <StudentMaterialsDrawer materials={materials} />
           <PinnedMaterialsPanel materials={materials} />
           
@@ -429,9 +447,13 @@ export function ExamWorkspace({
 function AuthenticatedRestBreakPanel({
   attempt,
   onRefresh,
+  messages,
+  onAcknowledge,
 }: {
   attempt: AttemptScreenData["attempt"];
   onRefresh: () => void;
+  messages: StudentInvigilationMessage[];
+  onAcknowledge: (messageId: string) => Promise<void>;
 }) {
   return (
     <section className="mx-auto grid min-h-[70vh] max-w-[760px] content-center gap-5 px-4 py-10">
@@ -447,6 +469,7 @@ function AuthenticatedRestBreakPanel({
           <span className="text-xs text-[var(--muted)]">Attempt {attempt.id.slice(0, 8)}</span>
         </div>
       </div>
+      <StudentInvigilationMessages messages={messages} onAcknowledge={onAcknowledge} />
     </section>
   );
 }

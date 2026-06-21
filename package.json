@@ -22,12 +22,13 @@
     "jszip": "3.10.1",
     "katex": "0.16.45",
     "lucide-react": "1.14.0",
-    "next": "16.2.4",
+    "next": "16.2.9",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "5.7.284",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "react-hook-form": "7.75.0",
+    "sanitize-html": "2.17.5",
     "tailwind-merge": "3.5.0",
     "zod": "4.4.3"
   },
@@ -39,12 +40,16 @@
     "@types/node": "25.6.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@types/sanitize-html": "2.16.1",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.9",
     "jsdom": "29.1.1",
     "postcss": "8.5.14",
     "tailwindcss": "4.2.4",
     "typescript": "6.0.3",
     "vitest": "4.1.5"
+  },
+  "overrides": {
+    "postcss": "8.5.14"
   }
 }

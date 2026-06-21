@@ -1,4 +1,5 @@
 export const MAX_STUDENT_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const MAX_PAPER_SCAN_BYTES = 50 * 1024 * 1024;
 const PDF_HEADER_SCAN_BYTES = 1024;
 
 export type VerifiedPdfUpload = {
@@ -16,10 +17,19 @@ type StorageAdmin = {
 };
 
 export async function verifyAnswerUploadPdf(admin: StorageAdmin, objectPath: string): Promise<VerifiedPdfUpload> {
-  const { data, error } = await admin.storage.from("answer-uploads").download(objectPath);
+  return verifyPrivatePdfUpload(admin, "answer-uploads", objectPath, MAX_STUDENT_UPLOAD_BYTES);
+}
+
+export async function verifyPrivatePdfUpload(
+  admin: StorageAdmin,
+  bucket: string,
+  objectPath: string,
+  maximumBytes: number,
+): Promise<VerifiedPdfUpload> {
+  const { data, error } = await admin.storage.from(bucket).download(objectPath);
   if (error || !data) throw new Error("Uploaded PDF could not be opened from private Storage");
   const bytes = new Uint8Array(await data.arrayBuffer());
-  assertPdfUploadBytes(bytes);
+  assertPdfUploadBytes(bytes, maximumBytes);
   return {
     byteLength: bytes.byteLength,
     contentType: "application/pdf",
@@ -27,9 +37,9 @@ export async function verifyAnswerUploadPdf(admin: StorageAdmin, objectPath: str
   };
 }
 
-export function assertPdfUploadBytes(bytes: Uint8Array) {
+export function assertPdfUploadBytes(bytes: Uint8Array, maximumBytes = MAX_STUDENT_UPLOAD_BYTES) {
   if (bytes.byteLength <= 0) throw new Error("Uploaded PDF is empty");
-  if (bytes.byteLength > MAX_STUDENT_UPLOAD_BYTES) throw new Error("PDF uploads must be 10MB or smaller");
+  if (bytes.byteLength > maximumBytes) throw new Error(`PDF uploads must be ${Math.floor(maximumBytes / 1024 / 1024)}MB or smaller`);
   if (!hasPdfMagicBytes(bytes)) throw new Error("Uploaded file is not a valid PDF");
 }
 

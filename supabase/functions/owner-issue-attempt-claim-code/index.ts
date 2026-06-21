@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { attemptClaimExpiry, generateAttemptClaimCode, hashAttemptClaimCode } from "../_shared/attempt-claim.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, requestIpKey } from "../_shared/rate-limit.ts";
 
@@ -9,8 +9,7 @@ serve(async (request) => {
   if (options) return options;
 
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "student_management");
     const body = await readJson<{ attempt_id?: string; lifetime_seconds?: number }>(request);
     const attemptId = String(body.attempt_id ?? "").trim();
     if (!attemptId) return json(request, { error: "Attempt is required" }, 400);
@@ -23,7 +22,7 @@ serve(async (request) => {
     });
     await enforceRateLimit(admin, {
       scope: "attempt-claim-issue:owner",
-      key: ownerProfile.id,
+      key: ownerProfileId,
       limit: 80,
       windowSeconds: 3600,
     });
@@ -35,7 +34,7 @@ serve(async (request) => {
       .maybeSingle();
     if (attemptError) throw attemptError;
     const sessionOwnerId = String((attempt?.exam_sessions as { owner_profile_id?: string } | null)?.owner_profile_id ?? "");
-    if (!attempt || sessionOwnerId !== ownerProfile.id) throw new Error("Attempt not found");
+    if (!attempt || sessionOwnerId !== ownerProfileId) throw new Error("Attempt not found");
     if (attempt.assignee_profile_id || attempt.claim_status === "linked") throw new Error("This attempt is already linked");
 
     const { data: release, error: releaseError } = await admin
@@ -64,7 +63,7 @@ serve(async (request) => {
       .eq("id", attemptId);
     if (updateError) throw updateError;
 
-    await auditOwnerAction(ownerProfile.id, user.id, "attempt_claim.code_issued", "attempts", attemptId, {
+    await auditOwnerAction(ownerProfileId, user.id, "attempt_claim.code_issued", "attempts", attemptId, {
       expires_at: expiresAt,
       feedback_release_id: release.id,
     });
@@ -74,4 +73,3 @@ serve(async (request) => {
     return errorResponse(request, error, "Could not issue claim code");
   }
 });
-

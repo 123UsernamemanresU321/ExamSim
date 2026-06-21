@@ -13,6 +13,7 @@ export type AnalyticsQuestionInput = {
   title?: string | null;
   marks: number | null;
   response_mode?: string | null;
+  parent_node_id?: string | null;
 };
 
 export type AnalyticsMarkInput = {
@@ -24,6 +25,11 @@ export type AnalyticsMarkInput = {
 export type AnalyticsTopicLinkInput = {
   question_node_id: string;
   tag: string;
+};
+
+export type AnalyticsStandardLinkInput = {
+  question_node_id: string;
+  standard: string;
 };
 
 export type AnalyticsRubricAwardInput = {
@@ -39,6 +45,8 @@ export type TeacherAnalyticsSnapshot = {
   scoreDistribution: Array<{ label: string; count: number }>;
   questionDifficulty: Array<{ questionNodeId: string; nodeKey: string; title: string | null; averagePercent: number | null; attempts: number }>;
   topicWeaknesses: Array<{ tag: string; averagePercent: number | null; attempts: number }>;
+  standardMastery: Array<{ standard: string; averagePercent: number | null; attempts: number }>;
+  timePerMarkSeconds: number | null;
   rubricLossBreakdown: Array<{ label: string; lostMarks: number; possibleMarks: number }>;
   studentSupportFlags: Array<{ attemptId: string; reason: string; percent: number | null }>;
 };
@@ -48,19 +56,28 @@ export function computeTeacherAnalyticsSnapshot({
   questionNodes,
   marks,
   topicLinks = [],
+  standardLinks = [],
   rubricAwards = [],
 }: {
   attempts: AnalyticsAttemptInput[];
   questionNodes: AnalyticsQuestionInput[];
   marks: AnalyticsMarkInput[];
   topicLinks?: AnalyticsTopicLinkInput[];
+  standardLinks?: AnalyticsStandardLinkInput[];
   rubricAwards?: AnalyticsRubricAwardInput[];
 }): TeacherAnalyticsSnapshot {
   const finishedAttempts = attempts.filter((attempt) => isFinishedState(attempt.state));
+  const parentsWithMarkedChildren = new Set(
+    questionNodes
+      .filter((question) => question.parent_node_id && positiveNumber(question.marks) > 0)
+      .map((question) => String(question.parent_node_id)),
+  );
+  const scoreableQuestions = questionNodes.filter((question) => positiveNumber(question.marks) > 0 && !parentsWithMarkedChildren.has(question.id));
+  const scoreableQuestionIds = new Set(scoreableQuestions.map((question) => question.id));
   const marksByAttempt = groupBy(marks, (mark) => mark.attempt_id);
   const attemptPercents = finishedAttempts.map((attempt) => {
-    const attemptMarks = marksByAttempt.get(attempt.id) ?? [];
-    const maxMarks = questionNodes
+    const attemptMarks = (marksByAttempt.get(attempt.id) ?? []).filter((mark) => mark.question_node_id && scoreableQuestionIds.has(mark.question_node_id));
+    const maxMarks = scoreableQuestions
       .filter((question) => !attempt.assessment_id || !question.assessment_id || question.assessment_id === attempt.assessment_id)
       .reduce((sum, question) => sum + positiveNumber(question.marks), 0);
     const awarded = attemptMarks.reduce((sum, mark) => sum + positiveNumber(mark.awarded_marks), 0);
@@ -71,7 +88,14 @@ export function computeTeacherAnalyticsSnapshot({
   });
 
   const averagePercent = average(attemptPercents.map((item) => item.percent).filter(isNumber));
-  const questionDifficulty = questionNodes.map((question) => {
+  const timePerMarkSeconds = average(finishedAttempts.flatMap((attempt) => {
+    const maximum = scoreableQuestions
+      .filter((question) => !attempt.assessment_id || !question.assessment_id || question.assessment_id === attempt.assessment_id)
+      .reduce((sum, question) => sum + positiveNumber(question.marks), 0);
+    const duration = positiveNumber(attempt.duration_seconds);
+    return maximum > 0 && duration > 0 ? [duration / maximum] : [];
+  }));
+  const questionDifficulty = scoreableQuestions.map((question) => {
     const questionMarks = marks.filter((mark) => mark.question_node_id === question.id);
     const max = positiveNumber(question.marks);
     const percentages = max > 0 ? questionMarks.map((mark) => (positiveNumber(mark.awarded_marks) / max) * 100) : [];
@@ -86,7 +110,7 @@ export function computeTeacherAnalyticsSnapshot({
 
   const topicByQuestion = groupBy(topicLinks, (link) => link.question_node_id);
   const topicTotals = new Map<string, { awarded: number; possible: number; attempts: number }>();
-  for (const question of questionNodes) {
+  for (const question of scoreableQuestions) {
     const links = topicByQuestion.get(question.id) ?? [];
     if (!links.length) continue;
     const max = positiveNumber(question.marks);
@@ -109,6 +133,30 @@ export function computeTeacherAnalyticsSnapshot({
       attempts: total.attempts,
     }))
     .sort((a, b) => nullableSort(a.averagePercent, b.averagePercent) || a.tag.localeCompare(b.tag));
+
+  const standardByQuestion = groupBy(standardLinks, (link) => link.question_node_id);
+  const standardTotals = new Map<string, { awarded: number; possible: number; attempts: number }>();
+  for (const question of scoreableQuestions) {
+    const links = standardByQuestion.get(question.id) ?? [];
+    const maximum = positiveNumber(question.marks);
+    if (!links.length || maximum <= 0) continue;
+    for (const mark of marks.filter((candidate) => candidate.question_node_id === question.id)) {
+      for (const link of links) {
+        const total = standardTotals.get(link.standard) ?? { awarded: 0, possible: 0, attempts: 0 };
+        total.awarded += positiveNumber(mark.awarded_marks);
+        total.possible += maximum;
+        total.attempts += 1;
+        standardTotals.set(link.standard, total);
+      }
+    }
+  }
+  const standardMastery = [...standardTotals.entries()]
+    .map(([standard, total]) => ({
+      standard,
+      averagePercent: total.possible > 0 ? (total.awarded / total.possible) * 100 : null,
+      attempts: total.attempts,
+    }))
+    .sort((a, b) => nullableSort(a.averagePercent, b.averagePercent) || a.standard.localeCompare(b.standard));
 
   const rubricLossByLabel = new Map<string, { lostMarks: number; possibleMarks: number }>();
   for (const award of rubricAwards) {
@@ -134,6 +182,8 @@ export function computeTeacherAnalyticsSnapshot({
     scoreDistribution: buildScoreDistribution(attemptPercents.map((item) => item.percent)),
     questionDifficulty,
     topicWeaknesses,
+    standardMastery,
+    timePerMarkSeconds,
     rubricLossBreakdown,
     studentSupportFlags,
   };

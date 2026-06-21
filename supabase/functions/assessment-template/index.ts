@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { auditOwnerAction, profileForAuthUser, requireOwnerAal2 } from "../_shared/auth.ts";
+import { auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 
 type Body = {
@@ -22,19 +22,18 @@ serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { user, admin } = await requireOwnerAal2(request);
-    const ownerProfile = await profileForAuthUser(user.id);
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Body>(request);
     if (body.action === "delete") {
       if (!body.id) return json({ error: "id is required" }, 400);
-      const { error } = await admin.from("assessment_templates").delete().eq("id", body.id).eq("owner_profile_id", ownerProfile.id);
+      const { error } = await admin.from("assessment_templates").delete().eq("id", body.id).eq("owner_profile_id", ownerProfileId);
       if (error) throw error;
-      await auditOwnerAction(ownerProfile.id, user.id, "assessment_template.deleted", "assessment_templates", body.id);
+      await auditOwnerAction(ownerProfileId, user.id, "assessment_template.deleted", "assessment_templates", body.id);
       return json({ ok: true });
     }
     if (!body.name?.trim()) return json({ error: "name is required" }, 400);
     const payload = {
-      owner_profile_id: ownerProfile.id,
+      owner_profile_id: ownerProfileId,
       name: body.name.trim(),
       description: body.description?.trim() || null,
       assessment_kind: body.assessment_kind ?? "test",
@@ -49,11 +48,11 @@ serve(async (request) => {
       updated_at: new Date().toISOString(),
     };
     const query = body.id
-      ? admin.from("assessment_templates").update(payload).eq("id", body.id).eq("owner_profile_id", ownerProfile.id)
+      ? admin.from("assessment_templates").update(payload).eq("id", body.id).eq("owner_profile_id", ownerProfileId)
       : admin.from("assessment_templates").insert(payload);
     const { data, error } = await query.select("*").single();
     if (error) throw error;
-    await auditOwnerAction(ownerProfile.id, user.id, body.id ? "assessment_template.updated" : "assessment_template.created", "assessment_templates", data.id);
+    await auditOwnerAction(ownerProfileId, user.id, body.id ? "assessment_template.updated" : "assessment_template.created", "assessment_templates", data.id);
     return json({ ok: true, template: data });
   } catch (error) {
     return errorResponse(error, "assessment-template failed");

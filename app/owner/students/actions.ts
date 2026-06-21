@@ -83,6 +83,11 @@ export async function updateRosterAccommodationsAction(formData: FormData) {
     .map((item) => item.trim().slice(0, 120))
     .filter(Boolean)
     .slice(0, 20);
+  const access_open_at_utc = optionalIso(formData.get("access_open_at_utc"));
+  const access_close_at_utc = optionalIso(formData.get("access_close_at_utc"));
+  if (access_open_at_utc && access_close_at_utc && Date.parse(access_close_at_utc) <= Date.parse(access_open_at_utc)) {
+    throw new Error("The student access close time must be after the open time.");
+  }
   const accommodations = {
     extra_time_percent,
     upload_extension_minutes,
@@ -94,6 +99,8 @@ export async function updateRosterAccommodationsAction(formData: FormData) {
     calculator_policy,
     formula_booklet_allowed: formData.get("formula_booklet_allowed") === "on",
     allowed_materials,
+    access_open_at_utc,
+    access_close_at_utc,
   };
   const supabase = await createSupabaseServerClient();
   const { data: entry, error: entryError } = await supabase
@@ -149,7 +156,7 @@ export async function deleteStudentAccountAction(studentProfileId: string): Prom
       display_name: student.display_name,
     });
 
-    await deleteAuthUserIfConfigured(student.auth_user_id);
+    await deleteAuthUserOrThrow(student.auth_user_id);
 
     const { error: profileDeleteError } = await supabase
       .from("profiles")
@@ -295,6 +302,14 @@ function requiredId(value: string, key: string) {
   return id;
 }
 
+function optionalIso(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (!Number.isFinite(parsed.getTime())) throw new Error("Invalid accommodation access time.");
+  return parsed.toISOString();
+}
+
 async function hasManagedStudentLink(ownerProfileId: string, studentProfileId: string) {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -321,13 +336,17 @@ async function auditStudentAction(ownerProfileId: string, action: string, target
   await auditInstitutionAction({ ownerProfileId, action, targetTable, targetId, metadata });
 }
 
-async function deleteAuthUserIfConfigured(authUserId: string) {
+async function deleteAuthUserOrThrow(authUserId: string) {
+  let admin: ReturnType<typeof getSupabaseAdminClient>;
   try {
-    const admin = getSupabaseAdminClient();
-    const { error } = await admin.auth.admin.deleteUser(authUserId);
-    if (error) console.warn("Student auth user cleanup failed", error);
-  } catch (error) {
-    console.warn("Student auth user cleanup skipped; Supabase admin access is not configured", error);
+    admin = getSupabaseAdminClient();
+  } catch {
+    throw new Error("Student account deletion is not configured on this deployment. Set SUPABASE_SERVICE_ROLE_KEY on the server. No profile was removed.");
+  }
+  const { error } = await admin.auth.admin.deleteUser(authUserId);
+  if (error) {
+    console.error("Student Supabase Auth deletion failed", error);
+    throw new Error("Supabase Auth could not delete this student account. No profile was removed.");
   }
 }
 
@@ -346,7 +365,8 @@ function deleteActionMessage(kind: "student_account" | "roster_entry", error: un
   if (
     message.includes("attempt history") ||
     message.includes("not found") ||
-    message.includes("not managed by this owner")
+    message.includes("not managed by this owner") ||
+    message.includes("No profile was removed")
   ) {
     return message;
   }

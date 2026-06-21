@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SectionHeading } from "@/components/section-heading";
 import { getOwnerExamSession } from "@/lib/examsim/session-data";
+import { requireInstitutionPagePermission } from "@/lib/examsim/institution-roles";
 
 export default async function OwnerExamSessionDetailPage({
   params,
@@ -15,6 +16,7 @@ export default async function OwnerExamSessionDetailPage({
   searchParams: Promise<{ new_code?: string }>;
 }) {
   const { id } = await params;
+  await requireInstitutionPagePermission("session_publishing", `/owner/exam-sessions/${id}`);
   const { new_code: newCode } = await searchParams;
   const session = await getOwnerExamSession(id);
   if (!session) notFound();

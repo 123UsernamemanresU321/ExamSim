@@ -113,6 +113,14 @@ should be handled by a trusted worker before those warnings are used operational
 Incidents, accommodations, and recovery actions are additive audit records. They explain or repair an attempt workflow
 without deleting original attempt events, upload attempts, or moderation evidence.
 
+Timing accommodations are applied through a locked, bounded database RPC. Invigilators cannot apply more than 120
+minutes per intervention, mutate finalized attempts, or bypass the owner-scoped attempt check. Paper Mode and adaptive
+revision rows have database-level relationship validation in addition to server-action checks, so direct PostgREST writes
+cannot attach foreign assessment, question, attempt, roster, or Question Library identifiers.
+
+Owner-managed student account deletion fails closed. The Vercel server must have `SUPABASE_SERVICE_ROLE_KEY`; if the
+Supabase Auth principal cannot be deleted, the profile row is retained and the UI reports that no profile was removed.
+
 ## Parsing And AI Boundaries
 
 Hosted MinerU receives PDFs only from Supabase Edge Functions using server-side `MINERU_API_KEY`. The default hosted

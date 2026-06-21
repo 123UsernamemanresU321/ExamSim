@@ -25,6 +25,7 @@ import {
   AlertCircle,
   GraduationCap,
   FileDown,
+  Printer,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ export const ownerNavSections: NavSection[] = [
       { href: "/owner/exam-sessions", label: "Exam Sessions", Icon: CalendarClock, requiredPermission: "session_publishing" },
       { href: "/owner/operations", label: "Exam-Day Board", Icon: Gauge, requiredPermission: "invigilation" },
       { href: "/owner/attempts", label: "Attempts", Icon: BarChart3, requiredPermission: "student_data" },
+      { href: "/owner/paper-mode", label: "Paper Mode", Icon: Printer, requiredPermission: "marking" },
     ],
   },
   {
@@ -100,7 +102,9 @@ export const ownerNavSections: NavSection[] = [
       { href: "/owner/analytics", label: "Analytics / Performance", Icon: BarChart3, requiredPermission: "analytics" },
       { href: "/owner/export-hub", label: "Export Hub", Icon: FileDown, requiredPermission: "exports" },
       { href: "/owner/topics", label: "Topics", Icon: Tags, requiredPermission: "analytics" },
+      { href: "/owner/standards", label: "Curriculum Standards", Icon: GraduationCap, requiredPermission: "analytics" },
       { href: "/owner/mistakes", label: "Error Patterns", Icon: AlertCircle, requiredPermission: "analytics" },
+      { href: "/owner/revision", label: "Adaptive Revision", Icon: GraduationCap, requiredPermission: "analytics" },
     ],
   },
   {

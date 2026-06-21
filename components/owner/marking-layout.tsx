@@ -23,6 +23,8 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
     selectableGroups[0]?.id ?? null
   );
   const [isReleasing, setIsReleasing] = useState(false);
+  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [releaseChecklist, setReleaseChecklist] = useState({ marks_reviewed: false, feedback_reviewed: false, visibility_reviewed: false });
 
   const selectedNode = findMarkingTreeNode(questionTree, selectedNodeId) ?? selectableGroups[0] ?? null;
   const markingContext = buildRootQuestionMarkingContext(workspace, selectedNode?.id ?? null);
@@ -30,20 +32,17 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
   const selectedRootUploadSlot = markingContext.uploadSlot ?? undefined;
 
   async function handleRelease() {
-    if (workspace.feedbackRelease) {
-      if (!confirm("Feedback has already been released. Do you want to re-release with updated marks?")) return;
-    } else {
-      if (!confirm("Are you sure you want to release these marks to the student? This will make the score and feedback visible on their dashboard.")) return;
-    }
+    if (!Object.values(releaseChecklist).every(Boolean)) return;
 
     setIsReleasing(true);
     try {
       const supabase = createSupabaseBrowserClient();
       await invokeEdgeFunction(supabase, "release-feedback", {
-        body: { attempt_id: attemptId },
+        body: { attempt_id: attemptId, release_checklist: releaseChecklist },
         requiresAal2: true,
       });
       router.refresh();
+      setReleaseDialogOpen(false);
     } catch (error) {
       if (process.env.NODE_ENV !== "production") {
         console.error("Release failed", error);
@@ -81,7 +80,7 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
 
             <Button
               variant={workspace.feedbackRelease ? "secondary" : "primary"}
-              onClick={handleRelease}
+              onClick={() => setReleaseDialogOpen(true)}
               disabled={isReleasing}
               className="gap-2 font-semibold uppercase tracking-widest text-[10px] h-9"
             >
@@ -168,6 +167,46 @@ export function MarkingLayout({ workspace, attemptId }: { workspace: AttemptRevi
           </TabsContent>
         </Tabs>
       </main>
+      {releaseDialogOpen ? (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="Feedback release checklist">
+          <div className="w-full max-w-lg rounded-[4px] border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-popover)]">
+            <h2 className="text-lg font-semibold text-[var(--ink)]">Release checklist</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Confirm the final student-visible record. The server also rejects any markable question without a saved mark.</p>
+            <div className="mt-5 grid gap-3">
+              <ReleaseCheck
+                checked={releaseChecklist.marks_reviewed}
+                label="Every question has a saved mark, including zero for unanswered work."
+                onChange={(checked) => setReleaseChecklist((current) => ({ ...current, marks_reviewed: checked }))}
+              />
+              <ReleaseCheck
+                checked={releaseChecklist.feedback_reviewed}
+                label="Student feedback and annotations have been reviewed."
+                onChange={(checked) => setReleaseChecklist((current) => ({ ...current, feedback_reviewed: checked }))}
+              />
+              <ReleaseCheck
+                checked={releaseChecklist.visibility_reviewed}
+                label="Private marker notes are not included in the student-visible release."
+                onChange={(checked) => setReleaseChecklist((current) => ({ ...current, visibility_reviewed: checked }))}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setReleaseDialogOpen(false)} disabled={isReleasing}>Cancel</Button>
+              <Button type="button" onClick={() => void handleRelease()} disabled={isReleasing || !Object.values(releaseChecklist).every(Boolean)} isLoading={isReleasing}>
+                {workspace.feedbackRelease ? "Re-release results" : "Release results"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function ReleaseCheck({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-3 border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-sm leading-6">
+      <input className="mt-1" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span>{label}</span>
+    </label>
   );
 }
