@@ -165,6 +165,7 @@ describe("security report remediation", () => {
     expect(read("supabase/functions/mineru-submit-hosted-job/index.ts")).toContain("mineru-submit-hosted-job:owner");
     expect(read("supabase/functions/mineru-poll-hosted-job/index.ts")).toContain("mineru-poll-hosted-job:owner");
     expect(statusForError("Rate limit exceeded. Try again later.")).toBe(429);
+    expect(statusForError("deepseek monthly usage limit reached")).toBe(429);
   });
 
   it("returns actionable AI parse errors instead of opaque 500s", () => {
