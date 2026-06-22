@@ -884,6 +884,36 @@ export type ParseJobArtifact = {
   created_at: string;
 };
 
+export type ProviderMonthlyUsage = {
+  id: string;
+  owner_profile_id: string;
+  provider: "deepseek" | "mineru" | "simpletex";
+  unit: "usd" | "page";
+  period_start: string;
+  units_consumed: number;
+  limit_amount: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SmartImportQaResult = {
+  id: string;
+  owner_profile_id: string;
+  fixture_id: string;
+  status: "passed" | "failed" | "needs_review" | "provider_required" | "not_run";
+  provider: string;
+  checks_json: Json;
+  confidence: number | null;
+  expected_json: Json;
+  actual_json: Json;
+  evidence_json: Json;
+  error_message: string | null;
+  reviewed_by_profile_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type OwnerAuditLog = {
   id: string;
   owner_profile_id: string;
@@ -1990,6 +2020,18 @@ export type Database = {
         Update: Partial<ParseJobArtifact>;
         Relationships: [];
       };
+      provider_monthly_usage: {
+        Row: ProviderMonthlyUsage;
+        Insert: Partial<ProviderMonthlyUsage> & Pick<ProviderMonthlyUsage, "owner_profile_id" | "provider" | "unit" | "period_start" | "limit_amount">;
+        Update: Partial<ProviderMonthlyUsage>;
+        Relationships: [];
+      };
+      smart_import_qa_results: {
+        Row: SmartImportQaResult;
+        Insert: Partial<SmartImportQaResult> & Pick<SmartImportQaResult, "owner_profile_id" | "fixture_id" | "status" | "provider">;
+        Update: Partial<SmartImportQaResult>;
+        Relationships: [];
+      };
       owner_audit_logs: {
         Row: OwnerAuditLog;
         Insert: Partial<OwnerAuditLog> & Pick<OwnerAuditLog, "owner_profile_id" | "actor_auth_user_id" | "action">;
@@ -2026,6 +2068,16 @@ export type Database = {
       create_upload_slots_for_attempt: {
         Args: { target_attempt_id: string };
         Returns: number;
+      };
+      consume_provider_monthly_quota: {
+        Args: {
+          p_owner_profile_id: string;
+          p_provider: "deepseek" | "mineru" | "simpletex";
+          p_unit: "usd" | "page";
+          p_units: number;
+          p_limit_amount: number;
+        };
+        Returns: Array<{ allowed: boolean; consumed: number; remaining: number; reset_at: string }>;
       };
       generate_moderation_summary: {
         Args: { target_attempt_id: string };

@@ -17,7 +17,12 @@ describe("IB Mathematics AA HL Paper 2 live QA evaluator", () => {
 
   it("accepts the expected 12-question, 110-mark section structure", () => {
     const marks = [7, 4, 5, 8, 5, 8, 6, 6, 7, 15, 18, 21];
-    const questions = marks.map((mark, index) => ({
+    const questions: Array<{
+      node_key: string;
+      marks: number;
+      prompt: { html: string };
+      children: Array<{ node_key: string; marks: number; prompt: { html: string } }>;
+    }> = marks.map((mark, index) => ({
       node_key: String(index + 1),
       marks: mark,
       prompt: { html: index === 9 ? "Population data table" : `Question ${index + 1}` },
