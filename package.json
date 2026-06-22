@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "provision:owner": "node scripts/provision-owner.mjs",
-    "provision:qa": "node scripts/provision-qa-accounts.mjs"
+    "provision:qa": "node scripts/provision-qa-accounts.mjs",
+    "qa:smart-import": "node scripts/run-live-smart-import-qa.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",
