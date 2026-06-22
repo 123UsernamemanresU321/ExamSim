@@ -97,7 +97,7 @@ export function errorResponse(requestOrError: Request | unknown, errorOrFallback
 export function statusForError(message: string) {
   if (/missing bearer token|invalid bearer token|invalid jwt|jwt expired|auth session missing/i.test(message)) return 401;
   if (/MFA|AAL2|owner role required|student role required|forbidden|unauthorized/i.test(message)) return 403;
-  if (/rate limit|too many/i.test(message)) return 429;
+  if (/rate limit|monthly usage limit|too many/i.test(message)) return 429;
   if (/already has a file|already activated|published assessment versions are immutable/i.test(message)) return 409;
   if (/not configured|misconfigured/i.test(message)) return 500;
   if (/AI response failed backend validation|AI response was not valid JSON|AI response JSON|AI response missing normalized_package|DeepSeek did not return message content/i.test(message)) return 422;
