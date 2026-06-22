@@ -8,7 +8,7 @@ import { SectionHeading } from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
 import { ReadinessList, ReadinessListRow } from "@/components/ui/readiness-list";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ImportAuditLike, ImportJobLike } from "@/lib/examsim/provider-readiness";
+import type { ImportAuditLike, ImportJobLike, SmartImportSampleQaResult } from "@/lib/examsim/provider-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +21,10 @@ const PRODUCTION_BASELINE = [
 ] as const;
 
 export default async function OwnerSecurityPage() {
-  const [importJobs, importAuditLogs, membershipData] = await Promise.all([
+  const [importJobs, importAuditLogs, sampleQaResults, membershipData] = await Promise.all([
     loadRecentImportJobs(),
     loadRecentImportAuditLogs(),
+    loadSmartImportQaResults(),
     loadInstitutionMembershipData(),
   ]);
 
@@ -64,7 +65,11 @@ export default async function OwnerSecurityPage() {
         </Card>
       </div>
       <div className="mt-5">
-        <ProviderReadinessDashboard importJobs={importJobs} importAuditLogs={importAuditLogs} />
+        <ProviderReadinessDashboard
+          importJobs={importJobs}
+          importAuditLogs={importAuditLogs}
+          sampleQaResults={sampleQaResults}
+        />
       </div>
       <div className="mt-5">
         <DeploymentReadinessConsole />
@@ -112,6 +117,32 @@ async function loadRecentImportAuditLogs(): Promise<ImportAuditLike[]> {
     return (data ?? []).filter((entry) => isImportAuditAction(entry.action)).slice(0, 12);
   } catch (error) {
     console.warn("Unable to initialize readiness dashboard import-audit query", error);
+    return [];
+  }
+}
+
+async function loadSmartImportQaResults(): Promise<SmartImportSampleQaResult[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("smart_import_qa_results")
+      .select("fixture_id,status,provider,checks_json,confidence,reviewed_at,error_message")
+      .order("updated_at", { ascending: false });
+    if (error) {
+      console.warn("Unable to load Smart Import QA evidence", error.message);
+      return [];
+    }
+    return (data ?? []).map((row) => ({
+      fixture_id: row.fixture_id,
+      status: row.status,
+      provider: row.provider,
+      checks: Array.isArray(row.checks_json) ? row.checks_json.map(String) : [],
+      confidence: row.confidence,
+      reviewed_at: row.reviewed_at,
+      error_message: row.error_message,
+    }));
+  } catch (error) {
+    console.warn("Unable to initialize Smart Import QA evidence query", error);
     return [];
   }
 }

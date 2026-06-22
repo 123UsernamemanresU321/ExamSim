@@ -20,19 +20,22 @@ import {
   V3_IMPORT_JOB_STATES,
   type ImportAuditLike,
   type ImportJobLike,
+  type SmartImportSampleQaResult,
 } from "@/lib/examsim/provider-readiness";
 
 export function ProviderReadinessDashboard({
   importJobs = [],
   importAuditLogs = [],
+  sampleQaResults = [],
 }: {
   importJobs?: ImportJobLike[];
   importAuditLogs?: ImportAuditLike[];
+  sampleQaResults?: SmartImportSampleQaResult[];
 }) {
   const providers = getProviderReadiness();
   const jobSummary = summarizeImportJobs(importJobs);
   const governance = buildImportGovernanceSummary({ jobs: importJobs, auditLogs: importAuditLogs });
-  const smartImportQa = buildSmartImportSampleQaPack();
+  const smartImportQa = buildSmartImportSampleQaPack(sampleQaResults);
   const batchPdfPlan = evaluateBatchPdfImportPlan([]);
 
   return (
@@ -120,6 +123,10 @@ export function ProviderReadinessDashboard({
                 <span className="font-semibold text-[var(--ink)]">{governance.audit.importAuditCount}</span> import audit event(s)
                 visible to this owner.
               </p>
+              <p className="leading-5">
+                Enforced monthly limits: DeepSeek $20, MinerU 200 pages, SimpleTeX 200 pages. Provider dashboard caps
+                remain a separate billing safeguard.
+              </p>
             </div>
             {governance.jobsRequiringConfirmation ? (
               <p className="mt-3 rounded-[4px] border border-[rgba(146,64,14,0.2)] bg-[var(--warning-bg)] p-3 text-sm leading-6 text-[var(--warning)]">
@@ -152,6 +159,11 @@ export function ProviderReadinessDashboard({
                     <Badge className="shrink-0" tone={sampleQaTone(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
                   </div>
                   <p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{item.ownerMessage}</p>
+                  {item.fixture.id === "sample-pdf-regions" ? (
+                    <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
+                      Expected 12 questions / 110 marks · IB Mathematics AA HL Paper 2 · Section A Q1-Q9 · Section B Q10-Q12
+                    </p>
+                  ) : null}
                   {item.missingChecks.length ? (
                     <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
                       Pending checks: {item.missingChecks.map((check) => check.replaceAll("_", " ")).join(", ")}

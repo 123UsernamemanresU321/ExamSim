@@ -4,6 +4,7 @@ import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { loadNormalizedPackage } from "../_shared/package-storage.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
+import { enforceProviderMonthlyQuota, envNumber } from "../_shared/provider-quota.ts";
 import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type Body = {
@@ -126,6 +127,15 @@ serve(async (request) => {
     } catch (e) {
       console.warn("Could not fetch image artifacts for AI context:", e);
     }
+
+    const deepseekReservationUsd = envNumber("DEEPSEEK_PARSE_RESERVATION_USD", 1);
+    const monthlyQuota = await enforceProviderMonthlyQuota(admin, {
+      ownerProfileId,
+      provider: "deepseek",
+      unit: "usd",
+      units: deepseekReservationUsd,
+      limit: envNumber("DEEPSEEK_OWNER_MONTHLY_USD_LIMIT", 20),
+    });
 
     const deepseekResponse = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
@@ -684,6 +694,14 @@ serve(async (request) => {
         status: "review_required",
         completed_at: new Date().toISOString(),
         result_object_path: null,
+        metadata_json: {
+          deepseek_reserved_cost_usd: deepseekReservationUsd,
+          deepseek_monthly_usd_remaining: monthlyQuota.remaining,
+          prompt_tokens: completion?.usage?.prompt_tokens ?? null,
+          completion_tokens: completion?.usage?.completion_tokens ?? null,
+          total_tokens: completion?.usage?.total_tokens ?? null,
+          owner_quota_usd: envNumber("DEEPSEEK_OWNER_MONTHLY_USD_LIMIT", 20),
+        },
       })
       .eq("id", parseJob.id);
 
@@ -692,6 +710,8 @@ serve(async (request) => {
       model,
       source_kind: body.source_kind,
       confidence: suggestion.confidence,
+      reserved_cost_usd: deepseekReservationUsd,
+      monthly_usd_remaining: monthlyQuota.remaining,
     });
 
     return json(request, { ok: true, suggestion: saved });

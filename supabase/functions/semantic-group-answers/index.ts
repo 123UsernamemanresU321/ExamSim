@@ -11,6 +11,7 @@ import {
   readJson,
 } from "../_shared/http.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
+import { enforceProviderMonthlyQuota, envNumber } from "../_shared/provider-quota.ts";
 
 const MAX_RESPONSES = 200;
 const MAX_RESPONSE_CHARS = 1_000;
@@ -138,6 +139,15 @@ serve(async (request) => {
         error: "The response set is too large for one semantic grouping run",
       }, 413);
     }
+
+    const deepseekReservationUsd = envNumber("DEEPSEEK_GROUPING_RESERVATION_USD", 0.1);
+    const monthlyQuota = await enforceProviderMonthlyQuota(admin, {
+      ownerProfileId,
+      provider: "deepseek",
+      unit: "usd",
+      units: deepseekReservationUsd,
+      limit: envNumber("DEEPSEEK_OWNER_MONTHLY_USD_LIMIT", 20),
+    });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30_000);
@@ -286,6 +296,8 @@ serve(async (request) => {
         question_node_id: body.question_node_id,
         response_count: responses.length,
         group_count: groups.length,
+        reserved_cost_usd: deepseekReservationUsd,
+        monthly_usd_remaining: monthlyQuota.remaining,
       },
     );
     return json(request, {

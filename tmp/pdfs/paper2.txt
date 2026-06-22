@@ -1,0 +1,643 @@
+Mathematics: analysis and approaches
+Higher level
+Paper 2
+
+25 October 2024
+
+Zone A morning    Zone B morning   Zone C morning
+                                                                   Candidate session number
+
+2 hours
+
+Instructions to candidates
+y Write your session number in the boxes above.
+y Do not open this examination paper until instructed to do so.
+y A graphic display calculator is required for this paper.
+y Section A: answer all questions. Answers must be written within the answer boxes provided.
+y Section B: answer all questions in the answer booklet provided. Fill in your session number on
+              the front of the answer booklet, and attach it to this examination paper and your cover
+              sheet using the tag provided.
+y Unless otherwise stated in the question, all numerical answers should be given exactly or
+  correct to three significant figures.
+y A clean copy of the mathematics: analysis and approaches HL formula booklet is required
+  for this paper.
+y The maximum mark for this examination paper is [110 marks].
+
+
+
+
+                                                                                                 8824 – 9701
+      17 pages                                               © International Baccalaureate Organization 2024
+
+
+
+
+                                                    20EP01
+                                                   –2–                                        8824 – 9701
+
+
+Full marks are not necessarily awarded for a correct answer with no working. Answers must be
+supported by working and/or explanations. Solutions found from a graphic display calculator should be
+supported by suitable working. For example, if graphs are used to find a solution, you should sketch
+these as part of your answer. Where an answer is incorrect, some marks may be given for a correct
+method, provided this is shown by written working. You are therefore advised to show all working.
+
+                                               Section A
+
+Answer all questions. Answers must be written within the answer boxes provided. Working may be
+continued below the lines, if necessary.
+
+1.   [Maximum mark: 7]
+
+     Consider the function f ( x) ! 11 x " 2 x " 11 , where 0 ≤ x ≤ 20 .
+
+     (a)   Find the value of
+
+           (i)    f (0) ;
+
+           (ii)   f (20) .                                                                              [2]
+
+     (b)   Find the two roots of f (x) = 0 .                                                            [2]
+
+     (c)   Sketch the graph of y = f (x) on the following grid.                                         [3]
+
+
+                             y
+
+                             5
+
+
+                                                                                x
+                             0         5           10          15          20
+
+
+                            -5
+
+
+
+                        - 0
+
+
+
+                        - 5
+
+
+
+(This question continues on the following page)
+
+
+
+
+                                                   20EP02
+                                       –3–                                  8824 – 9701
+
+
+(Question 1 continued)
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                                           Turn over
+                                       20EP03
+                                                    –4–                     8824 – 9701
+
+
+2.   [Maximum mark: 4]
+
+     Find the coefficient of x6 in the expansion of (2x - 5)9 .
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                   20EP04
+                                                      –5–                          8824 – 9701
+
+
+3.   [Maximum mark: 5]
+
+     A discrete random variable, X , has the following probability distribution:
+
+                                                 kx
+                                   P( X = x) =      for x ∈ {3 , 5 , 8 , 11} .
+                                                 20
+     (a)   Find the value of k .                                                           [2]
+
+     (b)   Find E (X ) .                                                                   [3]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                                                   Turn over
+                                                     20EP05
+                                                 –6–                                          8824 – 9701
+
+
+4.   [Maximum mark: 8]
+
+     The following diagram shows the cross section of the roof of a house. The cross section is
+     symmetrical about the vertical line through points A and E .
+
+                                                                           diagram not to scale
+
+                                                    A
+
+
+
+                                                    E
+
+
+
+
+           B
+                           D                                                  F
+
+               C
+
+
+
+
+                                7
+     The gradient of [BA] is      .
+                               12
+     (a)   Find the size of BÂE , expressing your answer in degrees.                                  [3]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+(This question continues on the following page)
+
+
+
+                                                20EP06
+                                                 –7–                                    8824 – 9701
+
+
+(Question 4 continued)
+
+     A builder requires the lengths of the sides [BA] and [CE] .
+
+     The builder has the following measurements:
+
+     AB̂ C = BĈE = 90° , DC = 50 cm , BC = 30 cm , and DF = 700 cm .
+
+                                                                       diagram not to scale
+
+                                                         A
+
+
+
+                                                         E
+
+
+
+                                   D
+              B
+                                                                            F
+                  m               cm
+           30
+              c
+                       C     50
+                                                     700 cm
+
+
+
+     (b)    Find
+
+            (i)       CE ;
+
+            (ii)      BA .                                                                      [5]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+                                                                                       Turn over
+                                                20EP07
+                                                   –8–                       8824 – 9701
+
+
+5.   [Maximum mark: 5]
+
+     Consider the function h (x) = log10(4x2 - rx + r - 1) , where x ∈  .
+
+     Find the possible values of r .                                                 [5]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                  20EP08
+                                                  –9–                                       8824 – 9701
+
+
+6.   [Maximum mark: 8]
+
+     A continuous random variable X has probability density function
+
+                                                (   1
+                                                *        0$ x%2
+                                                    5
+                                                *
+                                                * x 4
+                                      f ! x " # )& '     2$ x$8
+                                                * 30 15
+                                                *   0   otherwise.
+                                                *+
+
+     (a)   Find E (X ) .                                                                            [3]
+
+     (b)   Given that E (c - 2X ) = 0 , where c is a constant, determine the value of c .           [2]
+
+     (c)   Find the median of X .                                                                   [3]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                                                            Turn over
+                                                  20EP09
+                                                 – 10 –                                        8824 – 9701
+
+
+7.   [Maximum mark: 6]
+
+     A self-service sushi restaurant has a row of 12 available seats, as shown in the following diagram.
+
+
+
+
+     Anvi, Vanya and Parita decide to go to the restaurant for lunch.
+
+     (a)   Find the number of possible ways that they can be seated in this row, if they decide not
+           to sit together as a group of 3 .                                                           [3]
+
+     The next day, Anvi, Vanya and Parita are joined by 3 additional people in the same
+     restaurant, and they sit in the same row of 12 available seats. Anvi, Vanya and Parita now
+     decide to sit next to each other as a group of 3 .
+
+     (b)   Find the number of possible ways that these 6 people can be seated.                         [3]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                 20EP10
+                                                  – 11 –                                        8824 – 9701
+
+
+8.   [Maximum mark: 6]
+
+     (a)   Given that w ∈  , prove that ww* = | w |2 .                                                 [2]
+
+     Two complex numbers z and w satisfy the following equations:
+
+                                             5w* = (1 - 2i) z2
+
+                                              zw = 10 + 10i .
+
+     (b)   Given that | w
+                        w| = 2 5 , find z expressing your answer in the form a + bi , where a , b ∈  . [4]
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                                                                Turn over
+                                                  20EP11
+             – 12 –                 8824 – 9701
+
+
+
+
+Please do not write on this page.
+
+  Answers written on this page
+      will not be marked.
+
+
+
+
+             20EP12
+                                                   – 13 –                                         8824 – 9701
+
+
+9.   [Maximum mark: 7]
+
+                                                                                 n $1
+
+                                                                                % 5 " log c # .
+                                                                                              r
+     The sum of the first n terms of a geometric sequence is given by S n !               2
+                                                                                 r !0
+
+     (a)   Given that Sn converges, find the range of possible values of c .                              [3]
+
+     (b)   In the case where c = 1.5 , find the least value of n such that | S∞ - Sn | < 0.1 .            [4]
+
+
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+     ..........................................................................
+
+
+
+
+                                                                                                  Turn over
+                                                   20EP13
+                                                      – 14 –                                      8824 – 9701
+
+
+Do not write solutions on this page.
+
+                                                  Section B
+
+Answer all questions in the answer booklet provided. Please start each question on a new page.
+
+10.   [Maximum mark: 15]
+
+      The following table shows the population of Canada t years after the year 2000.
+
+            t (years after 2000)             0               5      10         15         20
+            p (population in
+                                           30.7         32.2        34.0       35.7      37.9
+            millions)
+
+      A student uses linear regression to model the population of Canada using these data.
+      The student model is p = at + b .
+
+      (a)   (i)    Write down the value of a and the value of b .
+
+            (ii)   Interpret, in context, the value of a .                                                [3]
+
+      The student uses this model to predict the population of Canada in the year 2030,
+      where t = 30 , and calculates a population of approximately 41.3 million people.
+
+      (b)   Comment on the reliability of the student’s prediction.                                       [1]
+
+      A data scientist, Benoit, uses additional information to develop an exponential model for
+      Canada’s future population.
+
+      In this model, B (t ) = 33.5(1.005)t represents the millions of people in Canada t years after
+      the year 2000, where 25 ≤ t ≤ 100 .
+
+      (c)   (i)    Use Benoit’s model to predict the population of Canada in the year 2100.
+
+            (ii)   Interpret, in context, the value 1.005 in Benoit’s model.                              [3]
+
+(This question continues on the following page)
+
+
+
+
+                                                      20EP14
+                                                      – 15 –                                            8824 – 9701
+
+
+Do not write solutions on this page.
+
+(Question 10 continued)
+
+     Another data scientist, Cecilia, develops a third model for the Canadian population.
+
+                                   62
+     In this model, C (t ) !                represents the millions of people in Canada t years after
+                               1 " e #0.02t
+     the year 2000, where 25 ≤ t ≤ 100 .
+
+     (d)   Use Cecilia’s model to predict the population of Canada in the year 2100.                            [1]
+
+     (e)   Determine the year in which the difference between the predictions from Benoit’s model
+           and Cecilia’s model is greatest.                                                                     [3]
+
+     (f)   Find the value of
+
+           (i)    B ′(75) ;
+
+           (ii)   C ′(75) .                                                                                     [2]
+
+     (g)   Compare and interpret, in context, the values of B ′(75) and C ′(75) .                               [2]
+
+
+
+
+                                                                                                        Turn over
+                                                      20EP15
+                                                   – 16 –                                      8824 – 9701
+
+
+Do not write solutions on this page.
+
+11.   [Maximum mark: 18]
+
+                                     x             z
+      A line L is defined by L : !     "1 # y " 4 # .
+                                     2             3
+      (a)   Find the equation of L , expressing your answer in the form r = a + lb , where l ∈  .     [3]
+
+      (b)   Determine the minimum distance from the origin O to the line L .                           [5]
+
+      A plane P is defined by P : 6x - 3y + 5z = 24 .
+
+      (c)   Verify that P contains L .                                                                 [3]
+
+      A second line M is parallel to P .
+
+      The line M passes through the point (4, 1, 2) and intersects the z-axis.
+
+      (d)   Find the equation of M , expressing your answer in the form s = c + md , where m ∈  .     [7]
+
+
+
+
+                                                   20EP16
+                                                        – 17 –                                       8824 – 9701
+
+
+Do not write solutions on this page.
+
+12.   [Maximum mark: 21]
+
+                                     2x2 " 6x # 3
+      A curve C has equation y !                  , x ∈  , x ≠ -k , where k is a real positive constant.
+                                        x"k
+
+                      dy 2 x 2 " 4kx " 6k " 3
+      (a)   Show that    !                    .                                                              [4]
+                                #x " k$
+                                        2
+                      dx
+
+      (b)   Find the range of values of k for which a local minimum or maximum point exists.                 [4]
+
+      Consider the curve C , when k = 2 .
+
+      (c)   Write down the equation of the vertical asymptote.                                               [1]
+
+      (d)   Find the equation of the oblique asymptote.                                                      [4]
+
+                        dy
+      (e)   Show that      > 2 , for x ∈  , x ≠ -2 .                                                        [4]
+                        dx
+      (f)   Sketch the curve C , showing clearly both asymptotes and the general behaviour of C
+            as it approaches each asymptote. [You are not required to find any axes intercepts.]             [4]
+
+
+
+
+                                                        20EP17
+Please do not write on this page.
+
+  Answers written on this page
+      will not be marked.
+
+
+
+
+             20EP18
+Please do not write on this page.
+
+  Answers written on this page
+      will not be marked.
+
+
+
+
+             20EP19
+Please do not write on this page.
+
+  Answers written on this page
+      will not be marked.
+
+
+
+
+             20EP20
+

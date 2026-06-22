@@ -1,0 +1,1318 @@
+8824 – 9701M
+
+
+
+
+               Markscheme
+
+
+               November 2024
+
+
+   Mathematics: analysis and approaches
+
+
+                Higher level
+
+
+                  Paper 2
+
+
+
+
+30 pages
+                                            –2–                                         8824 – 9701M
+
+
+
+
+© International Baccalaureate Organization 2024
+
+All rights reserved. No part of this product may be reproduced in any form or by any
+electronic or mechanical means, including information storage and retrieval systems,
+without the prior written permission from the IB. Additionally, the license tied with this
+product prohibits use of any selected files or extracts from this product. Use by third
+parties, including but not limited to publishers, private teachers, tutoring or study services,
+preparatory schools, vendors operating curriculum mapping services or teacher resource
+digital platforms and app developers, whether fee-covered or not, is prohibited and is a
+criminal offense.
+
+More information on how to request written permission in the form of a license can be
+obtained from https://ibo.org/become-an-ib-school/ib-publishing/licensing/applying-for-a-
+license/.
+
+© Organisation du Baccalauréat International 2024
+
+Tous droits réservés. Aucune partie de ce produit ne peut être reproduite sous quelque
+forme ni par quelque moyen que ce soit, électronique ou mécanique, y compris des
+systèmes de stockage et de récupération d’informations, sans l’autorisation écrite
+préalable de l’IB. De plus, la licence associée à ce produit interdit toute utilisation de tout
+fichier ou extrait sélectionné dans ce produit. L’utilisation par des tiers, y compris, sans
+toutefois s’y limiter, des éditeurs, des professeurs particuliers, des services de tutorat ou
+d’aide aux études, des établissements de préparation à l’enseignement supérieur, des
+fournisseurs de services de planification des programmes d’études, des gestionnaires de
+plateformes pédagogiques en ligne, et des développeurs d’applications, moyennant
+paiement ou non, est interdite et constitue une infraction pénale.
+
+Pour plus d’informations sur la procédure à suivre pour obtenir une autorisation écrite
+sous la forme d’une licence, rendez-vous à l’adresse https://ibo.org/become-an-ib-school/
+ib-publishing/licensing/applying-for-a-license/.
+
+© Organización del Bachillerato Internacional, 2024
+
+Todos los derechos reservados. No se podrá reproducir ninguna parte de este producto
+de ninguna forma ni por ningún medio electrónico o mecánico, incluidos los sistemas de
+almacenamiento y recuperación de información, sin la previa autorización por escrito del
+IB. Además, la licencia vinculada a este producto prohíbe el uso de todo archivo o
+fragmento seleccionado de este producto. El uso por parte de terceros —lo que incluye,
+a título enunciativo, editoriales, profesores particulares, servicios de apoyo académico o
+ayuda para el estudio, colegios preparatorios, desarrolladores de aplicaciones y
+entidades que presten servicios de planificación curricular u ofrezcan recursos para
+docentes mediante plataformas digitales—, ya sea incluido en tasas o no, está prohibido
+y constituye un delito.
+
+En este enlace encontrará más información sobre cómo solicitar una autorización por
+escrito en forma de licencia: https://ibo.org/become-an-ib-school/ib-publishing/licensing/
+applying-for-a-license/.
+                                                   –3–                                        8824 – 9701M
+
+
+                                         Instructions to Examiners
+
+Abbreviations
+
+M    Marks awarded for attempting to use a correct Method.
+
+A    Marks awarded for an Answer or for Accuracy; often dependent on preceding M marks.
+
+R    Marks awarded for clear Reasoning.
+
+AG   Answer given in the question and so no marks are awarded.
+
+FT   Follow through. The practice of awarding marks, despite candidate errors in previous parts, for their
+     correct methods/answers using incorrect results.
+
+
+Using the markscheme
+
+1    General
+
+     Award marks using the annotations as noted in the markscheme eg M1, A2.
+
+
+2    Method and Answer/Accuracy marks
+
+     • Do not automatically award full marks for a correct answer; all working must be checked, and marks
+       awarded according to the markscheme.
+     • It is generally not possible to award M0 followed by A1, as A mark(s) depend on the preceding M
+       mark(s), if any.
+     • Where M and A marks are noted on the same line, e.g. M1A1, this usually means M1 for an attempt
+       to use an appropriate method (e.g. substitution into a formula) and A1 for using the correct values.
+     • Where there are two or more A marks on the same line, they may be awarded independently; so if
+       the first value is incorrect, but the next two are correct, award A0A1A1.
+     • Where the markscheme specifies A3, M2 etc., do not split the marks, unless there is a note.
+     • The response to a “show that” question does not need to restate the AG line, unless a Note makes
+       this explicit in the markscheme.
+     • Once a correct answer to a question or part question is seen, ignore further working even if this
+       working is incorrect and/or suggests a misunderstanding of the question. This will encourage a uniform
+       approach to marking, with less examiner discretion. Although some candidates may be advantaged
+       for that specific question item, it is likely that these candidates will lose marks elsewhere too.
+     • An exception to the previous rule is when an incorrect answer from further working is used in a
+       subsequent part. For example, when a correct exact value is followed by an incorrect decimal
+       approximation in the first part and this approximation is then used in the second part. In this situation,
+       award FT marks as appropriate but do not award the final A1 in the first part.
+
+Examples:
+
+     Correct         Further            Any FT issues?
+                                                                   Action
+     answer seen     working seen
+1.                     5.65685...         No.                       Award A1 for the final mark
+       8 2            (incorrect          Last part in question.    (condone the incorrect further
+                     decimal value)                                 working)
+2.      35            0.468111…           Yes.                      Award A0 for the final mark
+                      (incorrect          Value is used in          (and full FT is available in
+        72           decimal value)       subsequent parts.         subsequent parts)
+                                                 –4–                                        8824 – 9701M
+
+
+
+
+3   Implied marks
+
+    Implied marks appear in brackets e.g. (M1),and can only be awarded if correct work is seen or
+    implied by subsequent working/answer.
+
+
+4   Follow through marks (only applied after an error is made)
+
+    Follow through (FT) marks are awarded where an incorrect answer from one part of a question is
+    used correctly in subsequent part(s) (e.g. incorrect value from part (a) used in part (d) or incorrect
+    value from part (c)(i) used in part (c)(ii)). Usually, to award FT marks, there must be working
+    present and not just a final answer based on an incorrect answer to a previous part. However, if all
+    the marks awarded in a subsequent part are for the answer or are implied, then FT marks should be
+    awarded for their correct answer, even when working is not present.
+
+    For example: following an incorrect answer to part (a) that is used in subsequent parts, where the
+    markscheme for the subsequent part is (M1)A1, it is possible to award full marks for their correct
+    answer, without working being seen. For longer questions where all but the answer marks are
+    implied this rule applies but may be overwritten by a Note in the Markscheme.
+
+    • Within a question part, once an error is made, no further A marks can be awarded for work which
+      uses the error, but M marks may be awarded if appropriate.
+
+    • If the question becomes much simpler because of an error then use discretion to award fewer
+      FT marks, by reflecting on what each mark is for and how that maps to the simplified version.
+
+    • If the error leads to an inappropriate value (e.g. probability greater than 1, sin θ = 1.5 , non-integer
+      value where integer required), do not award the mark(s) for the final answer(s).
+
+    • The markscheme may use the word “their” in a description, to indicate that candidates may be using
+      an incorrect value.
+
+    • If the candidate’s answer to the initial question clearly contradicts information given in the question,
+      it is not appropriate to award any FT marks in the subsequent parts. This includes when candidates
+      fail to complete a “show that” question correctly, and then in subsequent parts use their incorrect
+      answer rather than the given value.
+
+    • Exceptions to these FT rules will be explicitly noted on the markscheme.
+
+    • If a candidate makes an error in one part but gets the correct answer(s) to subsequent part(s), award
+      marks as appropriate, unless the command term was “Hence”.
+                                                –5–                                       8824 – 9701M
+
+
+5   Mis-read
+
+    If a candidate incorrectly copies values or information from the question, this is a mis-read (MR). A
+    candidate should be penalized only once for a particular misread. Use the MR stamp to indicate that
+    this has been a misread and do not award the first mark, even if this is an M mark, but award all
+    others as appropriate.
+    • If the question becomes much simpler because of the MR, then use discretion to award fewer marks.
+
+    • If the MR leads to an inappropriate value (e.g. probability greater than 1, sin θ = 1.5 , non-integer
+      value where integer required), do not award the mark(s) for the final answer(s).
+
+    • Miscopying of candidates’ own work does not constitute a misread, it is an error.
+
+    • If a candidate uses a correct answer, to a “show that” question, to a higher degree of accuracy than
+      given in the question, this is NOT a misread and full marks may be scored in the subsequent part.
+
+    • MR can only be applied when work is seen. For calculator questions with no working and incorrect
+      answers, examiners should not infer that values were read incorrectly.
+
+
+6   Alternative methods
+
+    Candidates will sometimes use methods other than those in the markscheme. Unless the question
+    specifies a method, other correct methods should be marked in line with the markscheme. If the
+    command term is ‘Hence’ and not ‘Hence or otherwise’ then alternative methods are not permitted
+    unless covered by a note in the mark scheme.
+
+    • Alternative    methods      for    complete     questions    are   indicated   by    METHOD        1,
+      METHOD 2, etc.
+    • Alternative solutions for parts of questions are indicated by EITHER . . . OR.
+
+
+7   Alternative forms
+    Unless the question specifies otherwise, accept equivalent forms.
+
+    • As this is an international examination, accept all alternative forms of notation for example 1.9 and
+      1,9 or 1000 and 1,000 and 1.000 .
+
+    • Do not accept final answers written using calculator notation. However, M marks and intermediate
+      A marks can be scored, when presented using calculator notation, provided the evidence clearly
+      reflects the demand of the mark.
+
+    • In the markscheme, equivalent numerical and algebraic forms will generally be written in brackets
+      immediately following the answer.
+
+    • In the markscheme, some equivalent answers will generally appear in brackets. Not all equivalent
+      notations/answers/methods will be presented in the markscheme and examiners are asked to apply
+      appropriate discretion to judge if the candidate work is equivalent.
+                                                         –6–                                             8824 – 9701M
+
+
+8     Format and accuracy of answers
+
+      If the level of accuracy is specified in the question, a mark will be linked to giving the answer to the
+      required accuracy. If the level of accuracy is not stated in the question, the general rule applies to final
+      answers: unless otherwise stated in the question all numerical answers must be given exactly or
+      correct to three significant figures.
+
+      Where values are used in subsequent parts, the markscheme will generally use the exact value,
+      however candidates may also use the correct answer to 3 sf in subsequent parts. The markscheme
+      will often explicitly include the subsequent values that come “from the use of 3 sf values”.
+
+      Simplification of final answers: Candidates are advised to give final answers using good
+      mathematical form. In general, for an A mark to be awarded, arithmetic should be completed, and any
+                                                                                25                     5
+      values that lead to integers should be simplified; for example,              should be written as . An
+                                                                                4                      2
+      exception to this is simplifying fractions, where lowest form is not required (although the numerator
+                                                                    10                                       5
+      and the denominator must be integers); for example,              may be left in this form or written as .
+                                                                     4                                       2
+                  10
+      However,       should be written as 2, as it simplifies to an integer.
+                   5
+
+      Algebraic expressions should be simplified by completing any operations such as addition and
+      multiplication, e.g. 4e 2 x × e3 x should be simplified to 4e5 x , and 4e 2 x × e3 x − e 4 x × e x should be simplified
+      to 3e5 x . Unless specified in the question, expressions do not need to be factorized, nor do factorized
+      expressions need to be expanded, so x ( x + 1) and x 2 + x are both acceptable.
+
+      Please note: intermediate A marks do NOT need to be simplified.
+
+9     Calculators
+
+      A GDC is required for this paper, but if you see work that suggests a candidate has used any
+      calculator not approved for IB DP examinations (eg CAS enabled devices), please follow the
+      procedures for malpractice.
+
+
+10.   Presentation of candidate work
+
+      Crossed out work: If a candidate has drawn a line through work on their examination script, or in
+      some other way crossed out their work, do not award any marks for that work unless an explicit note
+      from the candidate indicates that they would like the work to be marked.
+
+      More than one solution: Where a candidate offers two or more different answers to the same
+      question, an examiner should only mark the first response unless the candidate indicates otherwise.
+      If the layout of the responses makes it difficult to judge, examiners should apply appropriate discretion
+      to judge which is “first”.
+                                                   –7–         8824 – 9701M
+
+
+                                               Section A
+
+
+1.   (a)   (i)     f (0) = −11                                          A1
+
+
+           (ii)   −1.80650...
+                  f (20) =
+                         −1.81 =   (
+                               11 20 − 51 =
+                                          22 5 − 51        )            A1
+
+                                                                  [2 marks]
+
+
+     (b)   attempt to find at least one root                           (M1)
+           x = 1.72622... and x = 17.5237...
+           x = 1.73 and x = 17.5                                        A1
+                                                                  [2 marks]
+                                                                continued…
+                                                    –8–                                           8824 – 9701M
+
+
+Question 1 continued.
+
+
+     (c)
+
+
+
+
+                                                                                                       A1A1A1
+
+ Note: Follow through from their part (a).
+       Award A1 for endpoints at approximately ( 0, −11) and ( 20, −1.8 ) . Allow for y-intercept
+       −12 < y < −10 and for the right endpoint in the interval x= 20, − 2 < y < −1 .
+       The following two A marks may only be awarded if the approximate shape is correct.
+       Award A1 for x-intercepts at approximately x = 1.7 and x = 17.5 and award A1 for maximum
+       at approximately ( 7.6, 4.1) . Allow for x-intercepts in the intervals 1 < x < 2, 17 < x < 18 , and
+       maximum in the intervals 6.5 < x < 8.5 , 3.5 < y < 5 .
+
+                                                                                                      [3 marks]
+                                                                                               Total [7 marks]
+                                                    –9–                                   8824 – 9701M
+
+
+2.    EITHER
+      attempt to form a product of binomial coefficient, a power of 2x and a power of −5 seen       (M1)
+      9
+       C3 (2 x)6 (−5)3 OR 9C6 (2 x)6 (−5)3 OR 84 × (2 x)6 (−5)3                                  (A1)(A1)
+
+     Note: Award A1 for 9C6 or 9C3 or 84, A1 for (2 x)6 (−5)3 .
+
+      OR
+      attempt to use the general term                                                               (M1)
+      9
+       Cr (2 x)9− r (−5) r and r = 3                                                             (A1)(A1)
+
+      THEN
+      −672000 (exact)                                                                                 A1
+
+     Note: Award A0 for a final answer of −672000x 6 .
+
+                                                                                                [4 marks]
+                                                  – 10 –                          8824 – 9701M
+
+
+
+
+3.   (a)   recognition of sum of probabilities equals 1                                    (M1)
+           3k 5k 8k 11k
+             +  +  +    1
+                        =
+           20 20 20 20
+           k = 0.740740
+                 20 
+       =k 0.741
+           =                                                                               A1
+                 27 
+                                                                                      [2 marks]
+
+
+
+
+                                     3 5 8 11
+     (b)   correct probabilities:     , , ,     OR 0.111, 0.185, 0.296, 0.407              (A1)
+                                    27 27 27 27
+           substitution of their probabilities into formula for expected value             (M1)
+                 3       5    8      11    219k
+           3×      + 5 × + 8 × + 11×    OR
+                27      27    27     27     20
+           = 8.11111...
+                        219 73 
+           E( X
+             =  ) 8.11
+                    =   =       (same 3sf from previous 3sf answer)                        A1
+                        27  9 
+                                                                                      [3 marks]
+                                                                                 Total [5 marks]
+                                                    – 11 –                                   8824 – 9701M
+
+
+4.    (a)   METHOD 1
+            attempt to use right triangle trigonometry                                                 (M1)
+
+                 ˆ = 12 OR tan 90° − BAE
+            tan BAE                 ( ˆ =7      )                                                      (A1)
+                      7                  12
+            59.7435...
+             ˆ
+            BAE
+             =  59.7°                                                                                   A1
+     Note: Award (M1)(A1)A0 for the equivalent radian value of 1.04.
+            METHOD 2
+                             ˆ using sine rule OR cosine rule
+            attempt to find BAE                                                                        (M1)
+                  ˆ
+            sin BAE   sin 90
+                    =                                                        ˆE
+                               OR 122 = 7 2 + 193 − 2 × 7 × 122 + 7 2 × cos BA                         (A1)
+               12       2
+                      12 + 7 2
+
+
+             ˆ = 59.7435...
+            BAE
+             ˆ
+            BAE=59.7°                                                                                   A1
+     Note: Award (M1)(A1)A0 for the equivalent radian value of 1.04.
+
+
+                                                                                                 [3 marks]
+      (b)   (i)   METHOD 1
+                  attempt to find DE using right angle trigonometry                                    (M1)
+                                      350
+                  sin 59.7435...° =       OR equivalent                                                (A1)
+                                      DE
+                  DE = 405.196...
+            =CE 405.196... + 50
+                  = 455.196...
+                  = 455 (cm)                                                                            A1
+                  METHOD 2
+                  Let DE
+                       = EF
+                          = x
+                                                  ˆ and the sine rule OR cosine rule
+                  attempt to find DE using their DEF                                                   (M1)
+                        700               DE             2
+                                  =                  OR x= 7002 + x 2 − 2 × 700 × x × cos 30.2564...   (A1)
+                  sin (119.487...) sin ( 30.2564...)
+                  DE = 405.196...
+            =CE 405.196... + 50
+                  = 455.196...
+                  = 455 (cm)                                                                            A1
+                                                                                               continued…
+                                                     – 12 –       8824 – 9701M
+
+
+Question 4 continued.
+
+
+                  METHOD 3
+                  Let G be the midpoint of DF
+                          7        1225              
+                  EG =      × 350  =    = 204.166...                     (A1)
+                         12          6               
+                  use of Pythagoras’ with their EG to find DE              (M1)
+
+                  DE
+                  =          204.166...2 + 350
+                                             = 2
+                                                 ( 405.196...)
+           =CE 405.196... + 50
+                  = 455.196...
+                  = 455 (cm)                                                 A1
+
+
+
+
+                                    30  12 30
+           (ii)   tan(59.7435...°) = OR    =                               (A1)
+                                     x   7   x
+                  x = 17.5
+            =BA 455.196... + 17.5
+                  = 472.696...
+                  = 473 (cm)                                                 A1
+                                                                      [5 marks]
+                                                                 Total [8 marks]
+                                                      – 13 –                              8824 – 9701M
+
+
+5.    METHOD 1
+      recognition that 4 x 2 − rx + r − 1 must be greater than zero (seen anywhere)                R1
+
+      (discriminant = ) ( − r ) − 4(4)(r − 1)
+                               2
+                                              r
+                                              = 2
+                                                  (
+                                                  − 16r + 16   ) (seen anywhere)                  (A1)
+
+                (          )                      (
+      1.07179... = 8 − 4 3 AND 14.9282... = 8 + 4 3     ) (seen anywhere)                         (A1)
+
+      recognition that discriminant of 4 x 2 − rx + r − 1 is less than zero                       (M1)
+
+      1.07 < r < 14.9 ( 8 − 4 3 < r < 8 + 4 3 )                                                    A1
+
+     Note: Accept 1.08 ≤ r ≤ 14.9 .
+
+
+      METHOD 2
+      recognition that 4 x 2 − rx + r − 1 must be greater than zero (seen anywhere)                R1
+      EITHER
+                                                  2
+                           r             r     r
+      minimum when x =       ⇒ ( y = ) 4   − r   + r −1 ( > 0)                                (A1)
+                           8             8     8
+      attempt to solve their inequality for y (must be in terms of r and r 2 )                    (M1)
+      OR
+                4x2 −1                4x2 −1
+      x <1⇒ r >        OR x > 1 ⇒ r <                                                             (A1)
+                 x −1                  x −1
+                                                                      4x 2 − 1
+      attempt to find local minumum AND local maximum of r =                                      (M1)
+                                                                       x −1
+      THEN
+
+      ( r > ) 1.07179... ( 8 − 4
+                          =      3 ) AND ( r < ) 14.9282... ( 8 + 4
+                                                             =      3 ) (seen anywhere)           (A1)
+
+                      (
+      1.07 < r < 14.9 8 − 4 3 < r < 8 + 4 3   )                                                    A1
+
+     Note: Accept 1.08 ≤ r ≤ 14.9 .
+
+                                                                                             [5 marks]
+                                                         – 14 –                    8824 – 9701M
+
+
+                                 2          8
+                                    x          x2 4 x 
+6.    (a)           E ( X=
+                         )       ∫0 5 ∫2  − 30 + 15  dx
+                                      d x +                                              (A1)(A1)
+
+                             2         8
+                   x                      x2 4 x 
+Note: Award (A1) ∫ ( dx ) and (A1) for ∫  −   +  ( dx )
+                 0
+                   5                   2
+                                             30 15 
+
+                     2 12
+                =      +
+                     5   5
+                     14
+              =       =( 2.8 )                                                                A1
+                      5
+                                                                                        [3 marks]
+
+
+(b)   attempt to use the expectation formula E ( aX + b
+                                                     =  ) aE ( X ) + b                      (M1)
+
+          E (c − 2 X ) =
+                       c − 2E ( X )( =
+                                     0)
+
+      c = 2E( X )
+              28
+      =       =( 5.6 )                                                                        A1
+              5
+                                                                                        [2 marks]
+
+
+(c)   recognition that median m lies between 2 and 8 e.g. using a diagram or integral       (M1)
+          2          m                               8            m
+             1           x 4            1       x 4       1      x 4      1
+          ∫0 5 dx + ∫2  − 30 + 15  dx =
+                                          2
+                                            OR ∫  −
+                                               m
+                                                       +  dx =OR ∫  − +  dx =
+                                                     30 15   2   2
+                                                                       30 15  10
+                                                                                             (A1)
+
+
+          m = 2.52277...
+          m = 2.52                                                                            A1
+                                                                                        [3 marks]
+                                                                                 Total [8 marks]
+                                                      – 15 –                                 8824 – 9701M
+
+
+7.   (a)          = 3! 12C
+           total ways    =3         (   12
+                                        P
+                                        =3 1320 ) OR total ways together =3!×10 ( =60 )               (A1)
+
+           attempt to consider the total ways of sitting – total ways of sitting together             (M1)
+           3! 12C3 − 3!×10
+           = 1260                                                                                       A1
+                                                                                                 [3 marks]
+
+
+
+
+     (b)   METHOD 1
+           attempt to multiply ways of seating AVP by ways of sitting additional people               (M1)
+           AVP can sit in 3!× 10 ( =
+                                   60 ) ways ( may be seen in part (a))
+
+           other 3 then have 9 × 8 × 7 ( =9 P3 ) ways to sit                                          (A1)
+
+           total ways = 3!× 10 × 9 × 8 × 7
+
+           = 30240                                                                                      A1
+
+     Note: Award (M1)(A0)A0 for 3!× 10 × 9C3 =
+                                             5040 .
+
+
+
+           METHOD 2
+           attempt to consider ‘AVP’ as one item, so 4 ‘items’ in total                               (M1)
+
+
+            C4 × 3!× 4!(=
+           10                10
+                                  P4 × 3! )                                                           (A1)
+
+           = 30240                                                                                      A1
+                                                                                                 [3 marks]
+                                                                                            Total [6 marks]
+                                                           – 16 –                          8824 – 9701M
+
+
+8.   (a)    METHOD 1
+            suppose w= x + iy
+
+            ww* (
+               =+ x iy )( x − iy )                                                                  A1
+
+           = x2 + y 2                                                                               A1
+                   2
+            = w                                                                                     AG
+
+            METHOD 2
+            suppose w = reiθ
+
+            ww* = ( reiθ )( re-iθ )                                                                 A1
+
+            = r2                                                                                    A1
+                   2
+            = w                                                                                     AG
+
+            METHOD 3
+                =
+            suppose w r ( cos θ + i sin θ )
+
+            ww* ( r
+               =    ( cos θ + i sin θ ) ) ( r ( cos θ − i sin θ ) )                                 A1
+
+            = r 2 ( cos 2 θ + sin 2 θ )(= r 2 )                                                     A1
+                   2
+            = w                                                                                     AG
+
+                                                                                              [2 marks]
+     (b)    EITHER
+            multiplying first equation by w OR multiplying LHS and RHS of both equations            M1
+            5w* w=     (1 − 2i ) z 2 w OR 5w* zw (1
+                                                =   − 2i ) z 2 (10 + 10i )
+
+            5(2 5) 2 =(1 − 2i )(10 + 10i ) z ( ⇒ 100 =( 30 − 10i ) z )                              A1
+
+            OR
+            attempt to eliminate w and w* using ww* = 20                                            M1
+             (1 − 2i ) 2   10 + 10i 
+                      z              = 20
+             5            z 
+             (1 − 2i )(10 + 10i ) z = 20                                                            A1
+                       5
+
+
+                                                                                            continued…
+                                                         – 17 –                                                 8824 – 9701M
+
+
+Question 8 continued.
+
+
+            THEN
+                       10           10 
+=z                =                                                                                                         (A1)
+                 (1 − 2i )(1 + i )  3 − i 
+            z= 3 + i                                                                                                         A1
+
+            (=
+             a 3,=b 1)
+                                                                                                                       [4 marks]
+                                                                                                              Total [6 marks]
+
+
+
+
+9.    (a)   recognition that log 2 c < 1                                                                                   (M1)
+
+            0.5 < c < 2,     ( c ≠ 1)                                                                                     A1A1
+
+     Note: Award A1 for endpoints and A1 for strict inequalities.
+
+
+                                                                                                                       [3 marks]
+                                      u1
+      (b)   attempt to find S∞ =                                                                                           (M1)
+                                     1− r
+                     5                 5     
+=              =                = 12.0471...                                                                              (A1)
+              1 − log 2 (1.5 )  1 − 0.58496 
+
+            attempt to solve their S∞ − S n < 0.1                                                                          (M1)
+
+
+                    5          n −1
+                             − ∑ 5 ( log 2 (1.5 ) ) < 0.1 OR
+                                                   r                5
+                                                                              −
+                                                                                   (
+                                                                                5 1 − ( log 2 (1.5 ) )
+                                                                                                         n
+                                                                                                             ) < 0.1
+             1 − log 2 (1.5 ) r =0                           1 − log 2 (1.5 )      1 − log 2 (1.5 )
+
+     Note: Award (M1) for solving an equality. Condone absence of absolute value
+            signs.
+
+
+            n = 8.93574...
+            n=9                                                                                                              A1
+
+
+                                                                                                                       [4 marks]
+                                                                                                              Total [7 marks]
+                                                            – 18 –                                              8824 – 9701M
+
+
+                                                     Section B
+
+
+10.    (a)   (i)    a = 0.358 (exact); b = 30.5 (exact answer is 30.52 )                                                 A1A1
+
+
+      Note: Award A1A0 if the values of a and b are interchanged or not labeled.
+
+
+             (ii)   a represents the (average) rate of increase (change) in population (0.358 millions
+                    of people per year). (or equivalent)                                                                   R1
+                                                                                                                     [3 marks]
+
+
+       (b)   It is unreliable because 2030 is outside the range of data (extrapolation).                                   A1
+                                                                                                                      [1 mark]
+
+
+       (c)   (i)    attempt to find B (100)                                                                               (M1)
+                    55.1633…
+                    55.2 million OR 55,200,000                                                                             A1
+             (ii)   The annual growth rate of the population is 0.5%.                                                      A1
+      Note: Description must include some reference to annual rate.
+                                                                                                                     [3 marks]
+
+
+       (d)   54.6094…
+             54.6 million OR 54,600,000                                                                                    A1
+                                                                                                                      [1 mark]
+
+
+       (e)   consideration of the difference function C ( t ) − B ( t ) or B ( t ) − C ( t ) or C ( t ) − B ( t )         (M1)
+
+             evidence of finding the maximum (or minimum) of this function.                                               (M1)
+        =t 58.6283…
+             2058 (accept 2059 )                                                                                           A1
+                                                                                                                     [3 marks]
+                                                                                                                    continued…
+                                                  – 19 –                                     8824 – 9701M
+
+
+Question 10 continued.
+
+
+     (f)   (i)    0.242876…
+                  B′(75) = 0.243                                                                         A1
+
+
+           (ii)   0.184941...
+                  C ′ ( 75 ) = 0.185                                                                     A1
+
+                                                                                                  [2 marks]
+
+
+
+
+     (g)   B′(75) > C ′(75) (or equivalent in words)                                                     A1
+           the population in Benoit’s model is increasing at a faster rate than in Cecilia’s model (in
+           2075) (or equivalent)                                                                         R1
+    Note: Do not award A0R1.
+                                                                                                  [2 marks]
+                                                                                          Total [15 marks]
+                                                            – 20 –                        8824 – 9701M
+
+
+
+
+11.    (a)   attempt to set equal to a parameter or rearrange cartesian form                      (M1)
+               x                                            z
+             − + 1 = λ ⇒ x = 2 − 2λ , y + 4 =λ ⇒ y =−4 + λ , = λ ⇒ z = 3λ OR
+               2                                            3
+             x−2 y+4 z −0
+             = =
+              −2      1      3
+             correct direction vector x, y, z or equivalent seen in vector form                   (A1)
+
+                 2        −2 
+                          
+             r = −4  + λ  1                                                                    A1
+                 0        3
+                          
+      Note: Award (M1)(A1)A0 if ‘’ r = ’’ is omitted.
+                                                                                             [3 marks]
+
+
+       (b)   METHOD 1
+             L passes through P(2 − 2λ , −4 + λ , 3λ )                                            (A1)
+
+                                                                        →           → 2
+             attempt to apply distance formula to find their OP or their OP                       (M1)
+
+               → 2
+                     ( 2 − 2λ ) + ( −4 + λ ) + ( 3λ )
+                              2            2            2
+              OP =                                                                                (A1)
+
+                                                              →         → 2
+             attempt to find their minimum value of OP or OP                  using GDC           (M1)
+
+
+                      →                                          → 2   
+  =λ 0.571428...
+     =            ⇒ OP                   15.4285...
+                                           =          OR OP 15.4285... 
+                                                                      
+             3.92792...
+                    6 21 
+             3.93  =                                                                            A1
+                      7 
+
+
+                                                                                           continued…
+                                                   – 21 –                                      8824 – 9701M
+
+
+Question 11 continued.
+
+
+           METHOD 2
+           setting the scalar product of their line and their direction vector to zero                 (M1)
+
+            2 − 2λ   −2 
+                    
+            −4 + λ  .  1  =0
+            3λ   3 
+                    
+           −4 + 4λ − 4 + λ + 9λ =0
+           −8 + 14λ =0
+               4
+           λ
+           =    =( 0.571428...)                                                                        (A1)
+               7
+           attempt to substitute their value for λ into their r to find the position vector of the
+           closest point and find r                                                                    (M1)
+
+                                6 
+                                    
+               2      −2   7 
+                4             24
+           r = −4  +  1  = − 
+                                    
+               0  7 3   7 
+                      
+                               12 
+                                7 
+                      2            2      2
+                  6   24   12 
+         =r        +−  +                                                                         (A1)
+                 7  7   7 
+
+                            6 21
+ = 3.92792
+    =      
+                             7
+              6 21 
+      = 3.93
+         =                                                                                           A1
+               7 
+
+
+
+
+                                                                                                 continued…
+                                                          – 22 –                      8824 – 9701M
+
+
+Question 11 continued.
+
+
+           METHOD 3
+           Let P be a point on L
+                                                                      →
+           attempt to find the cross product between OP and the direction, b , of L           (M1)`
+               2   −2 
+                 
+               −4  ×  1  ( =( −12 − 0 ) i + ( 0 − 6 ) j + ( 2 − 8 ) k )
+               −0   3 
+                 
+
+
+              −12       2
+                        
+              −6   −
+             =         =6  1                                                               (A1)
+              −6        1 
+                        
+                                                              →
+                                                             OP× b
+           attempt to find shortest distance using                                            (M1)
+                                                                  b
+
+             216
+                                                                                              (A1)
+             14
+           3.92792...
+                  6 21 
+           3.93  =                                                                          A1
+                    7 
+                                                                                         [5 marks]
+
+
+                                                                                       continued…
+                                                    – 23 –                           8824 – 9701M
+
+
+Question 11 continued.
+
+
+     (c)   METHOD 1
+           substitute their x, y , z into equation of plane 6 x − 3 y + 5 z ( =
+                                                                              24 )            M1
+
+           6 ( 2 − 2λ ) − 3 ( −4 + λ ) + 5 ( 3λ )                                            (A1)
+
+           = 12 − 12λ + 12 − 3λ + 15λ                                                         A1
+           = 24
+           so the line is contained in the plane                                              AG
+    Note: For FT from an incorrect part a), award M1A0A0.
+           METHOD 2
+           consider the direction of the line and a point on the line                         M1
+
+            −2   6 
+             
+            1  .  −3  =−12 − 3 + 15 =0 (so line is parallel to plane)                     A1
+            35
+             
+           6(2) − 3(−4) + 5(0) = 12 + 12 = 24 (so line lies in the plane)                     A1
+           so the line is contained in the plane                                              AG
+    Note: Both A marks are dependent on the M mark.
+    Note: For FT from an incorrect part a), award M1A0A0.
+
+
+                                                                                        [3 marks]
+
+
+                                                                                      continued…
+                                                  – 24 –                                      8824 – 9701M
+
+
+Question 11 continued.
+
+
+(d)       METHOD 1
+
+                                                               4                            0
+                                                                                             
+           recognition that the direction M is from the point  1  and a point on the z-axis  0    (M1)
+                                                               2                            z
+                                                                                             
+                                    4 
+                                       
+           direction of M is ( ± )  1                                                               (A1)
+                                   2− z
+                                       
+                                               6
+                                                
+           the direction of the normal of Π is  −3  (seen anywhere)                                 (A1)
+                                               5
+                                                
+           attempt to use the scalar product with their normal and their direction vector and
+           equate to 0                                                                                (M1)
+
+              4 6
+                  
+              1  .  −3  =0 ⇒ 24 − 3 + 10 − 5 z =0
+             2− z  5 
+                  
+                31
+           z=                                                                                         (A1)
+                5
+            p  4 
+                     
+           q= 1 
+            r   − 21 
+              5
+                                                      4     p
+                                                            
+           attempt to express equation in the form=s 1 + µ  q                                     (M1)
+                                                      2    r
+                                                            
+             4       4              4     20 
+                                             
+         =s  1  + µ  1  OR=s       1 + µ  5                                                    A1
+             2       − 21           2     −21
+                     5                       
+
+
+
+
+                                                                                                continued…
+                                                   – 25 –                                   8824 – 9701M
+
+
+Question 11 continued.
+           METHOD 2
+
+                                           4     p
+                                                 
+           let the equation of M be M :
+                                     =  s 1 + µ  q 
+                                           2    r
+                                                 
+    Note: Consideration of the z-axis intersection and consideration of direction may
+          be done in either order and marks should be awarded independently.
+
+           recognition M intersects the z -axis where x= y= 0                                       (M1)
+           4 + µ p = 0,1 + µ q = 0
+           −4 −1
+              =   ⇒ p = 4q                                                                           (A1)
+            p   q
+
+                                               6
+                                                
+           the direction of the normal of Π is  −3  (seen anywhere)                                (A1)
+                                               5
+                                                
+           attempt to use the scalar product with their normal and their direction vector and
+           equate to 0                                                                              (M1)
+
+              p  6 
+               
+              q  .  −3  =0 ⇒ 6 p − 3q + 5r =
+                                               0
+             r  5 
+               
+
+
+           6(4q ) − 3q + 5r 0
+                           =⇒ 21q =
+                                  −5r
+
+            p   20                        20 
+                                             
+            q  =  5  (or any multiple of  5  )                                                 (A1)
+            r   −21                       −21
+                                             
+                                                      4     p
+                                                            
+           attempt to express equation in the form=s 1 + µ  q                                   (M1)
+                                                      2    r
+                                                            
+              4       4            4     20 
+                                            
+          =s  1  + µ  1  OR=s     1 + µ  5                                                    A1
+              2       − 21         2     −21
+                      5                     
+
+
+                                                                                                [7 marks]
+                                                                                        Total [18 marks]
+                                                                  – 26 –                                           8824 – 9701M
+
+
+12.    (a)   attempt to use quotient rule                                                                                   M1
+
+             dy ( x + k )( 4 x + 6 ) − ( 2 x +6 x − 3)
+                                                       2
+
+                =                                                                                                         A1A1
+                               (x + k)
+                                        2
+             dx
+
+                                     ( x + k )(4 x + 6)               − ( 2 x 2 +6 x − 3)        −2 x 2 −6 x + 3
+      Note: Award A1 for =                                 , A1 for                         OR
+                                         (x + k)                          (x + k)
+                                                   2                                2
+                                                                                                   ( x + k )2
+
+                 4 x 2 + 4kx + 6 x + 6k − 2 x 2 −6 x + 3
+             =                                                  or equivalent leading to AG line                            A1
+                                 (x + k)
+                                            2
+
+
+
+                 2 x 2 + 4kx + 6k + 3
+             =                                                                                                              AG
+                       (x + k)
+                                 2
+
+
+
+      Note: Candidates may use product rule, give marks accordingly.
+
+
+                                                                                                                      [4 marks]
+                                                dy
+       (b)   local min or max when                 = 0 , when 2 x 2 + 4kx + 6k + 3 =0 has real solutions.
+                                                dx
+             attempt to find the discriminant of numerator                                                                 (M1)
+
+             ( 4k ) − 4 × 2 ( 6k + 3)=( 2k 2 − 6k − 3 < 0 )
+                   2
+                                                                                                                           (A1)
+
+
+             attempt to find the critical values of their quadratic equation or inequality                                 (M1)
+
+                                                                           3 ± 15
+             k = 3.43649... OR k = −0.436491... OR k =
+                                                                              2
+                        3 + 15 
+             k > 3.44  =  (since k is positive)                                                                         A1
+                           2 
+
+      Note: Accept k ≥ 3.44 .
+
+
+                                                                                                                      [4 marks]
+
+
+       (c)   x = −2                                                                                                         A1
+                                                                                                                       [1 mark]
+
+
+                                                                                                                     continued…
+                                                        – 27 –   8824 – 9701M
+
+
+Question 12 continued.
+
+(d)        METHOD 1
+           2x2 + 6x − 3
+                     = 2 x + ...                                         (A1)
+              x+2
+                                      2x2 + 6x − 3
+           attempts division on                                           M1
+                                         x+2
+           2x2 + 6x − 3     2x − 3
+                     = 2x +
+              x+2           x+2
+           = 2 x + 2 + ...                                               (A1)
+                        = 2x + 2
+           asymptote is y                                                 A1
+
+
+           METHOD 2
+           let asymptote be y
+                            = ax + b
+
+           2x2 + 6x − 3             c
+                        = ax + b +                                        M1
+              x+2                  x+2
+           2 x 2 + 6 x − 3=   ( ax + b )( x + 2 ) + c
+           equates coefficients of x 2 and x :                           (M1)
+           a=2                                                            A1
+          = 2a + b
+          6
+           b=2                                                            A1
+           ( y= 2 x + 2 )
+                                                                  continued…
+                                                – 28 –   8824 – 9701M
+
+
+Question 12 continued.
+
+
+           METHOD 3
+           2x2 + 6x − 3
+                     = 2 x + ...                                  A1
+              x+2
+           2x2 + 6x − 3      2x − 3
+                        − 2x =
+              x+2             x+2
+           attempt to find the limit as x → ∞                     M1
+               2x − 3
+           lim        =2                                          A1
+           x →∞ x + 2
+
+
+           = 2x + 2
+           y                                                      A1
+                                                            [4 marks]
+
+
+                                                          continued…
+                                                            – 29 –                                   8824 – 9701M
+
+
+Question 12 continued.
+
+
+     (e)   METHOD 1
+           EITHER
+                       dy 2 x 2 + 8 x + 15
+           for k = 2 ,    =                                                                                   A1
+                             ( x + 2)
+                                      2
+                       dx
+
+                                    dy                     q                  dy                     q
+           attempt to write            in the form p +            OR to write    − 2 in the form              M1
+                                                       ( x + 2)                                  ( x + 2)
+                                                                2                                         2
+                                    dx                                        dx
+
+           OR
+                            7
+            y = 2x + 2 −                                                                                      A1
+                           x+2
+    Note: Follow through from their part (d).
+
+
+                                  dy            dy         q
+           attempt to find           in the form = p +                                                        M1
+                                                       ( x + 2)
+                                                                2
+                                  dx            dx
+
+           THEN
+           dy         7         dy        7
+             = 2+            OR    −2=                                                                        A1
+                  ( x + 2)            ( x + 2)
+                           2                   2
+           dx                   dx
+
+                      7                                     dy
+           since                  > 0 for x ∈ , x ≠ −2 ,      > 2.                                           R1
+                   ( x + 2)
+                              2
+                                                            dx
+
+    Note: Award a maximum of A1M1A0R0 for a graphical approach which includes a
+                                                              dy
+           horizontal asymptote at 2, showing that               > 2.
+                                                              dx
+
+
+
+
+                                                                                                       continued…
+                                                              – 30 –                         8824 – 9701M
+
+
+Question 12 continued.
+           METHOD 2
+                             dy 2 x 2 + 8 x + 15
+           for k = 2 ,          =                                                                      A1
+                                   ( x + 2)
+                                            2
+                             dx
+
+                                          2 x 2 + 8 x + 15
+           clear assumption that                             ≤2                                        M1
+                                             ( x + 2)
+                                                        2
+
+
+
+
+           ( 2 x + 8x + 15 ≤ 2 ( x + 2) ⇒ )15 ≤ 8
+               2                            2
+                                                                                                       A1
+
+                                                dy
+           contradiction implies that              >2                                                  R1
+                                                dx
+    Note: Award A1M0A0R0 for solutions which work backwards from
+           2 x 2 + 8 x + 15
+                                > 2 to arrive at 15 > 8 .
+              ( x + 2)
+                         2
+
+
+
+                                                                                                 [4 marks]
+     (f)
+
+
+
+
+           curve C in approx correct place, with negative y-intercept and part of the curve in 4th
+           quadrant                                                                                    A1
+    Note: The following A1 marks should be awarded independently provided there is
+           an attempt to draw both branches of y = f ( x) .
+
+           vertical asymptote in approx correct place                                                  A1
+           oblique asymptote in approx correct place                                                   A1
+           approx correct asymptotic behaviour of C relative to both asymptotes                        A1
+                                                                                                 [4 marks]
+                                                                                         Total [21 marks]
+

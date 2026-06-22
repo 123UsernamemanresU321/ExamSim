@@ -3,6 +3,7 @@ import md5 from "https://esm.sh/blueimp-md5@2.19.0";
 import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, requestIpKey } from "../_shared/rate-limit.ts";
+import { enforceProviderMonthlyQuota, envNumber } from "../_shared/provider-quota.ts";
 import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type SimpleTexMode = "formula" | "formula_fast" | "general" | "document";
@@ -88,6 +89,14 @@ serve(async (request) => {
       throw new Error("Source page image is empty or too large for OCR");
     }
 
+    const monthlyQuota = await enforceProviderMonthlyQuota(admin, {
+      ownerProfileId,
+      provider: "simpletex",
+      unit: "page",
+      units: 1,
+      limit: envNumber("SIMPLETEX_OWNER_MONTHLY_PAGE_LIMIT", 200),
+    });
+
     const form = new FormData();
     const signedFields: Record<string, string> = {};
     if (mode === "general") {
@@ -171,6 +180,7 @@ serve(async (request) => {
       recognition_mode: mode,
       confidence,
       provider_request_id: payload.request_id ?? null,
+      monthly_pages_remaining: monthlyQuota.remaining,
     });
 
     return json(request, { ok: true, result });

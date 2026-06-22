@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, envInt } from "../_shared/rate-limit.ts";
+import { enforceProviderMonthlyQuota, envNumber } from "../_shared/provider-quota.ts";
+import { verifyPrivatePdfUpload } from "../_shared/pdf-upload.ts";
 import {
   buildMineruAuthHeaders,
   buildMineruBatchRequest,
@@ -66,6 +68,21 @@ serve(async (request) => {
         started_at: new Date().toISOString()
       }).eq("id", parseJob.id);
     }
+
+    const verifiedSource = await verifyPrivatePdfUpload(
+      admin,
+      "assessment-sources",
+      parseJob.source_object_path,
+      10 * 1024 * 1024,
+    );
+    const billedPageCount = verifiedSource.pageCount ?? 1;
+    const monthlyQuota = await enforceProviderMonthlyQuota(admin, {
+      ownerProfileId,
+      provider: "mineru",
+      unit: "page",
+      units: billedPageCount,
+      limit: envNumber("MINERU_OWNER_MONTHLY_PAGE_LIMIT", 200),
+    });
 
     const uploadMode = mineruUploadMode();
     const fileName = parseJob.source_object_path.split("/").pop() || `${parseJob.id}.pdf`;
@@ -191,6 +208,9 @@ serve(async (request) => {
         restarted_at: canForceRestart ? now : undefined,
         model_version: modelVersion,
         language: Deno.env.get("MINERU_LANGUAGE") || "en",
+        page_count: billedPageCount,
+        pages_processed: billedPageCount,
+        owner_quota_pages: envNumber("MINERU_OWNER_MONTHLY_PAGE_LIMIT", 200),
       };
       
       console.log(`Updating parse job status to running...`);
@@ -215,6 +235,8 @@ serve(async (request) => {
         batch_id: submission.batchId,
         upload_mode: uploadMode,
         force_restart: canForceRestart,
+        page_count: billedPageCount,
+        monthly_pages_remaining: monthlyQuota.remaining,
       });
 
       console.log(`MinerU hosted job submission successful.`);
