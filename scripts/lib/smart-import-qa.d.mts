@@ -21,3 +21,14 @@ export function evaluatePaperPackage(
   packageValue: unknown,
   expectations: SmartImportQaExpectations,
 ): SmartImportQaEvaluation;
+
+export function evaluateExtractedPaperText(
+  textValue: string,
+  expectations: SmartImportQaExpectations,
+): SmartImportQaEvaluation;
+
+export function classifyProviderFailure(error: unknown):
+  | "insufficient_balance"
+  | "quota_reached"
+  | "not_configured"
+  | "provider_unavailable";

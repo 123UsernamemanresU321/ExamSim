@@ -1,12 +1,41 @@
 # Examsim Production Readiness
 
-Last updated: 2026-06-21
+Last updated: 2026-06-22
 
 This document records the current production boundary for Examsim. It is intentionally strict: provider-dependent OCR, AI, lockdown, offline, and scan-mapping features must be shown as provider-gated, blocked, manual fallback, or live-validation-required until they are verified end to end on the actual website with synthetic records.
 
 The owner Security page renders this same readiness model through `ExamsimProductionReadinessPanel` and the
 configuration-only `ProviderReadinessDashboard`. The dashboard does not send prompts, PDFs, or student data to external
 providers; it only reports env/config readiness, recent import-job states, and manual fallback paths.
+
+## Actual-site provider QA on 2026-06-22
+
+The supplied IB Mathematics: Analysis and Approaches HL Paper 2 fixture was exercised against the actual Supabase project
+with synthetic accounts and private Storage. The synthetic assessment remains `review_required`, its governance state is
+`draft`, `published_at` is null, and no provider output was published automatically.
+
+- Eight synthetic accounts exist: owner, teacher, marker, reviewer, invigilator, read-only viewer, and two students. Their
+  credentials are stored only in ignored local `.qa-accounts.local.json` with mode `0600`.
+- Hosted MinerU extracted 12/12 top-level questions, 110/110 marks, the Q1-Q9/Q10-Q12 section boundary, and all supplied
+  visual/table prompt checks from the private paper artifact.
+- SimpleTeX general OCR produced a 704-character review-required handwriting result at confidence `0.3247`. The result is
+  deliberately not approved automatically because the confidence is low.
+- Automatic question source regions remain 0 and teacher-confirmed answer types are incomplete. The PDF fixture therefore
+  remains `needs_review` despite correct question and mark extraction.
+- Automatic markscheme-to-rubric mapping remains 0/12. No rubric or mark allocation was applied automatically.
+- DeepSeek returned HTTP 402 insufficient balance. The application recorded `insufficient_balance` and retained the
+  deterministic/manual review path. Funding the provider account is still required before DeepSeek-backed QA can pass.
+- Enforced June synthetic-owner usage after QA is DeepSeek 1/20 reserved USD, MinerU 51/200 pages, and SimpleTeX 7/200
+  pages. The repeated SimpleTeX calls exposed by this run led to restricting generic transport retries to idempotent HTTP
+  methods so an ambiguous POST timeout cannot duplicate a provider action.
+
+This evidence validates the provider boundaries and fallbacks, not full automatic Smart Import. Source-region review,
+answer-type confirmation, markscheme mapping, and owner approval remain mandatory before publishing.
+
+DeepSeek cost controls now disable thinking mode for parser and semantic-grouping requests, cap parser output at 24,000
+tokens, bound each source/markscheme context segment, avoid sending the existing package twice, and record the applied
+limits and context sizes with successful parse jobs. `DEEPSEEK_OWNER_MONTHLY_USD_LIMIT` is denominated in US dollars and is
+an application reservation ceiling, not a provider-side CNY billing limit.
 
 ## Production-ready V1 core
 
@@ -158,6 +187,12 @@ Required for provider-backed import/OCR/AI:
 - `DEEPSEEK_API_KEY`
 - `SIMPLETEX_APP_ID` and `SIMPLETEX_APP_SECRET`, or `MINERU_API_KEY` / a configured MinerU worker
 - `MINERU_WORKER_HMAC_SECRET` when a MinerU worker callback is used
+- `DEEPSEEK_OWNER_MONTHLY_USD_LIMIT=20`
+- `DEEPSEEK_PARSE_RESERVATION_USD=1`
+- `DEEPSEEK_GROUPING_RESERVATION_USD=0.1`
+- `AI_PARSE_MAX_OUTPUT_TOKENS=24000` (hard-capped at 24,000 by server code)
+- `MINERU_OWNER_MONTHLY_PAGE_LIMIT=200`
+- `SIMPLETEX_OWNER_MONTHLY_PAGE_LIMIT=200`
 
 Required only when Desmos is enabled for an exam:
 
@@ -168,7 +203,8 @@ Operational setup outside the repo:
 - Apply Supabase migrations to the actual Supabase project.
 - Deploy Supabase Edge Functions after every Edge change.
 - Keep Storage buckets private: `assessment-sources`, `assessment-packages`, `answer-uploads`, `marking-packets`, and `paper-scans`.
-- Configure DeepSeek/MinerU/Mathpix spend caps and provider alerting.
+- Configure DeepSeek, MinerU, and SimpleTeX balance/quota alerts in their provider dashboards. Application quotas do not
+  replace provider billing controls.
 - Configure Supabase/Edge/WAF alerts for authentication failures, upload errors, rate-limit spikes, and Edge Function failures.
 
 ## Remaining limitations
@@ -226,6 +262,15 @@ Operational setup outside the repo:
 ## Checks run
 
 This section should be updated for each release candidate. For this readiness pass, these checks passed locally:
+
+- `npx vitest run tests/simpletex-response.test.ts tests/network-retry.test.ts tests/examsim-live-paper-qa.test.ts tests/examsim-provider-monthly-quotas.test.ts tests/examsim-v3-provider-readiness.test.ts tests/security-remediation.test.ts` - 45 tests passed before the POST retry regression was added.
+- `npx vitest run tests/network-retry.test.ts` - 5 tests passed, including no automatic retry for ambiguous POST failures.
+- `supabase db query --linked` - confirmed reviewed QA evidence, quota counters, redacted OCR metadata, and an unpublished `review_required` synthetic version on the actual project.
+- `npm run lint` - passed.
+- `npm run typecheck` - passed.
+- `npm test` - 73 files and 452 tests passed.
+- `npm run build` - passed with 61 static pages generated.
+- `supabase db push --dry-run` - remote database is up to date through `20260622061320_v3_provider_monthly_quotas_and_sample_qa.sql`.
 
 - `npm test -- tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/examsim-v3-provider-readiness.test.ts tests/examsim-production-readiness-matrix.test.ts`

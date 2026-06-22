@@ -4,7 +4,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { createClient } from "@supabase/supabase-js";
-import { evaluatePaperPackage } from "./lib/smart-import-qa.mjs";
+import { classifyProviderFailure, evaluateExtractedPaperText, evaluatePaperPackage } from "./lib/smart-import-qa.mjs";
+import { retryingFetch } from "./lib/network-retry.mjs";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -28,9 +29,7 @@ if (!paperArgument || !markschemeArgument || !handwritingArgument) {
 const paperPath = resolve(paperArgument);
 const markschemePath = resolve(markschemeArgument);
 const handwritingPath = resolve(handwritingArgument);
-for (const path of [paperPath, markschemePath, handwritingPath]) {
-  if (!existsSync(path)) throw new Error(`QA input does not exist: ${path}`);
-}
+if (!existsSync(handwritingPath)) throw new Error(`QA handwriting input does not exist: ${handwritingPath}`);
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -45,8 +44,12 @@ if (!ownerAccount?.email || !ownerAccount?.password || !ownerAccount?.totp_secre
   throw new Error("Synthetic QA owner credentials or MFA evidence are missing");
 }
 
-const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-const ownerClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const clientOptions = {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: { fetch: retryingFetch },
+};
+const admin = createClient(url, serviceRoleKey, clientOptions);
+const ownerClient = createClient(url, anonKey, clientOptions);
 const expected = {
   expectedQuestionCount: 12,
   expectedTotalMarks: 110,
@@ -64,101 +67,98 @@ const expected = {
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "exam-vault-smart-import-qa-"));
 try {
   await establishOwnerAal2();
-  const ingest = await invokeEdge("ingest-assessment", {
-    title: "QA - IB Mathematics AA HL Paper 2",
-    paper_code: `QA-AAHL-P2-${new Date().toISOString().slice(0, 10)}`,
-    subject: "IB Mathematics: Analysis and Approaches, Higher Level, Paper 2",
-    assessment_kind: "exam",
-    source_kind: "pdf",
-    pdf_source_base64: readFileSync(paperPath).toString("base64"),
-    pdf_source_filename: basename(paperPath),
-    pdf_source_content_type: "application/pdf",
-    markscheme_source_kind: "pdf",
-    markscheme_pdf_base64: readFileSync(markschemePath).toString("base64"),
-    markscheme_pdf_filename: basename(markschemePath),
-    markscheme_pdf_content_type: "application/pdf",
-  });
-
-  const assessmentId = String(ingest.assessment_id);
-  const versionId = String(ingest.draft_version_id);
-  const paperJobId = String(ingest.parse_job_id);
-  const markschemeJobId = String(ingest.markscheme_parse_job_id);
-  if (!assessmentId || !versionId || !paperJobId || !markschemeJobId) throw new Error("Ingest did not return both parse jobs");
-
-  await annotateParseJob(paperJobId, 20, "paper");
-  await annotateParseJob(markschemeJobId, 30, "markscheme");
+  const importRun = await resolveImportRun();
+  const { assessmentId, versionId, paperJob, markschemeJob } = importRun;
+  const paperJobId = paperJob.id;
+  const markschemeJobId = markschemeJob.id;
   await ensurePaperSourcePages(assessmentId, versionId, 20);
+  const paperResult = await completeMineruJob(paperJob, "question paper");
+  const markschemeResult = await completeMineruJob(markschemeJob, "markscheme");
+  const mineruPaperText = await downloadArtifactText(paperResult.result_object_path);
+  const mineruEvaluation = evaluateExtractedPaperText(mineruPaperText, expected);
 
-  await invokeEdge("mineru-submit-hosted-job", { parse_job_id: paperJobId });
-  await invokeEdge("mineru-submit-hosted-job", { parse_job_id: markschemeJobId });
-  const paperResult = await pollMineru(paperJobId, "question paper");
-  const markschemeResult = await pollMineru(markschemeJobId, "markscheme");
+  let suggestion = await loadLatestSuggestion(versionId);
+  let deepseekFailure = await loadPriorDeepseekFailure(versionId);
+  if (!suggestion && !deepseekFailure) {
+    try {
+      await invokeEdge("ai-parse-assessment", {
+        assessment_version_id: versionId,
+        source_kind: "mineru",
+        owner_notes: [
+          "Ground truth: 12 questions and 110 marks.",
+          "Section A is Q1-Q9. Section B is Q10-Q12.",
+          "Q1(c) requires a graph sketch on a grid; Q4 has roof cross-section diagrams; Q7 has a seating-row diagram; Q10 has a population table; Q12(f) requires a curve sketch with asymptotes.",
+          "Do not publish. Return review-required suggestions only.",
+        ].join(" "),
+      });
+      suggestion = await loadLatestSuggestion(versionId);
+    } catch (error) {
+      deepseekFailure = classifyProviderFailure(error);
+    }
+  }
 
-  await invokeEdge("ai-parse-assessment", {
-    assessment_version_id: versionId,
-    source_kind: "mineru",
-    owner_notes: [
-      "Ground truth: 12 questions and 110 marks.",
-      "Section A is Q1-Q9. Section B is Q10-Q12.",
-      "Q1(c) requires a graph sketch on a grid; Q4 has roof cross-section diagrams; Q7 has a seating-row diagram; Q10 has a population table; Q12(f) requires a curve sketch with asymptotes.",
-      "Do not publish. Return review-required suggestions only.",
-    ].join(" "),
-  });
-
-  const { data: suggestion, error: suggestionError } = await admin
-    .from("ai_parse_suggestions")
-    .select("id,normalized_package_json,confidence,warnings_json,status,created_at")
-    .eq("assessment_version_id", versionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-  if (suggestionError) throw suggestionError;
-  const evaluation = evaluatePaperPackage(suggestion.normalized_package_json, expected);
-  const sourceRegionCount = countSourceRegions(suggestion.normalized_package_json);
-  const answerTypesComplete = allRootQuestionsHaveResponseModes(suggestion.normalized_package_json);
-  const paperChecks = ["source_pages", "question_text", "marks", "manual_fallback"];
+  const packageValue = suggestion?.normalized_package_json ?? null;
+  const evaluation = packageValue ? evaluatePaperPackage(packageValue, expected) : mineruEvaluation;
+  const sourceRegionCount = packageValue ? countSourceRegions(packageValue) : 0;
+  const answerTypesComplete = packageValue ? allRootQuestionsHaveResponseModes(packageValue) : false;
+  const paperChecks = ["source_pages", "manual_fallback"];
+  if (evaluation.actualQuestionCount > 0) paperChecks.push("question_text");
+  if (evaluation.marksMatch) paperChecks.push("marks");
   if (sourceRegionCount > 0) paperChecks.push("question_regions");
   if (answerTypesComplete) paperChecks.push("answer_types");
 
-  const markschemeCoverage = countMappedMarkschemeQuestions(suggestion.normalized_package_json);
-  const handwriting = await runSimpleTexHandwritingQa(assessmentId, versionId);
+  const markschemeCoverage = packageValue ? countMappedMarkschemeQuestions(packageValue) : 0;
+  let handwriting = { resultId: null, hasText: false, failure: null };
+  try {
+    handwriting = { ...(await runSimpleTexHandwritingQa(assessmentId, versionId)), failure: null };
+  } catch (error) {
+    console.warn(`SimpleTeX live QA failed: ${error instanceof Error ? error.message : "provider request failed"}`);
+    handwriting = { resultId: null, hasText: false, failure: classifyProviderFailure(error) };
+  }
   const paperPassed = evaluation.passed && sourceRegionCount > 0 && answerTypesComplete && handwriting.hasText;
   const markschemePassed = markschemeCoverage >= 12;
 
   await upsertQaResult({
     fixtureId: "sample-pdf-regions",
     status: paperPassed ? "passed" : "needs_review",
-    provider: "mineru_hosted + deepseek + simpletex",
+    provider: suggestion ? "mineru_hosted + deepseek + simpletex" : "mineru_hosted + simpletex (DeepSeek unavailable)",
     checks: paperChecks,
-    confidence: numberOrNull(suggestion.confidence),
+    confidence: numberOrNull(suggestion?.confidence),
     expected: { ...expected, subject: "IB Mathematics: Analysis and Approaches, Higher Level, Paper 2" },
-    actual: { ...evaluation, sourceRegionCount, answerTypesComplete, handwritingTextDetected: handwriting.hasText },
+    actual: {
+      ...evaluation,
+      sourceRegionCount,
+      answerTypesComplete,
+      handwritingTextDetected: handwriting.hasText,
+      deepseekFailure,
+      simpletexFailure: handwriting.failure,
+    },
     evidence: {
       assessment_id: assessmentId,
       assessment_version_id: versionId,
       parse_job_id: paperJobId,
       mineru_result_object_path: paperResult.result_object_path ?? null,
       simpletex_result_id: handwriting.resultId,
-      paper_sha256: fileHash(paperPath),
+      paper_sha256: fileHashIfPresent(paperPath),
       handwriting_sha256: fileHash(handwritingPath),
     },
-    errorMessage: paperPassed ? null : "Provider output remains review-required because one or more region, answer-type, handwriting, count, mark, section, or visual-prompt checks did not pass.",
+    errorMessage: paperPassed ? null : `Provider output remains review-required. DeepSeek: ${deepseekFailure ?? "available"}; SimpleTeX: ${handwriting.failure ?? "completed"}. Missing automatic region or answer-type evidence is not treated as success.`,
   });
 
   await upsertQaResult({
     fixtureId: "sample-markscheme-rubrics",
     status: markschemePassed ? "passed" : "needs_review",
-    provider: "mineru_hosted + deepseek",
+    provider: suggestion ? "mineru_hosted + deepseek" : "mineru_hosted (DeepSeek unavailable)",
     checks: markschemePassed ? ["rubric_mapping", "marks", "manual_fallback"] : ["marks", "manual_fallback"],
-    confidence: numberOrNull(suggestion.confidence),
+    confidence: numberOrNull(suggestion?.confidence),
     expected: { mappedQuestionCount: 12, totalMarks: 110 },
-    actual: { mappedQuestionCount: markschemeCoverage },
+    actual: { mappedQuestionCount: markschemeCoverage, deepseekFailure },
     evidence: {
       assessment_id: assessmentId,
       assessment_version_id: versionId,
       parse_job_id: markschemeJobId,
       mineru_result_object_path: markschemeResult.result_object_path ?? null,
-      markscheme_sha256: fileHash(markschemePath),
+      markscheme_sha256: fileHashIfPresent(markschemePath),
     },
     errorMessage: markschemePassed ? null : "Automatic markscheme mapping needs owner review; no rubric or mark allocation was auto-applied.",
   });
@@ -199,6 +199,114 @@ async function invokeEdge(name, body) {
   }
   if (data?.error) throw new Error(`${name}: ${data.error}`);
   return data;
+}
+
+async function resolveImportRun() {
+  const { data: assessment, error: assessmentError } = await admin
+    .from("assessments")
+    .select("id")
+    .eq("owner_profile_id", credentials.qa_owner_profile_id)
+    .eq("title", "QA - IB Mathematics AA HL Paper 2")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (assessmentError) throw assessmentError;
+
+  if (assessment) {
+    const { data: version, error: versionError } = await admin
+      .from("assessment_versions")
+      .select("id")
+      .eq("assessment_id", assessment.id)
+      .order("version_no", { ascending: false })
+      .limit(1)
+      .single();
+    if (versionError) throw versionError;
+    const { data: jobs, error: jobsError } = await admin
+      .from("parse_jobs")
+      .select("id,status,result_object_path,error_message,metadata_json")
+      .eq("assessment_version_id", version.id)
+      .in("parser", ["mineru", "mineru_hosted"])
+      .order("created_at", { ascending: true });
+    if (jobsError) throw jobsError;
+    const paperJob = (jobs ?? []).find((job) => job.metadata_json?.parse_purpose !== "markscheme");
+    const markschemeJob = (jobs ?? []).find((job) => job.metadata_json?.parse_purpose === "markscheme");
+    if (paperJob && markschemeJob) {
+      console.log("Reusing completed synthetic QA import when provider artifacts already exist.");
+      return { assessmentId: assessment.id, versionId: version.id, paperJob, markschemeJob };
+    }
+  }
+
+  if (!existsSync(paperPath) || !existsSync(markschemePath)) {
+    throw new Error("Paper and markscheme inputs are required when no reusable synthetic QA import exists");
+  }
+
+  const ingest = await invokeEdge("ingest-assessment", {
+    title: "QA - IB Mathematics AA HL Paper 2",
+    paper_code: `QA-AAHL-P2-${new Date().toISOString().slice(0, 10)}`,
+    subject: "IB Mathematics: Analysis and Approaches, Higher Level, Paper 2",
+    assessment_kind: "exam",
+    source_kind: "pdf",
+    pdf_source_base64: readFileSync(paperPath).toString("base64"),
+    pdf_source_filename: basename(paperPath),
+    pdf_source_content_type: "application/pdf",
+    markscheme_source_kind: "pdf",
+    markscheme_pdf_base64: readFileSync(markschemePath).toString("base64"),
+    markscheme_pdf_filename: basename(markschemePath),
+    markscheme_pdf_content_type: "application/pdf",
+  });
+  const assessmentId = String(ingest.assessment_id ?? "");
+  const versionId = String(ingest.draft_version_id ?? "");
+  const paperJobId = String(ingest.parse_job_id ?? "");
+  const markschemeJobId = String(ingest.markscheme_parse_job_id ?? "");
+  if (!assessmentId || !versionId || !paperJobId || !markschemeJobId) throw new Error("Ingest did not return both parse jobs");
+  await annotateParseJob(paperJobId, 20, "paper");
+  await annotateParseJob(markschemeJobId, 30, "markscheme");
+  return {
+    assessmentId,
+    versionId,
+    paperJob: { id: paperJobId, status: "queued", result_object_path: null, metadata_json: { parse_purpose: "paper" } },
+    markschemeJob: { id: markschemeJobId, status: "queued", result_object_path: null, metadata_json: { parse_purpose: "markscheme" } },
+  };
+}
+
+async function completeMineruJob(job, label) {
+  if (job.status === "review_required" && job.result_object_path) return job;
+  if (job.status === "queued") await invokeEdge("mineru-submit-hosted-job", { parse_job_id: job.id });
+  if (job.status === "failed") await invokeEdge("mineru-submit-hosted-job", { parse_job_id: job.id, force: true });
+  return await pollMineru(job.id, label);
+}
+
+async function loadLatestSuggestion(versionId) {
+  const { data, error } = await admin
+    .from("ai_parse_suggestions")
+    .select("id,normalized_package_json,confidence,warnings_json,status,created_at")
+    .eq("assessment_version_id", versionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function loadPriorDeepseekFailure(versionId) {
+  const { data, error } = await admin
+    .from("parse_jobs")
+    .select("error_message")
+    .eq("assessment_version_id", versionId)
+    .eq("parser", "deepseek_ai")
+    .eq("status", "failed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.error_message ? classifyProviderFailure(new Error(data.error_message)) : null;
+}
+
+async function downloadArtifactText(objectPath) {
+  if (!objectPath) throw new Error("MinerU did not produce a readable primary artifact");
+  const { data, error } = await admin.storage.from("assessment-packages").download(objectPath);
+  if (error || !data) throw error ?? new Error("MinerU artifact could not be downloaded");
+  return await data.text();
 }
 
 async function pollMineru(parseJobId, label) {
@@ -278,28 +386,56 @@ async function runSimpleTexHandwritingQa(assessmentId, versionId) {
     const { error } = await admin.storage.from(bucket).upload(objectPath, readFileSync(filePath), { contentType, upsert: true });
     if (error) throw error;
   }
-  const { data: sourceDocument, error: documentError } = await admin.from("source_documents").insert({
-    owner_profile_id: credentials.qa_owner_profile_id,
-    assessment_id: assessmentId,
-    assessment_version_id: versionId,
-    document_kind: "other",
-    source_kind: "pdf",
-    object_path: sourceObjectPath,
-    original_file_name: basename(handwritingPath),
-    status: "review_required",
-    metadata_json: { qa_fixture: true, purpose: "handwriting_ocr" },
-  }).select("id").single();
+  let { data: sourceDocument, error: documentError } = await admin.from("source_documents")
+    .select("id")
+    .eq("assessment_version_id", versionId)
+    .eq("object_path", sourceObjectPath)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
   if (documentError) throw documentError;
-  const { data: page, error: pageError } = await admin.from("source_pages").insert({
+  if (!sourceDocument) {
+    const inserted = await admin.from("source_documents").insert({
+      owner_profile_id: credentials.qa_owner_profile_id,
+      assessment_id: assessmentId,
+      assessment_version_id: versionId,
+      document_kind: "other",
+      source_kind: "pdf",
+      object_path: sourceObjectPath,
+      original_file_name: basename(handwritingPath),
+      status: "review_required",
+      metadata_json: { qa_fixture: true, purpose: "handwriting_ocr" },
+    }).select("id").single();
+    if (inserted.error) throw inserted.error;
+    sourceDocument = inserted.data;
+  }
+  const { data: page, error: pageError } = await admin.from("source_pages").upsert({
     source_document_id: sourceDocument.id,
     page_number: 1,
     width_points: 612,
     height_points: 792,
     image_object_path: imageObjectPath,
     metadata_json: { qa_fixture: true, purpose: "handwriting_ocr" },
-  }).select("id").single();
+  }, { onConflict: "source_document_id,page_number" }).select("id").single();
   if (pageError) throw pageError;
-  const result = await invokeEdge("simpletex-ocr-source-page", { source_page_id: page.id, mode: "document" });
+  const { data: existingResult, error: existingResultError } = await admin.from("ocr_provider_results")
+    .select("id,extracted_text,extracted_latex")
+    .eq("source_page_id", page.id)
+    .eq("provider", "simpletex")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingResultError) throw existingResultError;
+  const hasExistingText = Boolean(
+    String(existingResult?.extracted_text ?? "").trim() || String(existingResult?.extracted_latex ?? "").trim(),
+  );
+  if (existingResult && hasExistingText) {
+    return {
+      resultId: existingResult.id,
+      hasText: true,
+    };
+  }
+  const result = await invokeEdge("simpletex-ocr-source-page", { source_page_id: page.id, mode: "general" });
   const extractedText = String(result.result?.extracted_text ?? "").trim();
   const extractedLatex = String(result.result?.extracted_latex ?? "").trim();
   return { resultId: result.result?.id ?? null, hasText: Boolean(extractedText || extractedLatex) };
@@ -344,6 +480,10 @@ function flatten(nodes) {
 
 function fileHash(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+function fileHashIfPresent(path) {
+  return existsSync(path) ? fileHash(path) : null;
 }
 
 function numberOrNull(value) {

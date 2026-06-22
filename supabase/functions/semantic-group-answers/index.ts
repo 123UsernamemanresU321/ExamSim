@@ -164,7 +164,8 @@ serve(async (request) => {
           signal: controller.signal,
           body: JSON.stringify({
             model: Deno.env.get("DEEPSEEK_GROUPING_MODEL")?.trim() ||
-              "deepseek-chat",
+              "deepseek-v4-flash",
+            thinking: { type: "disabled" },
             temperature: 0,
             max_tokens: 4_000,
             response_format: { type: "json_object" },

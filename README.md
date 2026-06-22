@@ -50,10 +50,18 @@ MINERU_UPLOAD_MODE=file_upload
 MINERU_MODEL_VERSION=vlm
 MINERU_LANGUAGE=en
 MINERU_STALE_AFTER_SECONDS=2700
+MINERU_OWNER_MONTHLY_PAGE_LIMIT=200
+SIMPLETEX_APP_ID=
+SIMPLETEX_APP_SECRET=
+SIMPLETEX_OWNER_MONTHLY_PAGE_LIMIT=200
 DEEPSEEK_API_KEY=
+DEEPSEEK_OWNER_MONTHLY_USD_LIMIT=20
+DEEPSEEK_PARSE_RESERVATION_USD=1
+DEEPSEEK_GROUPING_RESERVATION_USD=0.1
 AI_PARSE_PROVIDER=deepseek
 AI_PARSE_MODEL=deepseek-v4-flash
 AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
+AI_PARSE_MAX_OUTPUT_TOKENS=24000
 AI_PARSE_OWNER_HOURLY_LIMIT=20
 MINERU_SUBMIT_OWNER_HOURLY_LIMIT=20
 MINERU_POLL_OWNER_HOURLY_LIMIT=240
@@ -124,10 +132,12 @@ Set Supabase Edge Function secrets with the Supabase CLI:
 
 ```bash
 supabase secrets set DEEPSEEK_API_KEY=...
-supabase secrets set AI_PARSE_PROVIDER=deepseek AI_PARSE_MODEL=deepseek-v4-flash AI_PARSE_REPAIR_MODEL=deepseek-v4-pro
+supabase secrets set DEEPSEEK_OWNER_MONTHLY_USD_LIMIT=20 DEEPSEEK_PARSE_RESERVATION_USD=1 DEEPSEEK_GROUPING_RESERVATION_USD=0.1
+supabase secrets set AI_PARSE_PROVIDER=deepseek AI_PARSE_MODEL=deepseek-v4-flash AI_PARSE_REPAIR_MODEL=deepseek-v4-pro AI_PARSE_MAX_OUTPUT_TOKENS=24000
 supabase secrets set APP_ALLOWED_ORIGINS=https://examvault.tutor-mcp.com,https://exam-vault-zeta.vercel.app,http://localhost:3000
 supabase secrets set MINERU_WORKER_HMAC_SECRET=...
-supabase secrets set MINERU_PROVIDER=hosted MINERU_API_KEY=... MINERU_API_BASE_URL=https://mineru.net MINERU_UPLOAD_MODE=file_upload MINERU_MODEL_VERSION=vlm MINERU_LANGUAGE=en MINERU_STALE_AFTER_SECONDS=2700
+supabase secrets set MINERU_PROVIDER=hosted MINERU_API_KEY=... MINERU_API_BASE_URL=https://mineru.net MINERU_UPLOAD_MODE=file_upload MINERU_MODEL_VERSION=vlm MINERU_LANGUAGE=en MINERU_STALE_AFTER_SECONDS=2700 MINERU_OWNER_MONTHLY_PAGE_LIMIT=200
+supabase secrets set SIMPLETEX_APP_ID=... SIMPLETEX_APP_SECRET=... SIMPLETEX_OWNER_MONTHLY_PAGE_LIMIT=200
 supabase secrets set EXTERNAL_KMS_PROVIDER=cloudflare EXTERNAL_KMS_WRAP_URL=https://<worker>/wrap EXTERNAL_KMS_UNWRAP_URL=https://<worker>/unwrap EXTERNAL_KMS_ADMIN_TOKEN=...
 ```
 
@@ -142,7 +152,20 @@ Self-hosted MinerU callbacks to `complete-parse-job` must include:
 - `x-exam-vault-signature`: `sha256=<hex hmac>` over `timestamp.deliveryId.rawBody` using `MINERU_WORKER_HMAC_SECRET`.
 
 Configure provider-side DeepSeek/MinerU spend caps and alerting in their dashboards. The app also enforces owner-scoped
-hourly limits through `edge_rate_limits`, but provider-level caps are still required before launch.
+hourly limits through `edge_rate_limits` and monthly owner limits through `provider_monthly_usage`. The DeepSeek limit is
+a conservative application reservation, not provider billing reconciliation, so provider-level balance and caps are still
+required before launch. DeepSeek assessment parsing and semantic grouping explicitly disable thinking mode. Assessment
+parsing also hard-caps output at 24,000 tokens even if `AI_PARSE_MAX_OUTPUT_TOKENS` is configured higher.
+
+Synthetic actual-site QA accounts can be created with `npm run provision:qa`. Credentials are written to the ignored,
+mode-`0600` `.qa-accounts.local.json` file and must never be committed. Run the reviewed provider fixture with:
+
+```bash
+npm run qa:smart-import -- /path/to/paper.pdf /path/to/markscheme.pdf /path/to/handwriting.pdf
+```
+
+The QA runner reuses existing private MinerU artifacts when possible, records evidence in `smart_import_qa_results`, and
+never publishes the synthetic assessment.
 
 Provision the configured owner after migrations are applied:
 

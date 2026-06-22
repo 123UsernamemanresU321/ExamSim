@@ -35,6 +35,20 @@ describe("provider monthly quotas and live Smart Import QA", () => {
     expect(simpletex).toContain('envNumber("SIMPLETEX_OWNER_MONTHLY_PAGE_LIMIT", 200)');
   });
 
+  it("hard-caps DeepSeek requests and disables paid thinking output", () => {
+    const parser = readFileSync("supabase/functions/ai-parse-assessment/index.ts", "utf8");
+    const grouping = readFileSync("supabase/functions/semantic-group-answers/index.ts", "utf8");
+    const reviewPanel = readFileSync("components/owner/ai-parse-review-panel.tsx", "utf8");
+
+    expect(parser).toContain('envInt("AI_PARSE_MAX_OUTPUT_TOKENS", 24_000)');
+    expect(parser).toContain('thinking: { type: "disabled" }');
+    expect(parser).toContain("max_tokens: maxOutputTokens");
+    expect(parser).toContain("MAX_EXISTING_PACKAGE_CONTEXT_CHARS");
+    expect(parser).toContain("MAX_MARKSCHEME_CONTEXT_CHARS");
+    expect(grouping).toContain('thinking: { type: "disabled" }');
+    expect(reviewPanel).not.toContain("package: version.normalized_package_json");
+  });
+
   it("stores owner-readable reviewed sample QA without allowing browser writes", () => {
     const migration = migrationSource();
     const page = readFileSync("app/owner/security/page.tsx", "utf8");
@@ -56,6 +70,8 @@ describe("provider monthly quotas and live Smart Import QA", () => {
     expect(script).toContain("qa-accounts.local.json");
     expect(script).toContain("institution_memberships");
     expect(script).toContain("email_confirm: true");
+    expect(script).toContain("admin.auth.admin.mfa.listFactors");
+    expect(script).toContain("admin.auth.admin.mfa.deleteFactor");
     expect(script).not.toContain("console.log(password)");
     expect(gitignore).toContain(".qa-accounts.local.json");
   });

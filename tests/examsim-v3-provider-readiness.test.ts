@@ -241,6 +241,8 @@ describe("Examsim V3 provider and import readiness", () => {
     expect(edge).toContain("assertInstitutionOwner");
     expect(edge).toContain("enforceRateLimit");
     expect(edge).toContain('status: "needs_review"');
+    expect(edge).toContain("normalizeSimpleTexResponse(payload.res)");
+    expect(edge).toContain("result_keys");
     expect(edge).toContain('.from("source_pages")');
     expect(edge).toContain("source_documents!inner(id,owner_profile_id,assessment_version_id)");
     expect(edge).not.toContain("NEXT_PUBLIC_SIMPLETEX");

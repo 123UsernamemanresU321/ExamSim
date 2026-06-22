@@ -4,6 +4,7 @@ import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { enforceRateLimit, requestIpKey } from "../_shared/rate-limit.ts";
 import { enforceProviderMonthlyQuota, envNumber } from "../_shared/provider-quota.ts";
+import { normalizeSimpleTexResponse } from "../_shared/simpletex-response.ts";
 import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type SimpleTexMode = "formula" | "formula_fast" | "general" | "document";
@@ -137,7 +138,7 @@ serve(async (request) => {
     });
     const payload = await response.json() as {
       status?: boolean;
-      res?: { content?: string; latex?: string; conf?: number };
+      res?: { content?: string; latex?: string; conf?: number; type?: string; info?: unknown };
       request_id?: string;
       message?: string;
     };
@@ -145,8 +146,9 @@ serve(async (request) => {
       throw new Error(`SimpleTeX OCR failed (${response.status}). Use manual review or retry later.`);
     }
 
-    const extractedText = typeof payload.res?.content === "string" ? payload.res.content : null;
-    const extractedLatex = typeof payload.res?.latex === "string" ? payload.res.latex : null;
+    const normalizedResult = normalizeSimpleTexResponse(payload.res);
+    const extractedText = normalizedResult.text;
+    const extractedLatex = normalizedResult.latex;
     const confidence = typeof payload.res?.conf === "number" && Number.isFinite(payload.res.conf)
       ? Math.max(0, Math.min(1, payload.res.conf))
       : null;
@@ -168,6 +170,8 @@ serve(async (request) => {
           request_id: payload.request_id ?? null,
           has_text: Boolean(extractedText),
           has_latex: Boolean(extractedLatex),
+          result_keys: payload.res && typeof payload.res === "object" ? Object.keys(payload.res) : [],
+          result_type: payload.res?.type ?? null,
         },
       })
       .select("id,status,confidence,extracted_text,extracted_latex,provider_request_id")

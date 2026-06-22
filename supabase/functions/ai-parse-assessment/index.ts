@@ -24,6 +24,13 @@ type StorageAdmin = {
   };
 };
 
+const MAX_PARSE_OUTPUT_TOKENS = 24_000;
+const MAX_EXISTING_PACKAGE_CONTEXT_CHARS = 40_000;
+const MAX_ORIGINAL_SOURCE_CONTEXT_CHARS = 40_000;
+const MAX_SOURCE_CONTEXT_CHARS = 60_000;
+const MAX_MARKSCHEME_CONTEXT_CHARS = 60_000;
+const MAX_OWNER_NOTES_CHARS = 4_000;
+
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
@@ -129,6 +136,10 @@ serve(async (request) => {
     }
 
     const deepseekReservationUsd = envNumber("DEEPSEEK_PARSE_RESERVATION_USD", 1);
+    const maxOutputTokens = Math.min(
+      envInt("AI_PARSE_MAX_OUTPUT_TOKENS", 24_000),
+      MAX_PARSE_OUTPUT_TOKENS,
+    );
     const monthlyQuota = await enforceProviderMonthlyQuota(admin, {
       ownerProfileId,
       provider: "deepseek",
@@ -145,6 +156,8 @@ serve(async (request) => {
       },
       body: JSON.stringify({
         model,
+        thinking: { type: "disabled" },
+        max_tokens: maxOutputTokens,
         response_format: { type: "json_object" },
         temperature: 0,
         messages: [
@@ -625,11 +638,11 @@ serve(async (request) => {
               `Paper code: ${version.assessments?.paper_code ?? ""}`,
               `Suggested subject/course context: ${version.assessments?.subject ?? ""}`,
               `Source kind: ${body.source_kind}`,
-              `Existing package JSON: ${JSON.stringify(existingPackage ?? {})}`,
-              `Owner notes: ${body.owner_notes ?? ""}`,
-              `Original source text (full context): ${originalSourceText.slice(0, 80_000)}`,
-              `Review context (nodes/artifacts): ${sourceText.slice(0, 80_000)}`,
-              `Markscheme context (solutions, mark allocations, and marking guidance): ${markschemeContext.slice(0, 80_000)}`,
+              `Existing package JSON: ${JSON.stringify(existingPackage ?? {}).slice(0, MAX_EXISTING_PACKAGE_CONTEXT_CHARS)}`,
+              `Owner notes: ${(body.owner_notes ?? "").slice(0, MAX_OWNER_NOTES_CHARS)}`,
+              `Original source text (full context): ${originalSourceText.slice(0, MAX_ORIGINAL_SOURCE_CONTEXT_CHARS)}`,
+              `Review context (nodes/artifacts): ${sourceText.slice(0, MAX_SOURCE_CONTEXT_CHARS)}`,
+              `Markscheme context (solutions, mark allocations, and marking guidance): ${markschemeContext.slice(0, MAX_MARKSCHEME_CONTEXT_CHARS)}`,
               ...(imagePaths.length > 0 ? [`Available diagram image paths (assign to the matching question's "assets" array): ${JSON.stringify(imagePaths)}`] : []),
             ].join("\n\n"),
           },
@@ -700,6 +713,14 @@ serve(async (request) => {
           prompt_tokens: completion?.usage?.prompt_tokens ?? null,
           completion_tokens: completion?.usage?.completion_tokens ?? null,
           total_tokens: completion?.usage?.total_tokens ?? null,
+          max_output_tokens: maxOutputTokens,
+          thinking_mode: "disabled",
+          input_context_chars: {
+            existing_package: Math.min(JSON.stringify(existingPackage ?? {}).length, MAX_EXISTING_PACKAGE_CONTEXT_CHARS),
+            original_source: Math.min(originalSourceText.length, MAX_ORIGINAL_SOURCE_CONTEXT_CHARS),
+            review_context: Math.min(sourceText.length, MAX_SOURCE_CONTEXT_CHARS),
+            markscheme: Math.min(markschemeContext.length, MAX_MARKSCHEME_CONTEXT_CHARS),
+          },
           owner_quota_usd: envNumber("DEEPSEEK_OWNER_MONTHLY_USD_LIMIT", 20),
         },
       })
@@ -712,6 +733,8 @@ serve(async (request) => {
       confidence: suggestion.confidence,
       reserved_cost_usd: deepseekReservationUsd,
       monthly_usd_remaining: monthlyQuota.remaining,
+      max_output_tokens: maxOutputTokens,
+      thinking_mode: "disabled",
     });
 
     return json(request, { ok: true, suggestion: saved });

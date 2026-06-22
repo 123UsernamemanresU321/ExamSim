@@ -50,6 +50,8 @@ describe("DeepSeek AI parse helpers", () => {
 
     expect(request.model).toBe("deepseek-v4-flash");
     expect(request.response_format).toEqual({ type: "json_object" });
+    expect(request.thinking).toEqual({ type: "disabled" });
+    expect(request.max_tokens).toBe(24_000);
     expect(JSON.stringify(request)).not.toMatch(/api[_-]?key|secret/i);
   });
 

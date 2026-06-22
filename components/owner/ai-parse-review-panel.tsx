@@ -26,7 +26,6 @@ export function AiParseReviewPanel({
       JSON.stringify(
         {
           existing_nodes: nodes,
-          package: version.normalized_package_json,
           parse_artifacts: artifacts.map((artifact) => ({
             kind: artifact.artifact_kind,
             object_path: artifact.object_path,
@@ -49,7 +48,6 @@ export function AiParseReviewPanel({
       version.markscheme_pdf_path,
       version.markscheme_source_kind,
       version.markscheme_source_object_path,
-      version.normalized_package_json,
     ],
   );
 

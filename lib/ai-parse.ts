@@ -22,6 +22,8 @@ export type DeepSeekParseRequestInput = {
 
 export type DeepSeekChatRequest = {
   model: string;
+  thinking: { type: "disabled" };
+  max_tokens: number;
   response_format: { type: "json_object" };
   temperature: number;
   messages: { role: "system" | "user"; content: string }[];
@@ -37,12 +39,14 @@ export function normalizeAiParseWarnings(warnings: string[]) {
 
 export function buildDeepSeekParseRequest(input: DeepSeekParseRequestInput): DeepSeekChatRequest {
   const packageContext = input.existingPackage
-    ? `Existing normalized package JSON:\n${JSON.stringify(input.existingPackage, null, 2)}`
+    ? `Existing normalized package JSON:\n${JSON.stringify(input.existingPackage, null, 2).slice(0, 40_000)}`
     : "No existing normalized package was supplied.";
   const notes = input.ownerNotes?.trim() ? `Owner notes:\n${input.ownerNotes.trim()}` : "No owner notes supplied.";
 
   return {
     model: input.model,
+    thinking: { type: "disabled" },
+    max_tokens: 24_000,
     response_format: { type: "json_object" },
     temperature: 0.1,
     messages: [

@@ -2,6 +2,7 @@ import { createHmac, randomBytes, createHash } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/network-retry.mjs";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -25,7 +26,10 @@ if (!url || !anonKey || !serviceRoleKey) {
   throw new Error("NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY are required");
 }
 
-const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const admin = createClient(url, serviceRoleKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: { fetch: retryingFetch },
+});
 const outputPath = resolve(process.cwd(), ".qa-accounts.local.json");
 const suffix = "exam-vault.invalid";
 const now = new Date().toISOString();
@@ -53,6 +57,7 @@ let qaOwnerProfile = null;
 for (const definition of accountDefinitions) {
   const password = securePassword();
   const user = await upsertAuthUser(definition.email, password, definition.displayName, definition.appRole);
+  await resetQaMfaFactors(user.id);
   const profile = await upsertProfile(user.id, definition.appRole, definition.displayName, qaOwnerProfile?.id ?? null);
   if (definition.key === "owner") {
     qaOwnerProfile = profile;
@@ -181,7 +186,10 @@ async function upsertProfile(authUserId, appRole, displayName, ownerProfileId, a
 }
 
 async function enrollTotp(email, password, label) {
-  const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const client = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: retryingFetch },
+  });
   const { error: signInError } = await client.auth.signInWithPassword({ email, password });
   if (signInError) throw signInError;
   const { data: enrolled, error: enrollError } = await client.auth.mfa.enroll({
@@ -195,6 +203,15 @@ async function enrollTotp(email, password, label) {
   if (verifyError) throw verifyError;
   await client.auth.signOut({ scope: "local" });
   return { factorId: enrolled.id, secret };
+}
+
+async function resetQaMfaFactors(userId) {
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId });
+  if (error) throw error;
+  for (const factor of data.factors ?? []) {
+    const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({ userId, id: factor.id });
+    if (deleteError) throw deleteError;
+  }
 }
 
 function securePassword() {

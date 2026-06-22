@@ -10,6 +10,7 @@ coverage
 .qa-accounts.local.json
 playwright-report
 test-results
+tmp/
 *.tsbuildinfo
 .DS_Store
 supabase/.branches
