@@ -2236,6 +2236,14 @@ export type Database = {
         Args: { p_source_version_id: string };
         Returns: string;
       };
+      institution_review_curriculum_standards: {
+        Args: {
+          p_owner_profile_id: string;
+          p_standard_ids: string[];
+          p_decision: "approved" | "rejected";
+        };
+        Returns: number;
+      };
       review_assessment_version: {
         Args: { p_version_id: string; p_decision: string; p_comments?: string | null; p_checklist_json?: Json };
         Returns: string;

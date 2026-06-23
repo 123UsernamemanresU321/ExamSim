@@ -173,43 +173,22 @@ export async function createCurriculumStandardAction(formData: FormData) {
 }
 
 export async function reviewCurriculumStandardsAction(decision: "approved" | "rejected", formData: FormData) {
-  const { ownerProfileId, profileId } = await requireInstitutionPermission("assessment_authoring");
+  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
   const standardIds = [...new Set(formData.getAll("standard_id").map(String).filter(Boolean))];
   if (!standardIds.length) throw new Error("Select at least one draft node.");
   const supabase = await createSupabaseServerClient();
-  const { data: ownedStandards, error: ownedError } = await supabase.from("curriculum_standards")
-    .select("id,source_document_id")
-    .eq("owner_profile_id", ownerProfileId)
-    .in("id", standardIds)
-    .in("review_status", ["draft", "reviewed"]);
-  if (ownedError) throw ownedError;
-  if ((ownedStandards ?? []).length !== standardIds.length) throw new Error("One or more curriculum nodes cannot be reviewed in this workspace.");
-  const { error } = await supabase.from("curriculum_standards").update({
-    review_status: decision,
-    reviewed_by_profile_id: profileId,
-    reviewed_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).eq("owner_profile_id", ownerProfileId).in("id", standardIds);
+  const { data: changedCount, error } = await supabase.rpc("institution_review_curriculum_standards", {
+    p_owner_profile_id: ownerProfileId,
+    p_standard_ids: standardIds,
+    p_decision: decision,
+  });
   if (error) throw error;
-  const sourceIds = [...new Set((ownedStandards ?? []).map((standard) => standard.source_document_id).filter((id): id is string => Boolean(id)))];
-  for (const sourceId of sourceIds) {
-    const { data: remaining, error: remainingError } = await supabase.from("curriculum_standards")
-      .select("id")
-      .eq("source_document_id", sourceId)
-      .in("review_status", ["draft", "reviewed"])
-      .limit(1);
-    if (remainingError) throw remainingError;
-    if (!remaining?.length) {
-      const { error: sourceUpdateError } = await supabase.from("curriculum_source_documents").update({
-        status: "ready",
-        reviewed_by_profile_id: profileId,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }).eq("id", sourceId).eq("owner_profile_id", ownerProfileId);
-      if (sourceUpdateError) throw sourceUpdateError;
-    }
-  }
-  await auditInstitutionAction({ ownerProfileId, action: "curriculum_standard.reviewed", targetTable: "curriculum_standards", metadata: { decision, standard_ids: standardIds } });
+  await auditInstitutionAction({
+    ownerProfileId,
+    action: "curriculum_standard.reviewed",
+    targetTable: "curriculum_standards",
+    metadata: { decision, standard_ids: standardIds, changed_count: Number(changedCount ?? 0) },
+  });
   revalidatePath("/owner/standards");
 }
 

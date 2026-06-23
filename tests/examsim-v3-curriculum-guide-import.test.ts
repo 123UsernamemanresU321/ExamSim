@@ -23,7 +23,7 @@ describe("Examsim V3 curriculum guide imports", () => {
     expect(panel).toContain("Source pages");
     expect(panel).toContain("Approve selected");
     expect(panel).toContain("Reject selected");
-    expect(actions).toContain("review_status: decision");
+    expect(actions).toContain('rpc("institution_review_curriculum_standards"');
     expect(actions).toContain("curriculum_standard.reviewed");
   });
 

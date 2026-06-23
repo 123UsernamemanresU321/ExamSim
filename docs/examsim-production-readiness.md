@@ -40,7 +40,7 @@ an application reservation ceiling, not a provider-side CNY billing limit.
 ## Private IB resource and curriculum import on 2026-06-23
 
 Migrations `20260622191934_v3_exam_resources_curriculum.sql` through
-`20260623090000_fix_resource_manager_rls.sql` are applied to the actual Supabase project, and the affected resource,
+`20260623090000_fix_resource_manager_rls.sql` and `20260623123258_fix_curriculum_review_atomicity.sql` are applied to the actual Supabase project, and the affected resource,
 curriculum, policy, guest-session, package, and public guest Edge Functions are deployed. The owner-scoped private import
 completed with:
 
@@ -207,7 +207,7 @@ remains explicitly best-effort.
 | QTI / Moodle / XML | Live validation required | Audited QTI and conservative Moodle XML exports are implemented. Unsupported interactions are visibly warned and Moodle uses review-required essay fallback. |
 | Version History / Rollback | Live validation required | Published versions are protected, field/source diffs are visible, and rollback clones a complete new draft without mutating live attempts. |
 | School-level Reporting | Live validation required | Owner-scoped group dashboards, topic/standards mastery, completion/support metrics, CSV, and PDF are implemented. Actual-site cross-workspace QA remains. |
-| Deployment Validation | Live validation required | Live migrations through `20260623090000`, affected Edge Functions, and production deployment `dpl_BsNxjxcdv3tckHHHzf8mSmJ9kUQN` are live. The anonymous Paper Mode RPC grant is revoked; private resource policy/trigger checks pass. Authenticated multi-role, classroom-scale, guest-SEB device, and cross-workspace workflow QA remain. |
+| Deployment Validation | Live validation required | Live migrations through `20260623123258`, affected Edge Functions, and production deployment `dpl_H8BJiV9Bz9Gt5iumpWKXbxVRYMcz` are live. The anonymous Paper Mode RPC grant is revoked; private resource policy/trigger checks pass. Authenticated multi-role, classroom-scale, guest-SEB device, and cross-workspace workflow QA remain. |
 
 ## External providers and environment variables
 
@@ -323,6 +323,13 @@ This section should be updated for each release candidate. For this readiness pa
   `20260623090000_fix_resource_manager_rls.sql` applied. Read-only live validation confirms both resource buckets private,
   four scope triggers active, operation-specific resource/curriculum RLS present, and no anonymous execution of the scope
   trigger functions.
+- `supabase db push` - `20260623123258_fix_curriculum_review_atomicity.sql` applied after production review exposed a
+  legacy owner-scoped path mismatch. The migration preserves immutable legacy PDF provenance on status-only updates,
+  keeps new uploads on canonical paths, atomically applies review decisions, and reconciled all 14 affected guide sources
+  to `ready`. The review RPC is denied to `anon`, permission-checked for authenticated users, and idempotent on retries.
+- `npx vercel --prod --yes` - production deployment `dpl_H8BJiV9Bz9Gt5iumpWKXbxVRYMcz` completed and was aliased to
+  `https://examvault.tutor-mcp.com`. Authenticated Browser verification loaded `/owner/standards` without console errors,
+  and the post-deploy production 500 log query returned no events.
 - Affected resource, curriculum, policy, guest-session, package, and public guest Edge Functions deployed to the actual
   project with intended public-function JWT settings.
 - `npm run import:ib-private` - imported five active private resources and fourteen review-gated guide frameworks for the
