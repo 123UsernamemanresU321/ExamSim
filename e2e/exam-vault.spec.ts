@@ -65,13 +65,12 @@ test("owner can reach creation and moderation report screens", async ({ page }) 
   await expect(page.getByText(/does not automatically accuse/i)).toBeVisible();
 });
 
-test("owner can configure policy-gated subject tools for an exam session", async ({ page }) => {
+test("owner exam sessions inherit assessment policy and only expose tightening controls", async ({ page }) => {
   await page.goto("/owner/exam-sessions");
-  await expect(page.getByRole("heading", { name: "Built-in subject tools" })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /Read aloud/i })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /Desmos graphing/i })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /GeoGebra geometry/i })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /Ketcher chemistry editor/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inherited materials and tools" })).toBeVisible();
+  await expect(page.getByText(/cannot remove Required items or enable Not permitted items/i)).toBeVisible();
+  await expect(page.getByText(/Choose an assessment version to preview its frozen exam-wide policy/i)).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Desmos graphing/i })).toHaveCount(0);
 });
 
 test("owner security readiness panels do not overflow at laptop or mobile widths", async ({ page }) => {

@@ -147,7 +147,7 @@ async function loadAnalyticsSnapshot(assessmentVersions: Array<{ id: string; lat
     const standardIds = [...new Set((standardLinks ?? []).map((link) => link.curriculum_standard_id).filter(isString))];
     const [{ data: topicTags, error: topicTagError }, { data: standards, error: standardsError }, { data: rubricItems, error: rubricItemError }] = await Promise.all([
       topicIds.length ? supabase.from("topic_tags").select("id,tag").in("id", topicIds) : { data: [], error: null },
-      standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").in("id", standardIds) : { data: [], error: null },
+      standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").eq("review_status", "approved").in("id", standardIds) : { data: [], error: null },
       rubricItemIds.length ? supabase.from("rubric_template_items").select("id,label,max_marks").in("id", rubricItemIds) : { data: [], error: null },
     ]);
     if (topicTagError) throw topicTagError;

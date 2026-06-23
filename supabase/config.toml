@@ -35,3 +35,45 @@ enabled = true
 
 [functions.activate-student]
 verify_jwt = false
+
+# Public exam-entry functions perform their own hashed exam-code, guest-token,
+# attempt-session, and state-token validation. They do not accept user JWTs as
+# proof of access.
+[functions.resolve-exam-code]
+verify_jwt = false
+
+[functions.join-exam-session]
+verify_jwt = false
+
+[functions.guest-start-attempt-session]
+verify_jwt = false
+
+[functions.guest-get-attempt-state]
+verify_jwt = false
+
+[functions.guest-seb-verify-session]
+verify_jwt = false
+
+[functions.guest-get-attempt-package]
+verify_jwt = false
+
+[functions.guest-get-attempt-resources]
+verify_jwt = false
+
+[functions.guest-save-response]
+verify_jwt = false
+
+[functions.guest-issue-upload-slot-url]
+verify_jwt = false
+
+[functions.guest-confirm-upload-slot]
+verify_jwt = false
+
+[functions.guest-finalize-attempt]
+verify_jwt = false
+
+[functions.guest-send-invigilation-message]
+verify_jwt = false
+
+[functions.guest-acknowledge-invigilation-message]
+verify_jwt = false

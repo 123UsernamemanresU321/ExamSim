@@ -81,7 +81,7 @@ export default async function PaperGeneratorPage() {
   for (const item of generatedPaperItems) itemsByPaper.set(item.generated_paper_id, (itemsByPaper.get(item.generated_paper_id) ?? 0) + 1);
   const subjects = [...new Set([...SUBJECT_PRESETS, ...questionBankItems.map((item) => item.subject).filter((value): value is string => Boolean(value))])];
   const supabase = await createSupabaseServerClient();
-  const { data: standards, error: standardsError } = await supabase.from("curriculum_standards").select("id,code,title").order("code");
+  const { data: standards, error: standardsError } = await supabase.from("curriculum_standards").select("id,code,title").eq("review_status", "approved").order("code");
   if (standardsError) throw standardsError;
 
   return (

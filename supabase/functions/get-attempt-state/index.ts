@@ -5,6 +5,7 @@ import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts
 import { signStateToken } from "../_shared/state-token.ts";
 import { loadAttemptAccommodationPolicy } from "../_shared/accommodations.ts";
 import { loadStudentVisibleMessages } from "../_shared/invigilation-messages.ts";
+import { safeExamPolicySummary } from "../_shared/exam-policy.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -74,6 +75,7 @@ serve(async (request) => {
       },
       state_token: stateToken,
       accommodation_policy: accommodationPolicy,
+      exam_policy_summary: safeExamPolicySummary(attempt.exam_policy_json),
       invigilation_messages: invigilationMessages,
     });
   } catch (error) {

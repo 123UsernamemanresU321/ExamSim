@@ -58,8 +58,8 @@ describe("Examsim production-readiness matrix", () => {
       DEEPSEEK_API_KEY: "set",
       MINERU_API_KEY: "set",
     });
-    expect(withProviders.find((item) => item.key === "smart_import_compiler")?.status).toBe("staging_required");
-    expect(withProviders.find((item) => item.key === "ocr_question_detection")?.status).toBe("staging_required");
+    expect(withProviders.find((item) => item.key === "smart_import_compiler")?.status).toBe("live_validation_required");
+    expect(withProviders.find((item) => item.key === "ocr_question_detection")?.status).toBe("live_validation_required");
   });
 
   it("tracks SimpleTeX as the configured OCR path without claiming guest lockdown", () => {
@@ -67,9 +67,10 @@ describe("Examsim production-readiness matrix", () => {
       SIMPLETEX_APP_ID: "app-id",
       SIMPLETEX_APP_SECRET: "server-secret",
     });
-    expect(readiness.find((item) => item.key === "ocr_question_detection")?.status).toBe("staging_required");
-    expect(readiness.find((item) => item.key === "stem_handwriting_ocr")?.status).toBe("staging_required");
+    expect(readiness.find((item) => item.key === "ocr_question_detection")?.status).toBe("live_validation_required");
+    expect(readiness.find((item) => item.key === "stem_handwriting_ocr")?.status).toBe("live_validation_required");
     expect(readiness.find((item) => item.key === "guest_seb_lockdown")?.status).toBe("blocked");
+    expect(readiness.find((item) => item.key === "guest_seb_lockdown")?.ownerMessage).toContain("GUEST_SEB_ENABLED");
   });
 
   it("accepts DeepSeek plus SimpleTeX as the configured Smart Import provider pair without calling it ready", () => {
@@ -78,7 +79,7 @@ describe("Examsim production-readiness matrix", () => {
       SIMPLETEX_APP_ID: "app-id",
       SIMPLETEX_APP_SECRET: "server-secret",
     });
-    expect(readiness.find((item) => item.key === "smart_import_compiler")?.status).toBe("staging_required");
+    expect(readiness.find((item) => item.key === "smart_import_compiler")?.status).toBe("live_validation_required");
     expect(readiness.find((item) => item.key === "smart_import_compiler")?.ownerMessage).toContain("reviewed sample");
   });
 
@@ -110,7 +111,7 @@ describe("Examsim production-readiness matrix", () => {
     }).map((item) => item.status);
 
     expect(statuses).not.toContain("provider_ready_needs_live_validation");
-    expect(statuses).toContain("staging_required");
+    expect(statuses).toContain("live_validation_required");
     const allowedStatuses = new Set([
       "ready",
       "provider_required",
@@ -145,6 +146,16 @@ describe("Examsim production-readiness matrix", () => {
     expect(readiness.find((item) => item.key === "school_reporting")?.status).toBe("live_validation_required");
     expect(readiness.find((item) => item.key === "school_reporting")?.fallback).toContain("Export Hub");
     expect(readiness.find((item) => item.key === "qti_moodle_interop")?.ownerMessage).toContain("conservative Moodle XML");
+  });
+
+  it("tracks private exam resources and guide-reviewed curriculum evidence", () => {
+    const readiness = getExamsimProductionReadiness({});
+    const tools = readiness.find((item) => item.key === "subject_tools");
+    const curriculum = readiness.find((item) => item.key === "curriculum_alignment");
+    expect(tools?.evidence.routes).toContain("/owner/resources");
+    expect(tools?.evidence.migrations).toContain("supabase/migrations/20260622191934_v3_exam_resources_curriculum.sql");
+    expect(curriculum?.ownerMessage).toContain("14 private guide-backed draft frameworks");
+    expect(curriculum?.evidence.tests).toContain("tests/examsim-v3-curriculum-guide-import.test.ts");
   });
 
   it("surfaces the production-readiness panel in owner security", () => {

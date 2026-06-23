@@ -65,9 +65,9 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
       key: "private_storage",
       title: "Private storage buckets",
       status: "manual_validation",
-      ownerMessage: "Assessment sources, packages, answers, marking packets, and Paper Mode scans must remain private and signed.",
+      ownerMessage: "Assessment sources, reusable exam resources, curriculum guides, packages, answers, marking packets, and Paper Mode scans must remain private and signed.",
       evidence: "Storage must be checked in the Supabase dashboard or live validation scripts.",
-      nextAction: "Verify assessment-sources, assessment-packages, answer-uploads, marking-packets, and paper-scans are not public.",
+      nextAction: "Verify assessment-sources, assessment-resources, curriculum-sources, assessment-packages, answer-uploads, marking-packets, and paper-scans are not public.",
       requiredEnvVars: [],
     },
     {
@@ -105,9 +105,9 @@ export function buildDeploymentReadinessChecklist(env: DeploymentReadinessEnv = 
       key: "security_claims",
       title: "Security-mode wording and claims",
       status: "manual_validation",
-      ownerMessage: "Browser Mode must stay described as tamper-evident, not tamper-proof. Guest SEB remains blocked.",
+      ownerMessage: "Browser Mode must stay described as tamper-evident, not tamper-proof. Guest SEB remains fail-closed behind GUEST_SEB_ENABLED until a real client and final .seb file pass actual-site validation.",
       evidence: "Docs and UI must avoid unsupported lockdown claims.",
-      nextAction: "Review public, owner, and student screens for security wording before launch.",
+      nextAction: "Review public, owner, and student screens for security wording; leave GUEST_SEB_ENABLED unset until real-client validation passes.",
       requiredEnvVars: [],
     },
   ];

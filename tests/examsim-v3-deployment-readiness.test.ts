@@ -49,6 +49,12 @@ describe("Examsim V3 deployment readiness", () => {
     expect(summary.manualValidation).toBeGreaterThan(0);
   });
 
+  it("includes the private exam resource and curriculum source buckets", () => {
+    const storage = buildDeploymentReadinessChecklist({}).find((item) => item.key === "private_storage");
+    expect(storage?.nextAction).toContain("assessment-resources");
+    expect(storage?.nextAction).toContain("curriculum-sources");
+  });
+
   it("surfaces the deployment readiness console on the owner security page", () => {
     const page = readFileSync("app/owner/security/page.tsx", "utf8");
     const component = readFileSync("components/owner/deployment-readiness-console.tsx", "utf8");

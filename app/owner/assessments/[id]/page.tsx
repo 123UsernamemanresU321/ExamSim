@@ -26,6 +26,13 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
       <div className="grid gap-4 md:grid-cols-3">
         <GradingPolicyPanel assessmentId={id} policy={gradingPolicy} />
         <Card>
+          <h2 className="text-lg font-semibold">Materials and tools</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Assign private booklets and set physical calculator, TTS, Desmos, GeoGebra, Ketcher, and approved-material rules for this version.</p>
+          <ButtonLink className="mt-4" href={`/owner/assessments/${id}/settings`} variant="secondary">
+            Open settings
+          </ButtonLink>
+        </Card>
+        <Card>
           <h2 className="text-lg font-semibold">Draft review</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">Review deterministic parse output before publish.</p>
           <ButtonLink className="mt-4" href={`/owner/assessments/${id}/review`} variant="secondary">

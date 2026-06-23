@@ -1,4 +1,3 @@
-import { computeAttemptState } from "@/lib/attempt-state";
 import { invokeEdgeFunctionServer } from "@/lib/edge/server";
 import { calculateServerTimeDriftStatus, type ServerTimeDriftStatus } from "@/lib/student-experience-core";
 import { listStudentAttempts } from "@/lib/live-data";
@@ -6,7 +5,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import type {
   AssessmentMaterial,
-  Attempt,
   AttemptAccommodation,
   Json,
   MistakeCategory,
@@ -56,7 +54,24 @@ export type StudentUrgentAction = {
 };
 
 export type StudentMaterial = Pick<AssessmentMaterial, "id" | "title" | "material_type" | "visibility_policy" | "object_path" | "content_html"> & {
+  requirement?: "allowed" | "required";
   signed_url?: string | null;
+  signed_url_expires_in_seconds?: number | null;
+};
+
+type AttemptResourcesResponse = {
+  attempt_id: string;
+  state: AttemptState;
+  resources: Array<{
+    id: string;
+    title: string;
+    material_type: AssessmentMaterial["material_type"];
+    requirement: "allowed" | "required";
+    visibility_policy: AssessmentMaterial["visibility_policy"];
+    content_html: string | null;
+    signed_url: string | null;
+    signed_url_expires_in_seconds: number | null;
+  }>;
 };
 
 export type StudentFeedbackCard = {
@@ -699,28 +714,11 @@ export async function getStudentMaterialsForAttempt(attemptId: string): Promise<
       },
     ];
   }
-  const attempt = await safeSingle<Attempt>("attempts", (supabase) => supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle());
-  if (!attempt) return [];
-  const serverNowUtc = new Date().toISOString();
-  const state = computeAttemptState({
-    serverNowUtc,
-    startAtUtc: attempt.start_at_utc,
-    endAtUtc: attempt.end_at_utc,
-    uploadDeadlineAtUtc: attempt.upload_deadline_at_utc,
-    solutionsRequested: attempt.solutions_requested,
-  });
-  const materials = await safeStudentRows<AssessmentMaterial>("assessment_materials", (supabase) =>
-    supabase.from("assessment_materials").select("*").eq("assessment_id", attempt.assessment_id).eq("assessment_version_id", attempt.assessment_version_id).order("created_at"),
-  );
-  const allowed = getAllowedMaterialsForState(materials, state);
-  const supabase = await createSupabaseServerClient();
-  return Promise.all(
-    allowed.map(async (material) => {
-      if (!material.object_path) return { ...material, signed_url: null };
-      const { data } = await supabase.storage.from("assessment-sources").createSignedUrl(material.object_path, 600);
-      return { ...material, signed_url: data?.signedUrl ?? null };
-    }),
-  );
+  const response = await invokeEdgeFunctionServer<AttemptResourcesResponse>("get-attempt-resources", { attempt_id: attemptId });
+  return (response.resources ?? []).map((resource) => ({
+    ...resource,
+    object_path: null,
+  }));
 }
 
 export async function listReleasedMistakeCounts(): Promise<Map<string, number>> {

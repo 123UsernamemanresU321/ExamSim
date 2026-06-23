@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AttemptStateBadge } from "@/components/attempt-state-badge";
 import { AccommodationSummary } from "@/components/exam/accommodation-summary";
+import { ExamPolicySummary } from "@/components/exam/exam-policy-summary";
 import { StudentInvigilationMessages, type StudentInvigilationMessage } from "@/components/exam/student-invigilation-messages";
 import { StudentSubjectTools } from "@/components/exam/student-subject-tools";
 import { CountdownTimer } from "@/components/countdown-timer";
@@ -29,6 +30,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokeEdgeFunction } from "@/lib/supabase/functions-client";
 import { collectUploadSlotNodeIds } from "@/lib/upload-slots";
 import type { StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
+import { applyExamPolicyToAccommodation, type ExamPolicySummary as ExamPolicySummaryData } from "@/lib/examsim/exam-policy";
 import type { StudentMaterial } from "@/lib/student-experience";
 
 function LastSavedBadge({ responses }: { responses: { saved_at: string }[] }) {
@@ -79,6 +81,7 @@ export function ExamWorkspace({
             server_now_utc: string;
             countdown_target_utc: string | null;
             accommodation_policy: StudentAccommodationPolicy;
+            exam_policy_summary: ExamPolicySummaryData;
             invigilation_messages?: StudentInvigilationMessage[];
           }>(
             supabase,
@@ -96,7 +99,11 @@ export function ExamWorkspace({
                  server_now_utc: state.server_now_utc,
                 countdown_target_utc: state.countdown_target_utc,
               },
-              accommodationPolicy: state.accommodation_policy ?? prev.accommodationPolicy,
+              accommodationPolicy: applyExamPolicyToAccommodation(
+                state.accommodation_policy ?? prev.accommodationPolicy,
+                state.exam_policy_summary ?? prev.examPolicySummary,
+              ),
+              examPolicySummary: state.exam_policy_summary ?? prev.examPolicySummary,
             }));
             setInvigilationMessages(state.invigilation_messages ?? []);
           }
@@ -400,6 +407,7 @@ export function ExamWorkspace({
         <aside className={`content-start gap-4 xl:sticky xl:top-24 xl:self-start ${
           layoutMode === "focus" || !toolsOpen ? "hidden xl:hidden" : "grid"
         }`} aria-label="Response tools">
+          <ExamPolicySummary policy={screenData.examPolicySummary} compact />
           <AccommodationSummary policy={accommodationPolicy} />
           <StudentSubjectTools policy={accommodationPolicy} />
           <StudentInvigilationMessages messages={invigilationMessages} compact onAcknowledge={acknowledgeInvigilationMessage} />

@@ -13,7 +13,8 @@
     "e2e": "playwright test",
     "provision:owner": "node scripts/provision-owner.mjs",
     "provision:qa": "node scripts/provision-qa-accounts.mjs",
-    "qa:smart-import": "node scripts/run-live-smart-import-qa.mjs"
+    "qa:smart-import": "node scripts/run-live-smart-import-qa.mjs",
+    "import:ib-private": "node scripts/import-private-ib-content.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",

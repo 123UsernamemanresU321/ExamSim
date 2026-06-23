@@ -124,8 +124,9 @@ const EXAMSIM_READINESS_EVIDENCE: Record<ExamsimProductionFeatureKey, ExamsimRea
     providerValidation: ["DeepSeek semantic grouping sample with owner approval"],
   },
   guest_seb_lockdown: {
-    tests: ["tests/examsim-limitations.test.ts", "tests/edge-security.test.ts"],
-    edgeFunctions: ["guest-get-attempt-package", "seb-handshake", "seb-verify-session"],
+    tests: ["tests/examsim-limitations.test.ts", "tests/edge-security.test.ts", "tests/examsim-v3-guest-seb-session.test.ts"],
+    migrations: ["supabase/migrations/20260622191934_v3_exam_resources_curriculum.sql"],
+    edgeFunctions: ["guest-start-attempt-session", "guest-seb-verify-session", "guest-get-attempt-package", "seb-handshake", "seb-verify-session"],
   },
   paper_mode: {
     routes: ["/owner/paper-mode", "/owner/paper-mode/[jobId]"],
@@ -193,13 +194,23 @@ const EXAMSIM_READINESS_EVIDENCE: Record<ExamsimProductionFeatureKey, ExamsimRea
     edgeFunctions: ["attempt-intervention", "get-attempt-state", "guest-get-attempt-state"],
   },
   subject_tools: {
-    tests: ["tests/examsim-v3-response-capabilities.test.ts"],
-    components: ["components/structured-response-control.tsx", "components/response-capability-inputs.tsx"],
+    routes: ["/owner/resources", "/owner/assessments/[id]/settings"],
+    tests: ["tests/examsim-v3-response-capabilities.test.ts", "tests/examsim-v3-resource-policy-ux.test.ts", "tests/examsim-v3-resource-delivery.test.ts"],
+    migrations: [
+      "supabase/migrations/20260622191934_v3_exam_resources_curriculum.sql",
+      "supabase/migrations/20260623083500_enforce_private_resource_owner_scope.sql",
+      "supabase/migrations/20260623090000_fix_resource_manager_rls.sql",
+    ],
+    components: ["components/structured-response-control.tsx", "components/response-capability-inputs.tsx", "components/exam/exam-policy-summary.tsx", "components/owner/resource-library-manager.tsx"],
+    edgeFunctions: ["owner-issue-resource-upload", "owner-confirm-resource-upload", "get-attempt-resources", "guest-get-attempt-resources"],
   },
   curriculum_alignment: {
     routes: ["/owner/topics", "/owner/standards"],
-    tests: ["tests/examsim-v3-standards-analytics.test.ts"],
-    migrations: ["supabase/migrations/20260621075807_v3_curriculum_standards.sql"],
+    tests: ["tests/examsim-v3-standards-analytics.test.ts", "tests/examsim-v3-curriculum-guide-import.test.ts", "tests/examsim-v3-private-ib-import.test.ts"],
+    migrations: ["supabase/migrations/20260621075807_v3_curriculum_standards.sql", "supabase/migrations/20260622191934_v3_exam_resources_curriculum.sql"],
+    components: ["components/owner/curriculum-guide-review-panel.tsx"],
+    edgeFunctions: ["owner-issue-curriculum-source-upload", "owner-confirm-curriculum-source-upload"],
+    seededQa: ["Five private IB booklets and fourteen guide-backed draft frameworks imported for owner review"],
   },
   adaptive_revision: {
     routes: ["/owner/revision", "/student/revision"],
@@ -225,6 +236,12 @@ const EXAMSIM_READINESS_EVIDENCE: Record<ExamsimProductionFeatureKey, ExamsimRea
   deployment_validation: {
     routes: ["/owner/security"],
     tests: ["tests/examsim-v3-deployment-readiness.test.ts", "tests/edge-security.test.ts"],
+    migrations: [
+      "supabase/migrations/20260622191934_v3_exam_resources_curriculum.sql",
+      "supabase/migrations/20260623082000_fix_paper_mode_booklet_rpc_privileges.sql",
+      "supabase/migrations/20260623083500_enforce_private_resource_owner_scope.sql",
+      "supabase/migrations/20260623090000_fix_resource_manager_rls.sql",
+    ],
     browserVerification: ["Actual website guest, authenticated student, owner, marking, and release flow"],
   },
 };
@@ -240,7 +257,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "smart_import_compiler",
       title: "Smart Import / Exam Compiler",
-      status: hasDeepSeek && hasOcrProvider ? "staging_required" : "provider_required",
+      status: hasDeepSeek && hasOcrProvider ? "live_validation_required" : "provider_required",
       ownerMessage: hasDeepSeek && hasOcrProvider
         ? "Provider-backed Smart Import can run through the configured DeepSeek and OCR paths, but a reviewed sample run, owner review, and batch-import preflight are still required before publishing."
         : "Smart Import has a manual PDF/LaTeX/JSON fallback plus sample QA and batch-PDF guardrails, but provider-backed OCR and AI extraction require configured DeepSeek and OCR credentials.",
@@ -252,7 +269,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "ocr_question_detection",
       title: "AI/OCR Question Detection",
-      status: hasOcrProvider ? "staging_required" : "provider_required",
+      status: hasOcrProvider ? "live_validation_required" : "provider_required",
       ownerMessage: "Question and source extraction is provider-backed when MinerU or SimpleTeX credentials exist; all OCR output remains review-required and region boxes stay manually editable.",
       productionPath: "MinerU can extract layout; SimpleTeX can extract page/formula/table/handwriting content; deterministic repair and teacher review produce the question tree.",
       fallback: "Manual PDF Region Editor remains the production-safe workflow when providers are missing or low confidence.",
@@ -272,7 +289,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "ai_answer_grouping",
       title: "AI Answer Grouping",
-      status: hasDeepSeek ? "staging_required" : "manual_fallback",
+      status: hasDeepSeek ? "live_validation_required" : "manual_fallback",
       ownerMessage: "Deterministic/manual grouping is safe today, including typed normalization, blank manual-review buckets, table/whiteboard manual-review groups, and numeric unit/tolerance grouping; semantic grouping remains provider-backed and review-required.",
       productionPath: "Group typed, numeric, table, whiteboard, and short text answers; teacher reviews groups before marks are applied.",
       fallback: "Manual and deterministic grouping are used when semantic AI grouping is not configured.",
@@ -283,11 +300,11 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "guest_seb_lockdown",
       title: "Guest SEB / Lockdown",
       status: "blocked",
-      ownerMessage: "Authenticated SEB verification exists, but guest SEB remains blocked until server-verifiable guest BEK/CK/request-hash evidence is implemented without weakening secure mode.",
-      productionPath: "Use authenticated student SEB flow for secure-browser sittings.",
-      blocker: "No-login guest attempts cannot be considered locked down without a server-verifiable SEB evidence path.",
-      requiredEnvVars: [],
-      qaChecklist: ["Confirm guest SEB-required sessions do not release packages", "Confirm Browser Mode is labelled tamper-evident"],
+      ownerMessage: "A guest-bound, URL-specific BEK/CK verification path is implemented, but package release stays fail-closed while GUEST_SEB_ENABLED is unset. Enablement requires a real Safe Exam Browser client and final .seb configuration test on the actual website.",
+      productionPath: "Keep guest SEB disabled; use authenticated student SEB until a real guest .seb run verifies fresh server evidence and package release.",
+      blocker: "No-login guest lockdown cannot be claimed until the production URL, final .seb file, and Safe Exam Browser client pass the end-to-end verification matrix.",
+      requiredEnvVars: ["GUEST_SEB_ENABLED=true only after real-client validation"],
+      qaChecklist: ["Confirm guest SEB-required sessions fail closed while the gate is unset", "Verify URL-specific BEK/CK hashes with the final .seb file", "Confirm fresh evidence expires", "Confirm Browser Mode is labelled tamper-evident"],
     },
     {
       key: "paper_mode",
@@ -302,7 +319,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
     {
       key: "stem_handwriting_ocr",
       title: "Handwriting / STEM / Table / Diagram OCR",
-      status: hasMathpix || hasOcrProvider ? "staging_required" : "provider_required",
+      status: hasMathpix || hasOcrProvider ? "live_validation_required" : "provider_required",
       ownerMessage: "Advanced STEM OCR requires a capable provider; the app must keep manual transcription and region editing as the fallback.",
       productionPath: "Provider extracts handwriting, equations, tables, chemistry, and diagrams into review-required suggestions.",
       fallback: "Manual transcription, source-page preview, and teacher-edited question cards remain available.",
@@ -413,8 +430,8 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "subject_tools",
       title: "Built-in Subject Tools",
       status: "live_validation_required",
-      ownerMessage: "Browser Web Speech API read-aloud, Desmos graphing, GeoGebra geometry with CAS disabled, and self-hosted Ketcher are available only when explicitly enabled in the server-issued session policy.",
-      productionPath: "Teacher enables only the permitted session tools; students open them from the exam response sidebar. Ketcher stays local, while Desmos and GeoGebra require internet access.",
+      ownerMessage: "Version-frozen assessment policies now classify physical calculators, Browser TTS, Desmos, GeoGebra, Ketcher, and private formula/data/reference booklets as required, allowed, or prohibited. Sessions may tighten but cannot weaken the canonical policy.",
+      productionPath: "Assign verified private booklets and tool rules in Materials and tools, publish the immutable version, then show signed resources and preparation warnings in authenticated and guest waiting/exam workspaces.",
       fallback: "Typed answers, table responses, whiteboard strokes, manual working uploads, and approved physical materials remain available when an external math tool cannot load.",
       requiredEnvVars: ["NEXT_PUBLIC_DESMOS_API_KEY when Desmos is enabled"],
       qaChecklist: ["Verify disabled-by-default policy", "Test browser TTS on student devices", "Load Desmos with production key", "Verify GeoGebra geometry has no CAS", "Export Ketcher SMILES and MOL", "Save a table response", "Save a whiteboard response"],
@@ -423,8 +440,8 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "curriculum_alignment",
       title: "Curriculum / Standard Alignment",
       status: "ready",
-      ownerMessage: "Owner-scoped hierarchical standards, question/rubric links, sample IB/MYP/IGCSE/Olympiad-SAMO starters, and standards mastery analytics are implemented. Starter content remains owner-reviewed rather than claiming official completeness.",
-      productionPath: "Attach subject, topic, subtopic, standard, command term, and difficulty to questions/rubrics.",
+      ownerMessage: "Owner-scoped hierarchical standards, question/rubric links, standards mastery analytics, and a private guide review queue are implemented. Five private IB resources and 14 private guide-backed draft frameworks were imported; draft nodes stay excluded until owner approval.",
+      productionPath: "Review concise guide-derived nodes with source-page provenance, approve suitable nodes, then attach subject, topic, subtopic, standard, command term, and difficulty to questions/rubrics.",
       fallback: "Owners can import or manage their own verified standard tree and continue using manual topic tags.",
       requiredEnvVars: [],
       qaChecklist: ["Seed standards", "Tag questions", "Verify analytics by tag"],
@@ -473,7 +490,7 @@ export function getExamsimProductionReadiness(env: ExamsimReadinessEnv = process
       key: "deployment_validation",
       title: "Deployment Validation",
       status: "live_validation_required",
-      ownerMessage: "The repo can pass static checks locally, but the actual website still needs migrations, Edge deployment, env vars, private buckets, and synthetic workflow QA verified live.",
+      ownerMessage: "Migrations through 20260623090000, affected Edge Functions, and this web release are deployed to the actual website. Live validation confirms private resource buckets, owner-scope triggers, operation-specific RLS, and revoked anonymous Paper Mode generator execution; remaining synthetic multi-role, provider, classroom-scale, and guest-SEB device QA still require completion.",
       productionPath: "Run migrations, deploy Edge Functions, set secrets, confirm buckets private, then run the end-to-end workflow on the actual website with synthetic test records.",
       fallback: "Do not launch high-stakes exams until the live validation checklist passes.",
       requiredEnvVars: ["APP_ALLOWED_ORIGINS", "ATTEMPT_STATE_TOKEN_SECRET", "MINERU_WORKER_HMAC_SECRET"],

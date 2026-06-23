@@ -174,6 +174,13 @@ function attemptFixture(overrides: Partial<Attempt> = {}): Attempt {
     seb_browser_exam_key_hashes: [],
     seb_config_key_hashes: [],
     seb_config_path: null,
+    exam_policy_json: {
+      assessmentVersionId: "version_1",
+      capturedAt: "2026-05-20T07:00:00.000Z",
+      resources: [],
+      tools: [],
+      allowedMaterials: [],
+    },
     state_cache: null,
     created_at: "2026-05-20T07:00:00.000Z",
     updated_at: "2026-05-20T07:00:00.000Z",

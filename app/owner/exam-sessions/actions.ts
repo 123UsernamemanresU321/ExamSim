@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { generateReadableExamCode, hashExamSecret, normalizeExamCode } from "@/lib/examsim/guest-access";
 import { requireInstitutionPermission } from "@/lib/examsim/institution-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { validateSebPublishKeys } from "@/lib/seb";
 
 export async function createExamSessionAction(formData: FormData) {
   const { ownerProfileId } = await requireInstitutionPermission("session_publishing");
@@ -23,13 +24,6 @@ export async function createExamSessionAction(formData: FormData) {
   const uploadDeadlineAt = uploadGraceMinutes ? new Date(Date.parse(startAt) + (durationSeconds + uploadGraceMinutes * 60) * 1000).toISOString() : null;
   const restBreakMaxMinutes = boundedInteger(formData.get("rest_break_max_minutes"), 1, 240, 15);
   const fontScale = boundedInteger(formData.get("font_scale_percent"), 100, 150, 100);
-  const calculatorValue = String(formData.get("calculator_policy") ?? "none");
-  const calculatorPolicy = ["none", "basic", "scientific", "graphing"].includes(calculatorValue) ? calculatorValue : "none";
-  const allowedMaterials = String(formData.get("allowed_materials") ?? "")
-    .split(/\r?\n/)
-    .map((item) => item.trim().slice(0, 120))
-    .filter(Boolean)
-    .slice(0, 20);
 
   const { data: assessment, error: assessmentError } = await supabase
     .from("assessments")
@@ -38,11 +32,38 @@ export async function createExamSessionAction(formData: FormData) {
     .single();
   if (assessmentError) throw assessmentError;
   if (assessment.owner_profile_id !== ownerProfileId) throw new Error("Forbidden assessment");
+  const { data: version, error: versionError } = await supabase
+    .from("assessment_versions")
+    .select("id,status,governance_status,assessment_id")
+    .eq("id", versionId)
+    .eq("assessment_id", assessmentId)
+    .maybeSingle();
+  if (versionError) throw versionError;
+  if (!version || version.status !== "published" || version.governance_status !== "published") {
+    throw new Error("Exam sessions require a published assessment version.");
+  }
+
+  const [{ data: optionalTools, error: toolPolicyError }, { data: optionalResources, error: resourcePolicyError }] = await Promise.all([
+    supabase.from("assessment_tool_policies").select("tool_code,requirement").eq("assessment_version_id", versionId).eq("requirement", "allowed"),
+    supabase.from("assessment_materials").select("id,requirement").eq("assessment_version_id", versionId).eq("requirement", "allowed"),
+  ]);
+  if (toolPolicyError) throw toolPolicyError;
+  if (resourcePolicyError) throw resourcePolicyError;
+  const toolRequirements = Object.fromEntries((optionalTools ?? [])
+    .filter((tool) => formData.get(`prohibit_tool_${tool.tool_code}`) === "on")
+    .map((tool) => [tool.tool_code, "prohibited"]));
+  const resourceRequirements = Object.fromEntries((optionalResources ?? [])
+    .filter((resource) => formData.get(`prohibit_resource_${resource.id}`) === "on")
+    .map((resource) => [resource.id, "prohibited"]));
 
   const modeValue = String(formData.get("mode") ?? "timed");
   const mode = ["practice", "timed", "controlled", "seb_required"].includes(modeValue)
     ? modeValue as "practice" | "timed" | "controlled" | "seb_required"
     : "timed";
+  const sebBrowserExamKeys = splitHashList(formData.get("seb_browser_exam_key_hashes"));
+  const sebConfigKeys = splitHashList(formData.get("seb_config_key_hashes"));
+  const sebValidation = validateSebPublishKeys({ deliveryMode: mode === "seb_required" ? "seb_required" : "browser", browserExamKeys: sebBrowserExamKeys, configKeys: sebConfigKeys });
+  if (!sebValidation.ok) throw new Error(sebValidation.reason);
 
   const { data: session, error } = await supabase
     .from("exam_sessions")
@@ -72,20 +93,21 @@ export async function createExamSessionAction(formData: FormData) {
         require_roster_match: formData.get("require_roster_match") === "on",
         allow_unregistered_guests: formData.get("allow_unregistered_guests") === "on",
       },
+      security_settings_json: {
+        seb_browser_exam_key_hashes: sebBrowserExamKeys,
+        seb_config_key_hashes: sebConfigKeys,
+      },
       settings_json: {
+        exam_policy_overrides: {
+          tool_requirements: toolRequirements,
+          resource_requirements: resourceRequirements,
+        },
         accommodations: {
           rest_break_allowed: formData.get("rest_break_allowed") === "on",
           rest_break_max_minutes: restBreakMaxMinutes,
           font_scale_percent: [100, 125, 150].includes(fontScale) ? fontScale : 100,
           dyslexia_font: formData.get("dyslexia_font") === "on",
           contrast_mode: formData.get("contrast_mode") === "high" ? "high" : "standard",
-          calculator_policy: calculatorPolicy,
-          formula_booklet_allowed: formData.get("formula_booklet_allowed") === "on",
-          allowed_materials: allowedMaterials,
-          tts_allowed: formData.get("tts_allowed") === "on",
-          desmos_allowed: formData.get("desmos_allowed") === "on",
-          geogebra_allowed: formData.get("geogebra_allowed") === "on",
-          chemistry_editor_allowed: formData.get("chemistry_editor_allowed") === "on",
         },
       },
       published_at: new Date().toISOString(),
@@ -147,4 +169,8 @@ function boundedInteger(value: FormDataEntryValue | null, min: number, max: numb
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(number)));
+}
+
+function splitHashList(value: FormDataEntryValue | null) {
+  return [...new Set(String(value ?? "").split(/[\s,]+/).map((item) => item.trim().toLowerCase()).filter(Boolean))];
 }

@@ -3,7 +3,8 @@ import type { AttemptState } from "@/lib/constants";
 import { getCurrentUserProfile } from "@/lib/auth/server";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Assessment, AssessmentVersion, Attempt, AttemptEvent, ExamSession, InvigilationMessage, Profile, StudentRosterEntry, TextResponse, UploadSlot } from "@/types/database";
+import type { Assessment, AssessmentMaterial, AssessmentToolPolicy, AssessmentVersion, Attempt, AttemptEvent, ExamSession, InvigilationMessage, Profile, StudentRosterEntry, TextResponse, UploadSlot } from "@/types/database";
+import type { ExamPolicySummary } from "@/lib/examsim/exam-policy";
 
 export type ExamSessionRow = ExamSession & {
   assessment_title: string;
@@ -16,6 +17,7 @@ export type ExamSessionRow = ExamSession & {
 export type SessionAssessmentOption = {
   assessment: Pick<Assessment, "id" | "title" | "paper_code" | "subject">;
   latestVersion: Pick<AssessmentVersion, "id" | "version_no" | "status"> | null;
+  examPolicy: ExamPolicySummary;
 };
 
 export type LiveSessionAttempt = {
@@ -99,16 +101,72 @@ export async function listSessionAssessmentOptions(): Promise<SessionAssessmentO
       .from("assessment_versions")
       .select("id,assessment_id,version_no,status")
       .in("assessment_id", assessmentIds)
+      .eq("status", "published")
       .order("version_no", { ascending: false });
     if (versionError) throw versionError;
     for (const version of versions ?? []) {
       if (!versionsByAssessment.has(version.assessment_id)) versionsByAssessment.set(version.assessment_id, version as AssessmentVersion);
     }
   }
+  const versionIds = [...versionsByAssessment.values()].map((version) => version.id);
+  const [materialsResult, toolsResult] = versionIds.length
+    ? await Promise.all([
+        supabase.from("assessment_materials").select("*").in("assessment_version_id", versionIds),
+        supabase.from("assessment_tool_policies").select("*").in("assessment_version_id", versionIds),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (materialsResult.error) throw materialsResult.error;
+  if (toolsResult.error) throw toolsResult.error;
+  const materialsByVersion = groupRows((materialsResult.data ?? []) as AssessmentMaterial[], (material) => material.assessment_version_id);
+  const toolsByVersion = groupRows((toolsResult.data ?? []) as AssessmentToolPolicy[], (tool) => tool.assessment_version_id);
   return (assessments ?? []).map((assessment) => ({
     assessment,
     latestVersion: versionsByAssessment.get(assessment.id) ?? null,
+    examPolicy: buildSessionPolicySummary(
+      materialsByVersion.get(versionsByAssessment.get(assessment.id)?.id ?? "") ?? [],
+      toolsByVersion.get(versionsByAssessment.get(assessment.id)?.id ?? "") ?? [],
+    ),
   }));
+}
+
+function buildSessionPolicySummary(materials: AssessmentMaterial[], tools: AssessmentToolPolicy[]): ExamPolicySummary {
+  const physicalMaterials = tools.find((tool) => tool.tool_code === "physical_materials");
+  return {
+    resources: materials.map((material) => ({
+      id: material.id,
+      title: material.title,
+      material_type: material.material_type,
+      requirement: material.requirement,
+    })),
+    tools: tools.map((tool) => ({
+      code: tool.tool_code,
+      requirement: tool.requirement,
+      configuration: safePolicyConfiguration(tool.configuration_json),
+    })),
+    allowed_materials: readPolicyItems(physicalMaterials?.configuration_json),
+  };
+}
+
+function safePolicyConfiguration(value: unknown): Record<string, string | string[]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const record = value as Record<string, unknown>;
+  const output: Record<string, string | string[]> = {};
+  if (["basic", "scientific", "gdc"].includes(String(record.calculator_class))) output.calculator_class = String(record.calculator_class);
+  const items = readPolicyItems(record);
+  if (items.length) output.items = items;
+  return output;
+}
+
+function readPolicyItems(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const items = (value as Record<string, unknown>).items;
+  return Array.isArray(items) ? items.map(String).slice(0, 20) : [];
+}
+
+function groupRows<T, K>(items: T[], key: (item: T) => K) {
+  const rows = new Map<K, T[]>();
+  for (const item of items) rows.set(key(item), [...(rows.get(key(item)) ?? []), item]);
+  return rows;
 }
 
 export async function getOwnerExamSession(sessionId: string) {

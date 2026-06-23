@@ -68,6 +68,7 @@ export const ownerNavSections: NavSection[] = [
       { href: "/owner/templates", label: "Templates", Icon: BookTemplate, requiredPermission: "assessment_authoring" },
       { href: "/owner/paper-generator", label: "Mock Generator", Icon: Wand2, requiredPermission: "assessment_authoring" },
       { href: "/owner/question-bank", label: "Question Library", Icon: BookOpen, requiredPermission: "assessment_authoring" },
+      { href: "/owner/resources", label: "Resource Library", Icon: BookOpen, requiredPermission: "assessment_authoring" },
     ],
   },
   {

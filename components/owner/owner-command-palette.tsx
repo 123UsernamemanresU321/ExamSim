@@ -35,6 +35,7 @@ const commands: Command[] = [
   { href: "/owner/templates", label: "Templates", section: "Build", keywords: "policy presets timing", Icon: Boxes },
   { href: "/owner/paper-generator", label: "Mock Generator", section: "Build", keywords: "mock generator paper generate question library", Icon: Gauge },
   { href: "/owner/question-bank", label: "Question Library", section: "Build", keywords: "question bank reuse extract generator library", Icon: BookOpen },
+  { href: "/owner/resources", label: "Resource Library", section: "Build", keywords: "formula data booklet material reference pdf", Icon: BookOpen },
   { href: "/owner/exam-sessions", label: "Exam Sessions", section: "Run", keywords: "exam code sitting window publish", Icon: Gauge },
   { href: "/owner/operations", label: "Exam-Day Board", section: "Run", keywords: "active attempts incidents upload moderation live", Icon: Gauge },
   { href: "/owner/attempts", label: "Attempts", section: "Run", keywords: "sittings submissions state", Icon: ListChecks },

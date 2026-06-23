@@ -1,0 +1,358 @@
+{
+  "resources": [
+    {
+      "key": "math-aa-hl-v1-0",
+      "title": "Mathematics AA HL formula booklet",
+      "type": "formula_booklet",
+      "subject": "Mathematics: Analysis and Approaches",
+      "level": "HL",
+      "version": "2023 v1.0",
+      "language": "en",
+      "sourceFile": "/Users/erichuang/Downloads/IB/AAHL Formula Booklet 2023 - English (V1.0).pdf",
+      "pageCount": 13
+    },
+    {
+      "key": "math-aa-sl-v1-0",
+      "title": "Mathematics AA SL formula booklet",
+      "type": "formula_booklet",
+      "subject": "Mathematics: Analysis and Approaches",
+      "level": "SL",
+      "version": "2023 v1.0",
+      "language": "en",
+      "sourceFile": "/Users/erichuang/Downloads/IB/AASL Formula Booklet 2023 - English (V1.0).pdf",
+      "pageCount": 10
+    },
+    {
+      "key": "chemistry-data-v1-1",
+      "title": "Chemistry data booklet",
+      "type": "data_booklet",
+      "subject": "Chemistry",
+      "level": "DP",
+      "version": "2025 v1.1",
+      "language": "en",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Data Booklet 2025 - English (V1.1)-2.pdf",
+      "pageCount": 29
+    },
+    {
+      "key": "physics-data-v1-2",
+      "title": "Physics data booklet",
+      "type": "data_booklet",
+      "subject": "Physics",
+      "level": "DP",
+      "version": "2025 v1.2",
+      "language": "en",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Data Booklet 2025 - English (V1.2).pdf",
+      "pageCount": 17
+    },
+    {
+      "key": "business-formulae",
+      "title": "Business Management formulae booklet",
+      "type": "formula_booklet",
+      "subject": "Business Management",
+      "level": "DP",
+      "version": "school source",
+      "language": "en",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Formulae Booklet - English.pdf",
+      "pageCount": 2
+    }
+  ],
+  "frameworks": [
+    {
+      "code": "IBDP-BIO-2025",
+      "name": "IB DP Biology school-reviewed framework",
+      "version": "2025 update Mar 2024",
+      "component": "subject",
+      "subject": "Biology",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Biology Guide 2025 - English (Update Mar2024).pdf",
+      "pageCount": 133,
+      "nodes": [
+        { "code": "BIO.A", "title": "Unity and diversity", "kind": "topic", "sourcePageStart": 40 },
+        { "code": "BIO.B", "title": "Form and function", "kind": "topic", "sourcePageStart": 59 },
+        { "code": "BIO.C", "title": "Interaction and interdependence", "kind": "topic", "sourcePageStart": 77 },
+        { "code": "BIO.D", "title": "Continuity and change", "kind": "topic", "sourcePageStart": 96 },
+        { "code": "BIO.A1", "title": "Molecules and cells", "kind": "subtopic", "parentCode": "BIO.A", "sourcePageStart": 40 },
+        { "code": "BIO.SKILL.DATA", "title": "Analyse biological data and uncertainty", "kind": "skill", "sourcePageStart": 28 },
+        { "code": "BIO.AO", "title": "Knowledge, application and evaluation", "kind": "assessment_objective", "sourcePageStart": 25 },
+        { "code": "BIO.CMD.ANALYSE", "title": "Analyse", "kind": "command_term", "sourcePageStart": 118 }
+      ]
+    },
+    {
+      "code": "IBDP-BM-2024",
+      "name": "IB DP Business Management school-reviewed framework",
+      "version": "2024",
+      "component": "subject",
+      "subject": "Business Management",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Business Management Guide 2024 - English.pdf",
+      "pageCount": 77,
+      "nodes": [
+        { "code": "BM.1", "title": "Introduction to business management", "kind": "topic", "sourcePageStart": 29 },
+        { "code": "BM.2", "title": "Human resource management", "kind": "topic", "sourcePageStart": 32 },
+        { "code": "BM.3", "title": "Finance and accounts", "kind": "topic", "sourcePageStart": 35 },
+        { "code": "BM.4", "title": "Marketing", "kind": "topic", "sourcePageStart": 39 },
+        { "code": "BM.5", "title": "Operations management", "kind": "topic", "sourcePageStart": 42 },
+        { "code": "BM.3.RATIO", "title": "Profitability and liquidity analysis", "kind": "subtopic", "parentCode": "BM.3", "sourcePageStart": 36 },
+        { "code": "BM.SKILL.CASE", "title": "Apply business tools to case evidence", "kind": "skill", "sourcePageStart": 24 },
+        { "code": "BM.AO", "title": "Knowledge, application, analysis and evaluation", "kind": "assessment_objective", "sourcePageStart": 18 },
+        { "code": "BM.CMD.EVALUATE", "title": "Evaluate", "kind": "command_term", "sourcePageStart": 62 }
+      ]
+    },
+    {
+      "code": "IBDP-CHEM-2025",
+      "name": "IB DP Chemistry school-reviewed framework",
+      "version": "2025 update Mar 2024",
+      "component": "subject",
+      "subject": "Chemistry",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Chemistry Guide 2025 - English (Update Mar2024).pdf",
+      "pageCount": 90,
+      "nodes": [
+        { "code": "CHEM.S1", "title": "Models of the particulate nature of matter", "kind": "topic", "sourcePageStart": 39 },
+        { "code": "CHEM.S2", "title": "Models of bonding and structure", "kind": "topic", "sourcePageStart": 46 },
+        { "code": "CHEM.S3", "title": "Classification of matter", "kind": "topic", "sourcePageStart": 53 },
+        { "code": "CHEM.R1", "title": "What drives chemical reactions", "kind": "topic", "sourcePageStart": 58 },
+        { "code": "CHEM.R2", "title": "How much, how fast and how far", "kind": "topic", "sourcePageStart": 63 },
+        { "code": "CHEM.R3", "title": "Mechanisms of chemical change", "kind": "topic", "sourcePageStart": 68 },
+        { "code": "CHEM.S2.BOND", "title": "Bonding models", "kind": "subtopic", "parentCode": "CHEM.S2", "sourcePageStart": 46 },
+        { "code": "CHEM.SKILL.EXPERIMENT", "title": "Design, analyse and evaluate chemical investigations", "kind": "skill", "sourcePageStart": 28 },
+        { "code": "CHEM.AO", "title": "Knowledge, application and scientific inquiry", "kind": "assessment_objective", "sourcePageStart": 25 },
+        { "code": "CHEM.CMD.DETERMINE", "title": "Determine", "kind": "command_term", "sourcePageStart": 75 }
+      ]
+    },
+    {
+      "code": "IBDP-GEO-2024",
+      "name": "IB DP Geography school-reviewed framework",
+      "version": "2024",
+      "component": "subject",
+      "subject": "Geography",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Guide_Geography DP 2024.pdf",
+      "pageCount": 84,
+      "nodes": [
+        { "code": "GEO.CORE.POP", "title": "Population distribution and change", "kind": "topic", "sourcePageStart": 34 },
+        { "code": "GEO.CORE.CLIMATE", "title": "Global climate vulnerability and resilience", "kind": "topic", "sourcePageStart": 36 },
+        { "code": "GEO.CORE.RESOURCES", "title": "Global resource consumption and security", "kind": "topic", "sourcePageStart": 38 },
+        { "code": "GEO.HL.POWER", "title": "Power, places and networks", "kind": "topic", "sourcePageStart": 46 },
+        { "code": "GEO.POP.MIGRATION", "title": "Migration and population movement", "kind": "subtopic", "parentCode": "GEO.CORE.POP", "sourcePageStart": 34 },
+        { "code": "GEO.SKILL.FIELDWORK", "title": "Collect and evaluate geographic fieldwork evidence", "kind": "skill", "sourcePageStart": 50 },
+        { "code": "GEO.AO", "title": "Knowledge, application, synthesis and evaluation", "kind": "assessment_objective", "sourcePageStart": 21 },
+        { "code": "GEO.CMD.EXAMINE", "title": "Examine", "kind": "command_term", "sourcePageStart": 80 }
+      ]
+    },
+    {
+      "code": "IBDP-LAL-2026",
+      "name": "IB DP Language A: Language and Literature school-reviewed framework",
+      "version": "2026 update Nov 2025",
+      "component": "subject",
+      "subject": "Language A: Language and Literature",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Language A - Language and Literature Guide 2026 - English (Update Nov2025).pdf",
+      "pageCount": 80,
+      "nodes": [
+        { "code": "LAL.AOE.READERS", "title": "Readers, writers and texts", "kind": "topic", "sourcePageStart": 26 },
+        { "code": "LAL.AOE.TIME", "title": "Time and space", "kind": "topic", "sourcePageStart": 27 },
+        { "code": "LAL.AOE.INTERTEXT", "title": "Intertextuality: connecting texts", "kind": "topic", "sourcePageStart": 28 },
+        { "code": "LAL.CONCEPT.IDENTITY", "title": "Identity", "kind": "subtopic", "parentCode": "LAL.AOE.READERS", "sourcePageStart": 29 },
+        { "code": "LAL.SKILL.ANALYSIS", "title": "Analyse language, form and context", "kind": "skill", "sourcePageStart": 31 },
+        { "code": "LAL.AO", "title": "Knowledge, analysis, focus and language", "kind": "assessment_objective", "sourcePageStart": 21 },
+        { "code": "LAL.CMD.DISCUSS", "title": "Discuss", "kind": "command_term", "sourcePageStart": 76 }
+      ]
+    },
+    {
+      "code": "IBDP-LB-2020",
+      "name": "IB DP Language B school-reviewed framework",
+      "version": "2020",
+      "component": "subject",
+      "subject": "Language B",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Language B Guide 2020 - English.pdf",
+      "pageCount": 79,
+      "nodes": [
+        { "code": "LB.IDENTITY", "title": "Identities", "kind": "topic", "sourcePageStart": 29 },
+        { "code": "LB.EXPERIENCE", "title": "Experiences", "kind": "topic", "sourcePageStart": 30 },
+        { "code": "LB.INGENUITY", "title": "Human ingenuity", "kind": "topic", "sourcePageStart": 31 },
+        { "code": "LB.ORGANIZATION", "title": "Social organization", "kind": "topic", "sourcePageStart": 32 },
+        { "code": "LB.PLANET", "title": "Sharing the planet", "kind": "topic", "sourcePageStart": 33 },
+        { "code": "LB.IDENTITY.LIFESTYLE", "title": "Lifestyles and wellbeing", "kind": "subtopic", "parentCode": "LB.IDENTITY", "sourcePageStart": 29 },
+        { "code": "LB.SKILL.INTERACTION", "title": "Interpret and produce purposeful communication", "kind": "skill", "sourcePageStart": 25 },
+        { "code": "LB.AO", "title": "Communicate, understand and organize language", "kind": "assessment_objective", "sourcePageStart": 24 },
+        { "code": "LB.CMD.COMPARE", "title": "Compare", "kind": "command_term", "sourcePageStart": 41 }
+      ]
+    },
+    {
+      "code": "IBDP-ABINITIO-2020",
+      "name": "IB DP Language ab initio school-reviewed framework",
+      "version": "2020",
+      "component": "subject",
+      "subject": "Language ab initio",
+      "level": "SL",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Language ab initio Guide 2020 - English.pdf",
+      "pageCount": 62,
+      "nodes": [
+        { "code": "AB.IDENTITY", "title": "Identities", "kind": "topic", "sourcePageStart": 27 },
+        { "code": "AB.EXPERIENCE", "title": "Experiences", "kind": "topic", "sourcePageStart": 28 },
+        { "code": "AB.INGENUITY", "title": "Human ingenuity", "kind": "topic", "sourcePageStart": 29 },
+        { "code": "AB.ORGANIZATION", "title": "Social organization", "kind": "topic", "sourcePageStart": 30 },
+        { "code": "AB.PLANET", "title": "Sharing the planet", "kind": "topic", "sourcePageStart": 31 },
+        { "code": "AB.IDENTITY.PERSONAL", "title": "Personal attributes and relationships", "kind": "subtopic", "parentCode": "AB.IDENTITY", "sourcePageStart": 27 },
+        { "code": "AB.SKILL.COMMUNICATE", "title": "Communicate in familiar contexts", "kind": "skill", "sourcePageStart": 23 },
+        { "code": "AB.AO", "title": "Communicate, understand and organize basic language", "kind": "assessment_objective", "sourcePageStart": 22 },
+        { "code": "AB.CMD.DESCRIBE", "title": "Describe", "kind": "command_term", "sourcePageStart": 37 }
+      ]
+    },
+    {
+      "code": "IBDP-MAA-2021",
+      "name": "IB DP Mathematics: Analysis and Approaches school-reviewed framework",
+      "version": "2021 update Nov 2024",
+      "component": "subject",
+      "subject": "Mathematics: Analysis and Approaches",
+      "level": "SL/HL",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Mathematics Analysis and Approaches Guide 2021 - English (Update Nov2024).pdf",
+      "pageCount": 101,
+      "nodes": [
+        { "code": "MAA.1", "title": "Number and algebra", "kind": "topic", "sourcePageStart": 34 },
+        { "code": "MAA.2", "title": "Functions", "kind": "topic", "sourcePageStart": 43 },
+        { "code": "MAA.3", "title": "Geometry and trigonometry", "kind": "topic", "sourcePageStart": 50 },
+        { "code": "MAA.4", "title": "Statistics and probability", "kind": "topic", "sourcePageStart": 58 },
+        { "code": "MAA.5", "title": "Calculus", "kind": "topic", "sourcePageStart": 66 },
+        { "code": "MAA.5.DIFF", "title": "Differentiation", "kind": "subtopic", "parentCode": "MAA.5", "sourcePageStart": 67 },
+        { "code": "MAA.SKILL.REASON", "title": "Construct and communicate mathematical reasoning", "kind": "skill", "sourcePageStart": 29 },
+        { "code": "MAA.AO", "title": "Knowledge, problem solving, communication and technology", "kind": "assessment_objective", "sourcePageStart": 24 },
+        { "code": "MAA.CMD.SHOW", "title": "Show that", "kind": "command_term", "sourcePageStart": 85 }
+      ]
+    },
+    {
+      "code": "IBDP-PHY-2025",
+      "name": "IB DP Physics school-reviewed framework",
+      "version": "2025 update Nov 2024",
+      "component": "subject",
+      "subject": "Physics",
+      "level": "DP",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Physics Guide 2025 - English (Update Nov2024).pdf",
+      "pageCount": 87,
+      "nodes": [
+        { "code": "PHY.A", "title": "Space, time and motion", "kind": "topic", "sourcePageStart": 39 },
+        { "code": "PHY.B", "title": "The particulate nature of matter", "kind": "topic", "sourcePageStart": 45 },
+        { "code": "PHY.C", "title": "Wave behaviour", "kind": "topic", "sourcePageStart": 51 },
+        { "code": "PHY.D", "title": "Fields", "kind": "topic", "sourcePageStart": 56 },
+        { "code": "PHY.E", "title": "Nuclear and quantum physics", "kind": "topic", "sourcePageStart": 61 },
+        { "code": "PHY.A.KIN", "title": "Kinematics", "kind": "subtopic", "parentCode": "PHY.A", "sourcePageStart": 39 },
+        { "code": "PHY.SKILL.MODEL", "title": "Model, measure and evaluate physical systems", "kind": "skill", "sourcePageStart": 28 },
+        { "code": "PHY.AO", "title": "Knowledge, application and scientific inquiry", "kind": "assessment_objective", "sourcePageStart": 25 },
+        { "code": "PHY.CMD.CALCULATE", "title": "Calculate", "kind": "command_term", "sourcePageStart": 70 }
+      ]
+    },
+    {
+      "code": "IBDP-THEATRE-2024",
+      "name": "IB DP Theatre school-reviewed framework",
+      "version": "2024 update Oct 2023",
+      "component": "subject",
+      "subject": "Theatre",
+      "level": "SL/HL",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Theatre Guide 2024 - English (Update Oct2023).pdf",
+      "pageCount": 80,
+      "nodes": [
+        { "code": "THEATRE.TEXT", "title": "Staging play texts", "kind": "topic", "sourcePageStart": 24 },
+        { "code": "THEATRE.TRADITION", "title": "Exploring world theatre traditions", "kind": "topic", "sourcePageStart": 27 },
+        { "code": "THEATRE.COLLAB", "title": "Collaboratively creating original theatre", "kind": "topic", "sourcePageStart": 30 },
+        { "code": "THEATRE.SOLO", "title": "Performing theatre theory", "kind": "topic", "sourcePageStart": 33 },
+        { "code": "THEATRE.TEXT.INTERPRET", "title": "Directorial and performance interpretation", "kind": "subtopic", "parentCode": "THEATRE.TEXT", "sourcePageStart": 24 },
+        { "code": "THEATRE.SKILL.CREATE", "title": "Research, create, perform and reflect", "kind": "skill", "sourcePageStart": 21 },
+        { "code": "THEATRE.AO", "title": "Inquiry, development, presentation and evaluation", "kind": "assessment_objective", "sourcePageStart": 19 },
+        { "code": "THEATRE.CMD.JUSTIFY", "title": "Justify", "kind": "command_term", "sourcePageStart": 75 }
+      ]
+    },
+    {
+      "code": "IBDP-VA-2017",
+      "name": "IB DP Visual Arts school-reviewed framework",
+      "version": "2017",
+      "component": "subject",
+      "subject": "Visual Arts",
+      "level": "SL/HL",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Visual Arts Guide 2017 - English.pdf",
+      "pageCount": 72,
+      "nodes": [
+        { "code": "VA.CONTEXT", "title": "Visual arts in context", "kind": "topic", "sourcePageStart": 27 },
+        { "code": "VA.METHODS", "title": "Visual arts methods", "kind": "topic", "sourcePageStart": 28 },
+        { "code": "VA.COMMUNICATION", "title": "Communicating visual arts", "kind": "topic", "sourcePageStart": 29 },
+        { "code": "VA.CONTEXT.COMPARE", "title": "Comparative study", "kind": "subtopic", "parentCode": "VA.CONTEXT", "sourcePageStart": 31 },
+        { "code": "VA.SKILL.STUDIO", "title": "Develop, document and refine studio practice", "kind": "skill", "sourcePageStart": 32 },
+        { "code": "VA.AO", "title": "Knowledge, skills, analysis and personal relevance", "kind": "assessment_objective", "sourcePageStart": 24 },
+        { "code": "VA.CMD.COMPARE", "title": "Compare and contrast", "kind": "command_term", "sourcePageStart": 46 }
+      ]
+    },
+    {
+      "code": "IBDP-CAS-2017",
+      "name": "IB DP CAS school-reviewed framework",
+      "version": "2017",
+      "component": "core",
+      "subject": "Creativity, Activity, Service",
+      "level": "DP Core",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Creativity, Activity and Service Guide - 2017 - English.pdf",
+      "pageCount": 64,
+      "nodes": [
+        { "code": "CAS.STRANDS", "title": "Creativity, activity and service strands", "kind": "topic", "sourcePageStart": 18 },
+        { "code": "CAS.PROJECT", "title": "Collaborative CAS project", "kind": "core_requirement", "sourcePageStart": 27 },
+        { "code": "CAS.EXPERIENCES", "title": "Balanced programme of CAS experiences", "kind": "core_requirement", "sourcePageStart": 25 },
+        { "code": "CAS.OUTCOMES", "title": "Evidence of CAS learning outcomes", "kind": "core_requirement", "sourcePageStart": 21 },
+        { "code": "CAS.SKILL.REFLECT", "title": "Plan, reflect and document evidence", "kind": "skill", "sourcePageStart": 34 },
+        { "code": "CAS.AO", "title": "Demonstrate engagement and growth through outcomes", "kind": "assessment_objective", "sourcePageStart": 21 },
+        { "code": "CAS.CMD.REFLECT", "title": "Reflect", "kind": "command_term", "sourcePageStart": 38 }
+      ]
+    },
+    {
+      "code": "IBDP-EE-2018",
+      "name": "IB DP Extended Essay school-reviewed framework",
+      "version": "2018",
+      "component": "core",
+      "subject": "Extended Essay",
+      "level": "DP Core",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Extended Essay Guide 2018 - English.pdf",
+      "pageCount": 375,
+      "nodes": [
+        { "code": "EE.RESEARCH", "title": "Independent subject-focused research", "kind": "topic", "sourcePageStart": 26 },
+        { "code": "EE.QUESTION", "title": "Focused research question", "kind": "core_requirement", "sourcePageStart": 35 },
+        { "code": "EE.PROCESS", "title": "Research and writing process", "kind": "core_requirement", "sourcePageStart": 38 },
+        { "code": "EE.REFLECTION", "title": "Researcher reflection and viva voce", "kind": "core_requirement", "sourcePageStart": 63 },
+        { "code": "EE.SKILL.SOURCE", "title": "Evaluate and cite sources appropriately", "kind": "skill", "sourcePageStart": 44 },
+        { "code": "EE.AO", "title": "Focus, knowledge, critical thinking, presentation and engagement", "kind": "assessment_objective", "sourcePageStart": 26 },
+        { "code": "EE.CMD.EVALUATE", "title": "Evaluate", "kind": "command_term", "sourcePageStart": 38 }
+      ]
+    },
+    {
+      "code": "IBDP-TOK-2022",
+      "name": "IB DP Theory of Knowledge school-reviewed framework",
+      "version": "2022",
+      "component": "core",
+      "subject": "Theory of Knowledge",
+      "level": "DP Core",
+      "reviewStatus": "draft",
+      "sourceFile": "/Users/erichuang/Downloads/IB/Theory Of Knowledge Guide 2022 - English.pdf",
+      "pageCount": 58,
+      "nodes": [
+        { "code": "TOK.CORE", "title": "Knowledge and the knower", "kind": "topic", "sourcePageStart": 19 },
+        { "code": "TOK.THEMES", "title": "Optional themes", "kind": "topic", "sourcePageStart": 22 },
+        { "code": "TOK.AOK", "title": "Areas of knowledge", "kind": "topic", "sourcePageStart": 29 },
+        { "code": "TOK.EXHIBITION", "title": "TOK exhibition", "kind": "core_requirement", "sourcePageStart": 40 },
+        { "code": "TOK.ESSAY", "title": "TOK essay", "kind": "core_requirement", "sourcePageStart": 47 },
+        { "code": "TOK.SKILL.PERSPECTIVE", "title": "Compare perspectives and justify claims", "kind": "skill", "sourcePageStart": 15 },
+        { "code": "TOK.AO", "title": "Identify, analyse and evaluate knowledge questions", "kind": "assessment_objective", "sourcePageStart": 15 },
+        { "code": "TOK.CMD.DISCUSS", "title": "Discuss", "kind": "command_term", "sourcePageStart": 58 }
+      ]
+    }
+  ]
+}
