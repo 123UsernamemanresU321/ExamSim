@@ -81,6 +81,8 @@ exam-code sessions reject mutable assessment versions.
 - Source PDF health checks for missing source regions, unlinked question regions, unlinked supporting diagram/table/instruction regions, overlapping boxes, low-confidence unreviewed regions, missing marks/response types, unresolved markscheme mappings, failed PDF processing, compiler review items, and a weighted 0-100 score breakdown.
 - LaTeX split editor and deterministic Examsim syntax parsing for questions, answer boxes, and markscheme blocks.
 - Markscheme mapping, rubric templates, rubric point authoring, rubric-click marking, per-rubric-item awards, rubric setup total warnings, and Edge-enforced question maximums.
+- Hierarchical paper response ownership: a root question can own one whiteboard/upload/typed workspace while marked subparts intentionally use `response_mode=none`. Compiler and publish health still block standalone unanswered questions.
+- Uploaded markschemes are registered during ingestion. Legacy drafts with a private markscheme path but no document can recover through the visual mapper, bootstrap review-required mappings from reviewed question guidance, add blocks manually, and explicitly confirm mappings. Uploaded-but-unregistered or empty markschemes no longer appear Ready.
 - Deterministic/manual answer grouping as a review aid, including typed normalization, numeric tolerance/unit grouping, blank manual-review buckets, and manual-review table/whiteboard buckets. Marks are never applied automatically without teacher review.
 - Owner analytics snapshot from real stored attempts, marks, question nodes, topic links, and rubric awards:
   - score distribution;
@@ -343,7 +345,19 @@ This section should be updated for each release candidate. For this readiness pa
   database verification confirmed 5 active resources, 14 private draft frameworks, 14 private source guides, 0
   prematurely approved guide nodes, and both new buckets private.
 - `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run e2e` passed for this release candidate;
-  the full suite contains 83 test files / 499 tests, the build emits 62 static pages, and Playwright passed 9/9 workflows.
+  the full suite contains 85 test files / 511 tests, the build emits 62 static pages, and Playwright passed 9/9 workflows.
+- Root-owned response and markscheme recovery checks passed in
+  `tests/examsim-v2-compiler-readiness.test.ts`, `tests/examsim-v3-version-governance.test.ts`, and
+  `tests/examsim-v3-markscheme-registration.test.ts`. These cover mark-only descendants, standalone missing-response
+  rejection, child-page source fallback, legacy markscheme registration, empty mapping warnings, and parse-purpose isolation.
+- Supabase migration history is current through `20260623123258_fix_curriculum_review_atomicity.sql`. No migration was
+  required for root response ownership or legacy markscheme registration. The actual project is running
+  `ingest-assessment` v71, `publish-assessment` v70, `complete-parse-job` v61, and `markscheme-mapper` v28.
+- `npx vercel --prod --yes` - production deployment `dpl_i8VZNiyyY1SF33yMajquggRU3vUr` completed and was aliased to
+  `https://examvault.tutor-mcp.com`. The public `/exam` route rendered successfully in Browser verification. The
+  authenticated owner route could not be rechecked in the isolated Browser session because that session had no owner
+  login and its dynamic login request did not complete; the supplied authenticated Safari state remains the manual QA
+  entry point for the assessment-specific health and markscheme screens.
 - Supabase security advisors show the known internally authorized `SECURITY DEFINER` RPC warnings plus unavailable leaked
   password protection on the current plan; no new anonymous resource-policy or trigger-function grant was introduced.
 - `supabase db lint --linked --level warning --fail-on error` reports two `plpgsql_check` false positives for temporary

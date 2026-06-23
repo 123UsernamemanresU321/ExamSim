@@ -122,6 +122,78 @@ describe("Examsim V2 compiler readiness", () => {
     expect(summary.providerStatus.manualFallbackAvailable).toBe(true);
   });
 
+  it("accepts mark-only subparts when the root question owns the response workspace", () => {
+    const root = {
+      ...baseQuestion,
+      id: "root-1",
+      root_question_id: "root-1",
+      depth: 0,
+      ordinal_path: [1],
+      response_mode: "typed_text" as const,
+      interaction_json: { kind: "whiteboard" },
+    };
+    const queue = buildCompilerReviewQueue({
+      questionNodes: [
+        root,
+        {
+          ...baseQuestion,
+          id: "part-1a",
+          node_key: "1(a)",
+          root_question_id: "root-1",
+          depth: 1,
+          ordinal_path: [1, 1],
+          response_mode: "none" as const,
+        },
+        {
+          ...baseQuestion,
+          id: "part-1b",
+          node_key: "1(b)",
+          root_question_id: "root-1",
+          depth: 1,
+          ordinal_path: [1, 2],
+          response_mode: "none" as const,
+        },
+      ],
+    });
+
+    expect(queue.filter((item) => item.code === "missing_response_type")).toEqual([]);
+    expect(queue.filter((item) => item.code === "suggested_answer_type")).toEqual([]);
+  });
+
+  it("uses child source ranges as the root question source fallback", () => {
+    const health = computePaperHealth({
+      assessment: { id: "assessment-1", title: "Paper 3", paper_code: "P3" },
+      version: { id: "version-1", status: "draft", source_object_path: "source.pdf", markscheme_pdf_path: null, markscheme_source_object_path: null },
+      questionNodes: [
+        {
+          ...baseQuestion,
+          id: "root-1",
+          root_question_id: "root-1",
+          depth: 0,
+          ordinal_path: [1],
+          response_mode: "typed_text",
+          source_page_start: null,
+          source_page_end: null,
+        },
+        {
+          ...baseQuestion,
+          id: "part-1a",
+          node_key: "1(a)",
+          root_question_id: "root-1",
+          depth: 1,
+          ordinal_path: [1, 1],
+          response_mode: "none",
+          source_page_start: 3,
+          source_page_end: 4,
+        },
+      ],
+    });
+
+    expect(health.warnings.map((item) => item.code)).not.toContain("source_page_ranges_missing");
+    expect(health.warnings.map((item) => item.code)).not.toContain("missing_page_range");
+    expect(health.warnings.map((item) => item.code)).not.toContain("compiler_review_required");
+  });
+
   it("feeds critical compiler review warnings into paper health", () => {
     const health = computePaperHealth({
       assessment: { id: "assessment-1", title: "Mock", paper_code: "M1" },
@@ -178,5 +250,30 @@ describe("Examsim V2 compiler readiness", () => {
     expect(health.scoreBreakdown.source.deducted).toBeGreaterThan(0);
     expect(health.score).toBeLessThan(100);
     expect(health.score).toBeGreaterThanOrEqual(0);
+  });
+
+  it("warns when an uploaded markscheme has no registered mapping document", () => {
+    const health = computePaperHealth({
+      assessment: { id: "assessment-1", title: "Paper 3", paper_code: "P3" },
+      version: { id: "version-1", status: "draft", source_object_path: "paper.pdf", markscheme_pdf_path: "markscheme.pdf", markscheme_source_object_path: "markscheme.pdf" },
+      questionNodes: [{ ...baseQuestion, response_mode: "typed_text" }],
+      markschemeNodes: [],
+    });
+
+    expect(health.warnings.map((item) => item.code)).toContain("markscheme_not_registered");
+    expect(health.checks.markscheme).toBe("warning");
+  });
+
+  it("warns when a registered markscheme document has no mapping sections", () => {
+    const health = computePaperHealth({
+      assessment: { id: "assessment-1", title: "Paper 3", paper_code: "P3" },
+      version: { id: "version-1", status: "draft", source_object_path: "paper.pdf", markscheme_pdf_path: null, markscheme_source_object_path: null },
+      questionNodes: [{ ...baseQuestion, response_mode: "typed_text" }],
+      markschemeDocuments: [{ id: "document-1", status: "review_required" }],
+      markschemeNodes: [],
+    });
+
+    expect(health.warnings.map((item) => item.code)).toContain("markscheme_sections_missing");
+    expect(health.checks.markscheme).toBe("warning");
   });
 });

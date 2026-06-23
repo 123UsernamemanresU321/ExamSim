@@ -54,6 +54,81 @@ describe("Examsim V3 assessment version governance", () => {
     expect(blockers.join(" ")).toContain("markscheme");
   });
 
+  it("allows mark-only subparts when a confirmed root response owns their work", () => {
+    const blockers = validatePublishHealth({
+      questionNodes: [
+        {
+          id: "q1",
+          node_key: "Q1",
+          node_type: "question",
+          marks: 6,
+          response_mode: "typed_text",
+          root_question_id: "q1",
+          parent_node_id: null,
+          depth: 0,
+        },
+        {
+          id: "q1a",
+          node_key: "1(a)",
+          node_type: "subquestion",
+          marks: 2,
+          response_mode: "none",
+          root_question_id: "q1",
+          parent_node_id: null,
+          depth: 1,
+        },
+        {
+          id: "q1b",
+          node_key: "1(b)",
+          node_type: "subquestion",
+          marks: 4,
+          response_mode: "none",
+          root_question_id: "q1",
+          parent_node_id: null,
+          depth: 1,
+        },
+      ],
+      sourceRegions: [],
+      markschemeNodes: [],
+    });
+
+    expect(blockers.filter((blocker) => blocker.includes("response type"))).toEqual([]);
+  });
+
+  it("still blocks a standalone markable question without a response type", () => {
+    const blockers = validatePublishHealth({
+      questionNodes: [
+        {
+          id: "q1",
+          node_key: "Q1",
+          node_type: "question",
+          marks: 4,
+          response_mode: "none",
+          root_question_id: "q1",
+          parent_node_id: null,
+          depth: 0,
+        },
+      ],
+      sourceRegions: [],
+      markschemeNodes: [],
+    });
+
+    expect(blockers.join(" ")).toContain("missing a confirmed response type");
+  });
+
+  it("blocks publish when an uploaded markscheme has no registered mapping document", () => {
+    const validate = validatePublishHealth as (input: Record<string, unknown>) => string[];
+    const blockers = validate({
+      questionNodes: [{ id: "q1", node_key: "Q1", node_type: "question", marks: 4, response_mode: "typed_text" }],
+      sourceRegions: [],
+      markschemeNodes: [],
+      markschemeRequired: true,
+      markschemeDocumentCount: 0,
+    });
+
+    expect(blockers.join(" ")).toContain("markscheme document");
+  });
+
   it("builds a field-level historical diff for teacher review", () => {
     const diff = buildAssessmentVersionDiff({
       fromQuestions: [{ node_key: "Q1", title: "Old", marks: 4, response_mode: "typed_text", prompt_html: "Old prompt", prompt_latex: null }],

@@ -1,4 +1,5 @@
 import type { MarkschemeNode, QuestionNodeRow, QuestionSourceRegion } from "@/types/database";
+import { buildResponseOwnerIds } from "@/lib/examsim/response-ownership";
 
 export type CompilerProviderState = "configured" | "not_configured";
 
@@ -146,11 +147,23 @@ export function buildCompilerReviewQueue({
   sourceRegions = [],
   markschemeNodes = [],
 }: {
-  questionNodes: Array<Pick<QuestionNodeRow, "id" | "node_key" | "prompt_html" | "prompt_latex" | "marks" | "response_mode"> & { marks_available?: number | null }>;
+  questionNodes: Array<Pick<QuestionNodeRow, "id" | "node_key" | "prompt_html" | "prompt_latex" | "marks" | "response_mode" | "parent_node_id" | "root_question_id" | "depth" | "ordinal_path"> & { marks_available?: number | null }>;
   sourceRegions?: Array<Pick<QuestionSourceRegion, "id" | "question_node_id" | "node_key" | "region_type" | "confidence" | "status" | "metadata_json">>;
   markschemeNodes?: Array<Pick<MarkschemeNode, "status" | "mapped_question_node_id">>;
 }): CompilerReviewQueueItem[] {
   const queue: CompilerReviewQueueItem[] = [];
+
+  const effectiveQuestionNodes = questionNodes.map((node) => {
+    const regionResponseMode = sourceRegions
+      .filter((region) => region.question_node_id === node.id || (region.node_key && region.node_key === node.node_key))
+      .map((region) => safeRecord(region.metadata_json).response_mode)
+      .find((mode) => typeof mode === "string" && mode.length > 0 && mode !== "none");
+    return {
+      ...node,
+      response_mode: typeof regionResponseMode === "string" ? regionResponseMode : node.response_mode,
+    };
+  });
+  const responseOwnerIds = buildResponseOwnerIds(effectiveQuestionNodes);
 
   for (const region of sourceRegions) {
     if (region.status === "ignored") continue;
@@ -185,8 +198,9 @@ export function buildCompilerReviewQueue({
       });
     }
 
-    const hasRegionResponseMode = metadata.some((record) => typeof record.response_mode === "string" && record.response_mode.length > 0);
-    if ((!node.response_mode || node.response_mode === "none") && !hasRegionResponseMode) {
+    const hasRegionResponseMode = metadata.some((record) => typeof record.response_mode === "string" && record.response_mode.length > 0 && record.response_mode !== "none");
+    const hasResponseOwner = Boolean(responseOwnerIds.get(node.id));
+    if ((!node.response_mode || node.response_mode === "none") && !hasRegionResponseMode && !hasResponseOwner) {
       queue.push({
         code: "missing_response_type",
         severity: "critical",
@@ -195,7 +209,7 @@ export function buildCompilerReviewQueue({
         questionNodeId: node.id,
         nodeKey: node.node_key,
       });
-    } else if (node.response_mode === "none") {
+    } else if (node.response_mode === "none" && !hasResponseOwner) {
       const suggestion = inferAnswerTypeSuggestion(prompt);
       queue.push({
         code: "suggested_answer_type",

@@ -36,6 +36,11 @@ enabled = true
 [functions.activate-student]
 verify_jwt = false
 
+# MinerU worker callbacks authenticate with a timestamped HMAC and replay-safe
+# delivery id inside the function rather than a Supabase user JWT.
+[functions.complete-parse-job]
+verify_jwt = false
+
 # Public exam-entry functions perform their own hashed exam-code, guest-token,
 # attempt-session, and state-token validation. They do not accept user JWTs as
 # proof of access.

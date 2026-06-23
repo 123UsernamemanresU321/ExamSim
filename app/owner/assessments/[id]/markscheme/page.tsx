@@ -26,6 +26,9 @@ export default async function MarkschemeMapperPage({ params }: { params: Promise
         </ButtonLink>
       </div>
       <MarkschemeMapperPanel
+        assessmentId={id}
+        assessmentVersionId={workspace.latestVersion.id}
+        markschemeSourceObjectPath={workspace.latestVersion.markscheme_source_object_path ?? workspace.latestVersion.markscheme_pdf_path}
         documents={mapping.documents}
         markschemeNodes={mapping.markschemeNodes}
         questionNodes={mapping.questionNodes}

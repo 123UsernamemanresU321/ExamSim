@@ -431,25 +431,31 @@ export async function getAssessmentHealthWorkspace(assessmentId: string) {
   const latestVersion = versions?.[0] ?? null;
   const [
     { data: questionNodes, error: nodeError },
-    { data: markschemeNodes, error: markschemeError },
+    { data: markschemeDocuments, error: markschemeDocumentError },
     { data: sourceDocuments, error: sourceDocumentError },
     { data: sourceRegions, error: sourceRegionError },
   ] = latestVersion
     ? await Promise.all([
         supabase.from("question_nodes").select("*").eq("assessment_version_id", latestVersion.id).order("ordinal"),
-        supabase.from("markscheme_nodes").select("*"),
+        supabase.from("markscheme_documents").select("*").eq("assessment_version_id", latestVersion.id).order("created_at", { ascending: false }),
         supabase.from("source_documents").select("*").eq("assessment_version_id", latestVersion.id).order("created_at", { ascending: false }),
         supabase.from("question_source_regions").select("*").eq("assessment_version_id", latestVersion.id).order("created_at", { ascending: false }),
       ])
     : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   if (nodeError) throw nodeError;
-  if (markschemeError) throw markschemeError;
+  if (markschemeDocumentError) throw markschemeDocumentError;
   if (sourceDocumentError) throw sourceDocumentError;
   if (sourceRegionError) throw sourceRegionError;
+  const markschemeDocumentIds = (markschemeDocuments ?? []).map((document) => document.id);
+  const { data: markschemeNodes, error: markschemeError } = markschemeDocumentIds.length
+    ? await supabase.from("markscheme_nodes").select("*").in("markscheme_document_id", markschemeDocumentIds).order("created_at", { ascending: true })
+    : { data: [], error: null };
+  if (markschemeError) throw markschemeError;
   const summary = computePaperHealth({
     assessment: assessment as Assessment | null,
     version: latestVersion as AssessmentVersion | null,
     questionNodes: (questionNodes ?? []) as QuestionNodeRow[],
+    markschemeDocuments: (markschemeDocuments ?? []) as MarkschemeDocument[],
     markschemeNodes: (markschemeNodes ?? []) as MarkschemeNode[],
     sourceDocuments: (sourceDocuments ?? []) as SourceDocument[],
     sourceRegions: (sourceRegions ?? []) as QuestionSourceRegion[],

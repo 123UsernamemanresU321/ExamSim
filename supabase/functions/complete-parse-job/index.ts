@@ -33,7 +33,7 @@ serve(async (request) => {
 
     const { data: existingJob, error: existingJobError } = await admin
       .from("parse_jobs")
-      .select("id,status,assessment_version_id")
+      .select("id,status,assessment_version_id,source_object_path,metadata_json")
       .eq("id", body.parse_job_id)
       .maybeSingle();
     if (existingJobError) throw existingJobError;
@@ -76,7 +76,9 @@ serve(async (request) => {
       if (artifactError) throw artifactError;
     }
 
-    if (body.ok && body.result_object_path) {
+    const metadata = safeRecord(existingJob.metadata_json);
+    const parsePurpose = metadata.parse_purpose === "markscheme" ? "markscheme" : "paper";
+    if (body.ok && body.result_object_path && parsePurpose === "paper") {
       await admin
         .from("assessment_versions")
         .update({
@@ -86,6 +88,13 @@ serve(async (request) => {
           status: "review_required",
         })
         .eq("id", parseJob.assessment_version_id);
+    } else if (body.ok && body.result_object_path && metadata.parse_purpose === "markscheme") {
+      // The markscheme parse result remains attached to the parse job for reviewed mapping; it must not replace the question-paper package path.
+      await admin
+        .from("markscheme_documents")
+        .update({ status: "review_required" })
+        .eq("assessment_version_id", parseJob.assessment_version_id)
+        .eq("source_object_path", existingJob.source_object_path);
     }
 
     await markWorkerCallback(admin, verification.deliveryId, "accepted", { ok: body.ok, used_legacy_secret: verification.usedLegacySecret });
@@ -120,4 +129,8 @@ async function markWorkerCallback(admin: any, deliveryId: string, status: "accep
     .from("parse_worker_callbacks")
     .update({ status, metadata_json: metadata })
     .eq("delivery_id", deliveryId);
+}
+
+function safeRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }

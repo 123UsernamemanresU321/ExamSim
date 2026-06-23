@@ -446,7 +446,8 @@ export function validateQuestionTree(tree: NormalizedQuestionHierarchyNode[]): Q
     }
     previousPath = node.ordinal_path;
 
-    if (!node.source_page_start || !node.source_page_end) {
+    const hasSourcePageContext = nodeHasSourcePageContext(node);
+    if (!hasSourcePageContext) {
       issues.push({
         severity: "warning",
         code: "missing_page_range",
@@ -455,7 +456,7 @@ export function validateQuestionTree(tree: NormalizedQuestionHierarchyNode[]): Q
       });
     }
 
-    if (detectVisualDependency(node.prompt_html, node.prompt_latex) && !node.has_visual_assets && !node.source_page_start) {
+    if (detectVisualDependency(node.prompt_html, node.prompt_latex) && !node.has_visual_assets && !hasSourcePageContext) {
       issues.push({
         severity: "warning",
         code: "visual_dependency_without_source",
@@ -475,6 +476,11 @@ export function validateQuestionTree(tree: NormalizedQuestionHierarchyNode[]): Q
   }
 
   return issues;
+}
+
+function nodeHasSourcePageContext(node: NormalizedQuestionHierarchyNode): boolean {
+  if (Boolean(node.source_page_start && node.source_page_end)) return true;
+  return node.children.some((child) => nodeHasSourcePageContext(child));
 }
 
 export function generateParserWarnings(tree: NormalizedQuestionHierarchyNode[]): string[] {

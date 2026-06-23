@@ -5,6 +5,8 @@ import { assertVersionMutable } from "../_shared/version-governance.ts";
 
 type Body =
   | { action: "create_document"; assessment_id: string; assessment_version_id: string; source_object_path: string }
+  | { action: "bootstrap_document"; markscheme_document_id: string }
+  | { action: "approve_document_mappings"; markscheme_document_id: string }
   | { action: "upsert_node"; markscheme_document_id: string; node_key?: string | null; mapped_question_node_id?: string | null; markscheme_html?: string | null; source_page_start?: number | null; source_page_end?: number | null; confidence?: number | null; status?: string }
   | { action: "map_node"; markscheme_node_id: string; question_node_id: string }
   | { action: "ignore_node"; markscheme_node_id: string };
@@ -22,13 +24,24 @@ serve(async (request) => {
       assertInstitutionOwner(assessment.owner_profile_id, ownerProfileId);
       const { data: version, error: versionError } = await admin
         .from("assessment_versions")
-        .select("id,status")
+        .select("id,status,markscheme_source_object_path,markscheme_pdf_path")
         .eq("id", body.assessment_version_id)
         .eq("assessment_id", body.assessment_id)
         .single();
       if (versionError) throw versionError;
       if (!version) throw new Error("Assessment version not found");
       assertVersionMutable(version.status);
+      if (![version.markscheme_source_object_path, version.markscheme_pdf_path].filter(Boolean).includes(body.source_object_path)) {
+        return json({ error: "The markscheme source path does not belong to this assessment version" }, 403);
+      }
+      const { data: existingDocument, error: existingDocumentError } = await admin
+        .from("markscheme_documents")
+        .select("*")
+        .eq("assessment_version_id", body.assessment_version_id)
+        .eq("source_object_path", body.source_object_path)
+        .maybeSingle();
+      if (existingDocumentError) throw existingDocumentError;
+      if (existingDocument) return json({ ok: true, document: existingDocument, existing: true });
       const { data, error } = await admin
         .from("markscheme_documents")
         .insert({
@@ -42,6 +55,79 @@ serve(async (request) => {
       if (error) throw error;
       await auditOwnerAction(ownerProfileId, user.id, "markscheme_document.created", "markscheme_documents", data.id);
       return json({ ok: true, document: data });
+    }
+
+    if (body.action === "bootstrap_document") {
+      const document = await loadOwnedMarkschemeDocument(admin, ownerProfileId, body.markscheme_document_id);
+      const { data: questions, error: questionError } = await admin
+        .from("question_nodes")
+        .select("id,node_key,markscheme_html,source_page_start,source_page_end")
+        .eq("assessment_version_id", document.assessment_version_id)
+        .order("ordinal_path");
+      if (questionError) throw questionError;
+      const { data: existingNodes, error: existingNodeError } = await admin
+        .from("markscheme_nodes")
+        .select("mapped_question_node_id,node_key")
+        .eq("markscheme_document_id", body.markscheme_document_id);
+      if (existingNodeError) throw existingNodeError;
+      const existingQuestionIds = new Set((existingNodes ?? []).map((node) => node.mapped_question_node_id).filter(Boolean));
+      const rows = (questions ?? [])
+        .filter((question) => typeof question.markscheme_html === "string" && question.markscheme_html.trim() && !existingQuestionIds.has(question.id))
+        .map((question) => ({
+          markscheme_document_id: body.markscheme_document_id,
+          node_key: question.node_key,
+          normalized_key: normalizeNodeKey(question.node_key),
+          ordinal_path: ordinalPathForKey(question.node_key),
+          mapped_question_node_id: question.id,
+          markscheme_html: question.markscheme_html,
+          source_page_start: question.source_page_start,
+          source_page_end: question.source_page_end,
+          confidence: 1,
+          status: "needs_review",
+        }));
+      if (rows.length) {
+        const { error: insertError } = await admin.from("markscheme_nodes").insert(rows);
+        if (insertError) throw insertError;
+      }
+      await admin.from("markscheme_documents").update({ status: "review_required" }).eq("id", body.markscheme_document_id);
+      await auditOwnerAction(ownerProfileId, user.id, "markscheme_mapping.bootstrap", "markscheme_documents", body.markscheme_document_id, {
+        created_count: rows.length,
+      });
+      return json({ ok: true, created_count: rows.length });
+    }
+
+    if (body.action === "approve_document_mappings") {
+      const document = await loadOwnedMarkschemeDocument(admin, ownerProfileId, body.markscheme_document_id);
+      const { data: nodes, error: nodeError } = await admin
+        .from("markscheme_nodes")
+        .select("id,status,mapped_question_node_id")
+        .eq("markscheme_document_id", body.markscheme_document_id);
+      if (nodeError) throw nodeError;
+      const activeNodes = (nodes ?? []).filter((node) => node.status !== "ignored");
+      if (!activeNodes.length) return json({ error: "Create at least one markscheme mapping before approval" }, 400);
+      if (activeNodes.some((node) => !node.mapped_question_node_id)) {
+        return json({ error: "Every active markscheme section must be mapped or ignored before approval" }, 409);
+      }
+      await assertMappedQuestionsInVersion(
+        admin,
+        activeNodes.map((node) => node.mapped_question_node_id as string),
+        document.assessment_version_id,
+      );
+      const { error: mappingError } = await admin
+        .from("markscheme_nodes")
+        .update({ status: "mapped" })
+        .eq("markscheme_document_id", body.markscheme_document_id)
+        .neq("status", "ignored");
+      if (mappingError) throw mappingError;
+      const { error: documentError } = await admin
+        .from("markscheme_documents")
+        .update({ status: "approved" })
+        .eq("id", body.markscheme_document_id);
+      if (documentError) throw documentError;
+      await auditOwnerAction(ownerProfileId, user.id, "markscheme_mapping.approved", "markscheme_documents", body.markscheme_document_id, {
+        mapping_count: activeNodes.length,
+      });
+      return json({ ok: true, mapping_count: activeNodes.length });
     }
 
     if (body.action === "upsert_node") {
@@ -98,7 +184,7 @@ serve(async (request) => {
 async function loadOwnedMarkschemeDocument(admin: any, ownerProfileId: string, documentId: string) {
   const { data: document, error: documentError } = await admin
     .from("markscheme_documents")
-    .select("id,assessment_id,assessment_version_id")
+    .select("id,assessment_id,assessment_version_id,source_object_path,status")
     .eq("id", documentId)
     .single();
   if (documentError) throw documentError;
@@ -128,6 +214,19 @@ async function assertQuestionInVersion(admin: any, questionNodeId: string, versi
     .single();
   if (error) throw error;
   if (!data) throw new Error("Question is outside this markscheme version");
+}
+
+async function assertMappedQuestionsInVersion(admin: any, questionNodeIds: string[], versionId: string) {
+  const uniqueIds = Array.from(new Set(questionNodeIds));
+  const { data, error } = await admin
+    .from("question_nodes")
+    .select("id")
+    .eq("assessment_version_id", versionId)
+    .in("id", uniqueIds);
+  if (error) throw error;
+  if ((data ?? []).length !== uniqueIds.length) {
+    throw new Error("One or more markscheme mappings point outside this assessment version");
+  }
 }
 
 function normalizeNodeKey(rawKey: string | null) {

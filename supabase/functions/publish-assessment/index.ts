@@ -63,7 +63,7 @@ serve(async (request) => {
     if (version.requires_owner_review) return json(request, { error: "Owner review is required before publish" }, 400);
 
     const [{ data: questionNodes, error: questionError }, { data: sourceRegions, error: regionError }, { data: markschemeDocuments, error: markschemeDocumentError }] = await Promise.all([
-      admin.from("question_nodes").select("id,node_key,node_type,marks,response_mode").eq("assessment_version_id", body.version_id),
+      admin.from("question_nodes").select("id,node_key,node_type,parent_node_id,root_question_id,depth,ordinal_path,marks,response_mode").eq("assessment_version_id", body.version_id),
       admin.from("question_source_regions").select("id,question_node_id,region_type,status,confidence,metadata_json").eq("assessment_version_id", body.version_id),
       admin.from("markscheme_documents").select("id").eq("assessment_version_id", body.version_id),
     ]);
@@ -79,6 +79,8 @@ serve(async (request) => {
       questionNodes: questionNodes ?? [],
       sourceRegions: sourceRegions ?? [],
       markschemeNodes: markschemeNodes ?? [],
+      markschemeRequired: Boolean(version.markscheme_pdf_path || version.markscheme_source_object_path || markschemeDocumentIds.length),
+      markschemeDocumentCount: markschemeDocumentIds.length,
     });
     if (healthBlockers.length) {
       return json(request, { error: "Publish health checks failed", code: "publish_health_blocked", blockers: healthBlockers }, 409);

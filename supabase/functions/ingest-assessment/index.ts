@@ -261,6 +261,22 @@ serve(async (request) => {
       .single();
     if (versionError) throw versionError;
 
+    let markschemeDocumentId: string | null = null;
+    if (markschemeSource.objectPath) {
+      const { data: markschemeDocument, error: markschemeDocumentError } = await admin
+        .from("markscheme_documents")
+        .insert({
+          assessment_id: assessment.id,
+          assessment_version_id: version.id,
+          source_object_path: markschemeSource.objectPath,
+          status: "uploaded",
+        })
+        .select("id")
+        .single();
+      if (markschemeDocumentError) throw markschemeDocumentError;
+      markschemeDocumentId = markschemeDocument.id;
+    }
+
     const nodes: FlatNode[] =
       body.source_kind === "json" && Array.isArray(body.json_package?.questions)
         ? flattenPackageNodes(body.json_package.questions as Record<string, unknown>[])
@@ -355,6 +371,7 @@ serve(async (request) => {
       parse_job_id: parseJobId,
       markscheme_source_kind: markschemeSource.kind,
       markscheme_parse_job_id: markschemeParseJobId,
+      markscheme_document_id: markschemeDocumentId,
     });
 
     return json({
@@ -364,6 +381,7 @@ serve(async (request) => {
       requires_owner_review: requiresReview,
       parse_job_id: parseJobId,
       markscheme_parse_job_id: markschemeParseJobId,
+      markscheme_document_id: markschemeDocumentId,
     });
   } catch (error) {
     console.error("Ingest assessment error:", error);

@@ -1,7 +1,8 @@
 import { buildMarkingTree, calculateAttemptTotal, flattenMarkingTree, getSelectableMarkingGroups } from "@/lib/marking-tree";
 import { buildCompilerReviewQueue } from "@/lib/examsim/compiler-readiness";
+import { buildResponseOwnerIds } from "@/lib/examsim/response-ownership";
 import { compareOrdinalPaths, detectVisualDependency, validateQuestionTree, type NormalizedQuestionHierarchyNode } from "@/lib/question-hierarchy";
-import type { Assessment, AssessmentVersion, MarkschemeNode, QuestionNodeRow, QuestionSourceRegion, SourceDocument, UploadSlot } from "@/types/database";
+import type { Assessment, AssessmentVersion, MarkschemeDocument, MarkschemeNode, QuestionNodeRow, QuestionSourceRegion, SourceDocument, UploadSlot } from "@/types/database";
 
 export type PaperHealthStatus = "ready" | "warning" | "blocked" | "not_checked";
 
@@ -32,6 +33,7 @@ export function computePaperHealth({
   assessment,
   version,
   questionNodes,
+  markschemeDocuments = [],
   markschemeNodes = [],
   uploadSlots = [],
   sourceDocuments = [],
@@ -40,6 +42,7 @@ export function computePaperHealth({
   assessment?: Pick<Assessment, "id" | "title" | "paper_code"> | null;
   version?: Pick<AssessmentVersion, "id" | "status" | "source_object_path" | "markscheme_pdf_path" | "markscheme_source_object_path"> | null;
   questionNodes: QuestionNodeRow[];
+  markschemeDocuments?: Pick<MarkschemeDocument, "id" | "status">[];
   markschemeNodes?: Pick<MarkschemeNode, "status" | "mapped_question_node_id">[];
   uploadSlots?: Pick<UploadSlot, "question_node_id">[];
   sourceDocuments?: Pick<SourceDocument, "id" | "status" | "object_path" | "metadata_json">[];
@@ -60,6 +63,7 @@ export function computePaperHealth({
   const roots = getSelectableMarkingGroups(tree);
   const flat = flattenMarkingTree(tree);
   const flatById = new Map(flat.map((node) => [node.id, node]));
+  const responseOwnerIds = buildResponseOwnerIds(questionNodes);
 
   if (!assessment) {
     blockers.push({ code: "assessment_missing", severity: "blocked", message: "Assessment metadata could not be loaded." });
@@ -116,7 +120,7 @@ export function computePaperHealth({
     warnings.push({ code: "source_missing", severity: "warning", message: "No source object path is recorded for this version." });
   }
 
-  const missingPageRoots = roots.filter((node) => !node.source_page_start || !node.source_page_end);
+  const missingPageRoots = roots.filter((node) => !hasQuestionSourcePageRange(node));
   if (missingPageRoots.length) {
     warnings.push({
       code: "source_page_ranges_missing",
@@ -214,7 +218,7 @@ export function computePaperHealth({
     const linkedNode = region.question_node_id ? flatById.get(region.question_node_id) : null;
     const metadata = safeRecord(region.metadata_json);
     const regionResponseMode = typeof metadata.response_mode === "string" ? metadata.response_mode : "";
-    return !regionResponseMode && (!linkedNode?.response_mode || linkedNode.response_mode === "none");
+    return !regionResponseMode && (!linkedNode || !responseOwnerIds.get(linkedNode.id));
   });
   if (missingResponseTypeRegions.length) {
     warnings.push({
@@ -235,16 +239,37 @@ export function computePaperHealth({
     });
   }
 
-  const markschemeRequired = Boolean(version?.markscheme_pdf_path || version?.markscheme_source_object_path || markschemeNodes.length);
+  const markschemeRequired = Boolean(
+    version?.markscheme_pdf_path
+    || version?.markscheme_source_object_path
+    || markschemeDocuments.length
+    || markschemeNodes.length,
+  );
   if (markschemeRequired) {
-    const unmatched = markschemeNodes.filter((node) => node.status === "unmatched" || node.status === "needs_review");
-    if (unmatched.length) {
+    if (!markschemeDocuments.length && !markschemeNodes.length) {
       warnings.push({
-        code: "unmatched_markscheme",
+        code: "markscheme_not_registered",
         severity: "warning",
-        message: `${unmatched.length} markscheme section(s) still need mapping or review.`,
+        message: "A markscheme source is uploaded, but it has not been registered for mapping yet.",
         fixHref: assessment ? `/owner/assessments/${assessment.id}/markscheme` : undefined,
       });
+    } else if (!markschemeNodes.length) {
+      warnings.push({
+        code: "markscheme_sections_missing",
+        severity: "warning",
+        message: "The markscheme document has no extracted or manually created mapping sections.",
+        fixHref: assessment ? `/owner/assessments/${assessment.id}/markscheme` : undefined,
+      });
+    } else {
+      const unmatched = markschemeNodes.filter((node) => node.status === "unmatched" || node.status === "needs_review");
+      if (unmatched.length) {
+        warnings.push({
+          code: "unmatched_markscheme",
+          severity: "warning",
+          message: `${unmatched.length} markscheme section(s) still need mapping or review.`,
+          fixHref: assessment ? `/owner/assessments/${assessment.id}/markscheme` : undefined,
+        });
+      }
     }
   }
 
@@ -407,6 +432,11 @@ function safeRecord(value: unknown): Record<string, unknown> {
 
 function hasNumericValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function hasQuestionSourcePageRange(node: ReturnType<typeof getSelectableMarkingGroups>[number]): boolean {
+  if (hasNumericValue(node.source_page_start) && hasNumericValue(node.source_page_end)) return true;
+  return node.children.some((child) => hasQuestionSourcePageRange(child));
 }
 
 type RegionForOverlap = Pick<QuestionSourceRegion, "id" | "source_document_id" | "source_page_id" | "region_type" | "bbox_json">;

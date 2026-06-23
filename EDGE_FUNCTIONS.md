@@ -21,7 +21,8 @@ is deterministic and conservative for common Olympiad/IB patterns. PDF source fi
 Function into private `assessment-sources`; the owner UI no longer asks for a raw Storage path. PDF parsing creates a
 review-required stub and a `parse_jobs` row for hosted MinerU when `MINERU_PROVIDER=hosted`. Normalized package objects
 are written to private Storage; when the Cloudflare KMS wrapper is configured, package object writes are
-envelope-encrypted.
+envelope-encrypted. Uploaded markschemes are also registered immediately in `markscheme_documents`, so the visual
+mapper never depends on a hidden document-registration step.
 
 ## update-question-tree
 
@@ -37,7 +38,9 @@ succeed.
 
 Owner AAL2 only. Validates the reviewed draft, publishes an immutable version, computes UTC timing, creates assigned
 attempts for individual students and selected groups/classes, and creates one upload slot per root/main question when
-uploads are enabled.
+uploads are enabled. Mark-only subparts may use `response_mode=none` when their root question owns the confirmed
+response workspace; standalone questions still require a response type. Uploaded markschemes must have a registered
+document and reviewed mapping sections before publish.
 
 ## delete-assessment
 
@@ -158,7 +161,8 @@ Self-hosted MinerU worker callback. Requires `MINERU_WORKER_HMAC_SECRET` with `x
 `x-exam-vault-delivery-id`, and `x-exam-vault-signature` over `timestamp.deliveryId.rawBody`. Delivery ids are stored in
 `parse_worker_callbacks` to prevent replay, and callbacks only mutate `queued` or `running` parse jobs. Legacy
 `MINERU_WORKER_SECRET` is accepted only when `EXAM_VAULT_ALLOW_LEGACY_WORKER_SECRET=1`. MinerU output is draft parse
-evidence; owner review remains mandatory.
+evidence; owner review remains mandatory. Markscheme parse results remain attached to their markscheme parse job and
+cannot overwrite the question-paper normalized package path.
 
 ## mineru-submit-hosted-job
 
@@ -241,7 +245,9 @@ The request can independently release marks, feedback comments, annotated PDFs, 
 
 Owner AAL2 only. Registers markscheme documents, creates/updates extracted markscheme sections, maps a section to a
 question node, or ignores cover/general instructions. Mapping is keyed by normalized question labels and owner review;
-front matter is never automatically attached to Q1.
+front matter is never automatically attached to Q1. Registration is idempotent and validates the source path against
+the owned assessment version. Owners can bootstrap review-required mappings from already reviewed question-level
+markscheme guidance, add blocks manually, and explicitly confirm all mapped sections with audit logging.
 
 ## comment-bank
 
