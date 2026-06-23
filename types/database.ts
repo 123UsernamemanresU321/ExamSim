@@ -50,6 +50,7 @@ export type Attempt = {
   seb_browser_exam_key_hashes: string[];
   seb_config_key_hashes: string[];
   seb_config_path: string | null;
+  exam_policy_json: ExamPolicySnapshot;
   state_cache: AttemptState | null;
   created_at: string;
   updated_at: string;
@@ -748,6 +749,10 @@ export type CurriculumFramework = {
   name: string;
   version: string;
   description: string | null;
+  review_status: "draft" | "reviewed" | "active" | "archived";
+  source_document_id: string | null;
+  approved_by_profile_id: string | null;
+  approved_at: string | null;
   created_by_profile_id: string;
   created_at: string;
   updated_at: string;
@@ -765,6 +770,13 @@ export type CurriculumStandard = {
   level: string | null;
   sort_order: number;
   metadata_json: Json;
+  standard_kind: "topic" | "subtopic" | "skill" | "assessment_objective" | "command_term" | "core_requirement";
+  source_document_id: string | null;
+  source_page_start: number | null;
+  source_page_end: number | null;
+  review_status: "draft" | "reviewed" | "approved" | "rejected";
+  reviewed_by_profile_id: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -1291,12 +1303,107 @@ export type AssessmentMaterial = {
   id: string;
   assessment_id: string;
   assessment_version_id: string;
+  resource_library_item_id: string | null;
   title: string;
   material_type: "formula_booklet" | "data_booklet" | "annex" | "instructions" | "reference" | "other";
   object_path: string | null;
   content_html: string | null;
   visibility_policy: "before_exam" | "active_only" | "after_finish" | "always" | "owner_only";
+  requirement: "allowed" | "required";
+  sort_order: number;
   created_at: string;
+};
+
+export type ResourceLibraryItem = {
+  id: string;
+  owner_profile_id: string;
+  title: string;
+  material_type: AssessmentMaterial["material_type"];
+  subject: string | null;
+  level: string | null;
+  version_label: string | null;
+  language_code: string;
+  object_path: string;
+  sha256: string;
+  file_size_bytes: number;
+  page_count: number | null;
+  content_type: "application/pdf";
+  status: "active" | "archived" | "replaced";
+  replaces_resource_id: string | null;
+  created_by_profile_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssessmentToolPolicy = {
+  id: string;
+  owner_profile_id: string;
+  assessment_id: string;
+  assessment_version_id: string;
+  tool_code: "physical_calculator" | "physical_materials" | "tts" | "desmos" | "geogebra" | "chemistry_editor";
+  requirement: "prohibited" | "allowed" | "required";
+  configuration_json: Json;
+  created_by_profile_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExamPolicySnapshot = {
+  assessmentVersionId: string | null;
+  capturedAt: string | null;
+  resources: Array<{
+    assignmentId: string;
+    resourceId: string;
+    title: string;
+    materialType: AssessmentMaterial["material_type"];
+    requirement: "allowed" | "required";
+    visibility: AssessmentMaterial["visibility_policy"];
+  }>;
+  tools: Array<{
+    code: AssessmentToolPolicy["tool_code"];
+    requirement: AssessmentToolPolicy["requirement"];
+    configuration: Json;
+  }>;
+  allowedMaterials: string[];
+};
+
+export type CurriculumSourceDocument = {
+  id: string;
+  owner_profile_id: string;
+  framework_id: string | null;
+  title: string;
+  subject: string | null;
+  programme_component: "subject" | "core";
+  version_label: string | null;
+  language_code: string;
+  object_path: string;
+  sha256: string;
+  file_size_bytes: number;
+  page_count: number | null;
+  status: "uploaded" | "processing" | "needs_review" | "ready" | "failed" | "archived";
+  error_message: string | null;
+  created_by_profile_id: string;
+  reviewed_by_profile_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CurriculumImportJob = {
+  id: string;
+  owner_profile_id: string;
+  source_document_id: string;
+  provider: string;
+  status: "not_configured" | "queued" | "processing" | "failed" | "needs_review" | "completed" | "retried";
+  progress_percent: number;
+  retry_count: number;
+  error_message: string | null;
+  result_summary_json: Json;
+  created_by_profile_id: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type StudentAccessibilityPreferences = {
@@ -1768,6 +1875,18 @@ export type Database = {
         Update: Partial<CurriculumStandard>;
         Relationships: [];
       };
+      curriculum_source_documents: {
+        Row: CurriculumSourceDocument;
+        Insert: Partial<CurriculumSourceDocument> & Pick<CurriculumSourceDocument, "owner_profile_id" | "title" | "object_path" | "sha256" | "file_size_bytes" | "created_by_profile_id">;
+        Update: Partial<CurriculumSourceDocument>;
+        Relationships: [];
+      };
+      curriculum_import_jobs: {
+        Row: CurriculumImportJob;
+        Insert: Partial<CurriculumImportJob> & Pick<CurriculumImportJob, "owner_profile_id" | "source_document_id" | "created_by_profile_id">;
+        Update: Partial<CurriculumImportJob>;
+        Relationships: [];
+      };
       question_standard_links: {
         Row: QuestionStandardLink;
         Insert: Partial<QuestionStandardLink> & Pick<QuestionStandardLink, "owner_profile_id" | "question_node_id" | "curriculum_standard_id">;
@@ -1946,6 +2065,18 @@ export type Database = {
         Row: AssessmentMaterial;
         Insert: Partial<AssessmentMaterial> & Pick<AssessmentMaterial, "assessment_id" | "assessment_version_id" | "title" | "material_type" | "visibility_policy">;
         Update: Partial<AssessmentMaterial>;
+        Relationships: [];
+      };
+      resource_library_items: {
+        Row: ResourceLibraryItem;
+        Insert: Partial<ResourceLibraryItem> & Pick<ResourceLibraryItem, "owner_profile_id" | "title" | "material_type" | "object_path" | "sha256" | "file_size_bytes" | "created_by_profile_id">;
+        Update: Partial<ResourceLibraryItem>;
+        Relationships: [];
+      };
+      assessment_tool_policies: {
+        Row: AssessmentToolPolicy;
+        Insert: Partial<AssessmentToolPolicy> & Pick<AssessmentToolPolicy, "owner_profile_id" | "assessment_id" | "assessment_version_id" | "tool_code" | "requirement" | "created_by_profile_id">;
+        Update: Partial<AssessmentToolPolicy>;
         Relationships: [];
       };
       student_accessibility_preferences: {

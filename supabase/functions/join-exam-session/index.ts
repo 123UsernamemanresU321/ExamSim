@@ -11,6 +11,12 @@ import {
   validateGuestIdentity,
 } from "../_shared/examsim-guest.ts";
 import { signStateToken } from "../_shared/state-token.ts";
+import {
+  buildEdgeExamPolicySnapshot,
+  loadAssessmentExamPolicy,
+  resolveSessionExamPolicy,
+} from "../_shared/exam-policy.ts";
+import { guestSebEnabled } from "../_shared/seb.ts";
 
 serve(async (request) => {
   const options = handleOptions(request);
@@ -34,10 +40,29 @@ serve(async (request) => {
       .maybeSingle();
     if (error) throw error;
     if (!session) return json(request, { error: "That exam code was not found.", status: "invalid" }, 404);
+    const { data: sessionVersion, error: sessionVersionError } = await admin
+      .from("assessment_versions")
+      .select("id,status,governance_status,assessment_id")
+      .eq("id", session.assessment_version_id)
+      .eq("assessment_id", session.assessment_id)
+      .maybeSingle();
+    if (sessionVersionError) throw sessionVersionError;
+    if (!sessionVersion || sessionVersion.status !== "published" || sessionVersion.governance_status !== "published") {
+      return json(request, {
+        error: "This exam session is not linked to a frozen published assessment version.",
+        code: "session_version_not_published",
+      }, 503);
+    }
 
     const accessStatus = publicSessionState(session);
     if (accessStatus === "invalid" || accessStatus === "not_open" || accessStatus === "closed") {
       return json(request, { error: "This exam is not available right now.", status: accessStatus }, 403);
+    }
+    if (session.mode === "seb_required" && !guestSebEnabled()) {
+      return json(request, {
+        error: "Guest Safe Exam Browser remains disabled until the configured .seb file passes validation with a real Safe Exam Browser client.",
+        code: "guest_seb_live_validation_required",
+      }, 503);
     }
 
     const identityPolicy = readIdentityPolicy(session.identity_policy_json);
@@ -102,10 +127,28 @@ serve(async (request) => {
     let attemptId = attemptRow?.id as string | undefined;
     const accommodationPolicy = readAccommodationPolicy(rosterEntry?.accommodations_json, Number(session.duration_seconds));
     if (!attemptId) {
+      const assessmentPolicy = await loadAssessmentExamPolicy(
+        admin,
+        String(session.assessment_id),
+        String(session.assessment_version_id),
+      );
+      const resolvedPolicy = resolveSessionExamPolicy(assessmentPolicy, session.settings_json, {
+        tts: readTtsException(rosterEntry?.accommodations_json),
+      });
+      const examPolicySnapshot = buildEdgeExamPolicySnapshot(
+        String(session.assessment_version_id),
+        resolvedPolicy,
+      );
       const endAt = new Date(Date.parse(session.start_at_utc) + (Number(session.duration_seconds) + accommodationPolicy.extraTimeSeconds) * 1000).toISOString();
       const uploadDeadlineAtUtc = session.upload_deadline_at_utc
         ? new Date(Date.parse(session.upload_deadline_at_utc) + (accommodationPolicy.extraTimeSeconds + accommodationPolicy.uploadExtensionSeconds) * 1000).toISOString()
         : null;
+      const securitySettings = readRecord(session.security_settings_json);
+      const sebBrowserExamKeys = readHashList(securitySettings.seb_browser_exam_key_hashes);
+      const sebConfigKeys = readHashList(securitySettings.seb_config_key_hashes);
+      if (session.mode === "seb_required" && (!sebBrowserExamKeys.length || !sebConfigKeys.length)) {
+        return json(request, { error: "This SEB session is not configured with valid Browser Exam Key and Config Key values.", code: "seb_not_configured" }, 503);
+      }
       const { data: attempt, error: insertError } = await admin
         .from("attempts")
         .insert({
@@ -140,9 +183,10 @@ serve(async (request) => {
           typed_enabled: true,
           per_question_upload_enabled: true,
           require_blank_for_skipped: true,
-          seb_browser_exam_key_hashes: [],
-          seb_config_key_hashes: [],
+          seb_browser_exam_key_hashes: sebBrowserExamKeys,
+          seb_config_key_hashes: sebConfigKeys,
           seb_config_path: null,
+          exam_policy_json: examPolicySnapshot,
         })
         .select("*")
         .single();
@@ -239,6 +283,23 @@ function readAccommodationPolicy(value: unknown, baseDurationSeconds: number) {
     extraTimeSeconds: Math.min(Math.max(extraTimeSeconds, 0), 4 * 60 * 60),
     uploadExtensionSeconds: Math.min(Math.max(uploadExtensionSeconds, 0), 4 * 60 * 60),
   };
+}
+
+function readTtsException(value: unknown) {
+  const policy = typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  return policy.tts_allowed === true;
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function readHashList(value: unknown) {
+  return Array.isArray(value)
+    ? [...new Set(value.map(String).map((item) => item.trim().toLowerCase()).filter((item) => /^[a-f0-9]{64}$/.test(item)))]
+    : [];
 }
 
 function readAccessWindowPolicy(value: unknown) {

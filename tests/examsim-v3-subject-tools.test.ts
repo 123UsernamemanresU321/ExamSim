@@ -14,16 +14,19 @@ describe("Examsim V3 subject tools", () => {
     });
   });
 
-  it("stores teacher-enabled tools in the server-issued session policy", () => {
-    const form = read("components/owner/exam-session-form.tsx");
-    const action = read("app/owner/exam-sessions/actions.ts");
-    const edgePolicy = read("supabase/functions/_shared/accommodations.ts");
+  it("stores teacher-enabled tools in the immutable assessment policy and only lets sessions tighten it", () => {
+    const settings = read("app/owner/assessments/[id]/settings/page.tsx");
+    const settingsAction = read("app/owner/assessments/[id]/settings/actions.ts");
+    const sessionForm = read("components/owner/exam-session-form.tsx");
+    const sessionAction = read("app/owner/exam-sessions/actions.ts");
 
-    for (const field of ["tts_allowed", "desmos_allowed", "geogebra_allowed", "chemistry_editor_allowed"]) {
-      expect(form).toContain(`name="${field}"`);
-      expect(action).toContain(`${field}: formData.get("${field}") === "on"`);
-      expect(edgePolicy).toContain(`${field}: source.${field} === true`);
+    for (const field of ["tts", "desmos", "geogebra", "chemistry_editor"]) {
+      expect(settings).toContain(`tool_requirement_${field}`);
     }
+    expect(settingsAction).toContain("assessment_tool_policies");
+    expect(sessionForm).toContain("Tighten this session only");
+    expect(sessionAction).toContain("exam_policy_overrides");
+    expect(sessionAction).toContain('eq("requirement", "allowed")');
   });
 
   it("renders the same policy-gated tool surface for authenticated and guest exams", () => {

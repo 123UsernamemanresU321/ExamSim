@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { BookOpen, CheckCircle2, Clock3, Flag, Loader2, Lock, Send } from "lucide-react";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { AccommodationSummary } from "@/components/exam/accommodation-summary";
+import { ExamPolicySummary } from "@/components/exam/exam-policy-summary";
 import { StudentSubjectTools } from "@/components/exam/student-subject-tools";
 import { StudentInvigilationMessages, type StudentInvigilationMessage } from "@/components/exam/student-invigilation-messages";
 import { MathRenderer } from "@/components/math-renderer";
 import { TableResponseInput, WhiteboardResponseInput } from "@/components/response-capability-inputs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { StudentMaterialsDrawer } from "@/components/student/allowed-materials-drawer";
 import type { NormalizedAssessmentPackage } from "@/lib/assessment-package";
 import {
   buildGuestResponseBackupKey,
@@ -20,9 +22,11 @@ import {
 } from "@/lib/examsim/guest-response-recovery";
 import { resolveResponseCapability } from "@/lib/examsim/response-capabilities";
 import { DEFAULT_STUDENT_ACCOMMODATIONS, type StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
+import { applyExamPolicyToAccommodation, type ExamPolicySummary as ExamPolicySummaryData } from "@/lib/examsim/exam-policy";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { invokePublicEdgeFunction } from "@/lib/supabase/functions-client";
 import { validatePdfUpload } from "@/lib/upload-policy";
+import type { StudentMaterial } from "@/lib/student-experience";
 
 type GuestStateResponse = {
   attempt_id: string;
@@ -33,6 +37,12 @@ type GuestStateResponse = {
   display_timezone: string;
   invigilation_messages?: GuestInvigilationMessage[];
   accommodation_policy?: StudentAccommodationPolicy;
+  exam_policy_summary?: ExamPolicySummaryData;
+  delivery_mode: "browser" | "seb_required";
+};
+
+type GuestResourcesResponse = {
+  resources: Array<Omit<StudentMaterial, "object_path">>;
 };
 
 type GuestPackageResponse = {
@@ -84,6 +94,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     submittedAt: sessionStorage.getItem("examvault_guest_submitted_at") ?? "",
   });
   const [state, setState] = useState<GuestStateResponse | null>(null);
+  const [attemptSessionId, setAttemptSessionId] = useState<string | null>(() => typeof window === "undefined" ? null : sessionStorage.getItem("examvault_guest_attempt_session_id"));
   const [assessmentPackage, setAssessmentPackage] = useState<NormalizedAssessmentPackage | null>(null);
   const [uploadSlots, setUploadSlots] = useState<GuestUploadSlot[]>([]);
   const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({});
@@ -91,6 +102,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [invigilationMessages, setInvigilationMessages] = useState<GuestInvigilationMessage[]>([]);
+  const [materials, setMaterials] = useState<StudentMaterial[]>([]);
   const [technicalIssue, setTechnicalIssue] = useState("");
   const [responseBackupKey, setResponseBackupKey] = useState<string | null>(null);
   const [responseBackupBinding, setResponseBackupBinding] = useState<string | null>(null);
@@ -101,6 +113,7 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
   const loadedResponseBackup = useRef(false);
   const pendingRecoveredAnswerKeys = useRef<Set<string>>(new Set());
   const recoverySyncRunning = useRef(false);
+  const sessionStartRunning = useRef(false);
 
   useEffect(() => {
     if (!guestToken || !attemptId) {
@@ -110,18 +123,40 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
 
   useEffect(() => {
     if (!guestToken || !attemptId) return;
-    refreshState();
+    if (sessionStartRunning.current) return;
+    sessionStartRunning.current = true;
+    const start = async () => {
+      try {
+        let sessionId = attemptSessionId;
+        if (!sessionId) {
+          const started = await invokePublicEdgeFunction<{ attempt_session_id: string }>("guest-start-attempt-session", {
+            body: { guest_token: guestToken, attempt_id: attemptId },
+          });
+          if (!started?.attempt_session_id) throw new Error("A guest attempt session could not be created.");
+          sessionId = started.attempt_session_id;
+          sessionStorage.setItem("examvault_guest_attempt_session_id", sessionId);
+          setAttemptSessionId(sessionId);
+        }
+        bindGuestSessionToUrl(sessionId);
+        await refreshState(sessionId);
+      } catch (sessionError) {
+        setError(sessionError instanceof Error ? sessionError.message : "Could not start the secure guest attempt session.");
+      } finally {
+        sessionStartRunning.current = false;
+      }
+    };
+    void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestToken, attemptId]);
 
   useEffect(() => {
-    if (!guestToken || !attemptId || mode === "submitted") return;
+    if (!guestToken || !attemptId || !attemptSessionId || mode === "submitted") return;
     const interval = window.setInterval(() => {
-      void refreshState();
+      void refreshState(attemptSessionId);
     }, mode === "lobby" ? 10_000 : 20_000);
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestToken, attemptId, mode]);
+  }, [guestToken, attemptId, attemptSessionId, mode]);
 
   useEffect(() => {
     if (!guestToken || !attemptId || loadedResponseBackup.current) return;
@@ -227,16 +262,37 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
       });
   }, [answers, attemptId, flatQuestions, guestToken, state?.state, state?.state_token]);
 
-  async function refreshState() {
-    if (!guestToken || !attemptId) return;
+  async function refreshState(sessionId = attemptSessionId) {
+    if (!guestToken || !attemptId || !sessionId) return;
     try {
       const response = await invokePublicEdgeFunction<GuestStateResponse>("guest-get-attempt-state", {
-        body: { guest_token: guestToken, attempt_id: attemptId },
+        body: { guest_token: guestToken, attempt_id: attemptId, attempt_session_id: sessionId },
       });
       if (response) {
+        if (response.delivery_mode === "seb_required") {
+          const evidence = await readGuestSebJsApiEvidence();
+          if (!evidence) throw new Error("Safe Exam Browser could not provide Browser Exam Key and Config Key evidence for this guest session.");
+          await invokePublicEdgeFunction("guest-seb-verify-session", {
+            body: {
+              guest_token: guestToken,
+              attempt_id: attemptId,
+              attempt_session_id: sessionId,
+              state_token: response.state_token,
+              mode: "js_api",
+              browser_exam_request_hash: evidence.browserExamRequestHash,
+              config_key_request_hash: evidence.configKeyRequestHash,
+              page_url: window.location.href,
+              seb_version: evidence.version,
+            },
+          });
+        }
         sessionStorage.setItem("examvault_guest_state_token", response.state_token);
         setState(response);
         setInvigilationMessages(response.invigilation_messages ?? []);
+        const resources = await invokePublicEdgeFunction<GuestResourcesResponse>("guest-get-attempt-resources", {
+          body: { guest_token: guestToken, attempt_id: attemptId },
+        });
+        setMaterials((resources?.resources ?? []).map((resource) => ({ ...resource, object_path: null })));
         if (mode === "lobby" && response.state !== "WAITING") router.replace("/exam/live");
         if (mode === "live" && response.state === "FINISHED_REVIEW") router.replace("/exam/finalize");
       }
@@ -388,6 +444,12 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
     });
   }
 
+  const examPolicySummary = state?.exam_policy_summary ?? null;
+  const accommodationPolicy = applyExamPolicyToAccommodation(
+    state?.accommodation_policy ?? DEFAULT_STUDENT_ACCOMMODATIONS,
+    examPolicySummary,
+  );
+
   if (mode === "submitted") {
     return (
       <Card className="mx-auto max-w-2xl text-center">
@@ -416,7 +478,8 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
 
   if (mode === "lobby") {
     return (
-      <Card className="mx-auto max-w-3xl">
+      <div className="mx-auto grid max-w-4xl gap-4">
+      <Card>
         <div className="flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-[4px] bg-[var(--primary)] text-white">
             <Clock3 size={20} aria-hidden="true" />
@@ -444,10 +507,13 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
         </div>
         {error ? <p className="mt-4 text-sm text-[var(--danger)]">{error}</p> : null}
         <div className="mt-6 flex gap-3">
-          <Button type="button" onClick={refreshState}>Check again</Button>
+          <Button type="button" onClick={() => void refreshState()}>Check again</Button>
           <Button type="button" variant="secondary" onClick={() => router.push("/exam/live")}>Open workspace</Button>
         </div>
       </Card>
+      <ExamPolicySummary policy={examPolicySummary} />
+      <StudentMaterialsDrawer materials={materials} />
+      </div>
     );
   }
 
@@ -480,8 +546,6 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
       </Card>
     );
   }
-
-  const accommodationPolicy = state?.accommodation_policy ?? DEFAULT_STUDENT_ACCOMMODATIONS;
 
   return (
     <div
@@ -592,8 +656,10 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
       </main>
 
       <aside className="rounded-[4px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-card)]">
+        <ExamPolicySummary policy={examPolicySummary} compact />
         <AccommodationSummary policy={accommodationPolicy} />
         <StudentSubjectTools policy={accommodationPolicy} />
+        <StudentMaterialsDrawer materials={materials} />
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Exam state</p>
         <p className="mt-2 font-mono text-lg font-semibold text-[var(--ink)]">{state?.state ?? "CHECKING"}</p>
         {state ? (
@@ -617,9 +683,9 @@ export function GuestExamWorkspace({ mode }: { mode: "lobby" | "live" | "finaliz
           </p>
         ) : null}
         <StudentInvigilationMessages messages={invigilationMessages} compact onAcknowledge={acknowledgeInvigilationMessage} />
-        {error?.includes("Guest SEB sessions are blocked") ? (
+        {error?.includes("Safe Exam Browser") ? (
           <p className="mt-4 rounded-[4px] bg-[var(--warning-bg)] p-3 text-sm text-[var(--warning)]">
-            Guest SEB sessions are blocked unless verified secure mode is configured. Ask your teacher for the authenticated secure-mode route.
+            This secure-browser sitting remains locked until fresh URL-specific Browser Exam Key and Config Key evidence is verified by the server.
           </p>
         ) : null}
         {error ? <p className="mt-4 rounded-[4px] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger)]">{error}</p> : null}
@@ -859,4 +925,43 @@ async function deriveGuestTokenBinding(token: string) {
     hash = (hash * 33) ^ token.charCodeAt(index);
   }
   return `fallback-${token.length}-${hash >>> 0}`;
+}
+
+function bindGuestSessionToUrl(attemptSessionId: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("attempt_session", attemptSessionId);
+  url.searchParams.delete("guest_token");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+async function readGuestSebJsApiEvidence() {
+  type SebApi = {
+    version?: string;
+    security?: {
+      updateKeys?: (callback: () => void) => void;
+      browserExamKey?: string;
+      configKey?: string;
+    };
+  };
+
+  const seb = (window as unknown as { SafeExamBrowser?: SebApi }).SafeExamBrowser;
+  if (!seb?.security) return null;
+
+  if (seb.security.updateKeys) {
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      seb.security?.updateKeys?.(finish);
+      window.setTimeout(finish, 800);
+    });
+  }
+
+  const browserExamRequestHash = seb.security.browserExamKey?.trim() || null;
+  const configKeyRequestHash = seb.security.configKey?.trim() || null;
+  if (!browserExamRequestHash || !configKeyRequestHash) return null;
+  return { browserExamRequestHash, configKeyRequestHash, version: seb.version };
 }

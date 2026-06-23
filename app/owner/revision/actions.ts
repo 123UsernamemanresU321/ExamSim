@@ -44,7 +44,7 @@ export async function generateRevisionSetAction(formData: FormData) {
   const standardIds = [...new Set((standardLinks ?? []).map((link) => link.curriculum_standard_id))];
   const [{ data: topics, error: topicError }, { data: standards, error: standardError }, { data: candidateRows, error: candidateError }] = await Promise.all([
     topicIds.length ? supabase.from("topic_tags").select("id,tag").in("id", topicIds) : Promise.resolve({ data: [], error: null }),
-    standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").in("id", standardIds) : Promise.resolve({ data: [], error: null }),
+    standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").eq("review_status", "approved").in("id", standardIds) : Promise.resolve({ data: [], error: null }),
     supabase.from("question_bank_items").select("id,tags,curriculum_standard_ids,estimated_difficulty,readiness_status,do_not_reuse").eq("owner_profile_id", ownerProfileId).eq("readiness_status", "ready").eq("do_not_reuse", false).limit(500),
   ]);
   if (topicError) throw topicError;

@@ -4,6 +4,7 @@ import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts
 import { validatePublishHealth } from "../_shared/publish-health.ts";
 import { validateSebPublishKeys } from "../_shared/seb.ts";
 import { assertVersionMutable } from "../_shared/version-governance.ts";
+import { buildEdgeExamPolicySnapshot, loadAssessmentExamPolicy } from "../_shared/exam-policy.ts";
 
 type Body = {
   assessment_id: string;
@@ -82,6 +83,9 @@ serve(async (request) => {
     if (healthBlockers.length) {
       return json(request, { error: "Publish health checks failed", code: "publish_health_blocked", blockers: healthBlockers }, 409);
     }
+
+    const assessmentPolicy = await loadAssessmentExamPolicy(admin, body.assessment_id, body.version_id);
+    const examPolicySnapshot = buildEdgeExamPolicySnapshot(body.version_id, assessmentPolicy);
 
     if (assignedProfileIds.length) {
       const { data: linkedStudents, error: linkedStudentError } = await admin
@@ -202,6 +206,7 @@ serve(async (request) => {
       assessment_version_id: body.version_id,
       assessment_assignment_id: assignmentByStudent.get(profileId) ?? firstGroupAssignment,
       assignee_profile_id: profileId,
+      exam_policy_json: examPolicySnapshot,
       ...timing,
     }));
     const { data: attempts, error: attemptError } = await admin.from("attempts").insert(rows).select("id");

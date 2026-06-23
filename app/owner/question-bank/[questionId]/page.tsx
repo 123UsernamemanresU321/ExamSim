@@ -24,7 +24,7 @@ async function updateQuestionBankMetadata(formData: FormData) {
   const requestedStandardIds = formData.getAll("standard_ids").map(String).filter(Boolean);
   const supabase = await createSupabaseServerClient();
   if (requestedStandardIds.length) {
-    const { data: standards, error: standardError } = await supabase.from("curriculum_standards").select("id").eq("owner_profile_id", ownerProfileId).in("id", requestedStandardIds);
+    const { data: standards, error: standardError } = await supabase.from("curriculum_standards").select("id").eq("owner_profile_id", ownerProfileId).eq("review_status", "approved").in("id", requestedStandardIds);
     if (standardError) throw standardError;
     if ((standards ?? []).length !== new Set(requestedStandardIds).size) throw new Error("One or more standards are outside this institution.");
   }
@@ -70,7 +70,7 @@ export default async function QuestionBankItemPage({ params }: { params: Promise
     ? item.visual_asset_refs.filter((ref): ref is string => typeof ref === "string" && ref.trim().length > 0)
     : [];
   const supabase = await createSupabaseServerClient();
-  const { data: standards, error: standardError } = await supabase.from("curriculum_standards").select("id,code,title").order("code");
+  const { data: standards, error: standardError } = await supabase.from("curriculum_standards").select("id,code,title").eq("review_status", "approved").order("code");
   if (standardError) throw standardError;
 
   return (

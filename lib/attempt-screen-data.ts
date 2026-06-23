@@ -3,6 +3,7 @@ import { normalizedPackageSchema, type NormalizedAssessmentPackage } from "@/lib
 import { attemptWithState, samplePackage } from "@/lib/demo-data";
 import { invokeEdgeFunctionServer } from "@/lib/edge/server";
 import { DEFAULT_STUDENT_ACCOMMODATIONS, type StudentAccommodationPolicy } from "@/lib/examsim/accommodations";
+import { applyExamPolicyToAccommodation, type ExamPolicySummary } from "@/lib/examsim/exam-policy";
 import type { AttemptSummary } from "@/lib/live-data";
 import { isDemoModeEnabled } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -18,6 +19,7 @@ type AttemptStateResponse = {
   solutions_requested: boolean;
   state_token: string;
   accommodation_policy: StudentAccommodationPolicy;
+  exam_policy_summary: ExamPolicySummary;
 };
 
 type AttemptPackageResponse = {
@@ -38,6 +40,7 @@ export type AttemptScreenData = {
   uploadSlots: UploadSlot[];
   sebConfigUrl: string | null;
   accommodationPolicy: StudentAccommodationPolicy;
+  examPolicySummary: ExamPolicySummary | null;
 };
 
 function demoAttemptScreenData(attemptId: string, includePackage: boolean): AttemptScreenData {
@@ -83,6 +86,7 @@ function demoAttemptScreenData(attemptId: string, includePackage: boolean): Atte
     uploadSlots: [],
     sebConfigUrl: null,
     accommodationPolicy,
+    examPolicySummary: null,
   };
 }
 
@@ -142,7 +146,11 @@ export async function getAttemptScreenData(attemptId: string, includePackage: bo
     annotations: annotations ?? [],
     uploadSlots: uploadSlots ?? [],
     sebConfigUrl,
-    accommodationPolicy: state.accommodation_policy ?? DEFAULT_STUDENT_ACCOMMODATIONS,
+    accommodationPolicy: applyExamPolicyToAccommodation(
+      state.accommodation_policy ?? DEFAULT_STUDENT_ACCOMMODATIONS,
+      state.exam_policy_summary,
+    ),
+    examPolicySummary: state.exam_policy_summary ?? null,
   };
 }
 

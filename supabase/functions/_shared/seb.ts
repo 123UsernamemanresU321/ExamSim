@@ -130,6 +130,10 @@ export function sebVerificationTtlSeconds() {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 300;
 }
 
+export function guestSebEnabled() {
+  return (Deno.env.get("GUEST_SEB_ENABLED") ?? "").trim().toLowerCase() === "true";
+}
+
 export function validateSebPageUrl({
   pageUrl,
   attemptId,
@@ -151,6 +155,32 @@ export function validateSebPageUrl({
   if (parsed.pathname !== `/student/attempts/${attemptId}/exam`) {
     return { ok: false, reason: "SEB page URL does not match this attempt exam route." };
   }
+  return { ok: true, url: canonicalUrl };
+}
+
+export function validateGuestSebPageUrl({
+  pageUrl,
+  attemptSessionId,
+  allowedOrigins,
+}: {
+  pageUrl: string;
+  attemptSessionId: string;
+  allowedOrigins: string[];
+}): { ok: true; url: string } | { ok: false; reason: string } {
+  let canonicalUrl: string;
+  let parsed: URL;
+  try {
+    canonicalUrl = canonicalizeSebUrl(pageUrl);
+    parsed = new URL(canonicalUrl);
+  } catch {
+    return { ok: false, reason: "Guest SEB page URL is invalid." };
+  }
+  if (!new Set(allowedOrigins).has(parsed.origin)) return { ok: false, reason: "Guest SEB page URL origin is not allowed." };
+  if (parsed.pathname !== "/exam/live") return { ok: false, reason: "Guest SEB page URL does not match the no-login exam route." };
+  if (parsed.searchParams.get("attempt_session") !== attemptSessionId) {
+    return { ok: false, reason: "Guest SEB page URL does not match this attempt session." };
+  }
+  if (parsed.searchParams.has("guest_token")) return { ok: false, reason: "Guest access tokens must not appear in the SEB URL." };
   return { ok: true, url: canonicalUrl };
 }
 

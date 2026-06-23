@@ -60,6 +60,7 @@ export async function seedSampleStandardsAction() {
         name: sample.name,
         version: sample.version,
         description: sample.description,
+        review_status: "draft",
         created_by_profile_id: profileId,
         updated_at: new Date().toISOString(),
       }, { onConflict: "owner_profile_id,code,version" })
@@ -75,6 +76,8 @@ export async function seedSampleStandardsAction() {
         subject,
         level,
         sort_order: sortOrder,
+        standard_kind: "topic",
+        review_status: "draft",
       })),
       { onConflict: "framework_id,code" },
     );
@@ -103,6 +106,9 @@ export async function createCurriculumFrameworkAction(formData: FormData) {
     name,
     version,
     description,
+    review_status: "active",
+    approved_by_profile_id: profileId,
+    approved_at: new Date().toISOString(),
     created_by_profile_id: profileId,
   }).select("id").single();
   if (error) throw error;
@@ -111,9 +117,10 @@ export async function createCurriculumFrameworkAction(formData: FormData) {
 }
 
 export async function createCurriculumStandardAction(formData: FormData) {
-  const { ownerProfileId } = await requireInstitutionPermission("assessment_authoring");
+  const { ownerProfileId, profileId } = await requireInstitutionPermission("assessment_authoring");
   const frameworkId = required(formData, "framework_id");
   const parentStandardId = String(formData.get("parent_standard_id") ?? "").trim() || null;
+  const sourceDocumentId = String(formData.get("source_document_id") ?? "").trim() || null;
   const supabase = await createSupabaseServerClient();
   const { data: framework, error: frameworkError } = await supabase
     .from("curriculum_frameworks")
@@ -123,6 +130,15 @@ export async function createCurriculumStandardAction(formData: FormData) {
     .maybeSingle();
   if (frameworkError) throw frameworkError;
   if (!framework) throw new Error("Framework not found in this institution.");
+  if (sourceDocumentId) {
+    const { data: source, error: sourceError } = await supabase.from("curriculum_source_documents")
+      .select("id")
+      .eq("id", sourceDocumentId)
+      .eq("owner_profile_id", ownerProfileId)
+      .maybeSingle();
+    if (sourceError) throw sourceError;
+    if (!source) throw new Error("Curriculum source is outside this institution.");
+  }
   if (parentStandardId) {
     const { data: parent, error: parentError } = await supabase
       .from("curriculum_standards")
@@ -143,9 +159,57 @@ export async function createCurriculumStandardAction(formData: FormData) {
     subject: String(formData.get("subject") ?? "").trim().slice(0, 80) || null,
     level: String(formData.get("level") ?? "").trim().slice(0, 80) || null,
     description: String(formData.get("description") ?? "").trim().slice(0, 1000) || null,
+    standard_kind: readStandardKind(formData.get("standard_kind")),
+    source_document_id: sourceDocumentId,
+    source_page_start: readPositiveInteger(formData.get("source_page_start")),
+    source_page_end: readPositiveInteger(formData.get("source_page_end")),
+    review_status: sourceDocumentId ? "draft" : "approved",
+    reviewed_by_profile_id: sourceDocumentId ? null : profileId,
+    reviewed_at: sourceDocumentId ? null : new Date().toISOString(),
   }).select("id").single();
   if (error) throw error;
   await auditInstitutionAction({ ownerProfileId, action: "curriculum_standard.created", targetTable: "curriculum_standards", targetId: data.id, metadata: { framework_id: frameworkId } });
+  revalidatePath("/owner/standards");
+}
+
+export async function reviewCurriculumStandardsAction(decision: "approved" | "rejected", formData: FormData) {
+  const { ownerProfileId, profileId } = await requireInstitutionPermission("assessment_authoring");
+  const standardIds = [...new Set(formData.getAll("standard_id").map(String).filter(Boolean))];
+  if (!standardIds.length) throw new Error("Select at least one draft node.");
+  const supabase = await createSupabaseServerClient();
+  const { data: ownedStandards, error: ownedError } = await supabase.from("curriculum_standards")
+    .select("id,source_document_id")
+    .eq("owner_profile_id", ownerProfileId)
+    .in("id", standardIds)
+    .in("review_status", ["draft", "reviewed"]);
+  if (ownedError) throw ownedError;
+  if ((ownedStandards ?? []).length !== standardIds.length) throw new Error("One or more curriculum nodes cannot be reviewed in this workspace.");
+  const { error } = await supabase.from("curriculum_standards").update({
+    review_status: decision,
+    reviewed_by_profile_id: profileId,
+    reviewed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("owner_profile_id", ownerProfileId).in("id", standardIds);
+  if (error) throw error;
+  const sourceIds = [...new Set((ownedStandards ?? []).map((standard) => standard.source_document_id).filter((id): id is string => Boolean(id)))];
+  for (const sourceId of sourceIds) {
+    const { data: remaining, error: remainingError } = await supabase.from("curriculum_standards")
+      .select("id")
+      .eq("source_document_id", sourceId)
+      .in("review_status", ["draft", "reviewed"])
+      .limit(1);
+    if (remainingError) throw remainingError;
+    if (!remaining?.length) {
+      const { error: sourceUpdateError } = await supabase.from("curriculum_source_documents").update({
+        status: "ready",
+        reviewed_by_profile_id: profileId,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", sourceId).eq("owner_profile_id", ownerProfileId);
+      if (sourceUpdateError) throw sourceUpdateError;
+    }
+  }
+  await auditInstitutionAction({ ownerProfileId, action: "curriculum_standard.reviewed", targetTable: "curriculum_standards", metadata: { decision, standard_ids: standardIds } });
   revalidatePath("/owner/standards");
 }
 
@@ -153,4 +217,16 @@ function required(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
   if (!value) throw new Error(`${key} is required`);
   return value;
+}
+
+function readStandardKind(value: FormDataEntryValue | null): "topic" | "subtopic" | "skill" | "assessment_objective" | "command_term" | "core_requirement" {
+  const normalized = String(value);
+  return normalized === "subtopic" || normalized === "skill" || normalized === "assessment_objective" || normalized === "command_term" || normalized === "core_requirement"
+    ? normalized
+    : "topic";
+}
+
+function readPositiveInteger(value: FormDataEntryValue | null) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
 }

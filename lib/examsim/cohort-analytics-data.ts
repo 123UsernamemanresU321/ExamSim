@@ -39,7 +39,7 @@ export async function loadInstitutionCohortAnalytics(ownerProfileId: string) {
   const standardIds = [...new Set((standardLinks ?? []).map((link) => link.curriculum_standard_id))];
   const [{ data: topics, error: topicError }, { data: standards, error: standardError }] = await Promise.all([
     topicIds.length ? supabase.from("topic_tags").select("id,tag").in("id", topicIds) : Promise.resolve({ data: [], error: null }),
-    standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").in("id", standardIds) : Promise.resolve({ data: [], error: null }),
+    standardIds.length ? supabase.from("curriculum_standards").select("id,code,title").eq("review_status", "approved").in("id", standardIds) : Promise.resolve({ data: [], error: null }),
   ]);
   if (topicError) throw topicError;
   if (standardError) throw standardError;

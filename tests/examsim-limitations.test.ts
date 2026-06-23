@@ -32,12 +32,13 @@ describe("Examsim limitation fixes", () => {
     expect(read("components/exam/guest-exam-workspace.tsx")).toContain("Missing required uploads");
   });
 
-  it("keeps guest SEB package release blocked with explicit teacher-facing fallback wording", () => {
+  it("keeps guest SEB release gated until an explicit real-client validation switch is enabled", () => {
     const edge = read("supabase/functions/guest-get-attempt-package/index.ts");
     const ui = read("components/exam/guest-exam-workspace.tsx");
-    expect(edge).toContain("verified secure mode is configured");
+    expect(edge).toContain("guestSebEnabled");
+    expect(edge).toContain("real Safe Exam Browser client");
     expect(edge).toContain("seb_required");
-    expect(ui).toContain("Guest SEB sessions are blocked");
+    expect(ui).toContain("fresh URL-specific Browser Exam Key and Config Key evidence");
     expect(ui).not.toContain("seb_verified: true");
   });
 

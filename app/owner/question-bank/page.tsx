@@ -17,7 +17,7 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
   const { subject = "all", tag = "" } = filters;
   const { items, children } = await listQuestionBankWorkspace();
   const supabase = await createSupabaseServerClient();
-  const { data: standards, error: standardsError } = await supabase.from("curriculum_standards").select("id,code,title").order("code");
+  const { data: standards, error: standardsError } = await supabase.from("curriculum_standards").select("id,code,title").eq("review_status", "approved").order("code");
   if (standardsError) throw standardsError;
   const childrenByItem = new Map<string, number>();
   for (const child of children) childrenByItem.set(child.question_bank_item_id, (childrenByItem.get(child.question_bank_item_id) ?? 0) + 1);

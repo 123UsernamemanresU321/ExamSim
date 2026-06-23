@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { assertInstitutionOwner, requireInstitutionAal2 } from "../_shared/auth.ts";
+import { assertInstitutionOwner, auditOwnerAction, requireInstitutionAal2 } from "../_shared/auth.ts";
 import { errorResponse, handleOptions, json, readJson } from "../_shared/http.ts";
 import { assertVersionMutable } from "../_shared/version-governance.ts";
 
@@ -18,34 +18,65 @@ type FlatNode = {
   assets: string[];
   source_page_start: number | null;
   source_page_end: number | null;
+  topic_tags: string[];
+  source_region_json: Record<string, unknown> | null;
+  source_confidence: number | null;
 };
 
 const NODE_TYPES = new Set(["section", "question", "subquestion", "part"]);
 const RESPONSE_MODES = new Set(["none", "typed_text", "upload_pdf", "typed_or_upload", "multiple_choice", "numerical"]);
+const REVIEW_FIELDS = ["hierarchy", "title", "question_text", "marks", "response_mode", "topics", "source_anchor", "rubric"] as const;
 
 serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
   try {
-    const { admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
+    const { user, admin, ownerProfileId } = await requireInstitutionAal2(request, "assessment_authoring");
     const body = await readJson<Record<string, unknown>>(request);
     const versionId = stringValue(body.version_id) ?? stringValue(body.assessment_version_id);
     if (!versionId) return json({ error: "version_id is required" }, 400);
     const normalizedPackage = extractNormalizedPackage(body);
     const nodes = repairFlatNodeHierarchy(extractNodes(body, normalizedPackage));
+    const acceptedSuggestionFields = new Set(
+      Array.isArray(body.selected_fields)
+        ? body.selected_fields.filter((value): value is string => typeof value === "string")
+        : [],
+    );
+    const acceptedSuggestionTopicKeys = new Set(
+      [...acceptedSuggestionFields]
+        .filter((field) => field.endsWith(":topics"))
+        .map((field) => canonicalQuestionKey(field.slice(0, -":topics".length))),
+    );
     if (!nodes.length) {
       return json({ error: "nodes are required. Paste a node array, a normalized package with questions, or an object with nodes/questions." }, 400);
     }
 
     const { data: version, error: versionLookupError } = await admin
       .from("assessment_versions")
-      .select("status, normalized_package_json, assessments(id,title,paper_code,assessment_kind,owner_profile_id)")
+      .select("status, normalized_package_json, assessments(id,title,paper_code,subject,assessment_kind,owner_profile_id)")
       .eq("id", versionId)
       .single();
     if (versionLookupError) throw versionLookupError;
     const assessmentRelation = Array.isArray(version.assessments) ? version.assessments[0] : version.assessments;
     assertInstitutionOwner(assessmentRelation?.owner_profile_id, ownerProfileId);
     assertVersionMutable(version.status);
+    const suggestionId = stringValue(body.suggestion_id);
+    if (suggestionId) {
+      const { data: suggestion, error: suggestionError } = await admin.from("ai_parse_suggestions")
+        .select("id,status,assessment_version_id,owner_profile_id,normalized_package_json")
+        .eq("id", suggestionId)
+        .eq("assessment_version_id", versionId)
+        .eq("owner_profile_id", ownerProfileId)
+        .maybeSingle();
+      if (suggestionError) throw suggestionError;
+      if (!suggestion || suggestion.status !== "proposed") return json({ error: "AI suggestion is unavailable or has already been reviewed" }, 409);
+      const decisionError = validateReviewedSuggestionDecisions(
+        suggestion.normalized_package_json,
+        body.reviewed_fields,
+        body.selected_fields,
+      );
+      if (decisionError) return json({ error: decisionError }, 400);
+    }
 
     const validationError = validateNodeTree(nodes);
     if (validationError) return json({ error: validationError }, 400);
@@ -105,6 +136,86 @@ serve(async (request) => {
         .eq("node_key", node.node_key);
       if (metadataError) throw metadataError;
     }
+    for (const node of nodes) {
+      const questionNodeId = idByKey.get(canonicalQuestionKey(node.node_key));
+      if (!questionNodeId) continue;
+      if (suggestionId && acceptedSuggestionTopicKeys.has(canonicalQuestionKey(node.node_key))) {
+        const { error: clearTopicError } = await admin.from("question_topic_links").delete()
+          .eq("question_node_id", questionNodeId);
+        if (clearTopicError) throw clearTopicError;
+      }
+      if (!node.topic_tags.length) continue;
+      for (const tag of node.topic_tags) {
+        const { data: topic, error: topicError } = await admin.from("topic_tags").upsert({
+          owner_profile_id: ownerProfileId,
+          subject: String(assessmentRelation?.subject ?? "General"),
+          tag,
+        }, { onConflict: "owner_profile_id,subject,tag" }).select("id").single();
+        if (topicError) throw topicError;
+        const { error: linkError } = await admin.from("question_topic_links").upsert({
+          question_node_id: questionNodeId,
+          topic_tag_id: topic.id,
+          weight: 1,
+        }, { onConflict: "question_node_id,topic_tag_id" });
+        if (linkError) throw linkError;
+      }
+    }
+    if (suggestionId) {
+      const { data: sourceDocument, error: sourceDocumentError } = await admin.from("source_documents")
+        .select("id")
+        .eq("assessment_version_id", versionId)
+        .eq("document_kind", "question_paper")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (sourceDocumentError) throw sourceDocumentError;
+      if (sourceDocument) {
+        const { data: sourcePages, error: sourcePageError } = await admin.from("source_pages")
+          .select("id,page_number,width_points,height_points")
+          .eq("source_document_id", sourceDocument.id);
+        if (sourcePageError) throw sourcePageError;
+        const pageByNumber = new Map((sourcePages ?? []).map((page) => [Number(page.page_number), page]));
+        for (const node of nodes) {
+          if (!node.source_region_json) continue;
+          const pageNumber = Math.trunc(numberValue(node.source_region_json.page ?? node.source_region_json.page_number) ?? node.source_page_start ?? 0);
+          const page = pageByNumber.get(pageNumber);
+          const questionNodeId = idByKey.get(canonicalQuestionKey(node.node_key));
+          if (!page || !questionNodeId) continue;
+          const bbox = normalizeDraftRegionBbox(node.source_region_json, Number(page.width_points ?? 0), Number(page.height_points ?? 0));
+          if (!bbox) continue;
+          const { data: existingRegion, error: existingRegionError } = await admin.from("question_source_regions")
+            .select("id")
+            .eq("assessment_version_id", versionId)
+            .eq("question_node_id", questionNodeId)
+            .eq("source_page_id", page.id)
+            .eq("region_type", "question")
+            .limit(1)
+            .maybeSingle();
+          if (existingRegionError) throw existingRegionError;
+          const regionRow = {
+            assessment_version_id: versionId,
+            question_node_id: questionNodeId,
+            source_document_id: sourceDocument.id,
+            source_page_id: page.id,
+            region_type: "question",
+            node_key: node.node_key,
+            bbox_json: bbox,
+            confidence: node.source_confidence,
+            status: "needs_review",
+            metadata_json: {
+              detected_by: "mineru_ai",
+              suggestion_id: suggestionId,
+              normalized_from_provider_coordinates: true,
+            },
+            updated_at: new Date().toISOString(),
+          };
+          const { error: regionError } = existingRegion
+            ? await admin.from("question_source_regions").update(regionRow).eq("id", existingRegion.id)
+            : await admin.from("question_source_regions").insert(regionRow);
+          if (regionError) throw regionError;
+        }
+      }
+    }
 
     const assessmentMarkschemeHtml = normalizedPackage && isRecord(normalizedPackage.assessment)
       ? stringValue(normalizedPackage.assessment.markscheme_html)
@@ -115,6 +226,19 @@ serve(async (request) => {
         .update({ markscheme_html: assessmentMarkschemeHtml })
         .eq("id", versionId);
       if (markschemeUpdateError) throw markschemeUpdateError;
+    }
+    if (suggestionId) {
+      const { error: suggestionUpdateError } = await admin.from("ai_parse_suggestions")
+        .update({ status: "applied" })
+        .eq("id", suggestionId)
+        .eq("status", "proposed");
+      if (suggestionUpdateError) throw suggestionUpdateError;
+      await auditOwnerAction(ownerProfileId, user.id, "ai_parse.reviewed_applied", "assessment_versions", versionId, {
+        suggestion_id: suggestionId,
+        node_count: Number(nodeCount ?? rows.length),
+        selected_fields: Array.isArray(body.selected_fields) ? body.selected_fields.slice(0, 500) : [],
+        reviewed_fields: Array.isArray(body.reviewed_fields) ? body.reviewed_fields.slice(0, 500) : [],
+      });
     }
     return json({ ok: true, node_count: Number(nodeCount ?? rows.length) });
   } catch (error) {
@@ -167,6 +291,9 @@ function normalizePackageQuestions(questions: unknown[]) {
       assets: Array.isArray(rawNode.assets) ? rawNode.assets.filter(a => typeof a === "string") : [],
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
+      topic_tags: normalizeTopicTags(rawNode.topic_tags ?? rawNode.tags),
+      source_region_json: isRecord(rawNode.source_region_json) ? rawNode.source_region_json : null,
+      source_confidence: boundedConfidence(rawNode.source_confidence ?? rawNode.confidence),
     });
     if (Array.isArray(rawNode.children)) {
       rawNode.children.forEach((child, childIndex) => visit(child, childIndex, nodeKey));
@@ -236,6 +363,9 @@ function repairFlatNodeHierarchy(inputNodes: FlatNode[]): FlatNode[] {
           assets: [],
           source_page_start: null,
           source_page_end: null,
+          topic_tags: [],
+          source_region_json: null,
+          source_confidence: null,
         };
         nodes.push(synthetic);
         byCanonicalKey.set(canonical, synthetic);
@@ -303,6 +433,9 @@ function mergeFlatNodes(existing: FlatNode, incoming: FlatNode): FlatNode {
     assets: [...new Set([...(existing.assets ?? []), ...(incoming.assets ?? [])])],
     source_page_start: existing.source_page_start ?? incoming.source_page_start,
     source_page_end: existing.source_page_end ?? incoming.source_page_end,
+    topic_tags: [...new Set([...existing.topic_tags, ...incoming.topic_tags])],
+    source_region_json: existing.source_region_json ?? incoming.source_region_json,
+    source_confidence: existing.source_confidence ?? incoming.source_confidence,
   };
 }
 
@@ -328,8 +461,101 @@ function normalizeFlatNodes(rawNodes: unknown[]) {
       assets: Array.isArray(rawNode.assets) ? rawNode.assets.filter(a => typeof a === "string") : [],
       source_page_start: numberValue(rawNode.source_page_start),
       source_page_end: numberValue(rawNode.source_page_end),
+      topic_tags: normalizeTopicTags(rawNode.topic_tags ?? rawNode.tags),
+      source_region_json: isRecord(rawNode.source_region_json) ? rawNode.source_region_json : null,
+      source_confidence: boundedConfidence(rawNode.source_confidence ?? rawNode.confidence),
     };
   });
+}
+
+function normalizeTopicTags(value: unknown) {
+  return Array.isArray(value)
+    ? [...new Set(value.map(String).map((tag) => tag.trim()).filter(Boolean))].slice(0, 20)
+    : [];
+}
+
+function normalizeDraftRegionBbox(value: Record<string, unknown>, pageWidth: number, pageHeight: number) {
+  const raw = isRecord(value.bbox) ? value.bbox : value;
+  let x = numberValue(raw.x ?? raw.left ?? raw.x0);
+  let y = numberValue(raw.y ?? raw.top ?? raw.y0);
+  let width = numberValue(raw.width);
+  let height = numberValue(raw.height);
+  const x1 = numberValue(raw.x1 ?? raw.right);
+  const y1 = numberValue(raw.y1 ?? raw.bottom);
+  if (width === null && x !== null && x1 !== null) width = x1 - x;
+  if (height === null && y !== null && y1 !== null) height = y1 - y;
+  if (x === null || y === null || width === null || height === null || width <= 0 || height <= 0) return null;
+  const isNormalized = value.normalized === true || raw.normalized === true || Math.max(x, y, width, height) <= 1;
+  const sourceWidth = numberValue(value.page_width ?? value.pageWidth) ?? pageWidth;
+  const sourceHeight = numberValue(value.page_height ?? value.pageHeight) ?? pageHeight;
+  if (!isNormalized) {
+    if (sourceWidth <= 0 || sourceHeight <= 0) return null;
+    x /= sourceWidth;
+    width /= sourceWidth;
+    y /= sourceHeight;
+    height /= sourceHeight;
+  }
+  x = clamp01(x);
+  y = clamp01(y);
+  width = Math.min(clamp01(width), 1 - x);
+  height = Math.min(clamp01(height), 1 - y);
+  if (width <= 0 || height <= 0) return null;
+  return { normalized: true, x, y, width, height };
+}
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function boundedConfidence(value: unknown) {
+  const number = numberValue(value);
+  return number === null ? null : Math.min(1, Math.max(0, number));
+}
+
+function validateReviewedSuggestionDecisions(
+  normalizedPackage: unknown,
+  reviewedFieldsValue: unknown,
+  selectedFieldsValue: unknown,
+) {
+  if (!isRecord(normalizedPackage) || !Array.isArray(normalizedPackage.questions)) {
+    return "AI suggestion does not contain a reviewable question proposal.";
+  }
+  const proposalNodeKeys: string[] = [];
+  const visit = (value: unknown, index: number, parentKey: string | null) => {
+    if (!isRecord(value)) return;
+    const nodeKey = stringValue(value.node_key) ?? stringValue(value.node_id) ?? `${parentKey ? `${parentKey}.` : "Q"}${index + 1}`;
+    proposalNodeKeys.push(nodeKey);
+    if (Array.isArray(value.children)) value.children.forEach((child, childIndex) => visit(child, childIndex, nodeKey));
+  };
+  normalizedPackage.questions.forEach((question, index) => visit(question, index, null));
+  if (!proposalNodeKeys.length) return "AI suggestion does not contain any reviewable question nodes.";
+
+  const reviewedFields = Array.isArray(reviewedFieldsValue) ? reviewedFieldsValue.filter((value): value is string => typeof value === "string") : [];
+  const selectedFields = new Set(Array.isArray(selectedFieldsValue) ? selectedFieldsValue.filter((value): value is string => typeof value === "string") : []);
+  const decisions = new Map<string, "accept" | "reject">();
+  for (const entry of reviewedFields) {
+    const match = entry.match(/^(.*):(hierarchy|title|question_text|marks|response_mode|topics|source_anchor|rubric):(accept|reject)$/);
+    if (!match) return "reviewed_fields contains an invalid review decision.";
+    const key = `${match[1]}:${match[2]}`;
+    if (decisions.has(key)) return `Duplicate review decision for ${key}.`;
+    decisions.set(key, match[3] as "accept" | "reject");
+  }
+  for (const nodeKey of proposalNodeKeys) {
+    for (const field of REVIEW_FIELDS) {
+      const key = `${nodeKey}:${field}`;
+      const decision = decisions.get(key);
+      if (!decision) return `Review decision required for ${key}.`;
+      if (selectedFields.has(key) !== (decision === "accept")) return `selected_fields does not match the recorded decision for ${key}.`;
+    }
+  }
+  if (decisions.size !== proposalNodeKeys.length * REVIEW_FIELDS.length) {
+    return "reviewed_fields contains decisions for nodes that are not part of this suggestion.";
+  }
+  const acceptedDecisionCount = [...decisions.values()].filter((decision) => decision === "accept").length;
+  if (selectedFields.size !== acceptedDecisionCount) {
+    return "selected_fields contains fields that were not accepted during review.";
+  }
+  return null;
 }
 
 function validateNodeTree(nodes: FlatNode[]) {
@@ -430,6 +656,7 @@ function nestFlatNodes(nodes: FlatNode[]) {
       assets: Array.isArray(node.assets) ? node.assets : [],
       source_page_start: node.source_page_start ?? undefined,
       source_page_end: node.source_page_end ?? undefined,
+      topic_tags: node.topic_tags,
       children: [] as Record<string, unknown>[],
     };
     byKey.set(node.node_key, normalized);

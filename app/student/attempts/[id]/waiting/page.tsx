@@ -5,13 +5,14 @@ import { CountdownTimer } from "@/components/countdown-timer";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { StudentMaterialsDrawer } from "@/components/student/allowed-materials-drawer";
+import { ExamPolicySummary } from "@/components/exam/exam-policy-summary";
 import { formatInTimezone } from "@/lib/attempt-state";
 import { getAttemptScreenData } from "@/lib/attempt-screen-data";
 import { getStudentMaterialsForAttempt } from "@/lib/student-experience";
 
 export default async function WaitingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { attempt } = await getAttemptScreenData(id, false);
+  const { attempt, examPolicySummary } = await getAttemptScreenData(id, false);
 
   if (attempt.state === "ACTIVE") redirect(`/student/attempts/${id}/exam`);
   if (attempt.state === "UPLOAD_ONLY") redirect(`/student/attempts/${id}/upload`);
@@ -102,6 +103,7 @@ export default async function WaitingPage({ params }: { params: Promise<{ id: st
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <ExamPolicySummary policy={examPolicySummary} />
         <StudentMaterialsDrawer materials={materials} />
       </div>
     </div>

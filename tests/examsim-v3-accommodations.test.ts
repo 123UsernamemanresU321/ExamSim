@@ -32,10 +32,10 @@ describe("Examsim V3 accommodations matrix", () => {
     const form = readFileSync("components/owner/exam-session-form.tsx", "utf8");
     const actions = readFileSync("app/owner/exam-sessions/actions.ts", "utf8");
     const join = readFileSync("supabase/functions/join-exam-session/index.ts", "utf8");
-    expect(form).toContain("Session accommodation defaults");
+    expect(form).toContain("Session accessibility defaults");
     expect(form).toContain('name="rest_break_allowed"');
     expect(form).toContain('name="rest_break_max_minutes"');
-    expect(form).toContain('name="calculator_policy"');
+    expect(form).not.toContain('name="calculator_policy"');
     expect(actions).toContain("settings_json");
     expect(actions).toContain("accommodations:");
     expect(join).toContain("readAccessWindowPolicy");

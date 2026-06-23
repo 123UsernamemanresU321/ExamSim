@@ -1,6 +1,6 @@
 # Examsim Production Readiness
 
-Last updated: 2026-06-22
+Last updated: 2026-06-23
 
 This document records the current production boundary for Examsim. It is intentionally strict: provider-dependent OCR, AI, lockdown, offline, and scan-mapping features must be shown as provider-gated, blocked, manual fallback, or live-validation-required until they are verified end to end on the actual website with synthetic records.
 
@@ -37,6 +37,28 @@ tokens, bound each source/markscheme context segment, avoid sending the existing
 limits and context sizes with successful parse jobs. `DEEPSEEK_OWNER_MONTHLY_USD_LIMIT` is denominated in US dollars and is
 an application reservation ceiling, not a provider-side CNY billing limit.
 
+## Private IB resource and curriculum import on 2026-06-23
+
+Migrations `20260622191934_v3_exam_resources_curriculum.sql` through
+`20260623090000_fix_resource_manager_rls.sql` are applied to the actual Supabase project, and the affected resource,
+curriculum, policy, guest-session, package, and public guest Edge Functions are deployed. The owner-scoped private import
+completed with:
+
+- five active reusable resources: Mathematics AA HL and SL formula booklets, Chemistry and Physics data booklets, and the
+  Business Management formulae booklet;
+- fourteen guide-backed frameworks covering eleven school DP subjects plus CAS, Extended Essay, and TOK;
+- all guide-derived nodes kept in `draft` / `needs_review`, with source-page provenance, so they cannot affect authoring,
+  analytics, mock generation, or revision before owner approval;
+- PDF MIME, magic bytes, size, page count, SHA-256, owner scope, and private object paths validated before database rows
+  were created;
+- no supplied IB PDF copied into Git or a public asset directory.
+
+The assessment policy is now canonical and version-frozen. Sessions may tighten it but cannot remove required materials
+or permit prohibited tools. Required and allowed private resources are delivered through short-lived signed URLs from
+authenticated or guest Edge boundaries; prohibited session resources are filtered before signing, archived resource
+versions remain available to already-published attempts, object paths are never returned as a student storage grant, and
+exam-code sessions reject mutable assessment versions.
+
 ## Production-ready V1 core
 
 - Exam-code entry and no-login guest sitting through Edge/server validation.
@@ -44,7 +66,8 @@ an application reservation ceiling, not a provider-side CNY billing limit.
 - Guest access tokens and server-signed attempt state tokens.
 - Server-authoritative exam timing, upload windows, package release, finalization, and sensitive state transitions.
 - Guest package release through Edge Functions only.
-- Guest SEB-required sessions blocked unless a server-verifiable guest SEB evidence path is implemented.
+- Guest SEB-required sessions fail closed. A guest-bound URL-specific BEK/CK evidence path exists, but
+  `GUEST_SEB_ENABLED` must remain unset until a real Safe Exam Browser client and final `.seb` file pass actual-site QA.
 - Root-question upload slots, private Storage upload, server-side PDF byte verification, upload retry states, and required-upload finalization blocking.
 - Live extra-time intervention that mutates effective attempt end/upload-deadline timestamps with audit logging.
 - Roster accommodation application for new guest attempts where supported by current policy fields.
@@ -99,6 +122,11 @@ an application reservation ceiling, not a provider-side CNY billing limit.
 - Adaptive revision sets use released marks only, match weaknesses to reviewed Question Library items, remain teacher-editable drafts until assignment, and expose assigned content through a student-checked database projection rather than direct Question Library access.
 - Group/cohort reporting uses owner-scoped attempts and marks for completion, marking completion, average score, support flags, topic mastery, standards mastery, paper comparison, CSV, and PDF output.
 - Export governance records download history. CSV/JSON/PDF exports are permission-checked; QTI and conservative Moodle XML are AAL2-gated and carry explicit fidelity warnings.
+- Private resource library and immutable assessment policy support required/allowed/prohibited booklets, physical
+  calculator classes including required GDC, Browser TTS, Desmos, GeoGebra, Ketcher, and approved materials. Authenticated
+  and guest workspaces receive a safe policy summary and fetch resources separately through checked signed-URL endpoints.
+- Private curriculum guide import stores authorized PDFs in `curriculum-sources`, creates review-gated concise nodes with
+  source-page provenance, and excludes drafts from authoring and reporting until approval.
 
 ## Owner-facing readiness evidence
 
@@ -113,6 +141,8 @@ an application reservation ceiling, not a provider-side CNY billing limit.
 | Export Hub | `app/owner/export-hub/page.tsx`, `lib/examsim/export-hub.ts`, `supabase/migrations/20260621093000_v3_export_governance.sql`, `tests/examsim-v3-export-governance.test.ts` | Audited owner-scoped CSV/JSON/PDF exports. QTI and conservative Moodle XML remain AAL2 assessment-scoped and visibly warn about lossy interactions. |
 | Paper Mode | `app/owner/paper-mode`, `app/api/owner/paper-mode/[jobId]/booklet/route.ts`, `supabase/migrations/20260621082532_v3_paper_mode.sql`, `tests/examsim-v3-paper-mode.test.ts` | Manual mapping is production-safe. Automated OCR/barcode mapping is not claimed without provider validation. |
 | Curriculum and cohort analytics | `app/owner/standards`, `app/owner/analytics/cohorts`, `lib/examsim/cohort-analytics.ts`, `tests/examsim-v3-standards-analytics.test.ts`, `tests/examsim-v3-cohort-reporting.test.ts` | Real-data owner-scoped reporting is implemented; cross-account isolation and representative datasets still require actual-site QA. |
+| Private exam resources and policy | `app/owner/resources`, `app/owner/assessments/[id]/settings`, `components/exam/exam-policy-summary.tsx`, migrations `20260622191934`, `20260623083500`, and `20260623090000`, `tests/examsim-v3-resource-policy-ux.test.ts`, `tests/examsim-v3-resource-delivery.test.ts` | Resources remain private and owner-scoped; assignment policy is frozen with the version; sessions may tighten only; prohibited resources are not signed; authorized workspace managers can archive without changing immutable provenance. |
+| Guide-derived curriculum review | `app/owner/standards`, `components/owner/curriculum-guide-review-panel.tsx`, `scripts/import-private-ib-content.mjs`, `tests/examsim-v3-curriculum-guide-import.test.ts`, `tests/examsim-v3-private-ib-import.test.ts` | Five booklets and fourteen guide-backed frameworks are imported privately. Draft nodes remain excluded until owner approval. |
 | Adaptive revision | `app/owner/revision`, `app/student/revision`, `supabase/migrations/20260621091000_v3_adaptive_revision.sql`, `tests/examsim-v3-adaptive-revision.test.ts` | Only visible, non-revoked released feedback feeds generation. Assignment is teacher-reviewed and student-scoped. |
 | Compiler review queue | `lib/examsim/compiler-readiness.ts`, `app/owner/assessments/[id]/compiler/page.tsx` | Low-confidence and missing-data items stay review-required before publish. |
 | Source coverage score | `lib/paper-health.ts`, `app/owner/assessments/[id]/health/page.tsx`, `tests/examsim-v2-compiler-readiness.test.ts`, `tests/pdf-region-editor-pipeline.test.ts` | Weighted health score and category breakdown for structure, source, markscheme, delivery, marking, and security. It flags unlinked question and supporting regions without touching Storage or publish logic. |
@@ -121,7 +151,11 @@ an application reservation ceiling, not a provider-side CNY billing limit.
 
 ## Release-candidate readiness
 
-The owner Security page includes a `Release candidate readiness` summary derived from the same matrix. The migrations and changed Edge Functions are live on the actual project. It remains **not full V3 ready** until actual-site multi-role and synthetic classroom QA pass, configured OCR/AI providers pass reviewed sample papers, and the intentional limitations below are accepted. Guest SEB and true process-restart file submission remain blocked rather than overclaimed.
+The owner Security page includes a `Release candidate readiness` summary derived from the same matrix. The migrations,
+changed Edge Functions, and web release are live on the actual project. It remains **not full V3 ready** until actual-site
+multi-role and synthetic classroom QA, configured OCR/AI review completion, and the intentional limitations below are
+resolved or accepted. Guest SEB remains fail-closed behind its feature gate and true process-restart file submission
+remains explicitly best-effort.
 
 ## Provider-gated V2 features
 
@@ -133,7 +167,9 @@ The owner Security page includes a `Release candidate readiness` summary derived
 
 ## Intentionally V3 / future
 
-- Guest SEB lockdown. Authenticated SEB can be used; no-login guest SEB remains blocked until server-verifiable evidence exists.
+- Guest SEB lockdown. The server evidence path is implemented but intentionally disabled. Authenticated SEB remains the
+  supported path until `GUEST_SEB_ENABLED=true` is justified by a real production URL, final `.seb` file, and Safe Exam
+  Browser client test.
 - Automatic Paper Mode OCR/barcode scan mapping. The complete manual path is implemented.
 - Multi-account actual-site validation for teacher, marker, reviewer, invigilator, and read-only roles.
 - True offline-first file submission after browser/process termination.
@@ -152,7 +188,7 @@ The owner Security page includes a `Release candidate readiness` summary derived
 | Deployment Readiness Console | Ready | Owner Security page shows env/config gates and manual validation requirements without mutating Supabase state. |
 | Markscheme Mapping and Rubrics | Ready | Markscheme blocks and rubric points are editable; setup warnings show point-bank drift and `save-marking` rejects manual or summed rubric totals above the question maximum. |
 | AI Answer Grouping | Manual fallback without DeepSeek | Deterministic/manual grouping covers typed normalization, numeric tolerance/unit grouping, blank buckets, table/manual-review, and whiteboard/manual-review responses. Semantic grouping is review-required and provider-gated. |
-| Guest SEB / Lockdown | Blocked | Authenticated SEB can be used. Guest SEB remains blocked until BEK/CK/request-hash evidence can be server-verified safely. |
+| Guest SEB / Lockdown | Blocked pending device QA | Guest-bound URL-specific BEK/CK evidence, freshness checks, and package gating are implemented, but `GUEST_SEB_ENABLED` stays unset until a real client/final `.seb` test passes. |
 | Paper Mode | Ready manual production path | Personalized booklet PDF, private scan upload, PDF byte verification, page records, audited manual mapping, marking links, and normal release/analytics integration are implemented. Automatic OCR/barcode mapping remains provider-gated. |
 | STEM / Handwriting / Table OCR | Provider required | Needs Mathpix, MinerU, or equivalent OCR provider plus confidence review. Manual transcription remains the fallback. |
 | Collaborative Grading Roles | Live validation required | Anonymous/double-marking policy, checked snapshot submission, moderation decisions, release gating, and marker assignment are deployed; multi-account workflow QA remains required. |
@@ -165,13 +201,13 @@ The owner Security page includes a `Release candidate readiness` summary derived
 | Student Account Claim Flow | Live validation required | Expiring one-time codes, safe automatic matches, and owner review are deployed; duplicate and mismatched synthetic identity QA remains required. |
 | Source PDF Health | Ready | Integrated into publish/health checks with weighted score breakdown and supporting-region warnings for diagrams, tables, and instructions. |
 | Accommodations Matrix | Live validation required | Extra time, upload extension, access windows, server-controlled rest breaks, visual preferences, tools/materials, and audit evidence are implemented. Browser speech and approved subject tools still require device/browser QA. |
-| Built-in Subject Tools | Live validation required | Browser Web Speech API TTS, keyed Desmos graphing, GeoGebra geometry with CAS disabled, self-hosted Ketcher, table responses, and whiteboard responses are implemented and session-policy gated. Desmos/GeoGebra require internet access; CAS remains unavailable. |
-| Curriculum Alignment | Ready owner-managed path | Hierarchical standards, starter framework seeds, topic/standard links, analytics, and import/edit controls are implemented. Starters are not represented as complete official curriculum data. |
+| Built-in Subject Tools and Exam Resources | Live validation required | Browser TTS, Desmos, GeoGebra, Ketcher, structured responses, physical calculator rules, and private required/allowed booklets are version-policy gated. Sessions cannot weaken the assessment policy. Device and actual-site signed-resource QA remain. |
+| Curriculum Alignment | Ready owner-managed path | Hierarchical standards, private source guides, review gating, topic/standard links, and analytics are implemented. Fourteen guide-backed frameworks are draft until owner approval and are not represented as official complete curricula. |
 | Adaptive Revision | Ready | Released evidence produces teacher-reviewed drafts; assigned content is student-scoped and does not expose Question Library rows directly. |
 | QTI / Moodle / XML | Live validation required | Audited QTI and conservative Moodle XML exports are implemented. Unsupported interactions are visibly warned and Moodle uses review-required essay fallback. |
 | Version History / Rollback | Live validation required | Published versions are protected, field/source diffs are visible, and rollback clones a complete new draft without mutating live attempts. |
 | School-level Reporting | Live validation required | Owner-scoped group dashboards, topic/standards mastery, completion/support metrics, CSV, and PDF are implemented. Actual-site cross-workspace QA remains. |
-| Deployment Validation | Live validation required | Live migrations through `20260621171549`, changed Edge deployment, production build/e2e, and dependency audit pass. Authenticated multi-role, provider sample, classroom-scale, and cross-workspace workflow QA remain. |
+| Deployment Validation | Live validation required | Live migrations through `20260623090000`, affected Edge Functions, and production deployment `dpl_BsNxjxcdv3tckHHHzf8mSmJ9kUQN` are live. The anonymous Paper Mode RPC grant is revoked; private resource policy/trigger checks pass. Authenticated multi-role, classroom-scale, guest-SEB device, and cross-workspace workflow QA remain. |
 
 ## External providers and environment variables
 
@@ -194,6 +230,10 @@ Required for provider-backed import/OCR/AI:
 - `MINERU_OWNER_MONTHLY_PAGE_LIMIT=200`
 - `SIMPLETEX_OWNER_MONTHLY_PAGE_LIMIT=200`
 
+Required only after guest SEB real-client QA passes:
+
+- `GUEST_SEB_ENABLED=true`. Leave unset or false before the final production URL and `.seb` configuration are verified.
+
 Required only when Desmos is enabled for an exam:
 
 - `NEXT_PUBLIC_DESMOS_API_KEY` in the Vercel/Next.js production environment. This is a public embed key, not a server secret.
@@ -202,21 +242,24 @@ Operational setup outside the repo:
 
 - Apply Supabase migrations to the actual Supabase project.
 - Deploy Supabase Edge Functions after every Edge change.
-- Keep Storage buckets private: `assessment-sources`, `assessment-packages`, `answer-uploads`, `marking-packets`, and `paper-scans`.
+- Keep Storage buckets private: `assessment-sources`, `assessment-resources`, `curriculum-sources`,
+  `assessment-packages`, `answer-uploads`, `marking-packets`, and `paper-scans`.
 - Configure DeepSeek, MinerU, and SimpleTeX balance/quota alerts in their provider dashboards. Application quotas do not
   replace provider billing controls.
 - Configure Supabase/Edge/WAF alerts for authentication failures, upload errors, rate-limit spikes, and Edge Function failures.
 
 ## Remaining limitations
 
-- Guest SEB is intentionally blocked. Do not enable it for no-login exams until the server can verify URL-specific SEB evidence for a guest session.
+- Guest SEB is intentionally disabled even though the evidence path exists. Do not set `GUEST_SEB_ENABLED=true` until a
+  real client verifies the final production URL, BEK/CK request hashes, evidence expiry, and package release.
 - Automated Paper Mode scan-to-student/question matching is not claimed without OCR/barcode validation; audited manual mapping is the production path.
 - Full offline submission is not claimed. Browser apps cannot safely retain selected local upload files after a process restart without user re-selection.
 - Advanced STEM OCR, handwriting OCR, chemistry extraction, diagrams, and tables depend on external OCR provider quality and confidence review.
 - Browser speech voices differ by browser and operating system, and some browsers may obtain voices through their own online service. Validate the actual student devices before relying on TTS as a formal accommodation.
 - Desmos and GeoGebra require internet access. Ketcher is bundled locally. CAS remains unavailable and must not be described as an approved built-in tool.
 - Group/school dashboards require synthetic actual-site records to verify aggregation, exports, and cross-workspace isolation before institution-wide use.
-- Curriculum starter trees need owner approval or replacement before they should be treated as official.
+- The fourteen imported guide-derived frameworks are private draft content. They require owner review and approval before
+  use and must not be described as official or exhaustive curriculum trees.
 
 ## Production deployment checklist
 
@@ -226,7 +269,8 @@ Operational setup outside the repo:
 4. Set Edge secrets and provider keys.
 5. Confirm private buckets cannot be read publicly.
 6. Confirm no exam package releases before server state `ACTIVE`.
-7. Confirm guest SEB-required sessions stay blocked.
+7. Confirm guest SEB-required sessions stay blocked while `GUEST_SEB_ENABLED` is unset; separately run real-client QA
+   before any later enablement.
 8. Run a synthetic no-login exam:
    - teacher creates/imports an exam;
    - teacher uploads a source PDF and draws source regions;
@@ -268,9 +312,39 @@ This section should be updated for each release candidate. For this readiness pa
 - `supabase db query --linked` - confirmed reviewed QA evidence, quota counters, redacted OCR metadata, and an unpublished `review_required` synthetic version on the actual project.
 - `npm run lint` - passed.
 - `npm run typecheck` - passed.
-- `npm test` - 73 files and 452 tests passed.
-- `npm run build` - passed with 61 static pages generated.
-- `supabase db push --dry-run` - remote database is up to date through `20260622061320_v3_provider_monthly_quotas_and_sample_qa.sql`.
+- `npm test` - 83 files and 499 tests passed.
+- `npm run build` - passed with 62 static pages generated.
+- `supabase db push --dry-run` and `supabase db push` - migration
+  `20260622191934_v3_exam_resources_curriculum.sql` applied to the actual project.
+- `supabase db push` - migration `20260623082000_fix_paper_mode_booklet_rpc_privileges.sql` applied; live privilege
+  verification reports `anon_execute=false`, `authenticated_execute=true`, and `service_execute=true` for the Paper Mode
+  booklet generator.
+- `supabase db push` - owner-scope migrations `20260623083500_enforce_private_resource_owner_scope.sql` and
+  `20260623090000_fix_resource_manager_rls.sql` applied. Read-only live validation confirms both resource buckets private,
+  four scope triggers active, operation-specific resource/curriculum RLS present, and no anonymous execution of the scope
+  trigger functions.
+- Affected resource, curriculum, policy, guest-session, package, and public guest Edge Functions deployed to the actual
+  project with intended public-function JWT settings.
+- `npm run import:ib-private` - imported five active private resources and fourteen review-gated guide frameworks for the
+  authorized owner; no PDFs were added to Git/public assets.
+- Focused resource/curriculum/demo-mode tests passed, and Browser verification confirmed intentional empty states at
+  `/owner/resources` and `/owner/standards` in local demo mode.
+- `npx vercel --prod --yes` - production deployment `dpl_BsNxjxcdv3tckHHHzf8mSmJ9kUQN` completed and aliased to
+  `https://examvault.tutor-mcp.com`; the one-hour post-deploy Vercel error scan returned no errors.
+- Actual-site Browser QA - public `/exam`, synthetic-owner `/owner/resources`, `/owner/standards`, and `/owner/security`
+  rendered without server or browser console errors; the Security page reported no horizontal document overflow. Live
+  database verification confirmed 5 active resources, 14 private draft frameworks, 14 private source guides, 0
+  prematurely approved guide nodes, and both new buckets private.
+- `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run e2e` passed for this release candidate;
+  the full suite contains 83 test files / 499 tests, the build emits 62 static pages, and Playwright passed 9/9 workflows.
+- Supabase security advisors show the known internally authorized `SECURITY DEFINER` RPC warnings plus unavailable leaked
+  password protection on the current plan; no new anonymous resource-policy or trigger-function grant was introduced.
+- `supabase db lint --linked --level warning --fail-on error` reports two `plpgsql_check` false positives for temporary
+  mapping tables created inside `replace_question_tree_for_version` and `clone_assessment_version_content_as_draft`.
+  Both RPCs executed successfully in explicit rolled-back transactions on the actual project, and live privilege checks
+  confirm neither RPC is executable by `anon` or `authenticated` directly.
+- The Codex Security plugin could not start because its bundled Python 3.12 dynamic library was unavailable. A direct
+  diff-scoped review was completed instead; formal plugin-generated scan artifacts remain unavailable for this run.
 
 - `npm test -- tests/examsim-production-readiness-matrix.test.ts`
 - `npm test -- tests/examsim-v3-provider-readiness.test.ts tests/examsim-production-readiness-matrix.test.ts`

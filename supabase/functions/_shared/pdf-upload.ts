@@ -6,6 +6,7 @@ export type VerifiedPdfUpload = {
   byteLength: number;
   contentType: "application/pdf";
   pageCount: number | null;
+  sha256: string;
 };
 
 type StorageAdmin = {
@@ -34,6 +35,7 @@ export async function verifyPrivatePdfUpload(
     byteLength: bytes.byteLength,
     contentType: "application/pdf",
     pageCount: estimatePdfPageCount(bytes),
+    sha256: await sha256Hex(bytes),
   };
 }
 
@@ -66,4 +68,11 @@ function extractPageTreeCount(pdfText: string): number | null {
     if (countMatch?.[1]) counts.push(Number(countMatch[1]));
   }
   return counts.length ? Math.max(...counts) : null;
+}
+
+async function sha256Hex(bytes: Uint8Array) {
+  const digestInput = new Uint8Array(bytes.byteLength);
+  digestInput.set(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", digestInput.buffer);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
