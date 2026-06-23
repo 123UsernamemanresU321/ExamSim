@@ -14,7 +14,7 @@ Public activation boundary. Input: `{ login_code, activation_code, new_password 
 normalized login code. Validates the activation hash with generic failure messages, marks activation, and sets the
 student's password or completes the configured auth flow.
 
-## ingest-assessment
+## ingest-assessment 
 
 Owner only. Creates assessment and draft version from JSON, LaTeX, or PDF upload. JSON is Zod-validated. LaTeX parsing
 is deterministic and conservative for common Olympiad/IB patterns. PDF source files are uploaded through the Edge
