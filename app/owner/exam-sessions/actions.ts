@@ -16,11 +16,12 @@ export async function createExamSessionAction(formData: FormData) {
   const versionId = selectedVersionId || requiredString(formData, "assessment_version_id");
   const title = requiredString(formData, "title");
   const generatedCode = normalizeExamCode(String(formData.get("code") ?? "")) || generateReadableExamCode(title.slice(0, 5) || "EXAM");
-  const startAt = toIso(requiredString(formData, "start_at_utc"));
-  const openAt = toIso(String(formData.get("open_at_utc") || formData.get("start_at_utc")));
+  const displayTimezone = String(formData.get("display_timezone") ?? "Africa/Johannesburg");
+  const startAt = parseLocalTimeToUtc(requiredString(formData, "start_at_utc"), displayTimezone).toISOString();
+  const openAt = parseLocalTimeToUtc(String(formData.get("open_at_utc") || formData.get("start_at_utc")), displayTimezone).toISOString();
   const durationSeconds = Math.max(60, Number(formData.get("duration_minutes") ?? 90) * 60);
   const uploadGraceMinutes = Math.max(0, Number(formData.get("upload_grace_minutes") ?? 15));
-  const closeAt = toIso(String(formData.get("close_at_utc") || new Date(Date.parse(startAt) + (durationSeconds + uploadGraceMinutes * 60) * 1000).toISOString()));
+  const closeAt = new Date(Date.parse(startAt) + (durationSeconds + uploadGraceMinutes * 60) * 1000).toISOString();
   const uploadDeadlineAt = uploadGraceMinutes ? new Date(Date.parse(startAt) + (durationSeconds + uploadGraceMinutes * 60) * 1000).toISOString() : null;
   const restBreakMaxMinutes = boundedInteger(formData.get("rest_break_max_minutes"), 1, 240, 15);
   const fontScale = boundedInteger(formData.get("font_scale_percent"), 100, 150, 100);
@@ -159,10 +160,23 @@ function requiredString(formData: FormData, key: string) {
   return value;
 }
 
-function toIso(value: string) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) throw new Error("Invalid date");
-  return date.toISOString();
+
+
+function parseLocalTimeToUtc(localTime: string, timezone: string): Date {
+  const localDate = new Date(localTime + ":00Z");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    timeZoneName: "longOffset",
+  }).formatToParts(localDate);
+  const offsetPart = parts.find((p) => p.type === "timeZoneName");
+  if (!offsetPart) return localDate;
+  const match = offsetPart.value.match(/GMT([+-])(\d+):?(\d+)?/);
+  if (!match) return localDate;
+  const sign = match[1] === "+" ? 1 : -1;
+  const hours = parseInt(match[2], 10);
+  const minutes = match[3] ? parseInt(match[3], 10) : 0;
+  const offsetMinutes = sign * (hours * 60 + minutes);
+  return new Date(localDate.getTime() - offsetMinutes * 60 * 1000);
 }
 
 function boundedInteger(value: FormDataEntryValue | null, min: number, max: number, fallback: number) {

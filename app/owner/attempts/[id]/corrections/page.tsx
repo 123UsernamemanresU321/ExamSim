@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCorrectionNotebookWorkspace } from "@/lib/usability-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,13 @@ export default async function OwnerCorrectionsPage({ params }: { params: Promise
 
   return (
     <main className="space-y-6">
+      <Breadcrumb
+        items={[
+          { label: "Attempts", href: "/owner/attempts" },
+          { label: `Attempt ${id.slice(0, 8).toUpperCase()}`, href: `/owner/attempts/${id}` },
+          { label: "Correction Notebook" },
+        ]}
+      />
       <PageHeader
         eyebrow="Correction review"
         title="Student correction notebook"

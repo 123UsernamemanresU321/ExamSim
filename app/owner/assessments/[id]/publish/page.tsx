@@ -1,6 +1,7 @@
 import { PublishAssessmentForm } from "@/components/owner/publish-assessment-form";
 import { PublishDiffPanel } from "@/components/owner/publish-diff-panel";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { getAssessmentWorkspace, listOwnerStudentGroups, listOwnerStudents } from "@/lib/live-data";
@@ -21,6 +22,13 @@ export default async function PublishAssessmentPage({ params }: { params: Promis
   const version = workspace?.latestVersion;
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Assessments", href: "/owner/assessments" },
+          { label: workspace?.assessment.title ?? "Assessment", href: `/owner/assessments/${id}` },
+          { label: "Publish" },
+        ]}
+      />
       <SectionHeading
         title="Publish and assign"
         description={`Publish ${workspace?.assessment.title ?? id}. The server converts local start time to UTC and creates attempts.`}

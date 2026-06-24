@@ -2,6 +2,7 @@ import { createSourceRegionAction } from "@/app/owner/assessments/[id]/authoring
 import { AiParseReviewPanel } from "@/components/owner/ai-parse-review-panel";
 import { MineruHostedPanel } from "@/components/owner/mineru-hosted-panel";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +28,13 @@ export default async function SmartCompilerPage({ params }: { params: Promise<{ 
   });
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Assessments", href: "/owner/assessments" },
+          { label: parseWorkspace?.assessment.title ?? "Assessment", href: `/owner/assessments/${id}` },
+          { label: "Compiler" },
+        ]}
+      />
       <SectionHeading title="Smart Import / Exam Compiler" description="Compile PDF, LaTeX, and markscheme sources into teacher-reviewed question cards, source anchors, response types, and rubrics." />
       {!versionId ? <EmptyState title="No PDF import draft" description="Create or upload an assessment source before using the PDF Region Editor." /> : (
         <div className="grid gap-5">

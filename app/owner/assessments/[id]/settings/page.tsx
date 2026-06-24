@@ -1,6 +1,7 @@
 import { AlertTriangle, BookOpenCheck, Calculator, ExternalLink, ShieldCheck, Volume2 } from "lucide-react";
 import { saveAssessmentExamPolicyAction } from "@/app/owner/assessments/[id]/settings/actions";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -57,6 +58,13 @@ export default async function AssessmentSettingsPage({
 
   return (
     <main className="space-y-6">
+      <Breadcrumb
+        items={[
+          { label: "Assessments", href: "/owner/assessments" },
+          { label: assessment.title, href: `/owner/assessments/${id}` },
+          { label: "Settings" },
+        ]}
+      />
       <SectionHeading
         title="Materials and tools"
         description={`${assessment.title} · Version ${version.version_no}. This assessment-level policy is frozen into every attempt.`}

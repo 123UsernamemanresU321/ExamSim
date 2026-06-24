@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getOwnerExamSession, getReconciliationCandidates } from "@/lib/examsim/session-data";
 
 export default async function ReconcileGuestAttemptsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +19,13 @@ export default async function ReconcileGuestAttemptsPage({ params }: { params: P
   if (!session) notFound();
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Exam Sessions", href: "/owner/exam-sessions" },
+          { label: session.title, href: `/owner/exam-sessions/${id}` },
+          { label: "Reconciliation" },
+        ]}
+      />
       <SectionHeading title="Guest attempt reconciliation" description="Resolve ambiguous no-login identities and link attempts to roster/account records when available." />
       {candidates.length ? (
         <div className="grid gap-4">

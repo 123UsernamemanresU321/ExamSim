@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { rotateExamSessionCodeAction, updateExamSessionStatusAction } from "@/app/owner/exam-sessions/actions";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -24,6 +25,12 @@ export default async function OwnerExamSessionDetailPage({
 
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Exam Sessions", href: "/owner/exam-sessions" },
+          { label: session.title },
+        ]}
+      />
       <SectionHeading
         title={session.title}
         description="Manage the code, timing, share instructions, and live operations for this sitting."

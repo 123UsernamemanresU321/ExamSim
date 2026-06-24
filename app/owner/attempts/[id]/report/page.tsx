@@ -2,6 +2,7 @@ import { ModerationContextTimeline } from "@/components/owner/moderation-context
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { sampleReport } from "@/lib/demo-data";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
 import { buildModerationTimeline, groupModerationTimeline } from "@/lib/moderation-timeline";
@@ -23,6 +24,13 @@ export default async function AttemptReportPage({ params }: { params: Promise<{ 
     : [];
   return (
     <div className="mx-auto max-w-[1040px]">
+      <Breadcrumb
+        items={[
+          { label: "Attempts", href: "/owner/attempts" },
+          { label: workspace.attempt?.student ?? "Attempt", href: `/owner/attempts/${id}` },
+          { label: "Moderation Report" },
+        ]}
+      />
       <SectionHeading
         title="Moderation report"
         description={`Attempt ${id}. Evidence is observational and does not automatically accuse.`}

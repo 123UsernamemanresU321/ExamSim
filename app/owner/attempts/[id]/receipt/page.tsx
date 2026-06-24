@@ -1,4 +1,5 @@
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { getSubmissionReceipt } from "@/lib/usability-data";
 
@@ -16,6 +17,13 @@ export default async function OwnerSubmissionReceiptPage({ params }: { params: P
   const receiptJson = receipt.receipt_json as ReceiptJson;
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Attempts", href: "/owner/attempts" },
+          { label: `Attempt ${id.slice(0, 8).toUpperCase()}`, href: `/owner/attempts/${id}` },
+          { label: "Submission Receipt" },
+        ]}
+      />
       <SectionHeading
         title="Submission Receipt"
         description={`${receiptJson.assessment_title ?? "Assessment"} · ${receiptJson.paper_code ?? "No paper code"}`}

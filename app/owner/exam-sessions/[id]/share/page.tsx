@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getOwnerExamSession } from "@/lib/examsim/session-data";
 
 export default async function OwnerExamSessionSharePage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,6 +13,13 @@ export default async function OwnerExamSessionSharePage({ params }: { params: Pr
 
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Exam Sessions", href: "/owner/exam-sessions" },
+          { label: session.title, href: `/owner/exam-sessions/${id}` },
+          { label: "Share Instructions" },
+        ]}
+      />
       <SectionHeading title="Share exam instructions" description="Give students the entry URL and code. The full code is only shown immediately after creation or rotation." />
       <Card>
         <h1 className="text-xl font-semibold text-[var(--ink)]">{session.title}</h1>

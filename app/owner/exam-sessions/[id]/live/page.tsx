@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { applyLiveInterventionAction, sendPrivateInvigilationMessageAction, sendSessionBroadcastAction } from "@/app/owner/exam-sessions/[id]/live/actions";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/ui/data-list";
@@ -29,6 +30,13 @@ export default async function OwnerExamSessionLivePage({
   const pausedCount = attempts.filter((row) => row.state === "PAUSED").length;
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Exam Sessions", href: "/owner/exam-sessions" },
+          { label: session.title, href: `/owner/exam-sessions/${id}` },
+          { label: "Live Roster" },
+        ]}
+      />
       <SectionHeading title="Live roster" description={`Monitor joined students, upload progress, and server-computed attempt states for ${session.title}.`} />
       <section className="mb-5 border-y border-[var(--border)] bg-white px-4 py-4" aria-labelledby="risk-overview-heading">
         <div className="flex flex-wrap items-center justify-between gap-4">

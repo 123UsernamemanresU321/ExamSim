@@ -266,7 +266,7 @@ export function PublishAssessmentForm({
         <div className="grid gap-2">
           {students.length === 0 && groups.length === 0 && cohorts.length === 0 ? (
             <p className="rounded-md border border-[var(--border)] bg-white p-3 text-sm text-[var(--muted)]">
-              No students, groups, or cohorts yet. Create a student or cohort before publishing.
+              No students, groups, or cohorts yet. You can still publish this version without assigning it to any students.
             </p>
           ) : (
             <>
@@ -292,7 +292,7 @@ export function PublishAssessmentForm({
           )}
         </div>
       </Field>
-      <Button type="submit" disabled={isSubmitting || (students.length === 0 && groups.length === 0 && cohorts.length === 0)}>
+      <Button type="submit" disabled={isSubmitting}>
         Publish immutable version
       </Button>
       {message ? <p className="text-sm text-[var(--muted)]" role="status">{message}</p> : null}

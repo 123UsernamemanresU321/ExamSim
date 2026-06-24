@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
 import { listOwnerAttempts } from "@/lib/live-data";
 import { DeleteAttemptButton } from "@/components/owner/delete-attempt-button";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export default async function OwnerAttemptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,6 +14,12 @@ export default async function OwnerAttemptDetailPage({ params }: { params: Promi
   }
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Attempts", href: "/owner/attempts" },
+          { label: `${attempt.student} (${attempt.paper_code})` },
+        ]}
+      />
       <SectionHeading title={attempt.title} description={`${attempt.student} · ${attempt.paper_code}`} />
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

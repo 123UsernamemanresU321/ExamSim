@@ -1,6 +1,7 @@
 import { AlertTriangle, Clock, FileWarning, Wrench } from "lucide-react";
 import { AttemptRecoveryControls } from "@/components/owner/attempt-recovery-controls";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getAttemptRecoveryWorkspace } from "@/lib/usability-data";
@@ -13,6 +14,13 @@ export default async function AttemptRecoveryPage({ params }: { params: Promise<
   const student = Array.isArray(workspace.attempt.profiles) ? workspace.attempt.profiles[0] : workspace.attempt.profiles;
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Attempts", href: "/owner/attempts" },
+          { label: student?.display_name ?? "Attempt", href: `/owner/attempts/${id}` },
+          { label: "Recovery" },
+        ]}
+      />
       <SectionHeading
         title="Attempt Recovery"
         description={`${assessment?.title ?? "Assessment"} · ${student?.display_name ?? "Student"}. Controlled repair actions are audit logged and never delete original evidence.`}

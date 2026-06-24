@@ -1,4 +1,5 @@
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SavedViewsToolbar } from "@/components/owner/saved-views-toolbar";
 import { getOwnerAttemptReviewWorkspace } from "@/lib/live-data";
 import { listOwnerSavedViews } from "@/lib/owner-operations";
@@ -40,6 +41,13 @@ export default async function MarkAttemptPage({ params }: { params: Promise<{ id
   return (
     <div className="flex flex-col h-full -mx-5 -my-8 md:-mx-8">
       <div className="px-6 py-4">
+        <Breadcrumb
+          items={[
+            { label: "Attempts", href: "/owner/attempts" },
+            { label: markingWorkflow.policy?.anonymous_grading ? `Anonymous script ${id.slice(0, 8).toUpperCase()}` : `${workspace.attempt.student}`, href: `/owner/attempts/${id}` },
+            { label: "Marking" },
+          ]}
+        />
         <SectionHeading
           title={markingWorkflow.policy?.anonymous_grading ? `Anonymous script ${id.slice(0, 8).toUpperCase()}` : `${workspace.attempt.student}'s Submission`}
           description={`Attempt ${id}. Review telemetry, mark responses, and provide feedback.`}

@@ -4,6 +4,7 @@ import { DeleteAssessmentButton } from "@/components/owner/delete-assessment-but
 import { QtiExportButton } from "@/components/owner/qti-export-button";
 import { GradingPolicyPanel } from "@/components/owner/grading-policy-panel";
 import { SectionHeading } from "@/components/section-heading";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getAssessmentWorkspace } from "@/lib/live-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AssessmentGradingPolicy } from "@/types/database";
@@ -19,6 +20,12 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
   }
   return (
     <>
+      <Breadcrumb
+        items={[
+          { label: "Assessments", href: "/owner/assessments" },
+          { label: workspace.assessment.title },
+        ]}
+      />
       <SectionHeading
         title={workspace.assessment.title}
         description={`Assessment ${id} · ${workspace.assessment.paper_code ?? "No paper code"}`}

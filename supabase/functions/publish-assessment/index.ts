@@ -35,7 +35,7 @@ serve(async (request) => {
     const assignedProfileIds = [...new Set(body.assigned_profile_ids ?? [])];
     const assignedGroupIds = [...new Set(body.assigned_group_ids ?? [])];
     const assignedCohortIds = [...new Set(body.assigned_cohort_ids ?? [])];
-    if (!body.assessment_id || !body.version_id || !body.start_at_local || (!assignedProfileIds.length && !assignedGroupIds.length && !assignedCohortIds.length)) {
+    if (!body.assessment_id || !body.version_id || !body.start_at_local) {
       return json(request, { error: "Missing publish fields" }, 400);
     }
     const sebBrowserExamKeys = normalizeHashList(body.seb_browser_exam_key_hashes);
@@ -211,7 +211,9 @@ serve(async (request) => {
       exam_policy_json: examPolicySnapshot,
       ...timing,
     }));
-    const { data: attempts, error: attemptError } = await admin.from("attempts").insert(rows).select("id");
+    const { data: attempts, error: attemptError } = rows.length
+      ? await admin.from("attempts").insert(rows).select("id")
+      : { data: [], error: null };
     if (attemptError) throw attemptError;
     for (const attempt of attempts ?? []) {
       if (body.per_question_upload_enabled ?? true) {
